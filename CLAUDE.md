@@ -23,7 +23,10 @@ mix test path/to/test.exs           # Run a single test file
 mix test path/to/test.exs:42       # Run a specific test (line number)
 mix format               # Format all code
 mix format --check-formatted       # Check formatting without changing files
+mix models.get           # Fetch model data from models.dev into priv/models/
 ```
+
+`mix models.get` fetches model catalogs from [models.dev](https://models.dev) for each provider listed in its `@providers` attribute. It filters out deprecated models and those without tool use support. The JSON files in `priv/models/` are checked into the repo — run this task manually when model data needs refreshing.
 
 ## Dependencies
 
