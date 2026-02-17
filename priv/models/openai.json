@@ -1,0 +1,632 @@
+[
+  {
+    "cache_read_cost": 0.375,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "id": "codex-mini-latest",
+    "input_cost": 1.5,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 100000,
+    "name": "Codex Mini",
+    "output_cost": 6,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 8192,
+    "id": "gpt-4",
+    "input_cost": 30,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "GPT-4",
+    "output_cost": 60,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "gpt-4-turbo",
+    "input_cost": 10,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 4096,
+    "name": "GPT-4 Turbo",
+    "output_cost": 30,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0.5,
+    "cache_write_cost": 0,
+    "context_size": 1047576,
+    "id": "gpt-4.1",
+    "input_cost": 2,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 32768,
+    "name": "GPT-4.1",
+    "output_cost": 8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0.1,
+    "cache_write_cost": 0,
+    "context_size": 1047576,
+    "id": "gpt-4.1-mini",
+    "input_cost": 0.4,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 32768,
+    "name": "GPT-4.1 mini",
+    "output_cost": 1.6,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0.03,
+    "cache_write_cost": 0,
+    "context_size": 1047576,
+    "id": "gpt-4.1-nano",
+    "input_cost": 0.1,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 32768,
+    "name": "GPT-4.1 nano",
+    "output_cost": 0.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 1.25,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "gpt-4o",
+    "input_cost": 2.5,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 16384,
+    "name": "GPT-4o",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "gpt-4o-2024-05-13",
+    "input_cost": 5,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 4096,
+    "name": "GPT-4o (2024-05-13)",
+    "output_cost": 15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 1.25,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "gpt-4o-2024-08-06",
+    "input_cost": 2.5,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 16384,
+    "name": "GPT-4o (2024-08-06)",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 1.25,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "gpt-4o-2024-11-20",
+    "input_cost": 2.5,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 16384,
+    "name": "GPT-4o (2024-11-20)",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0.08,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "gpt-4o-mini",
+    "input_cost": 0.15,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 16384,
+    "name": "GPT-4o mini",
+    "output_cost": 0.6,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0.125,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "gpt-5",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.125,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "gpt-5-codex",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5-Codex",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.025,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "gpt-5-mini",
+    "input_cost": 0.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5 Mini",
+    "output_cost": 2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.005,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "gpt-5-nano",
+    "input_cost": 0.05,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5 Nano",
+    "output_cost": 0.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "gpt-5-pro",
+    "input_cost": 15,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 272000,
+    "name": "GPT-5 Pro",
+    "output_cost": 120,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.13,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "gpt-5.1",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.1",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.125,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "gpt-5.1-chat-latest",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 16384,
+    "name": "GPT-5.1 Chat",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.125,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "gpt-5.1-codex",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.1 Codex",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.125,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "gpt-5.1-codex-max",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.1 Codex Max",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.025,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "gpt-5.1-codex-mini",
+    "input_cost": 0.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.1 Codex mini",
+    "output_cost": 2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.175,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "gpt-5.2",
+    "input_cost": 1.75,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.2",
+    "output_cost": 14,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.175,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "gpt-5.2-chat-latest",
+    "input_cost": 1.75,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 16384,
+    "name": "GPT-5.2 Chat",
+    "output_cost": 14,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.175,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "gpt-5.2-codex",
+    "input_cost": 1.75,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.2 Codex",
+    "output_cost": 14,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "gpt-5.2-pro",
+    "input_cost": 21,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.2 Pro",
+    "output_cost": 168,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.175,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "gpt-5.3-codex",
+    "input_cost": 1.75,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.3 Codex",
+    "output_cost": 14,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.175,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "gpt-5.3-codex-spark",
+    "input_cost": 1.75,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 32000,
+    "name": "GPT-5.3 Codex Spark",
+    "output_cost": 14,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 7.5,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "id": "o1",
+    "input_cost": 15,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 100000,
+    "name": "o1",
+    "output_cost": 60,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "id": "o1-pro",
+    "input_cost": 150,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 100000,
+    "name": "o1-pro",
+    "output_cost": 600,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.5,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "id": "o3",
+    "input_cost": 2,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 100000,
+    "name": "o3",
+    "output_cost": 8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 2.5,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "id": "o3-deep-research",
+    "input_cost": 10,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 100000,
+    "name": "o3-deep-research",
+    "output_cost": 40,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.55,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "id": "o3-mini",
+    "input_cost": 1.1,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 100000,
+    "name": "o3-mini",
+    "output_cost": 4.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "id": "o3-pro",
+    "input_cost": 20,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 100000,
+    "name": "o3-pro",
+    "output_cost": 80,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.28,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "id": "o4-mini",
+    "input_cost": 1.1,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 100000,
+    "name": "o4-mini",
+    "output_cost": 4.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.5,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "id": "o4-mini-deep-research",
+    "input_cost": 2,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 100000,
+    "name": "o4-mini-deep-research",
+    "output_cost": 8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  }
+]
