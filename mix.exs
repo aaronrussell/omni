@@ -24,7 +24,7 @@ defmodule Omni.MixProject do
     [
       {:ex_doc, "~> 0.40.1", only: :dev, runtime: false, warn_if_outdated: true},
       {:peri, "~> 0.6.2"},
-      {:req, "~> 0.5.17"},
+      {:req, "~> 0.5.17"}
     ]
   end
 end

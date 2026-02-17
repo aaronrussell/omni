@@ -76,4 +76,14 @@ lib/omni/
 - Tool modules use `use Omni.Tool, name: "string", description: "string"` — generates `new/0,1` constructors.
 - The term is "tool use", not "tool call" (aligns with Anthropic's API, used consistently throughout).
 - Attachment sources use tagged tuples: `{:base64, data}` or `{:url, url_string}`.
+- Struct constructors (`new/1`) return bare structs and do not validate field values. Validation happens once at the API boundary (Peri schemas in the top-level `generate_text`/`stream_text` path). Constructors may normalize for convenience (e.g. string → `[%Text{}]`) but not reject bad data.
 - `doc/` is ExDoc output (gitignored). `context/` contains project design documents for LLM context.
+
+## Documentation
+
+- All public modules must have a `@moduledoc`. Internal/private modules use `@moduledoc false`.
+- All public types must have a `@typedoc`. Keep it on one line unless the type is complex enough to warrant further explanation.
+- All public functions must have a `@doc`. One sentence is fine if the function is self-explanatory; add more detail for complex behaviour. Rely on `@spec` for types — don't repeat type info in prose.
+- Document options when a function accepts them (keyword lists, maps with known keys).
+- Only add examples for important top-level API functions or where behaviour is non-obvious.
+- Private functions (`defp`) do not need `@doc` annotations.
