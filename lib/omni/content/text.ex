@@ -6,6 +6,7 @@ defmodule Omni.Content.Text do
   or text input from a user.
   """
 
+  @enforce_keys [:text]
   defstruct [:text, :signature]
 
   @typedoc "A text content block."

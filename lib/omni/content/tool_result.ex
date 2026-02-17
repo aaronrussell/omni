@@ -12,6 +12,7 @@ defmodule Omni.Content.ToolResult do
 
   alias Omni.Content.{Text, Thinking}
 
+  @enforce_keys [:tool_use_id, :name]
   defstruct [:tool_use_id, :name, :content, is_error: false]
 
   @typedoc "Allowed content types within a tool result."

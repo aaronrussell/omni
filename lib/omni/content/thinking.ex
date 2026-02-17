@@ -7,11 +7,12 @@ defmodule Omni.Content.Thinking do
   across round trips.
   """
 
+  @enforce_keys [:text]
   defstruct [:text, :signature]
 
   @typedoc "A thinking content block. `text` is `nil` when redacted."
   @type t :: %__MODULE__{
-          text: String.t() | nil,
+          text: String.t(),
           signature: String.t() | nil
         }
 

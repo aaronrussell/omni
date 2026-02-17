@@ -7,6 +7,7 @@ defmodule Omni.Content.ToolUse do
   `Omni.Content.ToolResult`.
   """
 
+  @enforce_keys [:id, :name, :input]
   defstruct [:id, :name, :input, :signature]
 
   @typedoc "A tool use content block."

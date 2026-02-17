@@ -7,6 +7,7 @@ defmodule Omni.Content.Attachment do
   `{:url, url}` for remotely-hosted content.
   """
 
+  @enforce_keys [:source, :media_type]
   defstruct [:source, :media_type, :description, opts: %{}]
 
   @typedoc "An attachment source — inline base64 data or a remote URL."

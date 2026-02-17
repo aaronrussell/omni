@@ -12,6 +12,7 @@ defmodule Omni.Message do
 
   alias Omni.Content.{Text, Thinking, Attachment, ToolUse, ToolResult}
 
+  @enforce_keys [:role]
   defstruct [:role, content: [], timestamp: nil]
 
   @typedoc "Any content block that can appear in a message."

@@ -43,6 +43,7 @@ defmodule Omni.Tool do
       end
   """
 
+  @enforce_keys [:name, :description]
   defstruct [:name, :description, :input_schema, :handler]
 
   @typedoc "A tool struct with an optional handler function."
