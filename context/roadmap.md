@@ -29,7 +29,7 @@ All structs in the library, done in one pass. Pure data, no IO, no processes.
 The authenticated HTTP layer, model loading, and SSE parser. First phase with real IO.
 
 **Build:**
-- Provider behaviour + `use Omni.Provider` macro (generates `id/0`, `dialect/0`, default callbacks)
+- Provider behaviour + `use Omni.Provider` macro (generates `dialect/0`, default callbacks)
 - Auth module (key resolution with priority ordering, `{:system, ...}` and MFA support)
 - SSE parser (framing, buffering, `[DONE]` detection, JSON decoding)
 - Concrete providers: Anthropic + OpenAI (stubbing dialect references for now)

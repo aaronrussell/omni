@@ -75,7 +75,7 @@ lib/omni/
 
 - All public API functions return `{:ok, result} | {:error, reason}` tuples.
 - Content blocks are separate structs under `Omni.Content` — pattern match on struct name, not a type field.
-- Providers use `use Omni.Provider, id: :atom, dialect: Module` — the macro generates `id/0` and `dialect/0`.
+- Providers use `use Omni.Provider, dialect: Module` — the macro generates `dialect/0`. Provider IDs are assigned in the application config, not on the module.
 - Tool modules use `use Omni.Tool, name: "string", description: "string"` — generates `new/0,1` constructors. Import `Omni.Schema` inside the `schema/0` callback (not at module level, not auto-imported by `use Omni.Tool`).
 - The term is "tool use", not "tool call" (aligns with Anthropic's API, used consistently throughout).
 - Attachment sources use tagged tuples: `{:base64, data}` or `{:url, url_string}`.

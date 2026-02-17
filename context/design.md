@@ -209,7 +209,7 @@ defmodule Omni.Model do
 end
 ```
 
-The `provider` and `dialect` fields store full module references, not shorthand atoms. This means a resolved model is self-contained -- it can be used to call provider and dialect callbacks directly without any runtime module resolution step. The shorthand atom (`:anthropic`) exists only as a human-friendly key for lookups and config, declared once on the provider module via `use Omni.Provider`.
+The `provider` and `dialect` fields store full module references, not shorthand atoms. This means a resolved model is self-contained -- it can be used to call provider and dialect callbacks directly without any runtime module resolution step. The shorthand atom (`:anthropic`) exists only as a human-friendly key for lookups and config, declared in the application config when registering providers.
 
 ### Where model data lives
 
@@ -280,26 +280,40 @@ defmodule Omni.Application do
   defp load_providers do
     providers = Application.get_env(:omni, :providers, @default_providers)
 
-    for provider_mod <- providers do
-      models = provider_mod.models()
-      model_map = Map.new(models, &{&1.id, &1})
-      :persistent_term.put({Omni, provider_mod.id()}, model_map)
+    for {provider_id, provider_mod} <- Enum.map(providers, &normalize_provider/1) do
+      model_map = Map.new(provider_mod.models(), &{&1.id, &1})
+      :persistent_term.put({Omni, provider_id}, model_map)
     end
+  end
+
+  defp normalize_provider({_id, _mod} = pair), do: pair
+  defp normalize_provider(id) when is_atom(id) do
+    module = Module.concat(Omni.Providers, id |> to_string() |> Macro.camelize())
+
+    unless Code.ensure_loaded?(module) do
+      raise ArgumentError,
+        "unknown built-in provider #{inspect(id)} - module #{inspect(module)} does not exist"
+    end
+
+    {id, module}
   end
 end
 ```
 
-Which providers are loaded is controlled by application config:
+Which providers are loaded is controlled by application config. Built-in providers are referenced by shorthand atom; custom providers use a `{id, module}` tuple:
 
 ```elixir
-config :omni, providers: [
-  Omni.Providers.Anthropic,
-  Omni.Providers.OpenAI,
-  Omni.Providers.Groq
+config :omni, :providers, [
+  :anthropic,
+  :openai,
+  :groq,
+  custom: MyApp.Providers.Custom
 ]
 ```
 
-If no providers are configured, a sensible default set is loaded (Anthropic, OpenAI, etc.), so the library works out of the box without requiring any config. Custom providers are loaded identically to built-in providers -- the startup code just calls `models/0` on each module.
+The shorthand atom `:anthropic` is normalised to `{:anthropic, Omni.Providers.Anthropic}` at startup. The `{id, module}` tuple form allows custom providers to be registered under any id. Provider IDs are defined only in the config -- provider modules do not declare their own IDs, eliminating the possibility of ID conflicts between modules.
+
+If no providers are configured, a sensible default set is loaded (Anthropic, OpenAI, etc.), so the library works out of the box without requiring any config.
 
 The empty supervisor returned by `start/2` is just the OTP contract -- `start/2` must return `{:ok, pid}`. The real work is the `load_providers` call, which is synchronous and fast (reading a handful of JSON files from disk). This guarantees models are available by the time any user code runs.
 
@@ -349,24 +363,21 @@ The separation from dialects exists because the mapping is many-to-one. There ar
 `Omni.Provider` serves as both the behaviour definition and the home for shared logic that all providers use. This includes:
 
 - The provider behaviour and `__using__` macro with default implementations
-- Model data loading logic (`load_models/1` -- reading JSON, building model structs)
+- Model data loading logic (`load_models/2` -- reading JSON, building model structs)
 - Shared HTTP request logic used by all providers (built on the Req library)
 - The `Omni.Provider.stream/4` function for making authenticated streaming requests directly
 
 ### Provider declaration
 
-Each provider module uses `use Omni.Provider` with required identity options and an optional data file path:
+Each provider module uses `use Omni.Provider` with its dialect:
 
 ```elixir
 defmodule Omni.Providers.Anthropic do
-  use Omni.Provider,
-    id: :anthropic,
-    dialect: Omni.Dialects.AnthropicMessages,
-    models_file: "priv/models/anthropic.json"
+  use Omni.Provider, dialect: Omni.Dialects.AnthropicMessages
 end
 ```
 
-The `use` macro generates `id/0` and `dialect/0` accessor functions from the provided values. The `:id` and `:dialect` options are required -- every provider must declare its shorthand identifier and which dialect it speaks. The `:models_file` option is optional -- it specifies the path to a JSON data file containing the provider's model catalog.
+The `use` macro generates a `dialect/0` accessor function from the provided value. The `:dialect` option is required -- every provider must declare which dialect it speaks. Provider IDs are not declared on the module; they are assigned in the application config when registering providers.
 
 ### Provider behaviour callbacks
 
@@ -376,7 +387,7 @@ The provider behaviour defines the following callbacks:
 |----------|---------|---------|---------|
 | `config/0` | `map()` | *required* | Base URL, auth header name, auth default value |
 | `option_schema/0` | `map()` | `%{}` | Peri schema declaring provider-specific options |
-| `models/0` | `[%Model{}]` | Calls `Provider.load_models/1` | Returns the provider's model list |
+| `models/0` | `[%Model{}]` | `[]` | Returns the provider's model list |
 | `build_url/2` | `String.t()` | Concatenation | Builds full URL from base URL and dialect path |
 | `authenticate/2` | `{:ok, Req.Request.t()} \| {:error, reason}` | API key header | Adds auth to a Req request |
 | `adapt_body/2` | `map()` | Passthrough | Adapts the dialect-built request body for this provider |
@@ -390,10 +401,7 @@ Each provider defines a `config/0` function returning a map of structural and de
 
 ```elixir
 defmodule Omni.Providers.Anthropic do
-  use Omni.Provider,
-    id: :anthropic,
-    dialect: Omni.Dialects.AnthropicMessages,
-    models_file: "priv/models/anthropic.json"
+  use Omni.Provider, dialect: Omni.Dialects.AnthropicMessages
 
   @impl true
   def config do
@@ -410,42 +418,38 @@ This is a plain function returning a map -- no macros or DSL. This keeps the cod
 
 ### Provider models
 
-Each provider has a `models/0` callback that returns its list of `%Model{}` structs. The default implementation calls `Omni.Provider.load_models/1`, which checks for the `:models_file` attribute and loads the JSON data:
+Each provider has a `models/0` callback that returns its list of `%Model{}` structs. The default implementation returns an empty list -- providers that have models must explicitly implement the callback.
+
+Built-in providers use the `Omni.Provider.load_models/2` helper, which reads a JSON data file and builds model structs stamped with the provider module and its dialect:
 
 ```elixir
-# Default implementation generated by `use Omni.Provider`
-def models do
-  Omni.Provider.load_models(__MODULE__)
-end
-```
+defmodule Omni.Providers.Anthropic do
+  use Omni.Provider, dialect: Omni.Dialects.AnthropicMessages
 
-`Omni.Provider.load_models/1` reads the declared `:models_file` path, parses the JSON, and builds `%Model{}` structs stamped with the provider's module and dialect:
-
-```elixir
-def load_models(module) do
-  case module.__omni_models_file__() do
-    nil -> []
-    path -> load_from_json(module, path)
+  @impl true
+  def models do
+    Omni.Provider.load_models(__MODULE__, "priv/models/anthropic.json")
   end
 end
 ```
 
-Custom providers can override `models/0` to return models from any source:
+`load_models/2` takes the provider module and a file path. It calls `module.dialect()` internally to stamp both `provider` and `dialect` onto each model struct. The models returned from `models/0` are always complete -- all enforce_keys are populated.
+
+Custom providers can implement `models/0` to return models from any source:
 
 ```elixir
 defmodule MyApp.Providers.Internal do
-  use Omni.Provider,
-    id: :internal,
-    dialect: Omni.Dialects.OpenAICompletions
+  use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
 
   @impl true
   def models do
     [
       %Model{
         id: "our-fine-tuned-model",
+        name: "Our Fine-tuned Model",
         provider: __MODULE__,
         dialect: dialect(),
-        context_window: 128_000,
+        context_size: 128_000,
         max_output_tokens: 4096
       }
     ]
@@ -471,8 +475,8 @@ Auth is handled by the `authenticate/2` callback, which receives a Req request a
 API keys can be provided in multiple ways, resolved in priority order:
 
 1. **Call-time opts** -- passed directly when making a request (for multi-tenant apps)
-2. **Application config** -- set in `config.exs`
-3. **Provider default** -- the fallback defined in the provider's config
+2. **Application config** -- set per-provider in `config.exs` (e.g. `config :omni, Omni.Providers.Anthropic, api_key: "..."`)
+3. **Provider default** -- the fallback defined in the provider's `config/0`
 
 Supported value formats:
 
@@ -482,17 +486,19 @@ Supported value formats:
 
 ### Provider config overrides
 
-Deployment-specific values like `base_url` and `api_key` can be overridden via application config without modifying the provider module:
+Deployment-specific values like `base_url` and `api_key` can be overridden via application config without modifying the provider module. Per-provider config uses the provider module as the config key, separate from provider registration:
 
 ```elixir
-config :omni, :providers,
-  openai: [
-    api_key: {:system, "AZURE_OPENAI_KEY"},
-    base_url: "https://my-instance.openai.azure.com"
-  ]
+# Provider registration (which providers to load)
+config :omni, :providers, [:anthropic, :openai]
+
+# Per-provider config overrides (deployment-specific values)
+config :omni, Omni.Providers.OpenAI,
+  api_key: {:system, "AZURE_OPENAI_KEY"},
+  base_url: "https://my-instance.openai.azure.com"
 ```
 
-The principle: provider modules define the **structural contract** (header name, dialect, URL path structure) and **sensible defaults**. Everything deployment-specific is overridable.
+This separates two concerns: the `:providers` key controls which providers are registered at startup, while per-module config keys control runtime behaviour. The provider module defines the **structural contract** (header name, dialect, URL path structure) and **sensible defaults** in `config/0`. Application config overrides deployment-specific values. The framework merges per-module config into the provider's defaults at call time.
 
 ### URL building
 
@@ -521,7 +527,7 @@ The provider can be used independently to make authenticated streaming HTTP requ
 
 ```elixir
 # Direct provider usage -- no dialect, no Omni types
-Omni.Provider.stream(:anthropic, "/v1/messages", %{
+Omni.Provider.stream(Omni.Providers.Anthropic, "/v1/messages", %{
   "model" => "claude-sonnet-4-20250514",
   "messages" => [%{"role" => "user", "content" => "Hi"}],
   "max_tokens" => 100,
@@ -529,7 +535,7 @@ Omni.Provider.stream(:anthropic, "/v1/messages", %{
 }, api_key: "sk-...")
 ```
 
-`Omni.Provider.stream/4` takes a provider (module or shorthand atom), a path, a body map, and a keyword list of options (including Req options like `into:`, plus `api_key:`, `base_url:`, etc.). It handles URL building, authentication, and the HTTP request via Req. The caller supplies the path and body in the provider's native format. This makes the provider layer independently testable without involving dialects or Omni's type system.
+`Omni.Provider.stream/4` takes a provider module, a path, a body map, and a keyword list of options (including Req options like `into:`, plus `api_key:`, `base_url:`, etc.). It handles URL building, authentication, and the HTTP request via Req. The caller supplies the path and body in the provider's native format. This makes the provider layer independently testable without involving dialects or Omni's type system.
 
 ### Custom providers
 
@@ -537,9 +543,7 @@ Users implement custom provider modules using the same behaviour:
 
 ```elixir
 defmodule MyApp.Providers.Internal do
-  use Omni.Provider,
-    id: :internal,
-    dialect: Omni.Dialects.OpenAICompletions
+  use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
 
   @impl true
   def config do
@@ -552,18 +556,27 @@ defmodule MyApp.Providers.Internal do
 
   @impl true
   def models do
-    [%Model{id: "our-model", provider: __MODULE__, dialect: dialect(), ...}]
+    [
+      %Model{
+        id: "our-model",
+        name: "Our Model",
+        provider: __MODULE__,
+        dialect: dialect(),
+        context_size: 128_000,
+        max_output_tokens: 4096
+      }
+    ]
   end
 end
 ```
 
-Custom providers are registered in the application config alongside built-in providers:
+Custom providers are registered in the application config using a `{id, module}` tuple:
 
 ```elixir
-config :omni, providers: [
-  Omni.Providers.Anthropic,
-  Omni.Providers.OpenAI,
-  MyApp.Providers.Internal
+config :omni, :providers, [
+  :anthropic,
+  :openai,
+  internal: MyApp.Providers.Internal
 ]
 ```
 
@@ -1452,7 +1465,7 @@ The key architectural points:
 
 - **Provider and dialect come from the model.** The `%Model{}` struct carries direct module references. No lookup table, no atom-to-module mapping. `model.provider` and `model.dialect` are immediately callable.
 
-- **`merge_config/2`** merges `provider.config/0` with overrides from application config (keyed by `provider.id()`) and call-time opts (api_key, base_url, headers, etc.) into a single keyword list. The result flows through the pipeline -- each callback that receives `opts` pulls out what it needs. Priority order: call-time opts > application config > provider defaults.
+- **`merge_config/2`** merges `provider.config/0` with overrides from application config (keyed by the provider module, e.g. `config :omni, Omni.Providers.Anthropic, ...`) and call-time opts (api_key, base_url, headers, etc.) into a single keyword list. The result flows through the pipeline -- each callback that receives `opts` pulls out what it needs. Priority order: call-time opts > application config > provider defaults.
 
 - **Validation happens once, early.** `validate_options/3` merges schemas from `dialect.option_schema/0`, `provider.option_schema/0`, and a base request schema, then runs Peri once. After this point, all callbacks can trust their inputs are valid.
 
@@ -1542,7 +1555,7 @@ lib/omni/
 │   └── tool_result.ex         # Tool result content block
 ├── sse.ex                     # Shared SSE parser (framing, decoding, buffering)
 ├── provider.ex                # Provider behaviour, default implementations,
-│                              #   shared HTTP logic, load_models/1, stream/4
+│                              #   shared HTTP logic, load_models/2, stream/4
 ├── providers/
 │   ├── anthropic.ex
 │   ├── openai.ex
@@ -1634,13 +1647,14 @@ The `raw: true` option needs to capture `{%Req.Request{}, %Req.Response{}}` from
 - **Declarative option schemas over validation callbacks** -- each layer declares what options it accepts via `option_schema/0` (on both the Dialect and Provider behaviours). The orchestration merges these into one Peri schema and validates once, early. No separate validate callback; no defensive checking in individual callbacks.
 - **Dialect output is not validated at runtime** -- the request body a dialect produces is internal library code, not user input. If it's malformed, that's a bug caught by tests, not a runtime validation concern.
 - **`build_body/3` and `authenticate/2` return ok/error tuples** -- these are the two callbacks that can fail due to legitimate runtime conditions (unsupported content in context, missing API keys, unreachable vaults). All other callbacks return bare values because they either produce static data or perform deterministic transformations on already-validated inputs.
-- **`use Omni.Provider` with id, dialect, and models_file** -- providers declare identity via `use Omni.Provider, id: :anthropic, dialect: Omni.Dialects.AnthropicMessages, models_file: "priv/models/anthropic.json"`. `:id` and `:dialect` are required; `:models_file` is optional. The macro generates `id/0` and `dialect/0` accessor functions.
-- **`models_file` over `models` for the data path option** -- `:models_file` is a file path string; the `models/0` callback returns model structs. Distinct names prevent confusion between the data source and the data itself.
-- **Provider `models/0` callback with default implementation** -- every provider has a `models/0` callback returning `[%Model{}]`. The default calls `Omni.Provider.load_models/1`, which reads the declared `:models_file` JSON and builds model structs. Custom providers override to return models from any source.
-- **`load_models/1` over `load/1`** -- `Omni.Provider.load_models/1` is precise about what it loads and pairs naturally with the `models/0` callback.
+- **`use Omni.Provider` with dialect only** -- providers declare `use Omni.Provider, dialect: Omni.Dialects.AnthropicMessages`. The `:dialect` option is required. The macro generates a `dialect/0` accessor function. Provider IDs are not declared on modules -- they are assigned in the application config when registering providers.
+- **Provider IDs in config, not modules** -- `config :omni, :providers, [:anthropic, :openai, custom: MyApp.Provider]`. Shorthand atoms are normalised to built-in modules at startup (`:anthropic` → `Omni.Providers.Anthropic`). Custom providers use `{id, module}` tuples. This eliminates ID conflicts between modules -- IDs are visible in one place and easy to change.
+- **Separate config keys for registration and overrides** -- `:providers` controls which providers are loaded at startup. Per-provider runtime config (api_key, base_url) uses the provider module as a separate config key: `config :omni, Omni.Providers.OpenAI, api_key: "..."`. This cleanly separates the two concerns.
+- **Provider `models/0` callback with empty default** -- every provider has a `models/0` callback returning `[%Model{}]`. The default returns `[]`. Built-in providers implement it using `Omni.Provider.load_models/2`; custom providers return models from any source.
+- **`load_models/2` takes module and path** -- `Omni.Provider.load_models(__MODULE__, "priv/models/anthropic.json")` reads the JSON file and stamps each model with the provider module and its dialect. Models returned from `models/0` are always complete structs with all enforce_keys populated.
 - **Full module references on Model struct** -- `%Model{provider: Omni.Providers.Anthropic, dialect: Omni.Dialects.AnthropicMessages}` stores full modules, not shorthand atoms. The model is self-contained -- provider and dialect callbacks can be called directly from the struct with no runtime resolution.
-- **Provider config uses full module names** -- `config :omni, providers: [Omni.Providers.Anthropic, Omni.Providers.OpenAI]` uses full module names in the config. It's a config file that changes rarely; brevity isn't worth the magic of atom-to-module inference.
 - **Default provider set** -- if no `:providers` config is set, a sensible default set (Anthropic, OpenAI, etc.) is loaded so the library works out of the box.
+- **`Provider.stream/4` takes modules, not atoms** -- `Omni.Provider.stream/4` accepts a provider module directly. It does not resolve shorthand atoms. This function is primarily for testing and debugging the provider layer in isolation.
 - **Omni.Application for startup loading** -- an OTP Application module loads providers into `:persistent_term` at startup. The `start/2` callback calls `models/0` on each configured provider, builds model maps, and stores them. Returns a minimal supervisor with no children (just the OTP contract). This guarantees models are available before any user code runs, with no lazy loading races or forgotten init calls.
 - **Provider `build_url/2` callback** -- providers implement `build_url/2` receiving the base URL and dialect-built path. Default is concatenation. Exists because some providers (Azure OpenAI) completely restructure the URL path.
 - **Stream handler composed at stream_text level** -- `stream_text` builds a Req `:into` callback that captures the provider and dialect via closure. The handler runs SSE parsing, `provider.adapt_event/1`, and `dialect.parse_event/1` in sequence. This keeps StreamingResponse generic (it just receives delta tuples) and keeps `Omni.Provider.stream` independently usable (the caller supplies their own `:into` callback).
