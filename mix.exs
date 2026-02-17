@@ -22,6 +22,7 @@ defmodule Omni.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
+      {:ex_doc, "~> 0.40.1", only: :dev, runtime: false, warn_if_outdated: true},
       {:peri, "~> 0.6.2"},
       {:req, "~> 0.5.17"},
     ]
