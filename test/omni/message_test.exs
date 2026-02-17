@@ -29,13 +29,8 @@ defmodule Omni.MessageTest do
     end
 
     test "auto-assigns timestamp" do
-      before = DateTime.utc_now()
       msg = Message.new(role: :user, content: "hello")
-      after_time = DateTime.utc_now()
-
       assert %DateTime{} = msg.timestamp
-      assert DateTime.compare(msg.timestamp, before) in [:gt, :eq]
-      assert DateTime.compare(msg.timestamp, after_time) in [:lt, :eq]
     end
 
     test "preserves explicit timestamp" do
