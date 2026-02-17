@@ -58,7 +58,7 @@ lib/omni/
 ├── streaming_response.ex           # StreamingResponse + Enumerable impl
 ├── usage.ex                        # Usage struct (tokens + computed costs)
 ├── tool.ex                         # Tool struct, behaviour, use macro
-├── tool/schema.ex                  # JSON Schema builder functions
+├── schema.ex                       # JSON Schema builder functions
 ├── content/{text,thinking,attachment,tool_use,tool_result}.ex
 ├── sse.ex                          # Shared SSE parser
 ├── provider.ex                     # Provider behaviour + shared HTTP logic
@@ -73,10 +73,12 @@ lib/omni/
 - All public API functions return `{:ok, result} | {:error, reason}` tuples.
 - Content blocks are separate structs under `Omni.Content` — pattern match on struct name, not a type field.
 - Providers use `use Omni.Provider, id: :atom, dialect: Module` — the macro generates `id/0` and `dialect/0`.
-- Tool modules use `use Omni.Tool, name: "string", description: "string"` — generates `new/0,1` constructors.
+- Tool modules use `use Omni.Tool, name: "string", description: "string"` — generates `new/0,1` constructors. Import `Omni.Schema` inside the `schema/0` callback (not at module level, not auto-imported by `use Omni.Tool`).
 - The term is "tool use", not "tool call" (aligns with Anthropic's API, used consistently throughout).
 - Attachment sources use tagged tuples: `{:base64, data}` or `{:url, url_string}`.
 - Struct constructors (`new/1`) return bare structs and do not validate field values. Validation happens once at the API boundary (Peri schemas in the top-level `generate_text`/`stream_text` path). Constructors may normalize for convenience (e.g. string → `[%Text{}]`) but not reject bad data.
+- `Omni.Schema` builder functions preserve keys as-is — atom keys stay atoms, string keys stay strings. Do not stringify keys; JSON serialisation handles that on the wire. `Omni.Schema.to_peri/1` converts schemas to Peri for validation.
+- `Tool.execute/2` validates and casts input via Peri before calling the handler. Peri maps string-keyed LLM input back to the key types in the schema, so handlers use `input.city` (atom access) when the schema uses atom keys. Direct handler calls bypass validation/casting.
 - `doc/` is ExDoc output (gitignored). `context/` contains project design documents for LLM context.
 
 ## Documentation
