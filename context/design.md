@@ -364,8 +364,8 @@ The separation from dialects exists because the mapping is many-to-one. There ar
 
 - The provider behaviour and `__using__` macro with default implementations
 - Model data loading logic (`load_models/2` -- reading JSON, building model structs)
-- Shared HTTP request logic used by all providers (built on the Req library)
-- The `Omni.Provider.stream/4` function for making authenticated streaming requests directly
+- Request building logic (`build_request/3` and `new_request/4`) for constructing authenticated Req requests
+- Event parsing combinator (`parse_event/2`) composing `adapt_event/1` and dialect `parse_event/1`
 
 ### Provider declaration
 
@@ -523,19 +523,40 @@ These are *adaptations* of the dialect's standard output, not alternatives to it
 
 ### Direct provider usage
 
-The provider can be used independently to make authenticated streaming HTTP requests. This is useful for testing, debugging, and advanced use cases where the caller has a provider-native request body:
+The provider layer exposes two request-building functions at different levels of abstraction. Both return a ready-to-execute `%Req.Request{}` struct -- the caller controls when and how it is executed.
+
+**`Omni.Provider.new_request/4`** builds a Req request from raw provider-native parameters. No dialect, no Omni types -- just URL building, authentication, and Req setup:
 
 ```elixir
-# Direct provider usage -- no dialect, no Omni types
-Omni.Provider.stream(Omni.Providers.Anthropic, "/v1/messages", %{
+# Build an authenticated request from raw provider params
+{:ok, req} = Omni.Provider.new_request(Omni.Providers.Anthropic, "/v1/messages", %{
   "model" => "claude-sonnet-4-20250514",
   "messages" => [%{"role" => "user", "content" => "Hi"}],
   "max_tokens" => 100,
   "stream" => true
 }, api_key: "sk-...")
+
+# Execute it -- the caller decides how
+{:ok, resp} = Req.request(req)
 ```
 
-`Omni.Provider.stream/4` takes a provider module, a path, a body map, and a keyword list of options (including Req options like `into:`, plus `api_key:`, `base_url:`, etc.). It handles URL building, authentication, and the HTTP request via Req. The caller supplies the path and body in the provider's native format. This makes the provider layer independently testable without involving dialects or Omni's type system.
+`new_request/4` takes a provider module, a path, a body map, and a keyword list of options (`api_key:`, `base_url:`, etc.). It calls `provider.build_url/2` to construct the URL, sets up the Req request with `into: :self` for async streaming, and calls `provider.authenticate/2` to add auth. The caller supplies the path and body in the provider's native format. This makes the provider layer independently testable without involving dialects or Omni's type system.
+
+**`Omni.Provider.build_request/3`** is the higher-level entry point. It takes Omni types (`%Model{}`, `%Context{}`, opts), uses the dialect to build the path and body, applies provider adaptations, then delegates to `new_request/4`:
+
+```elixir
+# Build a request from Omni types -- dialect + provider composition
+{:ok, req} = Omni.Provider.build_request(model, context, opts)
+```
+
+This is primarily useful for testing the full request-building pipeline (dialect + provider) without making HTTP calls.
+
+**`Omni.Provider.parse_event/2`** composes event parsing: it pipes a raw SSE event map through `provider.adapt_event/1` then `provider.dialect().parse_event/1`, returning the normalised delta tuple (or nil to skip):
+
+```elixir
+delta = Omni.Provider.parse_event(Omni.Providers.Anthropic, raw_event)
+# => {:text_delta, %{index: 0, delta: "Hello"}}
+```
 
 ### Custom providers
 
@@ -695,12 +716,13 @@ delta = AnthropicMessages.parse_event(%{"type" => "content_block_delta", ...})
 assert delta == {:text_delta, %{index: 0, delta: "Hello"}}
 
 # Test a provider in isolation -- real HTTP, native body
-{:ok, stream} = Omni.Provider.stream(:anthropic, "/v1/messages", %{
+{:ok, req} = Omni.Provider.new_request(Omni.Providers.Anthropic, "/v1/messages", %{
   "model" => "claude-sonnet-4-20250514",
   "messages" => [%{"role" => "user", "content" => "Hi"}],
   "max_tokens" => 100,
   "stream" => true
 }, api_key: "sk-...")
+{:ok, resp} = Req.request(req)
 
 # Test the full stack
 {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-4-20250514"}, "Hi")
@@ -820,7 +842,7 @@ The raw Req request and response are available for debugging by passing `raw: tr
 
 The `raw` field is `nil` by default and populated with `{%Req.Request{}, %Req.Response{}}` when requested. The raw Req structs are stored directly -- the point of the escape hatch is access to what actually happened on the wire, not another abstraction layer over it.
 
-**Implementation note:** Since all requests use streaming HTTP under the hood, the `raw` option requires the spawned streaming process to capture the Req request and response structs and send them back to the caller when the stream completes. `Omni.Provider.stream/4` may need to be structured so that the Req request is built as a separate step before execution, allowing the request struct to be captured. The Req response from a streaming request will be available after the stream finishes. The exact plumbing is an implementation detail, but the contract is that `raw: true` populates `{%Req.Request{}, %Req.Response{}}` on the final `%Response{}` struct.
+Because request building (`Provider.build_request/3`) is separated from execution (`Req.request/1`), both the `%Req.Request{}` and `%Req.Response{}` are naturally available to the orchestration layer. The `StreamingResponse` struct holds both when `raw: true` is passed, and they are attached to the final `%Response{}` when the stream completes.
 
 ### Naming rationale
 
@@ -1217,35 +1239,28 @@ The streaming design has three layers, each with a clear responsibility:
 2. **Dialect** (per-API-family) -- transforms a JSON event map into a normalised delta tuple
 3. **StreamingResponse** (shared) -- accumulates deltas into a partial response, emits rich consumer events
 
-The event pipeline inside the streaming process flows through the Req `:into` callback:
+The event pipeline is composed as a lazy stream using Req's `into: :self` async mode and Elixir's `Stream` functions:
 
 ```
-Req chunks (raw bytes)
-    │
+Req async response (into: :self)
+    │  → raw binary chunks arrive as messages
     ▼
-SSE parser (shared, stateful for framing)
-    │  → decoded JSON map (one at a time)
+SSE.stream/1 (shared, stateful for framing)
+    │  → decoded JSON map (one at a time, buffering across chunks)
     ▼
-Provider.adapt_event/1 (optional, default passthrough)
-    │  → adjusted JSON map
+Provider.parse_event/2 (composes adapt_event + dialect parse_event)
+    │  → {event_type, event_map} delta tuple (or nil to skip)
     ▼
-Dialect.parse_event/1 (stateless, pure)
-    │  → {event_type, event_map} delta tuple
-    ▼
-Delta sent as message to caller process
-    │
-    ▼
-StreamingResponse Enumerable.reduce/3 (in caller process)
-    │  → receives delta messages via monitor ref
-    │  → maintains accumulator (partial Response)
+StreamingResponse Enumerable (wraps the delta stream)
+    │  → accumulates partial Response
     │  → yields {event_type, event_map, partial_response}
     ▼
 Consumer receives rich events
 ```
 
-**Process boundaries:** The SSE parsing, event adaptation, and dialect parsing all happen inside the **spawned process**, within a Req `:into` callback handler composed at the `stream_text` level. Each parsed delta is sent as a message to the **caller process**. The caller's `Enumerable.reduce/3` receives these messages (matched on the monitor ref), accumulates the partial Response, and yields events to the consumer. The spawned process is a producer; the caller process is the consumer. If the caller dies, the spawned process detects it via its monitor and self-terminates. If the spawned process crashes, the caller receives a `:DOWN` message which translates to an error event in the enumeration.
+**No spawned process.** With Req's `into: :self`, the HTTP client (Finch) manages the connection in its own process pool and delivers body chunks as messages to the calling process. The `stream_text` orchestration composes a lazy `Stream` pipeline that receives these chunks, parses SSE, and produces delta tuples. `StreamingResponse` wraps this lazy stream, adding accumulation logic. Everything runs in the caller's process -- no spawned process, no monitors, no message passing between Omni-owned processes.
 
-StreamingResponse itself is a generic mechanism -- it receives pre-parsed delta tuples and accumulates them, with no knowledge of providers, dialects, or HTTP.
+StreamingResponse itself is a generic mechanism -- it wraps a pre-built lazy stream of delta tuples and accumulates them, with no knowledge of providers, dialects, or HTTP.
 
 ### StreamingResponse
 
@@ -1253,17 +1268,24 @@ StreamingResponse itself is a generic mechanism -- it receives pre-parsed delta 
 
 ```elixir
 defmodule Omni.StreamingResponse do
-  defstruct [:pid, :ref]
+  defstruct [:events, :resp, :req, :model]
 end
 
 defimpl Enumerable, for: Omni.StreamingResponse do
-  # Receives delta messages from the spawned process
+  # Wraps the lazy event stream
   # Maintains accumulation state (partial Response)
   # Yields rich consumer events
 end
 ```
 
-The struct holds a `pid` (for cancellation) and a `ref` (for receiving messages and detecting crashes via monitor). Consumers interact with it as a standard enumerable:
+The struct holds:
+
+- `events` -- a lazy stream of `{event_type, event_map}` delta tuples (provider/dialect-agnostic)
+- `resp` -- the `%Req.Response{}` (for cancellation via `Req.cancel_async_response/1`, and for `raw: true`)
+- `req` -- the `%Req.Request{}` (for `raw: true`, nil otherwise)
+- `model` -- the `%Model{}` (for building the partial Response with cost data)
+
+Consumers interact with it as a standard enumerable:
 
 ```elixir
 {:ok, stream} = Omni.stream_text(model, context)
@@ -1282,7 +1304,7 @@ end)
 Omni.StreamingResponse.cancel(stream)
 ```
 
-**Why not a Task?** Task's value proposition is async/await and structured concurrency (linking to the caller). Neither applies here -- the consumption model is message receiving, not awaiting, and if the stream process crashes the caller should get an error through the enumeration, not crash itself. A raw spawned process with bidirectional monitors gives the right failure semantics: a `:DOWN` message translates to an error event, and if the caller dies, the stream process detects it and self-terminates.
+**Why no spawned process?** Req's `into: :self` mode handles async delivery -- the HTTP client (Finch) manages connections in its own process pool and sends body chunks as messages to the calling process. `StreamingResponse` wraps a lazy stream that receives and transforms these messages. Cancellation delegates to `Req.cancel_async_response/1`. No Omni-owned process is needed, eliminating the complexity of process lifecycle management, bidirectional monitors, and failure propagation.
 
 ### SSE parser
 
@@ -1400,7 +1422,7 @@ end)
 
 Errors are categorised into two surfaces:
 
-**Pre-stream errors** surface as `{:error, reason}` from `stream_text/3`. These include model not found, validation failures, authentication errors, and HTTP status code errors. The stream never starts.
+**Pre-stream errors** surface as `{:error, reason}` from `stream_text/3`. These include model not found, validation failures, authentication errors, HTTP request failures, and non-200 status codes. The stream never starts. For non-200 responses, the error body is read from the async response to build a useful error message before returning.
 
 **Mid-stream errors** (connection drops, provider errors partway through) are emitted as `{:error, %{reason: reason}, partial_response}` events through the enumeration, after which the stream terminates.
 
@@ -1440,21 +1462,28 @@ end
 
 def stream_text(%Omni.Model{} = model, context, opts) do
   context = to_context(context)
-  provider = model.provider
-  dialect = model.dialect
+  opts = merge_config(model.provider, opts)
 
-  opts = merge_config(provider, opts)
-
-  with {:ok, opts} <- validate_options(opts, dialect, provider),
-       path <- dialect.build_path(model),
-       {:ok, body} <- dialect.build_body(model, context, opts),
-       body <- provider.adapt_body(body, opts)
+  with {:ok, opts} <- validate_options(opts, model),
+       {:ok, req} <- Provider.build_request(model, context, opts),
+       {:ok, resp} <- Req.request(req),
+       :ok <- check_status(resp)
   do
-    handler = build_stream_handler(provider, dialect)
+    events =
+      resp.body
+      |> SSE.stream()
+      |> Stream.flat_map(fn raw_event ->
+        case Provider.parse_event(model.provider, raw_event) do
+          nil -> []
+          delta -> [delta]
+        end
+      end)
 
-    Omni.StreamingResponse.new(fn ->
-      Omni.Provider.stream(provider, path, body, into: handler)
-    end)
+    {:ok, StreamingResponse.new(events,
+      resp: resp,
+      req: if(opts[:raw], do: req),
+      model: model
+    )}
   end
 end
 ```
@@ -1463,19 +1492,21 @@ The key architectural points:
 
 - **Model resolution is a separate clause.** The tuple `{:anthropic, "claude-sonnet-4-20250514"}` is resolved via `get_model/1` (a `:persistent_term` lookup), then the resolved `%Model{}` falls through to the main clause. No resolution step needed when the caller already has a model struct.
 
-- **Provider and dialect come from the model.** The `%Model{}` struct carries direct module references. No lookup table, no atom-to-module mapping. `model.provider` and `model.dialect` are immediately callable.
+- **Provider and dialect come from the model.** The `%Model{}` struct carries the provider module reference. No lookup table, no atom-to-module mapping. `model.provider` is immediately callable, and the dialect is accessed through `model.provider.dialect()`.
 
 - **`merge_config/2`** merges `provider.config/0` with overrides from application config (keyed by the provider module, e.g. `config :omni, Omni.Providers.Anthropic, ...`) and call-time opts (api_key, base_url, headers, etc.) into a single keyword list. The result flows through the pipeline -- each callback that receives `opts` pulls out what it needs. Priority order: call-time opts > application config > provider defaults.
 
-- **Validation happens once, early.** `validate_options/3` merges schemas from `dialect.option_schema/0`, `provider.option_schema/0`, and a base request schema, then runs Peri once. After this point, all callbacks can trust their inputs are valid.
+- **Validation happens once, early.** `validate_options/2` merges schemas from `dialect.option_schema/0`, `provider.option_schema/0`, and a base request schema, then runs Peri once. After this point, all callbacks can trust their inputs are valid.
 
-- **The dialect builds, the provider adapts.** `dialect.build_body/3` does the heavy transformation from Omni types to native format. `provider.adapt_body/2` makes small, targeted adjustments for this specific service. Most providers pass through unchanged.
+- **Build request separates construction from execution.** `Provider.build_request/3` handles the full dialect-to-Req pipeline (build path, build body, adapt body, build URL, authenticate) and returns a `%Req.Request{}`. `Req.request/1` executes it, returning immediately with an async response. This separation gives us both the request and response structs for `raw: true` at no extra cost.
 
-- **The stream handler is composed at this level.** `build_stream_handler/2` returns a Req `:into` callback that captures the provider and dialect via closure. Inside the callback: SSE bytes are decoded, `provider.adapt_event/1` adjusts event maps, `dialect.parse_event/1` produces normalised deltas, and deltas are sent as messages to the StreamingResponse process.
+- **Status check catches HTTP errors early.** After `Req.request/1` returns, `check_status/1` verifies the response is 200. Non-200 responses (400, 401, 429, 500, etc.) are read and turned into `{:error, reason}` before any streaming begins.
 
-- **StreamingResponse is generic.** `StreamingResponse.new/1` spawns a process, runs the callback (which starts the HTTP stream via `Omni.Provider.stream`), and its `Enumerable` implementation receives delta messages, accumulates the partial Response, and yields three-element consumer tuples. It has no knowledge of providers, dialects, or HTTP.
+- **The event stream is lazy composition.** `resp.body` is a `Req.Response.Async` enumerable that yields raw binary chunks. `SSE.stream/1` transforms these into decoded JSON event maps (handling buffering across chunk boundaries via `Stream.transform/3`). `Provider.parse_event/2` composes `adapt_event/1` and dialect `parse_event/1` into normalised delta tuples. Nothing executes until the consumer drives the stream.
 
-- **`Omni.Provider.stream/4` is independently usable.** It takes a provider (module or shorthand atom), path, body, and a keyword list of Req options. It handles URL building (`provider.build_url/2`), authentication (`provider.authenticate/2`), and the HTTP request via Req. This can be called directly for testing or advanced use cases where the caller has a provider-native request body.
+- **StreamingResponse is generic.** It wraps the pre-built lazy event stream and adds accumulation logic. Its `Enumerable` implementation drives the inner stream, accumulates a partial `%Response{}`, and yields three-element consumer tuples. It has no knowledge of providers, dialects, or HTTP. Cancellation delegates to `Req.cancel_async_response/1`.
+
+- **`Provider.new_request/4` is independently usable.** It takes a provider module, path, body, and opts. It handles URL building, authentication, and Req setup. This can be called directly for testing or advanced use cases where the caller has a provider-native request body.
 
 ### High-level flow diagram
 
@@ -1487,45 +1518,36 @@ Omni.stream_text(model, context, opts)
 ├── 2. Normalise context (to_context/1)
 │
 ├── 3. Merge config and opts
-│     Merge provider.config/0 with app config overrides and call-time opts into single keyword list
+│     Merge provider.config/0 with app config overrides and call-time opts
 │
 ├── 4. Validate options
 │     Merge schemas from dialect, provider, and base request layer
 │     Validate via Peri; return {:error, reason} if invalid
 │
-├── 5. Build path (Dialect)
-│     dialect.build_path(model) → "/v1/messages"
+├── 5. Provider.build_request(model, context, opts)
+│     ├── dialect.build_path(model) → "/v1/messages"
+│     ├── dialect.build_body(model, context, opts) → {:ok, body_map}
+│     ├── provider.adapt_body(body, opts) → adjusted body
+│     └── Provider.new_request(provider, path, body, opts)
+│         ├── provider.build_url(base_url, path) → full URL
+│         ├── Req.new(url, method: :post, json: body, into: :self)
+│         └── provider.authenticate(req, opts) → {:ok, authenticated_req}
 │
-├── 6. Build body (Dialect)
-│     dialect.build_body(model, context, opts) → {:ok, body_map}
-│     Transforms Omni types into provider-native JSON structure
+├── 6. Req.request(req) → {:ok, resp}
+│     Returns immediately; resp.body is Req.Response.Async
 │
-├── 7. Adapt body (Provider, optional)
-│     provider.adapt_body(body, opts) → adjusted body
-│     Default: passthrough
+├── 7. Check status (non-200 → {:error, reason})
 │
-├── 8. Build stream handler
-│     Composes SSE parsing, provider.adapt_event/1, and
-│     dialect.parse_event/1 into a single Req :into callback
+├── 8. Compose lazy event stream
+│     resp.body (async chunks)
+│       |> SSE.stream() (decode, buffer, emit JSON maps)
+│       |> Stream.flat_map(&Provider.parse_event/2)
 │
-├── 9. Spawn StreamingResponse process
-│     └── Inside spawned process:
-│         │
-│         ├── Omni.Provider.stream(provider, path, body, into: handler)
-│         │   ├── provider.build_url(base_url, path) → full URL
-│         │   ├── provider.authenticate(req, config) → authenticated req
-│         │   └── Req makes HTTP request with :into handler
-│         │
-│         └── Handler receives streaming chunks:
-│             ├── SSE parser decodes raw bytes → JSON event maps
-│             ├── provider.adapt_event(event) → adjusted event map
-│             ├── dialect.parse_event(event) → {event_type, event_map}
-│             └── Delta sent as message to caller
-│
-└── 10. StreamingResponse Enumerable (in caller process)
-        Receives delta messages
-        Accumulates partial Response
+└── 9. StreamingResponse.new(events, resp: resp, ...)
+        Wraps lazy event stream
+        Enumerable impl accumulates partial Response
         Yields {event_type, event_map, partial_response} to consumer
+        cancel/1 delegates to Req.cancel_async_response/1
 ```
 
 ---
@@ -1555,7 +1577,8 @@ lib/omni/
 │   └── tool_result.ex         # Tool result content block
 ├── sse.ex                     # Shared SSE parser (framing, decoding, buffering)
 ├── provider.ex                # Provider behaviour, default implementations,
-│                              #   shared HTTP logic, load_models/2, stream/4
+│                              #   build_request/3, new_request/4, parse_event/2,
+│                              #   load_models/2
 ├── providers/
 │   ├── anthropic.ex
 │   ├── openai.ex
@@ -1593,10 +1616,6 @@ This needs further research to flesh out, but the architectural intent is a laye
 
 The `option_schema/0` callback on both Dialect and Provider behaviours returns a Peri schema map. How these schemas are merged, how universal options (temperature, max_tokens) are declared (on a base schema? on the dialect?), and how conflicts between layers are handled needs to be worked out during implementation. See the implementation note in the [Option validation](#option-validation) section.
 
-### Raw option plumbing with streaming-first architecture
-
-The `raw: true` option needs to capture `{%Req.Request{}, %Req.Response{}}` from a streaming HTTP request that runs inside a spawned process. The implementation needs to arrange for these structs to be sent back to the caller and attached to the final `%Response{}`. See the implementation note in the [Raw request/response access](#raw-requestresponse-access) section.
-
 ---
 
 ## Resolved Decisions
@@ -1619,7 +1638,7 @@ The `raw: true` option needs to capture `{%Req.Request{}, %Req.Response{}}` from
 - **No `details` field on tool results** -- structured exception data is the user's application concern, not the content block's. The model needs the error message (in content) and the flag (is_error), nothing more.
 - **Redacted thinking via nil text** -- when a thinking block's text is `nil`, it's redacted. No separate `redacted` boolean needed since it's directly derivable.
 - **StreamingResponse struct with Enumerable** -- `Omni.StreamingResponse` is a struct implementing the `Enumerable` protocol. It serves as both the iterable and the cancellation handle. Consumers use it directly with `Enum`/`Stream` functions, and can cancel via `StreamingResponse.cancel/1`. Named `StreamingResponse` (not `TextStream` or `Stream`) for consistency with `Response` and because the struct is not content-type-specific.
-- **Raw spawned process over Task** -- the streaming process is a raw spawned process with bidirectional monitors, not a Task. Task's async/await pattern and caller-linking are wrong for this use case. A monitor gives the right failure semantics: crashes become error events in the enumeration, and if the caller dies the stream process self-terminates.
+- **No spawned process -- Req async handles it** -- Req's `into: :self` mode delivers body chunks as messages from Finch's connection pool. No Omni-owned process is needed. The event pipeline is composed as a lazy `Stream` that the consumer drives. Cancellation delegates to `Req.cancel_async_response/1`. This eliminates the complexity of process lifecycle management, bidirectional monitors, and failure propagation.
 - **Three-layer streaming architecture** -- streaming has three layers: (1) a shared SSE parser handles framing and JSON decoding, (2) the dialect's `parse_event/1` transforms a JSON map into a normalised delta tuple (stateless, pure), (3) `StreamingResponse` accumulates deltas into a partial response and yields rich consumer events. The dialect never accumulates state; the SSE parser never interprets semantics.
 - **Internal delta format as tagged tuples** -- dialects emit `{event_type, event_map}` tuples where the event type atom encodes the content type (`:text_delta`, `:tool_use_start`, etc.). Every delta is self-describing -- consumers can pattern match a single event without tracking state.
 - **Consumer events as three-element tuples** -- the `StreamingResponse` enumerable yields `{event_type, event_map, partial_response}`. The first two elements mirror the dialect's delta format; the third is the accumulated `%Response{}` built up as events arrive. Memory overhead is negligible due to Elixir's structural sharing.
@@ -1641,7 +1660,7 @@ The `raw: true` option needs to capture `{%Req.Request{}, %Req.Response{}}` from
 - **Stateful tools via `init/1`** -- `init/1` receives args passed to `new/1`, returns opts passed as second argument to `call/2`. Default is passthrough. Provides a place to validate state at construction time rather than mid-conversation. Stateless tools use `call/1` (default `call/2` delegates to it).
 - **No automatic tool execution** -- `generate_text` and `stream_text` do not execute tools. They are pure request/response functions. `Omni.Tool.execute/2` is a convenience helper for dispatching tool uses to handlers.
 - **Caching as a TTL hint, not an on/off switch** -- `cache: :short | :long | nil` controls explicit caching directives. `nil` means no explicit directives (providers with implicit caching may still cache). `:short` and `:long` map to provider-specific TTL tiers (e.g. Anthropic's 5min/1hr breakpoints, OpenAI's retention parameter). Dialects without caching support silently ignore the option -- caching is an optimisation hint, not a semantic requirement.
-- **Provider as authenticated HTTP layer** -- the provider is independently usable via `Omni.Provider.stream/4` to make authenticated streaming HTTP requests with a provider-native request body. This makes the provider layer testable without involving dialects. The dialect is a translation layer that sits between Omni's top-level API and the provider.
+- **Provider as authenticated HTTP layer** -- the provider layer exposes two request-building functions: `Provider.new_request/4` builds a `%Req.Request{}` from raw provider-native params (no dialect), and `Provider.build_request/3` composes dialect and provider into a ready-to-fire request from Omni types. Both return request structs without executing them -- the caller controls execution. This makes each layer independently testable.
 - **Dialect builds, provider adapts** -- the dialect produces the standard request body and URL path for an API family. The provider optionally adapts these for service-specific quirks via `adapt_body/2` and `adapt_event/1`. These are *adaptations* of the dialect's output, not alternatives to it. Most providers don't need either callback.
 - **"Adapt" over "tweak" for provider callbacks** -- `adapt_body/2` and `adapt_event/1` communicate the purpose clearly: adapting standard dialect output to fit a specific provider's requirements. The dialect *builds*, the provider *adapts*.
 - **Declarative option schemas over validation callbacks** -- each layer declares what options it accepts via `option_schema/0` (on both the Dialect and Provider behaviours). The orchestration merges these into one Peri schema and validates once, early. No separate validate callback; no defensive checking in individual callbacks.
@@ -1654,12 +1673,12 @@ The `raw: true` option needs to capture `{%Req.Request{}, %Req.Response{}}` from
 - **`load_models/2` takes module and path** -- `Omni.Provider.load_models(__MODULE__, "priv/models/anthropic.json")` reads the JSON file and stamps each model with the provider module and its dialect. Models returned from `models/0` are always complete structs with all enforce_keys populated.
 - **Full module references on Model struct** -- `%Model{provider: Omni.Providers.Anthropic, dialect: Omni.Dialects.AnthropicMessages}` stores full modules, not shorthand atoms. The model is self-contained -- provider and dialect callbacks can be called directly from the struct with no runtime resolution.
 - **Default provider set** -- if no `:providers` config is set, a sensible default set (Anthropic, OpenAI, etc.) is loaded so the library works out of the box.
-- **`Provider.stream/4` takes modules, not atoms** -- `Omni.Provider.stream/4` accepts a provider module directly. It does not resolve shorthand atoms. This function is primarily for testing and debugging the provider layer in isolation.
+- **`Provider.new_request/4` takes modules, not atoms** -- `Omni.Provider.new_request/4` accepts a provider module directly. It does not resolve shorthand atoms. This function is primarily for testing and debugging the provider layer in isolation.
 - **Omni.Application for startup loading** -- an OTP Application module loads providers into `:persistent_term` at startup. The `start/2` callback calls `models/0` on each configured provider, builds model maps, and stores them. Returns a minimal supervisor with no children (just the OTP contract). This guarantees models are available before any user code runs, with no lazy loading races or forgotten init calls.
 - **Provider `build_url/2` callback** -- providers implement `build_url/2` receiving the base URL and dialect-built path. Default is concatenation. Exists because some providers (Azure OpenAI) completely restructure the URL path.
-- **Stream handler composed at stream_text level** -- `stream_text` builds a Req `:into` callback that captures the provider and dialect via closure. The handler runs SSE parsing, `provider.adapt_event/1`, and `dialect.parse_event/1` in sequence. This keeps StreamingResponse generic (it just receives delta tuples) and keeps `Omni.Provider.stream` independently usable (the caller supplies their own `:into` callback).
-- **StreamingResponse is provider/dialect-agnostic** -- `StreamingResponse.new/1` takes a callback that starts a stream. It spawns a process, runs the callback, and its `Enumerable` implementation receives delta messages and accumulates them. It has no knowledge of providers, dialects, or HTTP.
+- **Lazy stream composition at stream_text level** -- `stream_text` composes a lazy `Stream` pipeline: `resp.body` (async chunks) → `SSE.stream/1` (decode) → `Provider.parse_event/2` (adapt + parse). This keeps StreamingResponse generic (it just wraps a stream of delta tuples) and keeps `Provider.new_request/4` independently usable.
+- **StreamingResponse is provider/dialect-agnostic** -- `StreamingResponse` wraps a pre-built lazy event stream and adds accumulation. Its `Enumerable` implementation drives the inner stream, accumulates a partial `%Response{}`, and yields three-element consumer tuples. It holds the `%Req.Response{}` for cancellation and `raw: true` plumbing, but has no knowledge of providers, dialects, or event parsing.
 - **Single merged opts keyword list** -- provider config, application config overrides, and call-time opts are merged into a single keyword list early in the pipeline. Each callback that receives opts pulls out what it needs. Priority: call-time > app config > provider defaults.
-- **Provider.stream/4 signature** -- takes `(provider, path, body, opts)` where `opts` is a keyword list containing both Req options (like `into:`) and Omni options (like `api_key:`). No separate config argument.
-- **Spawned process sends deltas to caller** -- the streaming process (spawned by `StreamingResponse.new/1`) runs the HTTP request and parses events. Each parsed delta is sent as a message to the caller process. The caller's `Enumerable.reduce/3` receives these messages via the monitor ref, accumulates them, and yields consumer events. Bidirectional monitors handle failure: caller death terminates the stream; stream crash becomes an error event.
+- **Request building separated from execution** -- `Provider.build_request/3` and `Provider.new_request/4` return `{:ok, %Req.Request{}}` without executing. The caller runs `Req.request/1` to execute. This separation naturally provides both the request and response structs for `raw: true`, and makes each layer testable in isolation (assert on the built request without making HTTP calls).
+- **`Provider.parse_event/2` composes adapt + parse** -- `Provider.parse_event(provider, raw_event)` pipes a decoded SSE event through `provider.adapt_event/1` then `provider.dialect().parse_event/1`. A simple combinator that keeps the composition in one place.
 - **Signature round-tripping is a dialect concern** -- `signature` fields on Text, Thinking, and ToolUse blocks are received from providers in responses and must be included by dialects when building request bodies for subsequent turns. The content block structs carry signatures transparently; dialects handle the round-trip logic.

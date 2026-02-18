@@ -38,11 +38,11 @@ mix models.get           # Fetch model data from models.dev into priv/models/
 
 ### Key design patterns
 
-- **Streaming-first**: Every LLM request uses streaming HTTP. The SSE parser, provider event adaptation, and dialect event parsing run in a spawned process. Deltas are sent as messages to the caller, where `StreamingResponse`'s `Enumerable` implementation accumulates a partial `%Response{}` and yields `{event_type, event_map, partial_response}` tuples.
+- **Streaming-first**: Every LLM request uses streaming HTTP via Req's `into: :self` async mode. The event pipeline is composed as a lazy `Stream`: SSE parsing → `Provider.parse_event/2` (adapt + dialect parse) → delta tuples. `StreamingResponse`'s `Enumerable` implementation wraps this stream, accumulates a partial `%Response{}`, and yields `{event_type, event_map, partial_response}` tuples. No spawned process — Req/Finch manage the connection.
 
-- **Models are data, not modules**: `%Model{}` structs are loaded from `priv/models/*.json` at startup into `:persistent_term` (keyed per provider). Models carry direct module references to their provider and dialect, making them self-contained for callback dispatch.
+- **Models are data, not modules**: `%Model{}` structs are loaded from `priv/models/*.json` at startup into `:persistent_term` (keyed per provider). Models carry a direct module reference to their provider; the dialect is accessed via `provider.dialect()`.
 
-- **Provider builds URL + authenticates; dialect builds body + parses events**: The dialect does heavy transformation (Omni types ↔ native JSON). The provider optionally adapts dialect output for service-specific quirks via `adapt_body/2` and `adapt_event/1`.
+- **Request building separated from execution**: `Provider.build_request/3` takes Omni types (model, context, opts) and returns a `%Req.Request{}` via dialect + provider composition. `Provider.new_request/4` takes raw provider params (path, body, opts) and returns a `%Req.Request{}`. Both build without executing — the caller runs `Req.request/1`. The dialect does heavy transformation (Omni types ↔ native JSON). The provider optionally adapts dialect output for service-specific quirks via `adapt_body/2` and `adapt_event/1`.
 
 - **Two message roles only**: `:user` and `:assistant`. No `:tool` role — tool results are `Content.ToolResult` blocks inside user messages. Role differences are expressed through content blocks, not message types.
 
