@@ -24,5 +24,4 @@ defmodule Omni.ApplicationTest do
       end
     end
   end
-
 end
