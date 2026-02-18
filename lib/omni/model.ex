@@ -53,6 +53,34 @@ defmodule Omni.Model do
   @spec supported_output_modalities() :: [atom()]
   def supported_output_modalities, do: @supported_output_modalities
 
+  @doc """
+  Looks up a model by provider ID and model ID from `:persistent_term`.
+
+  Returns `{:ok, model}` if found, or an error tuple identifying what's missing.
+  """
+  @spec get(atom(), String.t()) :: {:ok, t()} | {:error, term()}
+  def get(provider_id, model_id) do
+    case :persistent_term.get({Omni, provider_id}, nil) do
+      nil ->
+        {:error, {:unknown_provider, provider_id}}
+
+      models ->
+        case Map.get(models, model_id) do
+          nil -> {:error, {:unknown_model, provider_id, model_id}}
+          model -> {:ok, model}
+        end
+    end
+  end
+
+  @doc "Returns all models for a provider, or an error if the provider is unknown."
+  @spec list(atom()) :: {:ok, [t()]} | {:error, term()}
+  def list(provider_id) do
+    case :persistent_term.get({Omni, provider_id}, nil) do
+      nil -> {:error, {:unknown_provider, provider_id}}
+      models -> {:ok, Map.values(models)}
+    end
+  end
+
   @doc "Creates a new model struct from a keyword list or map."
   @spec new(Enumerable.t()) :: t()
   def new(attrs) do

@@ -111,6 +111,37 @@ defmodule Omni.ModelTest do
     end
   end
 
+  describe "list/1" do
+    test "returns {:ok, list} of models for a loaded provider" do
+      assert {:ok, models} = Model.list(:anthropic)
+      assert is_list(models)
+      assert length(models) > 0
+      assert Enum.all?(models, &match?(%Model{}, &1))
+    end
+
+    test "returns error for unknown provider" do
+      assert {:error, {:unknown_provider, :nonexistent}} = Model.list(:nonexistent)
+    end
+  end
+
+  describe "get/2" do
+    test "returns {:ok, model} for a loaded model" do
+      # Application loads anthropic at startup
+      [model_id | _] = :persistent_term.get({Omni, :anthropic}) |> Map.keys()
+
+      assert {:ok, %Model{id: ^model_id}} = Model.get(:anthropic, model_id)
+    end
+
+    test "returns error for unknown provider" do
+      assert {:error, {:unknown_provider, :nonexistent}} = Model.get(:nonexistent, "any-model")
+    end
+
+    test "returns error for unknown model ID" do
+      assert {:error, {:unknown_model, :anthropic, "no-such-model"}} =
+               Model.get(:anthropic, "no-such-model")
+    end
+  end
+
   describe "supported_input_modalities/0" do
     test "returns the supported input modalities" do
       assert Model.supported_input_modalities() == [:text, :image, :pdf]
