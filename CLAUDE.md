@@ -19,6 +19,7 @@ See `context/design.md` for the full design document and `context/roadmap.md` fo
 ```bash
 mix compile              # Compile the project
 mix test                 # Run all tests
+mix test --include live  # Run all tests including live API tests (needs API keys)
 mix test path/to/test.exs           # Run a single test file
 mix test path/to/test.exs:42       # Run a specific test (line number)
 mix format               # Format all code
@@ -33,6 +34,7 @@ mix models.get           # Fetch model data from models.dev into priv/models/
 - **Req** (`~> 0.5`) — HTTP client (used for streaming requests to LLM APIs)
 - **Peri** (`~> 0.6`) — Schema-based validation (used for option validation)
 - **ExDoc** (dev only) — Documentation generation
+- **Plug** (test only) — Required for `Req.Test` plug-based mocking
 
 ## Architecture
 
@@ -67,15 +69,16 @@ lib/omni/
 ├── provider.ex                     # Provider behaviour + shared HTTP logic
 ├── providers/{anthropic,openai,...}.ex
 ├── dialect.ex                      # Dialect behaviour
-├── dialects/{anthropic_messages,openai_completions,...}.ex
-└── auth.ex                         # API key resolution (literal, {:system, env}, MFA)
+└── dialects/{anthropic_messages,openai_completions,...}.ex
 ```
 
 ## Conventions
 
 - All public API functions return `{:ok, result} | {:error, reason}` tuples.
 - Content blocks are separate structs under `Omni.Content` — pattern match on struct name, not a type field.
-- Providers use `use Omni.Provider, dialect: Module` — the macro generates `dialect/0`. Provider IDs are assigned in the application config, not on the module.
+- Providers use `use Omni.Provider, dialect: Module` — the macro generates `dialect/0` and defaults for all optional callbacks. Provider IDs are assigned in the application config, not on the module.
+- Provider `config/0` returns `%{base_url, auth_header, api_key, headers}`. The `api_key` value is a `resolve_auth/1` term — typically `{:system, "ENV_VAR"}`. The `auth_header` defaults to `"authorization"` when omitted.
+- API key resolution order (three-tier): explicit `:api_key` opt at call site → `config :omni, ProviderModule, api_key: ...` app config → provider's `config()` default. All three accept the same value types: literal string, `{:system, "ENV"}`, or `{Mod, :fun, args}` MFA tuple.
 - Tool modules use `use Omni.Tool, name: "string", description: "string"` — generates `new/0,1` constructors. Import `Omni.Schema` inside the `schema/0` callback (not at module level, not auto-imported by `use Omni.Tool`).
 - The term is "tool use", not "tool call" (aligns with Anthropic's API, used consistently throughout).
 - Attachment sources use tagged tuples: `{:base64, data}` or `{:url, url_string}`.
@@ -84,6 +87,17 @@ lib/omni/
 - `Tool.execute/2` validates and casts input via Peri before calling the handler. Peri maps string-keyed LLM input back to the key types in the schema, so handlers use `input.city` (atom access) when the schema uses atom keys. Direct handler calls bypass validation/casting.
 - Supported modalities are defined on `Omni.Model` (source of truth). Input: `:text`, `:image`, `:pdf`. Output: `:text`. The `Model.new/1` constructor filters modalities to the supported set (normalization). The mix task also filters and rejects models that lack text input.
 - `doc/` is ExDoc output (gitignored). `context/` contains project design documents for LLM context.
+
+## Testing
+
+Tests are organized in four layers, none of which require API keys except live tests:
+
+1. **Unit tests** — pure logic, no HTTP. SSE parser tests pass plain lists of binary chunks. Provider tests inspect `%Req.Request{}` structs without executing them.
+2. **Mocked integration tests** — use `Req.Test.stub/2` with a plug to simulate HTTP responses. The plug returns SSE fixture data; `Req.merge(req, plug: {Req.Test, :name})` injects it into a request built by `new_request/4`. This exercises the full path: request building → Req execution → SSE parsing.
+3. **Live tests** — tagged `@moduletag :live`, excluded by default. Run with `mix test --include live`. Require API keys via environment variables (e.g. `ANTHROPIC_API_KEY`). Use `direnv` with a `.envrc` file (gitignored).
+4. **Capture helper** — `Omni.Test.Capture.record/5` in `test/support/capture.ex` records real API responses as SSE fixture files. The `.sse` files in `test/support/fixtures/sse/` are committed so CI never needs API keys.
+
+`test/support/` is compiled in the test environment via `elixirc_paths`.
 
 ## Documentation
 
