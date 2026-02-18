@@ -37,20 +37,22 @@ The authenticated HTTP layer, model loading, and SSE parser. First phase with re
 
 ---
 
-## Phase 3 — Dialects + Composition
+## Phase 3 — Dialects + Composition ✓ (Anthropic)
 
-Dialect implementations and the Provider functions that compose across the dialect boundary. Dialects themselves are pure data transformation (no HTTP, no processes), but this phase also adds the composition layer that ties dialects to providers.
+Dialect behaviour, Anthropic Messages dialect, and the Provider composition functions. OpenAI and Google dialects deferred to Phase 3b.
 
-**Build:**
+**Done:**
 - Dialect behaviour (`option_schema/0`, `build_path/1`, `build_body/3`, `parse_event/1`)
-- Anthropic Messages dialect
+- Anthropic Messages dialect — full body building (messages, system as content block, tools, attachments with image/PDF type dispatch, cache control) and event parsing (all SSE event types, stop reason normalization)
+- `Provider.build_request/3` — composes dialect + provider into a `%Req.Request{}`
+- `Provider.parse_event/2` — composes `adapt_event/1` → dialect `parse_event/1`
+- Cache control support — `:short` / `:long` universal option, applied to system, last message content block, last tool
+- Unit, mocked integration, and live tests for the full pipeline
+
+**Remaining (Phase 3b):**
 - OpenAI Completions dialect
-- `Provider.build_request/3` — builds a `%Req.Request{}` from Omni types (model, context, opts) via dialect + provider, delegates to `new_request/4`
-- `Provider.parse_event/2` — composes `adapt_event/1` and dialect `parse_event/1` into normalised deltas
-
-**Test:** `build_body/3` — give it Model + Context + opts, assert output matches provider's expected JSON. `parse_event/1` — give it decoded JSON event maps (captured from phase 2 integration tests), assert correct delta tuples. `build_path/1` — trivial. `build_request/3` — assert the built `%Req.Request{}` has the correct URL, body, and auth for given Omni types. `parse_event/2` — assert full adapt + parse pipeline produces correct deltas. Dozens of pure unit tests per dialect.
-
-**Why after phase 2:** Real SSE event payloads from phase 2 integration tests become test fixtures for `parse_event/1`. Real native request bodies that worked in phase 2 become the reference for `build_body/3` output. Phase 2 gives ground truth that phase 3 builds against.
+- Google Gemini dialect
+- Implementing additional dialects will surface commonalities and resolve several open questions below
 
 ---
 
@@ -85,6 +87,24 @@ Wiring everything together. Mostly composition of tested parts.
 **Test:** End-to-end integration: `Omni.generate_text({:anthropic, "claude-sonnet-4-20250514"}, "Hello")` returns a proper `%Response{}`. Tool use round-trips. Streaming to console. Error cases (bad model, invalid options, auth failure, non-200 responses). Option validation error messages.
 
 **Why last:** Everything this phase calls already exists and is tested. The new logic is config merging, schema composition, and the orchestration pipeline — all relatively thin composition of tested parts.
+
+---
+
+## Open Questions
+
+To be resolved as we implement more providers/dialects (OpenAI, Google) and the top-level API:
+
+1. **Stateful vs stateless `parse_event`** — Currently `parse_event/1` is stateless. `content_block_stop` emits generic `:content_block_end` because the dialect doesn't know which block type was at that index. StreamingResponse resolves this during accumulation. Alternative: `parse_event/2` with an accumulator threaded via `Stream.transform`. Revisit after more providers — do they all have this ambiguity, or is it Anthropic-specific?
+
+2. **`build_body/3` return type** — Returns `{:ok, map()} | {:error, term()}` but no dialect currently validates or fails. Should it return a bare map? Depends on where validation ends up living.
+
+3. **Where does validation live?** — Options, content blocks, and media types all need validation. Candidates: top-level API boundary (Peri schemas in `stream_text`/`generate_text`), inside `build_body/3`, or both. Currently `encode_content/1` will crash on unsupported attachment media types (no catch-all clause) — this needs to be caught somewhere upstream.
+
+4. **Universal options location** — `max_tokens`, `temperature`, `cache`, `metadata`, and `thinking` are universal (apply to all providers). Where is the schema defined and how does it compose with dialect/provider schemas?
+
+5. **Thinking budgets** — How to handle extended thinking configuration (budget tokens, etc.) as a universal option. Needs research across providers.
+
+6. **Plain text attachment source** — Should `Attachment.source` support `{:text, content}` in addition to `{:base64, data}` and `{:url, url}`? Depends on whether other providers support plain text document sources.
 
 ---
 

@@ -39,7 +39,7 @@ defmodule Omni.Provider do
   - `new_request/4` — builds an authenticated `%Req.Request{}` for streaming
   """
 
-  alias Omni.Model
+  alias Omni.{Context, Model}
 
   @doc "Returns the provider's base configuration map."
   @callback config() :: map()
@@ -167,6 +167,38 @@ defmodule Omni.Provider do
       end)
 
     provider.authenticate(req, auth_opts)
+  end
+
+  @doc """
+  Builds an authenticated `%Req.Request{}` from Omni types.
+
+  Composes the dialect and provider layers: the dialect builds the path and body
+  from the model, context, and options; the provider adapts the body and builds
+  the final authenticated request.
+  """
+  @spec build_request(Model.t(), Context.t(), keyword()) ::
+          {:ok, Req.Request.t()} | {:error, term()}
+  def build_request(%Model{} = model, %Context{} = context, opts \\ []) do
+    dialect = model.dialect
+
+    with {:ok, body} <- dialect.build_body(model, context, opts) do
+      path = dialect.build_path(model)
+      body = model.provider.adapt_body(body, opts)
+      new_request(model.provider, path, body, opts)
+    end
+  end
+
+  @doc """
+  Parses a raw SSE event map through the provider and dialect layers.
+
+  The provider's `adapt_event/1` is applied first, then the dialect's
+  `parse_event/1` transforms the event into a delta tuple (or nil).
+  """
+  @spec parse_event(module(), map()) :: {atom(), map()} | nil
+  def parse_event(provider, raw_event) do
+    raw_event
+    |> provider.adapt_event()
+    |> provider.dialect().parse_event()
   end
 
   defp apply_headers(req, nil), do: req

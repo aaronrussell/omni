@@ -5,6 +5,22 @@ defmodule Omni.ProviderTest do
 
   defmodule DummyDialect do
     @moduledoc false
+    @behaviour Omni.Dialect
+
+    @impl true
+    def option_schema, do: %{}
+
+    @impl true
+    def build_path(_model), do: "/v1/dummy"
+
+    @impl true
+    def build_body(model, _context, opts) do
+      {:ok, %{"model" => model.id, "max_tokens" => Keyword.get(opts, :max_tokens, 1024)}}
+    end
+
+    @impl true
+    def parse_event(%{"type" => "message_start"}), do: {:start, %{}}
+    def parse_event(_), do: nil
   end
 
   defmodule TestProvider do
@@ -206,6 +222,86 @@ defmodule Omni.ProviderTest do
         Provider.new_request(TestProvider, "/v1/chat", %{}, api_key: "sk-test")
 
       assert req.into == :self
+    end
+  end
+
+  describe "build_request/3" do
+    setup do
+      model =
+        Omni.Model.new(
+          id: "test-model",
+          name: "Test Model",
+          provider: TestProvider,
+          dialect: DummyDialect,
+          max_output_tokens: 2048
+        )
+
+      %{model: model}
+    end
+
+    test "returns {:ok, %Req.Request{}} with correct URL and body", %{model: model} do
+      context = Omni.Context.new("Hello")
+
+      {:ok, req} = Provider.build_request(model, context, api_key: "sk-test")
+
+      assert %Req.Request{} = req
+      assert URI.to_string(req.url) == "https://api.test.com/v1/dummy"
+      assert req.options.json["model"] == "test-model"
+    end
+
+    test "build_body/3 error propagates", %{model: model} do
+      defmodule FailDialect do
+        @moduledoc false
+        @behaviour Omni.Dialect
+
+        def option_schema, do: %{}
+        def build_path(_model), do: "/v1/fail"
+        def build_body(_model, _context, _opts), do: {:error, :bad_body}
+        def parse_event(_event), do: nil
+      end
+
+      model = %{model | dialect: FailDialect}
+      context = Omni.Context.new("Hello")
+
+      assert {:error, :bad_body} = Provider.build_request(model, context, api_key: "sk-test")
+    end
+
+    test "adapt_body/2 is applied to dialect output", %{model: model} do
+      defmodule AdaptProvider do
+        use Omni.Provider, dialect: Omni.ProviderTest.DummyDialect
+
+        @impl true
+        def config do
+          %{
+            base_url: "https://api.test.com",
+            api_key: {:system, "TEST_PROVIDER_KEY"}
+          }
+        end
+
+        @impl true
+        def adapt_body(body, _opts) do
+          Map.put(body, "adapted", true)
+        end
+      end
+
+      model = %{model | provider: AdaptProvider}
+      context = Omni.Context.new("Hello")
+
+      {:ok, req} = Provider.build_request(model, context, api_key: "sk-test")
+
+      assert req.options.json["adapted"] == true
+    end
+  end
+
+  describe "parse_event/2" do
+    test "pipes through adapt_event then dialect parse_event" do
+      event = %{"type" => "message_start"}
+      assert {:start, %{}} = Provider.parse_event(TestProvider, event)
+    end
+
+    test "returns nil for skippable events" do
+      event = %{"type" => "ping"}
+      assert nil == Provider.parse_event(TestProvider, event)
     end
   end
 end
