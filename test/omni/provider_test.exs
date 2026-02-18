@@ -11,7 +11,14 @@ defmodule Omni.ProviderTest do
     use Omni.Provider, dialect: Omni.ProviderTest.DummyDialect
 
     @impl true
-    def config, do: %{base_url: "https://api.test.com", auth_header: "authorization"}
+    def config do
+      %{
+        base_url: "https://api.test.com",
+        auth_header: "authorization",
+        api_key: {:system, "TEST_PROVIDER_KEY"},
+        headers: %{"x-custom" => "from-config"}
+      }
+    end
   end
 
   @fixture_path Path.expand("../support/fixtures/test_models.json", __DIR__)
@@ -133,10 +140,72 @@ defmodule Omni.ProviderTest do
     end
   end
 
-  describe "stream/4" do
-    test "returns {:error, :not_implemented}" do
-      assert {:error, :not_implemented} =
-               Provider.stream(TestProvider, "/v1/messages", %{}, [])
+  describe "new_request/4" do
+    test "returns {:ok, %Req.Request{}} with correct URL, method, and body" do
+      {:ok, req} =
+        Provider.new_request(TestProvider, "/v1/chat", %{"model" => "test"}, api_key: "sk-test")
+
+      assert req.method == :post
+      assert URI.to_string(req.url) == "https://api.test.com/v1/chat"
+      assert req.options.json == %{"model" => "test"}
+    end
+
+    test "applies config headers" do
+      {:ok, req} =
+        Provider.new_request(TestProvider, "/v1/chat", %{}, api_key: "sk-test")
+
+      assert Req.Request.get_header(req, "x-custom") == ["from-config"]
+    end
+
+    test "applies authentication header" do
+      {:ok, req} =
+        Provider.new_request(TestProvider, "/v1/chat", %{}, api_key: "sk-test")
+
+      assert Req.Request.get_header(req, "authorization") == ["sk-test"]
+    end
+
+    test "base_url override via opts" do
+      {:ok, req} =
+        Provider.new_request(TestProvider, "/v1/chat", %{},
+          api_key: "sk-test",
+          base_url: "https://custom.api.com"
+        )
+
+      assert URI.to_string(req.url) == "https://custom.api.com/v1/chat"
+    end
+
+    test "api_key falls back to provider config default" do
+      System.put_env("TEST_PROVIDER_KEY", "from-env")
+
+      {:ok, req} = Provider.new_request(TestProvider, "/v1/chat", %{})
+
+      assert Req.Request.get_header(req, "authorization") == ["from-env"]
+    after
+      System.delete_env("TEST_PROVIDER_KEY")
+    end
+
+    test "api_key falls back to app config before provider config" do
+      Application.put_env(:omni, TestProvider, api_key: "from-app-config")
+
+      {:ok, req} = Provider.new_request(TestProvider, "/v1/chat", %{})
+
+      assert Req.Request.get_header(req, "authorization") == ["from-app-config"]
+    after
+      Application.delete_env(:omni, TestProvider)
+    end
+
+    test "error propagation from authenticate/2 when api_key is missing" do
+      System.delete_env("TEST_PROVIDER_KEY")
+
+      assert {:error, {:missing_env_var, "TEST_PROVIDER_KEY"}} =
+               Provider.new_request(TestProvider, "/v1/chat", %{})
+    end
+
+    test "sets into: :self for streaming" do
+      {:ok, req} =
+        Provider.new_request(TestProvider, "/v1/chat", %{}, api_key: "sk-test")
+
+      assert req.into == :self
     end
   end
 end

@@ -24,3 +24,7 @@ omni-*.tar
 
 # Ignore local claude settings
 /.claude/settings.local.json
+
+# Environment variables
+.env
+.envrc

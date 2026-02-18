@@ -19,7 +19,7 @@ defmodule Omni.Provider do
           %{
             base_url: "https://api.anthropic.com",
             auth_header: "x-api-key",
-            auth_default: {:system, "ANTHROPIC_API_KEY"}
+            api_key: {:system, "ANTHROPIC_API_KEY"}
           }
         end
 
@@ -36,7 +36,7 @@ defmodule Omni.Provider do
 
   - `load_models/2` — reads a JSON data file and builds `%Model{}` structs
   - `resolve_auth/1` — resolves API key values (literal, env var, MFA)
-  - `stream/4` — makes an authenticated streaming HTTP request (stub)
+  - `new_request/4` — builds an authenticated `%Req.Request{}` for streaming
   """
 
   alias Omni.Model
@@ -133,15 +133,46 @@ defmodule Omni.Provider do
   end
 
   @doc """
-  Makes an authenticated streaming HTTP request to a provider.
+  Builds an authenticated `%Req.Request{}` for a streaming HTTP request.
 
   Takes a provider module, a URL path, a request body map, and options.
-  Currently returns `{:error, :not_implemented}` — full implementation
-  will be added when the streaming infrastructure is built.
+  Returns the built request without executing it — the caller runs
+  `Req.request/1` on the result.
+
+  ## Options
+
+  - `:base_url` — override the provider's default base URL
+  - `:api_key` — API key (falls back to app config, then the provider's default)
+  - `:headers` — extra headers to merge (override config headers)
   """
-  @spec stream(module(), String.t(), map(), keyword()) :: {:error, :not_implemented}
-  def stream(_provider, _path, _body, _opts \\ []) do
-    {:error, :not_implemented}
+  @spec new_request(module(), String.t(), map(), keyword()) ::
+          {:ok, Req.Request.t()} | {:error, term()}
+  def new_request(provider, path, body, opts \\ []) do
+    config = provider.config()
+    base_url = Keyword.get(opts, :base_url, config[:base_url])
+    url = provider.build_url(base_url, path)
+
+    req =
+      Req.new(method: :post, url: url, json: body, into: :self)
+      |> apply_headers(config[:headers])
+      |> apply_headers(Keyword.get(opts, :headers))
+
+    app_config = Application.get_env(:omni, provider, [])
+
+    auth_opts =
+      opts
+      |> Keyword.put_new(:auth_header, config[:auth_header] || "authorization")
+      |> Keyword.put_new_lazy(:api_key, fn ->
+        Keyword.get(app_config, :api_key, config[:api_key])
+      end)
+
+    provider.authenticate(req, auth_opts)
+  end
+
+  defp apply_headers(req, nil), do: req
+
+  defp apply_headers(req, headers) when is_map(headers) do
+    Enum.reduce(headers, req, fn {k, v}, acc -> Req.Request.put_header(acc, k, v) end)
   end
 
   defmacro __using__(opts) do
