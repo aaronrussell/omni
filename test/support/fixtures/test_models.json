@@ -1,0 +1,41 @@
+[
+  {
+    "id": "test-model-small",
+    "name": "Test Model Small",
+    "reasoning": false,
+    "input_modalities": ["text"],
+    "output_modalities": ["text"],
+    "input_cost": 0.5,
+    "output_cost": 1.5,
+    "cache_read_cost": 0.05,
+    "cache_write_cost": 0.5,
+    "context_size": 8192,
+    "max_output_tokens": 2048
+  },
+  {
+    "id": "test-model-large",
+    "name": "Test Model Large",
+    "reasoning": true,
+    "input_modalities": ["text", "image"],
+    "output_modalities": ["text"],
+    "input_cost": 3.0,
+    "output_cost": 15.0,
+    "cache_read_cost": 0.3,
+    "cache_write_cost": 3.75,
+    "context_size": 200000,
+    "max_output_tokens": 8192
+  },
+  {
+    "id": "test-model-multi",
+    "name": "Test Model Multi",
+    "reasoning": false,
+    "input_modalities": ["text", "image", "audio"],
+    "output_modalities": ["text", "audio"],
+    "input_cost": 5.0,
+    "output_cost": 20.0,
+    "cache_read_cost": 0.5,
+    "cache_write_cost": 5.0,
+    "context_size": 128000,
+    "max_output_tokens": 4096
+  }
+]

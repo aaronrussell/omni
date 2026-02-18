@@ -82,6 +82,7 @@ lib/omni/
 - Struct constructors (`new/1`) return bare structs and do not validate field values. Validation happens once at the API boundary (Peri schemas in the top-level `generate_text`/`stream_text` path). Constructors may normalize for convenience (e.g. string → `[%Text{}]`) but not reject bad data.
 - `Omni.Schema` builder functions preserve keys as-is — atom keys stay atoms, string keys stay strings. Do not stringify keys; JSON serialisation handles that on the wire. `Omni.Schema.to_peri/1` converts schemas to Peri for validation.
 - `Tool.execute/2` validates and casts input via Peri before calling the handler. Peri maps string-keyed LLM input back to the key types in the schema, so handlers use `input.city` (atom access) when the schema uses atom keys. Direct handler calls bypass validation/casting.
+- Supported modalities are defined on `Omni.Model` (source of truth). Input: `:text`, `:image`, `:pdf`. Output: `:text`. The `Model.new/1` constructor filters modalities to the supported set (normalization). The mix task also filters and rejects models that lack text input.
 - `doc/` is ExDoc output (gitignored). `context/` contains project design documents for LLM context.
 
 ## Documentation

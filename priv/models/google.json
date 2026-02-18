@@ -7,9 +7,7 @@
     "input_cost": 0.075,
     "input_modalities": [
       "text",
-      "image",
-      "audio",
-      "video"
+      "image"
     ],
     "max_output_tokens": 8192,
     "name": "Gemini 1.5 Flash",
@@ -27,9 +25,7 @@
     "input_cost": 0.0375,
     "input_modalities": [
       "text",
-      "image",
-      "audio",
-      "video"
+      "image"
     ],
     "max_output_tokens": 8192,
     "name": "Gemini 1.5 Flash-8B",
@@ -47,9 +43,7 @@
     "input_cost": 1.25,
     "input_modalities": [
       "text",
-      "image",
-      "audio",
-      "video"
+      "image"
     ],
     "max_output_tokens": 8192,
     "name": "Gemini 1.5 Pro",
@@ -68,8 +62,6 @@
     "input_modalities": [
       "text",
       "image",
-      "audio",
-      "video",
       "pdf"
     ],
     "max_output_tokens": 8192,
@@ -89,8 +81,6 @@
     "input_modalities": [
       "text",
       "image",
-      "audio",
-      "video",
       "pdf"
     ],
     "max_output_tokens": 8192,
@@ -110,8 +100,6 @@
     "input_modalities": [
       "text",
       "image",
-      "audio",
-      "video",
       "pdf"
     ],
     "max_output_tokens": 65536,
@@ -131,8 +119,6 @@
     "input_modalities": [
       "text",
       "image",
-      "audio",
-      "video",
       "pdf"
     ],
     "max_output_tokens": 65536,
@@ -152,8 +138,6 @@
     "input_modalities": [
       "text",
       "image",
-      "audio",
-      "video",
       "pdf"
     ],
     "max_output_tokens": 65536,
@@ -173,8 +157,6 @@
     "input_modalities": [
       "text",
       "image",
-      "audio",
-      "video",
       "pdf"
     ],
     "max_output_tokens": 65536,
@@ -194,8 +176,6 @@
     "input_modalities": [
       "text",
       "image",
-      "audio",
-      "video",
       "pdf"
     ],
     "max_output_tokens": 65536,
@@ -215,8 +195,6 @@
     "input_modalities": [
       "text",
       "image",
-      "audio",
-      "video",
       "pdf"
     ],
     "max_output_tokens": 65536,
@@ -236,8 +214,6 @@
     "input_modalities": [
       "text",
       "image",
-      "audio",
-      "video",
       "pdf"
     ],
     "max_output_tokens": 65536,
@@ -257,8 +233,6 @@
     "input_modalities": [
       "text",
       "image",
-      "audio",
-      "video",
       "pdf"
     ],
     "max_output_tokens": 65536,
@@ -278,8 +252,6 @@
     "input_modalities": [
       "text",
       "image",
-      "audio",
-      "video",
       "pdf"
     ],
     "max_output_tokens": 65536,
@@ -299,8 +271,6 @@
     "input_modalities": [
       "text",
       "image",
-      "audio",
-      "video",
       "pdf"
     ],
     "max_output_tokens": 65536,
@@ -320,8 +290,6 @@
     "input_modalities": [
       "text",
       "image",
-      "video",
-      "audio",
       "pdf"
     ],
     "max_output_tokens": 65536,
@@ -341,8 +309,6 @@
     "input_modalities": [
       "text",
       "image",
-      "video",
-      "audio",
       "pdf"
     ],
     "max_output_tokens": 64000,
@@ -362,8 +328,6 @@
     "input_modalities": [
       "text",
       "image",
-      "audio",
-      "video",
       "pdf"
     ],
     "max_output_tokens": 65536,
@@ -383,8 +347,6 @@
     "input_modalities": [
       "text",
       "image",
-      "audio",
-      "video",
       "pdf"
     ],
     "max_output_tokens": 65536,
@@ -403,16 +365,13 @@
     "input_cost": 0.5,
     "input_modalities": [
       "text",
-      "image",
-      "audio",
-      "video"
+      "image"
     ],
     "max_output_tokens": 8000,
     "name": "Gemini Live 2.5 Flash",
     "output_cost": 2,
     "output_modalities": [
-      "text",
-      "audio"
+      "text"
     ],
     "reasoning": true
   },
@@ -423,16 +382,13 @@
     "id": "gemini-live-2.5-flash-preview-native-audio",
     "input_cost": 0.5,
     "input_modalities": [
-      "text",
-      "audio",
-      "video"
+      "text"
     ],
     "max_output_tokens": 65536,
     "name": "Gemini Live 2.5 Flash Preview Native Audio",
     "output_cost": 2,
     "output_modalities": [
-      "text",
-      "audio"
+      "text"
     ],
     "reasoning": true
   }

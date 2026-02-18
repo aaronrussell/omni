@@ -70,5 +70,56 @@ defmodule Omni.ModelTest do
         Model.new(id: "test", name: "Test", provider: P, dialect: D, bogus: true)
       end
     end
+
+    test "filters unsupported input modalities" do
+      model =
+        Model.new(
+          id: "test",
+          name: "Test",
+          provider: P,
+          dialect: D,
+          input_modalities: [:text, :image, :audio, :video]
+        )
+
+      assert model.input_modalities == [:text, :image]
+    end
+
+    test "filters unsupported output modalities" do
+      model =
+        Model.new(
+          id: "test",
+          name: "Test",
+          provider: P,
+          dialect: D,
+          output_modalities: [:text, :audio]
+        )
+
+      assert model.output_modalities == [:text]
+    end
+
+    test "defaults to [:text] when all modalities are unsupported" do
+      model =
+        Model.new(
+          id: "test",
+          name: "Test",
+          provider: P,
+          dialect: D,
+          input_modalities: [:audio, :video]
+        )
+
+      assert model.input_modalities == [:text]
+    end
+  end
+
+  describe "supported_input_modalities/0" do
+    test "returns the supported input modalities" do
+      assert Model.supported_input_modalities() == [:text, :image, :pdf]
+    end
+  end
+
+  describe "supported_output_modalities/0" do
+    test "returns the supported output modalities" do
+      assert Model.supported_output_modalities() == [:text]
+    end
   end
 end

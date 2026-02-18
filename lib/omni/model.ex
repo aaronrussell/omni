@@ -8,6 +8,9 @@ defmodule Omni.Model do
   the struct self-contained for callback dispatch.
   """
 
+  @supported_input_modalities [:text, :image, :pdf]
+  @supported_output_modalities [:text]
+
   @enforce_keys [:id, :name, :provider, :dialect]
   defstruct [
     :id,
@@ -42,7 +45,31 @@ defmodule Omni.Model do
           cache_write_cost: number()
         }
 
+  @doc "Returns the list of input modalities Omni supports."
+  @spec supported_input_modalities() :: [atom()]
+  def supported_input_modalities, do: @supported_input_modalities
+
+  @doc "Returns the list of output modalities Omni supports."
+  @spec supported_output_modalities() :: [atom()]
+  def supported_output_modalities, do: @supported_output_modalities
+
   @doc "Creates a new model struct from a keyword list or map."
   @spec new(Enumerable.t()) :: t()
-  def new(attrs), do: struct!(__MODULE__, attrs)
+  def new(attrs) do
+    model = struct!(__MODULE__, attrs)
+
+    %{
+      model
+      | input_modalities: filter_modalities(model.input_modalities, @supported_input_modalities),
+        output_modalities:
+          filter_modalities(model.output_modalities, @supported_output_modalities)
+    }
+  end
+
+  defp filter_modalities(modalities, supported) do
+    case Enum.filter(modalities, &(&1 in supported)) do
+      [] -> [:text]
+      filtered -> filtered
+    end
+  end
 end
