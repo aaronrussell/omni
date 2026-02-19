@@ -23,5 +23,18 @@ defmodule Omni.ApplicationTest do
         assert id == model.id
       end
     end
+
+    test "openai models are loaded into :persistent_term" do
+      models = :persistent_term.get({Omni, :openai}, nil)
+
+      assert is_map(models)
+      assert map_size(models) > 0
+
+      for {id, model} <- models do
+        assert is_binary(id)
+        assert %Omni.Model{} = model
+        assert model.provider == Omni.Providers.OpenAI
+      end
+    end
   end
 end

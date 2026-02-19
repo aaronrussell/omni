@@ -3,7 +3,12 @@ defmodule Omni.Application do
 
   use Application
 
-  @default_providers [:anthropic]
+  @builtin_providers %{
+    anthropic: Omni.Providers.Anthropic,
+    openai: Omni.Providers.OpenAI
+  }
+
+  @default_providers [:anthropic, :openai]
 
   @impl true
   def start(_type, _args) do
@@ -23,13 +28,14 @@ defmodule Omni.Application do
   defp normalize_provider({_id, _mod} = pair), do: pair
 
   defp normalize_provider(id) when is_atom(id) do
-    module = Module.concat(Omni.Providers, id |> to_string() |> Macro.camelize())
+    case @builtin_providers[id] do
+      nil ->
+        raise ArgumentError,
+              "unknown built-in provider #{inspect(id)} — " <>
+                "use {id, module} for custom providers"
 
-    unless Code.ensure_loaded?(module) do
-      raise ArgumentError,
-            "unknown built-in provider #{inspect(id)} — module #{inspect(module)} does not exist"
+      module ->
+        {id, module}
     end
-
-    {id, module}
   end
 end
