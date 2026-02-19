@@ -29,7 +29,10 @@ defmodule Omni.SSE do
   end
 
   defp process_chunk(chunk, buffer) do
-    case extract_events(buffer <> chunk, []) do
+    # Normalize \r\n and bare \r to \n per the SSE spec
+    normalized = String.replace(buffer <> chunk, "\r\n", "\n") |> String.replace("\r", "\n")
+
+    case extract_events(normalized, []) do
       {:emit, events, new_buffer} -> {events, new_buffer}
       {:halt, events} -> {events, :halt}
     end

@@ -5,10 +5,11 @@ defmodule Omni.Application do
 
   @builtin_providers %{
     anthropic: Omni.Providers.Anthropic,
+    google: Omni.Providers.Google,
     openai: Omni.Providers.OpenAI
   }
 
-  @default_providers [:anthropic, :openai]
+  @default_providers [:anthropic, :google, :openai]
 
   @impl true
   def start(_type, _args) do

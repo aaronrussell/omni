@@ -9,4 +9,4 @@ https://platform.claude.com/docs/en/api/messages/create.md
 https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create/index.md
 
 ## Google Gemini
-https://ai.google.dev/api/caching.md.txt
+https://ai.google.dev/api/generate-content.md.txt

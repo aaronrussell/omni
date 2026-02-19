@@ -31,7 +31,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       {:ok, body} = OpenAICompletions.build_body(@model, context, [])
 
       assert body["model"] == "gpt-4.1-nano"
-      assert body["max_completion_tokens"] == 4096
+      refute Map.has_key?(body, "max_completion_tokens")
       assert body["stream"] == true
       assert body["stream_options"] == %{"include_usage" => true}
       assert length(body["messages"]) == 1

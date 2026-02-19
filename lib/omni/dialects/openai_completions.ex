@@ -11,8 +11,6 @@ defmodule Omni.Dialects.OpenAICompletions do
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Model}
 
-  @default_max_tokens 4096
-
   @image_media_types ~w(image/jpeg image/png image/gif image/webp)
 
   @impl true
@@ -27,10 +25,10 @@ defmodule Omni.Dialects.OpenAICompletions do
       %{
         "model" => model.id,
         "messages" => encode_messages(context.system, context.messages),
-        "max_completion_tokens" => Keyword.get(opts, :max_tokens, @default_max_tokens),
         "stream" => true,
         "stream_options" => %{"include_usage" => true}
       }
+      |> maybe_put("max_completion_tokens", Keyword.get(opts, :max_tokens))
       |> maybe_put("temperature", Keyword.get(opts, :temperature))
       |> maybe_put("metadata", Keyword.get(opts, :metadata))
       |> maybe_put_tools(context.tools)
