@@ -37,11 +37,10 @@ The authenticated HTTP layer, model loading, and SSE parser. First phase with re
 
 ---
 
-## Phase 3 — Dialects + Composition ✓ (Anthropic)
+## Phase 3a — Dialects + Composition ✓
 
-Dialect behaviour, Anthropic Messages dialect, and the Provider composition functions. OpenAI and Google dialects deferred to Phase 3b.
+Dialect behaviour, Anthropic Messages dialect, and the Provider composition functions.
 
-**Done:**
 - Dialect behaviour (`option_schema/0`, `build_path/1`, `build_body/3`, `parse_event/1`)
 - Anthropic Messages dialect — full body building (messages, system as content block, tools, attachments with image/PDF type dispatch, cache control) and event parsing (all SSE event types, stop reason normalization)
 - `Provider.build_request/3` — composes dialect + provider into a `%Req.Request{}`
@@ -49,10 +48,84 @@ Dialect behaviour, Anthropic Messages dialect, and the Provider composition func
 - Cache control support — `:short` / `:long` universal option, applied to system, last message content block, last tool
 - Unit, mocked integration, and live tests for the full pipeline
 
-**Remaining (Phase 3b):**
-- OpenAI Completions dialect
+## Phase 3b — Additional Dialects ✓
+
+- OpenAI Completions dialect (now used by OpenRouter)
+- OpenAI Responses dialect (used by OpenAI provider)
 - Google Gemini dialect
-- Implementing additional dialects will surface commonalities and resolve several open questions below
+- OpenRouter provider (Completions-based meta-provider)
+- Fixed Completions `parse_event` clause ordering (OpenRouter sends `role` on every chunk)
+
+## Phase 3c — Normalize Dialect Events
+
+Simplify and normalize the dialect event contract before building StreamingResponse. The goal is a minimal, consistent set of delta tuples that all dialects emit, with StreamingResponse responsible for expanding them into the rich consumer-facing event vocabulary.
+
+### 1. Refactor `parse_event` to return lists
+
+Change `Dialect.parse_event/1` and `Provider.parse_event/2` from returning `{atom, map} | nil` to returning `[{atom, map}]`. This solves two problems:
+
+- No more nils leaking through the pipeline requiring `Stream.reject` — empty list means "skip"
+- Providers that bundle multiple signals in one SSE event (Google bundles text + finishReason + usage in every event) can emit multiple logical events from a single parse
+
+Callers change from `Stream.map |> Stream.reject(&is_nil/1)` to `Stream.flat_map`. Mechanical refactor touching all dialects, `Provider.parse_event/2`, and all integration tests.
+
+### 2. New delta format
+
+Replace the current type-specific delta vocabulary with a minimal set of generic events:
+
+```elixir
+{:message, %{model: _, usage: _, stop_reason: _}}  # envelope/metadata accumulator
+{:block_start, %{type: _, index: _, ...}}           # content block begins (carries id/name for tool_use)
+{:block_delta, %{type: _, index: _, delta: _}}      # content fragment
+{:error, %{reason: _}}                              # mid-stream error
+```
+
+**`:message`** — carries envelope metadata. May appear multiple times (start, middle, end) with partial data. StreamingResponse merges all `:message` maps into the response envelope. This naturally handles: usage bundled in done (Anthropic, Responses), usage as separate event (Completions), usage on every event (Google), model ID at start, stop_reason at end.
+
+**`:block_start`** — begins a content block. Type is `:text`, `:tool_use`, or `:thinking`. For `:tool_use`, also carries `:id` and `:name`. Optional for `:text` and `:thinking` — StreamingResponse creates the block implicitly on first `:block_delta` if no explicit start was received.
+
+**`:block_delta`** — content fragment. Type + index together identify the block. StreamingResponse accumulates: text concatenation for text/thinking, JSON fragment joining for tool_use.
+
+**No `:stop` event** — stream termination is the transport signal. The presence of `stop_reason` in accumulated `:message` data tells StreamingResponse the model finished intentionally.
+
+**No `_end` events** — StreamingResponse synthesizes block completion from stream termination. Consumer-facing `_end` events (`:text_end`, `:tool_use_end`, etc.) are emitted by StreamingResponse, not by dialects.
+
+### 3. Thinking/reasoning option
+
+Design and implement the `thinking` option across all dialects. Research needed for each provider's thinking/reasoning config:
+
+- **Anthropic**: `thinking` config with `budget_tokens` — emits `thinking` content blocks
+- **OpenAI Responses**: `reasoning` config with `summary` option — emits `response.reasoning_summary_text.delta` events
+- **OpenAI Completions** (via OpenRouter): reasoning models include `reasoning`/`reasoning_details` in delta chunks
+- **Google**: `thinkingConfig` with `thinkingBudget` — emits `thought` parts in content
+
+Goal: unified `thinking` option (on/off or budget) that each dialect translates to its provider-specific config.
+
+### 4. Fix Google Gemini event parsing
+
+Google sends `modelVersion` and `usageMetadata` in every SSE event, and `finishReason` in the final event. Currently the dialect only emits `:text_delta` and drops the rest (model, usage, finish info). With the list return + new delta format, every Google event can emit `[{:message, %{...}}, {:block_delta, %{...}}]`, capturing all available data.
+
+### 5. Expand live tests
+
+Expand dialect live tests to cover three scenarios each, inspecting the actual delta tuples:
+
+- **Simple text generation** (already done for all dialects)
+- **Tool calling** — verify `:block_start` with tool id/name, `:block_delta` with JSON fragments, `:message` with `:tool_use` stop reason
+- **Thinking/reasoning** — verify `:block_delta` with thinking content (requires thinking option from step 3)
+
+This validates real API data against the normalized event contract and confirms StreamingResponse will have everything it needs (usage, stop reason, content) across all providers.
+
+### Index semantics note
+
+Anthropic uses global content block indices (text at 0, tool_use at 1). OpenAI uses per-type index namespaces (output_index for items, content_index for text within items). Dialects should emit indices as-is from their wire format. StreamingResponse identifies blocks by the `{type, index}` pair, so per-type indexing works naturally. The important thing is that within a single response, each `{type, index}` pair maps to exactly one content block.
+
+### Suggested order
+
+1. `parse_event` returns lists (mechanical, unblocks everything)
+2. New delta format (refactor all `parse_event` implementations)
+3. Fix Google event parsing (now possible with lists + new format)
+4. Thinking option design + implementation
+5. Expanded live tests (validates everything end-to-end)
 
 ---
 
@@ -92,19 +165,13 @@ Wiring everything together. Mostly composition of tested parts.
 
 ## Open Questions
 
-To be resolved as we implement more providers/dialects (OpenAI, Google) and the top-level API:
+1. **`build_body/3` return type** — Returns `{:ok, map()} | {:error, term()}` but no dialect currently validates or fails. Should it return a bare map? Depends on where validation ends up living. Defer to Phase 5 (`stream_text` orchestration).
 
-1. **Stateful vs stateless `parse_event`** — Currently `parse_event/1` is stateless. `content_block_stop` emits generic `:content_block_end` because the dialect doesn't know which block type was at that index. StreamingResponse resolves this during accumulation. Alternative: `parse_event/2` with an accumulator threaded via `Stream.transform`. Revisit after more providers — do they all have this ambiguity, or is it Anthropic-specific?
+2. **Where does validation live?** — Options, content blocks, and media types all need validation. Candidates: top-level API boundary (Peri schemas in `stream_text`/`generate_text`), inside `build_body/3`, or both. Currently `encode_content/1` will crash on unsupported attachment media types (no catch-all clause). Defer to Phase 5.
 
-2. **`build_body/3` return type** — Returns `{:ok, map()} | {:error, term()}` but no dialect currently validates or fails. Should it return a bare map? Depends on where validation ends up living.
+3. **Universal options location** — `max_tokens`, `temperature`, `cache`, `metadata`, and `thinking` are universal (apply to all providers). Where is the schema defined and how does it compose with dialect/provider schemas? Defer to Phase 5.
 
-3. **Where does validation live?** — Options, content blocks, and media types all need validation. Candidates: top-level API boundary (Peri schemas in `stream_text`/`generate_text`), inside `build_body/3`, or both. Currently `encode_content/1` will crash on unsupported attachment media types (no catch-all clause) — this needs to be caught somewhere upstream.
-
-4. **Universal options location** — `max_tokens`, `temperature`, `cache`, `metadata`, and `thinking` are universal (apply to all providers). Where is the schema defined and how does it compose with dialect/provider schemas?
-
-5. **Thinking budgets** — How to handle extended thinking configuration (budget tokens, etc.) as a universal option. Needs research across providers.
-
-6. **Plain text attachment source** — Should `Attachment.source` support `{:text, content}` in addition to `{:base64, data}` and `{:url, url}`? Depends on whether other providers support plain text document sources.
+4. **Plain text attachment source** — Should `Attachment.source` support `{:text, content}` in addition to `{:base64, data}` and `{:url, url}`? Wait to see if multiple providers support it.
 
 ---
 
@@ -113,8 +180,7 @@ To be resolved as we implement more providers/dialects (OpenAI, Google) and the 
 Not part of initial implementation, but noted in the design:
 
 - **~~Mix task for models.dev import~~** — done (`mix models.get`).
-- **Additional providers** — Groq, Together, Fireworks, OpenRouter, Bedrock, Azure, Vertex AI. Each is a small module once the infrastructure exists.
-- **Additional dialects** — Google Gemini, OpenAI Responses. Add as needed.
+- **Additional providers** — Groq, Together, Fireworks, Bedrock, Azure, Vertex AI. Each is a small module once the infrastructure exists.
 - **Option schema composition** — exact merging strategy for Peri schemas (open question in design doc, resolve during phase 5).
 - **~~`raw: true` plumbing~~** — resolved. Separating request building from execution means both `%Req.Request{}` and `%Req.Response{}` are naturally available. `StreamingResponse` holds them when `raw: true` is passed.
 - **Automated tool calling loop** — distinct functions that loop over single-request primitives.
