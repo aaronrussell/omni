@@ -306,6 +306,89 @@ defmodule Omni.Dialects.GoogleGeminiTest do
     end
   end
 
+  describe "build_body/3 thinking" do
+    @reasoning_model Model.new(
+                       id: "gemini-2.5-flash-preview",
+                       name: "Gemini 2.5 Flash Preview",
+                       provider: Omni.Providers.Google,
+                       dialect: GoogleGemini,
+                       max_output_tokens: 8192,
+                       reasoning: true
+                     )
+
+    test "thinking: true sets thinkingConfig with high level" do
+      context = Context.new("Hello")
+      {:ok, body} = GoogleGemini.build_body(@reasoning_model, context, thinking: true)
+
+      assert body["thinkingConfig"] == %{
+               "thinkingLevel" => "high",
+               "includeThoughts" => true
+             }
+    end
+
+    test "thinkingConfig is top-level, not inside generationConfig" do
+      context = Context.new("Hello")
+      {:ok, body} = GoogleGemini.build_body(@reasoning_model, context, thinking: true)
+
+      assert Map.has_key?(body, "thinkingConfig")
+      refute Map.has_key?(body["generationConfig"], "thinkingConfig")
+    end
+
+    test "effort levels map correctly, :max caps to high" do
+      context = Context.new("Hello")
+
+      for {level, expected} <- [low: "low", medium: "medium", high: "high", max: "high"] do
+        {:ok, body} = GoogleGemini.build_body(@reasoning_model, context, thinking: level)
+
+        assert body["thinkingConfig"]["thinkingLevel"] == expected,
+               "expected #{expected} for level #{level}"
+
+        assert body["thinkingConfig"]["includeThoughts"] == true
+      end
+    end
+
+    test "explicit budget sets thinkingBudget instead of thinkingLevel" do
+      context = Context.new("Hello")
+
+      {:ok, body} =
+        GoogleGemini.build_body(@reasoning_model, context,
+          thinking: [effort: :high, budget: 8192]
+        )
+
+      assert body["thinkingConfig"]["thinkingBudget"] == 8192
+      assert body["thinkingConfig"]["includeThoughts"] == true
+      refute Map.has_key?(body["thinkingConfig"], "thinkingLevel")
+    end
+
+    test "thinking: false is no-op" do
+      context = Context.new("Hello")
+      {:ok, body} = GoogleGemini.build_body(@reasoning_model, context, thinking: false)
+
+      refute Map.has_key?(body, "thinkingConfig")
+    end
+
+    test "thinking: :none is no-op" do
+      context = Context.new("Hello")
+      {:ok, body} = GoogleGemini.build_body(@reasoning_model, context, thinking: :none)
+
+      refute Map.has_key?(body, "thinkingConfig")
+    end
+
+    test "non-reasoning model ignores thinking option" do
+      context = Context.new("Hello")
+      {:ok, body} = GoogleGemini.build_body(@model, context, thinking: :high)
+
+      refute Map.has_key?(body, "thinkingConfig")
+    end
+
+    test "nil thinking is no-op" do
+      context = Context.new("Hello")
+      {:ok, body} = GoogleGemini.build_body(@reasoning_model, context, [])
+
+      refute Map.has_key?(body, "thinkingConfig")
+    end
+  end
+
   describe "parse_event/1" do
     test "text content emits message with usage and block_delta" do
       event = %{
@@ -492,6 +575,45 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       }
 
       assert [{:message, %{stop_reason: :stop}}] = GoogleGemini.parse_event(event)
+    end
+
+    test "thought part emits thinking block_delta" do
+      event = %{
+        "candidates" => [
+          %{
+            "content" => %{
+              "parts" => [%{"text" => "Let me reason...", "thought" => true}],
+              "role" => "model"
+            },
+            "index" => 0
+          }
+        ]
+      }
+
+      assert [{:block_delta, %{type: :thinking, index: 0, delta: "Let me reason..."}}] =
+               GoogleGemini.parse_event(event)
+    end
+
+    test "thought and text parts in same event emit both types" do
+      event = %{
+        "candidates" => [
+          %{
+            "content" => %{
+              "parts" => [
+                %{"text" => "Thinking...", "thought" => true},
+                %{"text" => "Answer here"}
+              ],
+              "role" => "model"
+            },
+            "index" => 0
+          }
+        ]
+      }
+
+      assert [
+               {:block_delta, %{type: :thinking, delta: "Thinking..."}},
+               {:block_delta, %{type: :text, delta: "Answer here"}}
+             ] = GoogleGemini.parse_event(event)
     end
 
     test "modelVersion is extracted into message" do

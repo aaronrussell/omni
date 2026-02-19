@@ -23,6 +23,17 @@ defmodule Omni.Providers.OpenRouter do
   end
 
   @impl true
+  def adapt_body(%{"reasoning_effort" => effort} = body, _opts) do
+    mapped = if effort == "max", do: "xhigh", else: effort
+
+    body
+    |> Map.delete("reasoning_effort")
+    |> Map.put("reasoning", %{"effort" => mapped})
+  end
+
+  def adapt_body(body, _opts), do: body
+
+  @impl true
   def authenticate(req, opts) do
     with {:ok, key} <- Omni.Provider.resolve_auth(Keyword.get(opts, :api_key)) do
       {:ok, Req.Request.put_header(req, "authorization", "Bearer #{key}")}

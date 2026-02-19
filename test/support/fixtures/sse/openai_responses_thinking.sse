@@ -1,0 +1,32 @@
+data: {"type":"response.created","response":{"id":"resp_test_thinking","object":"response","status":"in_progress","model":"o3-mini","output":[],"usage":null}}
+
+data: {"type":"response.output_item.added","output_index":0,"item":{"type":"reasoning","id":"rs_001","summary":[]}}
+
+data: {"type":"response.reasoning_summary_part.added","output_index":0,"summary_index":0,"part":{"type":"summary_text","text":""}}
+
+data: {"type":"response.reasoning_summary_text.delta","output_index":0,"summary_index":0,"delta":"Let me think"}
+
+data: {"type":"response.reasoning_summary_text.delta","output_index":0,"summary_index":0,"delta":" about this."}
+
+data: {"type":"response.reasoning_summary_text.done","output_index":0,"summary_index":0,"text":"Let me think about this."}
+
+data: {"type":"response.reasoning_summary_part.done","output_index":0,"summary_index":0,"part":{"type":"summary_text","text":"Let me think about this."}}
+
+data: {"type":"response.output_item.done","output_index":0,"item":{"type":"reasoning","id":"rs_001","summary":[{"type":"summary_text","text":"Let me think about this."}]}}
+
+data: {"type":"response.output_item.added","output_index":1,"item":{"type":"message","id":"msg_001","role":"assistant","content":[]}}
+
+data: {"type":"response.content_part.added","output_index":1,"content_index":0,"part":{"type":"output_text","text":""}}
+
+data: {"type":"response.output_text.delta","output_index":1,"content_index":0,"delta":"Hello"}
+
+data: {"type":"response.output_text.delta","output_index":1,"content_index":0,"delta":"!"}
+
+data: {"type":"response.output_text.done","output_index":1,"content_index":0,"text":"Hello!"}
+
+data: {"type":"response.content_part.done","output_index":1,"content_index":0,"part":{"type":"output_text","text":"Hello!"}}
+
+data: {"type":"response.output_item.done","output_index":1,"item":{"type":"message","id":"msg_001","role":"assistant","content":[{"type":"output_text","text":"Hello!"}]}}
+
+data: {"type":"response.completed","response":{"id":"resp_test_thinking","object":"response","status":"completed","model":"o3-mini","output":[{"type":"reasoning","id":"rs_001","summary":[{"type":"summary_text","text":"Let me think about this."}]},{"type":"message","id":"msg_001","role":"assistant","content":[{"type":"output_text","text":"Hello!"}]}],"usage":{"input_tokens":15,"output_tokens":30,"total_tokens":45}}}
+

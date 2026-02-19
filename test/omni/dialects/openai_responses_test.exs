@@ -366,6 +366,77 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
     end
   end
 
+  describe "build_body/3 thinking" do
+    @reasoning_model Model.new(
+                       id: "o3-mini",
+                       name: "o3-mini",
+                       provider: Omni.Providers.OpenAI,
+                       dialect: OpenAIResponses,
+                       max_output_tokens: 32768,
+                       reasoning: true
+                     )
+
+    test "thinking: true sets reasoning with high effort and summary auto" do
+      context = Context.new("Hello")
+      {:ok, body} = OpenAIResponses.build_body(@reasoning_model, context, thinking: true)
+
+      assert body["reasoning"] == %{"effort" => "high", "summary" => "auto"}
+    end
+
+    test "effort levels map correctly, :max caps to high" do
+      context = Context.new("Hello")
+
+      for {level, expected} <- [low: "low", medium: "medium", high: "high", max: "high"] do
+        {:ok, body} = OpenAIResponses.build_body(@reasoning_model, context, thinking: level)
+
+        assert body["reasoning"]["effort"] == expected,
+               "expected #{expected} for level #{level}"
+
+        assert body["reasoning"]["summary"] == "auto"
+      end
+    end
+
+    test "budget is ignored" do
+      context = Context.new("Hello")
+
+      {:ok, body} =
+        OpenAIResponses.build_body(@reasoning_model, context,
+          thinking: [effort: :medium, budget: 10_000]
+        )
+
+      assert body["reasoning"]["effort"] == "medium"
+      refute Map.has_key?(body["reasoning"], "budget")
+    end
+
+    test "thinking: false is no-op" do
+      context = Context.new("Hello")
+      {:ok, body} = OpenAIResponses.build_body(@reasoning_model, context, thinking: false)
+
+      refute Map.has_key?(body, "reasoning")
+    end
+
+    test "thinking: :none is no-op" do
+      context = Context.new("Hello")
+      {:ok, body} = OpenAIResponses.build_body(@reasoning_model, context, thinking: :none)
+
+      refute Map.has_key?(body, "reasoning")
+    end
+
+    test "non-reasoning model ignores thinking option" do
+      context = Context.new("Hello")
+      {:ok, body} = OpenAIResponses.build_body(@model, context, thinking: :high)
+
+      refute Map.has_key?(body, "reasoning")
+    end
+
+    test "nil thinking is no-op" do
+      context = Context.new("Hello")
+      {:ok, body} = OpenAIResponses.build_body(@reasoning_model, context, [])
+
+      refute Map.has_key?(body, "reasoning")
+    end
+  end
+
   describe "parse_event/1" do
     test "response.created returns message with model" do
       event = %{

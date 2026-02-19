@@ -33,6 +33,7 @@ defmodule Omni.Dialects.OpenAIResponses do
       |> maybe_put("metadata", Keyword.get(opts, :metadata))
       |> maybe_put_tools(context.tools)
       |> maybe_put_cache(Keyword.get(opts, :cache))
+      |> maybe_put_thinking(model, Keyword.get(opts, :thinking))
 
     {:ok, body}
   end
@@ -81,6 +82,37 @@ defmodule Omni.Dialects.OpenAIResponses do
   end
 
   def parse_event(_), do: []
+
+  # Thinking
+
+  defp maybe_put_thinking(body, _model, nil), do: body
+  defp maybe_put_thinking(body, _model, false), do: body
+  defp maybe_put_thinking(body, _model, :none), do: body
+  defp maybe_put_thinking(body, %Model{reasoning: false}, _thinking), do: body
+
+  defp maybe_put_thinking(body, _model, thinking) do
+    case normalize_thinking(thinking) do
+      {:effort, level} ->
+        effort = effort_string(level)
+        Map.put(body, "reasoning", %{"effort" => effort, "summary" => "auto"})
+
+      {:effort, level, _budget} ->
+        effort = effort_string(level)
+        Map.put(body, "reasoning", %{"effort" => effort, "summary" => "auto"})
+    end
+  end
+
+  defp effort_string(:low), do: "low"
+  defp effort_string(:medium), do: "medium"
+  defp effort_string(:high), do: "high"
+  defp effort_string(:max), do: "high"
+
+  defp normalize_thinking(true), do: {:effort, :high}
+  defp normalize_thinking(level) when level in [:low, :medium, :high, :max], do: {:effort, level}
+
+  defp normalize_thinking(opts) when is_list(opts) do
+    {:effort, Keyword.get(opts, :effort, :high), Keyword.get(opts, :budget)}
+  end
 
   # Input encoding — flat-maps messages into a mixed array
 

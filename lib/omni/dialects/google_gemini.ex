@@ -38,7 +38,7 @@ defmodule Omni.Dialects.GoogleGemini do
   end
 
   @impl true
-  def build_body(%Model{}, %Context{} = context, opts) do
+  def build_body(%Model{} = model, %Context{} = context, opts) do
     body =
       %{
         "contents" => encode_messages(context.messages),
@@ -46,8 +46,44 @@ defmodule Omni.Dialects.GoogleGemini do
       }
       |> maybe_put_system(context.system)
       |> maybe_put_tools(context.tools)
+      |> maybe_put_thinking(model, Keyword.get(opts, :thinking))
 
     {:ok, body}
+  end
+
+  # Thinking
+
+  defp maybe_put_thinking(body, _model, nil), do: body
+  defp maybe_put_thinking(body, _model, false), do: body
+  defp maybe_put_thinking(body, _model, :none), do: body
+  defp maybe_put_thinking(body, %Model{reasoning: false}, _thinking), do: body
+
+  defp maybe_put_thinking(body, _model, thinking) do
+    case normalize_thinking(thinking) do
+      {:effort, level} ->
+        Map.put(body, "thinkingConfig", %{
+          "thinkingLevel" => level_string(level),
+          "includeThoughts" => true
+        })
+
+      {:effort, _level, budget} ->
+        Map.put(body, "thinkingConfig", %{
+          "thinkingBudget" => budget,
+          "includeThoughts" => true
+        })
+    end
+  end
+
+  defp level_string(:low), do: "low"
+  defp level_string(:medium), do: "medium"
+  defp level_string(:high), do: "high"
+  defp level_string(:max), do: "high"
+
+  defp normalize_thinking(true), do: {:effort, :high}
+  defp normalize_thinking(level) when level in [:low, :medium, :high, :max], do: {:effort, level}
+
+  defp normalize_thinking(opts) when is_list(opts) do
+    {:effort, Keyword.get(opts, :effort, :high), Keyword.get(opts, :budget)}
   end
 
   # Parse events — Google sends `GenerateContentResponse` objects.
@@ -113,6 +149,10 @@ defmodule Omni.Dialects.GoogleGemini do
          input: args
        }}
     ]
+  end
+
+  defp parse_part(%{"text" => text, "thought" => true}) when is_binary(text) and text != "" do
+    [{:block_delta, %{type: :thinking, index: 0, delta: text}}]
   end
 
   defp parse_part(%{"text" => text}) when is_binary(text) and text != "" do

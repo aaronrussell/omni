@@ -36,6 +36,7 @@ defmodule Omni.Dialects.AnthropicMessages do
       |> maybe_put("temperature", Keyword.get(opts, :temperature))
       |> maybe_put("metadata", Keyword.get(opts, :metadata))
       |> maybe_put_tools(context.tools, cache)
+      |> maybe_put_thinking(model, Keyword.get(opts, :thinking))
 
     {:ok, body}
   end
@@ -105,6 +106,63 @@ defmodule Omni.Dialects.AnthropicMessages do
   end
 
   def parse_event(_), do: []
+
+  # Thinking
+
+  defp maybe_put_thinking(body, _model, nil), do: body
+
+  defp maybe_put_thinking(body, _model, false) do
+    Map.put(body, "thinking", %{"type" => "disabled"})
+  end
+
+  defp maybe_put_thinking(body, _model, :none) do
+    Map.put(body, "thinking", %{"type" => "disabled"})
+  end
+
+  defp maybe_put_thinking(body, %Model{reasoning: false}, _thinking), do: body
+
+  defp maybe_put_thinking(body, model, thinking) do
+    case normalize_thinking(thinking) do
+      {:effort, level} ->
+        put_thinking_config(body, model, level, nil)
+
+      {:effort, level, budget} ->
+        put_thinking_config(body, model, level, budget)
+    end
+  end
+
+  defp put_thinking_config(body, model, level, budget) do
+    body = Map.delete(body, "temperature")
+
+    if adaptive_model?(model) do
+      body
+      |> Map.put("thinking", %{"type" => "adaptive"})
+      |> Map.put("output_config", %{"effort" => to_string(level)})
+    else
+      budget = budget || effort_to_budget(level)
+      max_tokens = body["max_tokens"] + budget
+
+      body
+      |> Map.put("thinking", %{"type" => "enabled", "budget_tokens" => budget})
+      |> Map.put("max_tokens", max_tokens)
+    end
+  end
+
+  defp adaptive_model?(%Model{id: id}), do: String.contains?(id, "4.6")
+
+  defp effort_to_budget(:low), do: 1024
+  defp effort_to_budget(:medium), do: 4096
+  defp effort_to_budget(:high), do: 16384
+  defp effort_to_budget(:max), do: 32768
+
+  defp normalize_thinking(false), do: :none
+  defp normalize_thinking(true), do: {:effort, :high}
+  defp normalize_thinking(:none), do: :none
+  defp normalize_thinking(level) when level in [:low, :medium, :high, :max], do: {:effort, level}
+
+  defp normalize_thinking(opts) when is_list(opts) do
+    {:effort, Keyword.get(opts, :effort, :high), Keyword.get(opts, :budget)}
+  end
 
   # System encoding
 

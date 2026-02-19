@@ -395,6 +395,74 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
     end
   end
 
+  describe "build_body/3 thinking" do
+    @reasoning_model Model.new(
+                       id: "o3-mini",
+                       name: "o3-mini",
+                       provider: Omni.Providers.OpenAI,
+                       dialect: OpenAICompletions,
+                       max_output_tokens: 32768,
+                       reasoning: true
+                     )
+
+    test "thinking: true sets reasoning_effort to high" do
+      context = Context.new("Hello")
+      {:ok, body} = OpenAICompletions.build_body(@reasoning_model, context, thinking: true)
+
+      assert body["reasoning_effort"] == "high"
+    end
+
+    test "effort levels map correctly, :max preserves max" do
+      context = Context.new("Hello")
+
+      for {level, expected} <- [low: "low", medium: "medium", high: "high", max: "max"] do
+        {:ok, body} = OpenAICompletions.build_body(@reasoning_model, context, thinking: level)
+
+        assert body["reasoning_effort"] == expected,
+               "expected #{expected} for level #{level}"
+      end
+    end
+
+    test "budget is ignored" do
+      context = Context.new("Hello")
+
+      {:ok, body} =
+        OpenAICompletions.build_body(@reasoning_model, context,
+          thinking: [effort: :medium, budget: 10_000]
+        )
+
+      assert body["reasoning_effort"] == "medium"
+    end
+
+    test "thinking: false is no-op" do
+      context = Context.new("Hello")
+      {:ok, body} = OpenAICompletions.build_body(@reasoning_model, context, thinking: false)
+
+      refute Map.has_key?(body, "reasoning_effort")
+    end
+
+    test "thinking: :none is no-op" do
+      context = Context.new("Hello")
+      {:ok, body} = OpenAICompletions.build_body(@reasoning_model, context, thinking: :none)
+
+      refute Map.has_key?(body, "reasoning_effort")
+    end
+
+    test "non-reasoning model ignores thinking option" do
+      context = Context.new("Hello")
+      {:ok, body} = OpenAICompletions.build_body(@model, context, thinking: :high)
+
+      refute Map.has_key?(body, "reasoning_effort")
+    end
+
+    test "nil thinking is no-op" do
+      context = Context.new("Hello")
+      {:ok, body} = OpenAICompletions.build_body(@reasoning_model, context, [])
+
+      refute Map.has_key?(body, "reasoning_effort")
+    end
+  end
+
   describe "parse_event/1" do
     test "message from role delta" do
       event = %{
@@ -539,6 +607,23 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
     test "empty delta returns empty list" do
       event = %{
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => nil}]
+      }
+
+      assert [] == OpenAICompletions.parse_event(event)
+    end
+
+    test "reasoning_content delta emits thinking block_delta" do
+      event = %{
+        "choices" => [%{"index" => 0, "delta" => %{"reasoning_content" => "Let me think..."}}]
+      }
+
+      assert [{:block_delta, %{type: :thinking, index: 0, delta: "Let me think..."}}] =
+               OpenAICompletions.parse_event(event)
+    end
+
+    test "empty reasoning_content returns empty list" do
+      event = %{
+        "choices" => [%{"index" => 0, "delta" => %{"reasoning_content" => ""}}]
       }
 
       assert [] == OpenAICompletions.parse_event(event)

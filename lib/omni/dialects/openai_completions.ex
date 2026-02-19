@@ -33,8 +33,38 @@ defmodule Omni.Dialects.OpenAICompletions do
       |> maybe_put("metadata", Keyword.get(opts, :metadata))
       |> maybe_put_tools(context.tools)
       |> maybe_put_cache(Keyword.get(opts, :cache))
+      |> maybe_put_thinking(model, Keyword.get(opts, :thinking))
 
     {:ok, body}
+  end
+
+  # Thinking
+
+  defp maybe_put_thinking(body, _model, nil), do: body
+  defp maybe_put_thinking(body, _model, false), do: body
+  defp maybe_put_thinking(body, _model, :none), do: body
+  defp maybe_put_thinking(body, %Model{reasoning: false}, _thinking), do: body
+
+  defp maybe_put_thinking(body, _model, thinking) do
+    case normalize_thinking(thinking) do
+      {:effort, level} ->
+        Map.put(body, "reasoning_effort", effort_string(level))
+
+      {:effort, level, _budget} ->
+        Map.put(body, "reasoning_effort", effort_string(level))
+    end
+  end
+
+  defp effort_string(:low), do: "low"
+  defp effort_string(:medium), do: "medium"
+  defp effort_string(:high), do: "high"
+  defp effort_string(:max), do: "max"
+
+  defp normalize_thinking(true), do: {:effort, :high}
+  defp normalize_thinking(level) when level in [:low, :medium, :high, :max], do: {:effort, level}
+
+  defp normalize_thinking(opts) when is_list(opts) do
+    {:effort, Keyword.get(opts, :effort, :high), Keyword.get(opts, :budget)}
   end
 
   # Parse events — OpenAI sends homogeneous `chat.completion.chunk` objects
@@ -79,6 +109,11 @@ defmodule Omni.Dialects.OpenAICompletions do
          delta: tool_call["function"]["arguments"]
        }}
     ]
+  end
+
+  def parse_event(%{"choices" => [%{"delta" => %{"reasoning_content" => content}}]})
+      when is_binary(content) and content != "" do
+    [{:block_delta, %{type: :thinking, index: 0, delta: content}}]
   end
 
   def parse_event(%{"choices" => [%{"delta" => %{"content" => content}}]})

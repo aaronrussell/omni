@@ -1,0 +1,6 @@
+data: {"candidates":[{"content":{"parts":[{"text":"Let me think about this.","thought":true}],"role":"model"},"finishReason":null,"index":0}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":5,"totalTokenCount":15},"modelVersion":"gemini-2.5-flash-preview"}
+
+data: {"candidates":[{"content":{"parts":[{"text":"Hello"}],"role":"model"},"finishReason":null,"index":0}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":6,"totalTokenCount":16},"modelVersion":"gemini-2.5-flash-preview"}
+
+data: {"candidates":[{"content":{"parts":[{"text":"!"}],"role":"model"},"finishReason":"STOP","index":0}],"usageMetadata":{"promptTokenCount":10,"candidatesTokenCount":7,"totalTokenCount":17},"modelVersion":"gemini-2.5-flash-preview"}
+

@@ -295,6 +295,137 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
     end
   end
 
+  describe "build_body/3 thinking" do
+    @reasoning_model Model.new(
+                       id: "claude-3.5-sonnet-20241022",
+                       name: "Claude 3.5 Sonnet",
+                       provider: Omni.Providers.Anthropic,
+                       dialect: AnthropicMessages,
+                       max_output_tokens: 8192,
+                       reasoning: true
+                     )
+
+    @adaptive_model Model.new(
+                      id: "claude-sonnet-4.6-20260214",
+                      name: "Claude Sonnet 4.6",
+                      provider: Omni.Providers.Anthropic,
+                      dialect: AnthropicMessages,
+                      max_output_tokens: 8192,
+                      reasoning: true
+                    )
+
+    test "thinking: true with non-4.6 model uses manual format" do
+      context = Context.new("Hello")
+      {:ok, body} = AnthropicMessages.build_body(@reasoning_model, context, thinking: true)
+
+      assert body["thinking"] == %{"type" => "enabled", "budget_tokens" => 16384}
+      assert body["max_tokens"] == 4096 + 16384
+    end
+
+    test "thinking: true with 4.6 model uses adaptive format" do
+      context = Context.new("Hello")
+      {:ok, body} = AnthropicMessages.build_body(@adaptive_model, context, thinking: true)
+
+      assert body["thinking"] == %{"type" => "adaptive"}
+      assert body["output_config"] == %{"effort" => "high"}
+      assert body["max_tokens"] == 4096
+    end
+
+    test "effort levels map to correct budgets in manual mode" do
+      context = Context.new("Hello")
+
+      for {level, expected_budget} <- [low: 1024, medium: 4096, high: 16384, max: 32768] do
+        {:ok, body} =
+          AnthropicMessages.build_body(@reasoning_model, context, thinking: level)
+
+        assert body["thinking"]["budget_tokens"] == expected_budget,
+               "expected budget #{expected_budget} for level #{level}"
+
+        assert body["max_tokens"] == 4096 + expected_budget
+      end
+    end
+
+    test "effort levels map to correct effort strings in adaptive mode" do
+      context = Context.new("Hello")
+
+      for level <- [:low, :medium, :high, :max] do
+        {:ok, body} =
+          AnthropicMessages.build_body(@adaptive_model, context, thinking: level)
+
+        assert body["thinking"] == %{"type" => "adaptive"}
+        assert body["output_config"]["effort"] == to_string(level)
+      end
+    end
+
+    test "explicit budget in keyword form (manual path)" do
+      context = Context.new("Hello")
+
+      {:ok, body} =
+        AnthropicMessages.build_body(@reasoning_model, context,
+          thinking: [effort: :high, budget: 10_000]
+        )
+
+      assert body["thinking"] == %{"type" => "enabled", "budget_tokens" => 10_000}
+      assert body["max_tokens"] == 4096 + 10_000
+    end
+
+    test "thinking: false sets disabled" do
+      context = Context.new("Hello")
+      {:ok, body} = AnthropicMessages.build_body(@reasoning_model, context, thinking: false)
+
+      assert body["thinking"] == %{"type" => "disabled"}
+    end
+
+    test "thinking: :none sets disabled" do
+      context = Context.new("Hello")
+      {:ok, body} = AnthropicMessages.build_body(@reasoning_model, context, thinking: :none)
+
+      assert body["thinking"] == %{"type" => "disabled"}
+    end
+
+    test "temperature is dropped when thinking is active" do
+      context = Context.new("Hello")
+
+      {:ok, body} =
+        AnthropicMessages.build_body(@reasoning_model, context,
+          thinking: true,
+          temperature: 0.7
+        )
+
+      refute Map.has_key?(body, "temperature")
+    end
+
+    test "max_tokens not adjusted for adaptive mode" do
+      context = Context.new("Hello")
+
+      {:ok, body} =
+        AnthropicMessages.build_body(@adaptive_model, context, thinking: true, max_tokens: 2048)
+
+      assert body["max_tokens"] == 2048
+    end
+
+    test "non-reasoning model ignores thinking option" do
+      context = Context.new("Hello")
+      {:ok, body} = AnthropicMessages.build_body(@model, context, thinking: :high)
+
+      refute Map.has_key?(body, "thinking")
+    end
+
+    test "non-reasoning model still gets disabled for :none" do
+      context = Context.new("Hello")
+      {:ok, body} = AnthropicMessages.build_body(@model, context, thinking: :none)
+
+      assert body["thinking"] == %{"type" => "disabled"}
+    end
+
+    test "nil thinking is no-op" do
+      context = Context.new("Hello")
+      {:ok, body} = AnthropicMessages.build_body(@reasoning_model, context, [])
+
+      refute Map.has_key?(body, "thinking")
+    end
+  end
+
   describe "build_body/3 cache control" do
     test "short cache on system prompt" do
       context = Context.new(system: "Be helpful.", messages: [Message.new("Hi")])

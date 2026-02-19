@@ -56,71 +56,27 @@ Dialect behaviour, Anthropic Messages dialect, and the Provider composition func
 - OpenRouter provider (Completions-based meta-provider)
 - Fixed Completions `parse_event` clause ordering (OpenRouter sends `role` on every chunk)
 
-## Phase 3c — Normalize Dialect Events
+## Phase 3c — Normalize Dialect Events ✓
 
-Simplify and normalize the dialect event contract before building StreamingResponse. The goal is a minimal, consistent set of delta tuples that all dialects emit, with StreamingResponse responsible for expanding them into the rich consumer-facing event vocabulary.
+Simplified and normalized the dialect event contract. All dialects now emit a minimal, consistent set of delta tuples. StreamingResponse (Phase 4) will expand them into the rich consumer-facing event vocabulary.
 
-### 1. Refactor `parse_event` to return lists ✓
+**Delta format** — 4 generic event types: `:message` (envelope/metadata), `:block_start` (content block begins), `:block_delta` (content fragment), `:error` (mid-stream error). All dialects return `[{atom, map}]` lists; callers use `Stream.flat_map`.
 
-Changed `Dialect.parse_event/1` and `Provider.parse_event/2` from returning `{atom, map} | nil` to returning `[{atom, map}]`. Callers use `Stream.flat_map` instead of `Stream.map |> Stream.reject(&is_nil/1)`.
+**Thinking option** — unified `thinking: true | false | :none | :low | :medium | :high | :max | [effort: atom, budget: integer]` option. Each dialect translates to its wire format:
 
-### 2. New delta format ✓
+- **Anthropic**: Two paths — adaptive (4.6 models: `"type" => "adaptive"` + `output_config`) and manual (older: `"type" => "enabled"` + `budget_tokens`, auto-adjusts `max_tokens`). Drops temperature when active. `false`/`:none` → `"disabled"`.
+- **OpenAI Responses**: Sets `"reasoning"` with effort + `"summary" => "auto"`. Caps `:max` → `"high"`.
+- **OpenAI Completions**: Sets `"reasoning_effort"` top-level. Preserves `:max` for provider adaptation.
+- **Google Gemini**: Sets top-level `"thinkingConfig"` with `thinkingLevel` or `thinkingBudget` + `includeThoughts`. Caps `:max` → `"high"`.
+- **OpenRouter**: `adapt_body/2` converts `"reasoning_effort"` → `"reasoning"` object, maps `"max"` → `"xhigh"`.
 
-Replaced the type-specific delta vocabulary with 4 generic event types:
+**Parse events for thinking**: Completions parses `reasoning_content` deltas, Gemini parses `"thought" => true` parts. Both emit `{:block_delta, %{type: :thinking, ...}}`.
 
-```elixir
-{:message, %{model: _, usage: _, stop_reason: _}}  # envelope/metadata accumulator
-{:block_start, %{type: _, index: _, ...}}           # content block begins (carries id/name for tool_use)
-{:block_delta, %{type: _, index: _, delta: _}}      # content fragment
-{:error, %{reason: _}}                              # mid-stream error
-```
-
-**`:message`** — carries envelope metadata. May appear multiple times (start, middle, end) with partial data. StreamingResponse merges all `:message` maps into the response envelope. This naturally handles: usage bundled in done (Anthropic, Responses), usage as separate event (Completions), usage on every event (Google), model ID at start, stop_reason at end.
-
-**`:block_start`** — begins a content block. Type is `:text`, `:tool_use`, or `:thinking`. For `:tool_use`, also carries `:id` and `:name`. Optional for `:text` and `:thinking` — StreamingResponse creates the block implicitly on first `:block_delta` if no explicit start was received.
-
-**`:block_delta`** — content fragment. Type + index together identify the block. StreamingResponse accumulates: text concatenation for text/thinking, JSON fragment joining for tool_use.
-
-**No `:stop` event** — stream termination is the transport signal. The presence of `stop_reason` in accumulated `:message` data tells StreamingResponse the model finished intentionally.
-
-**No `_end` events** — StreamingResponse synthesizes block completion from stream termination. Consumer-facing `_end` events (`:text_end`, `:tool_use_end`, etc.) are emitted by StreamingResponse, not by dialects.
-
-### 3. Fix Google Gemini event parsing ✓
-
-Google Gemini `parse_event` rewritten to decompose each SSE event into envelope (`:message`) + content (`:block_delta`/`:block_start`). Every event now correctly emits all bundled signals — `modelVersion`, `usageMetadata`, `finishReason`, and content parts are all captured. When `functionCall` + `finishReason: "STOP"` coexist, `stop_reason` is inferred as `:tool_use`.
-
-### 4. Thinking/reasoning option
-
-Design and implement the `thinking` option across all dialects. Research needed for each provider's thinking/reasoning config:
-
-- **Anthropic**: `thinking` config with `budget_tokens` — emits `thinking` content blocks
-- **OpenAI Responses**: `reasoning` config with `summary` option — emits `response.reasoning_summary_text.delta` events
-- **OpenAI Completions** (via OpenRouter): reasoning models include `reasoning`/`reasoning_details` in delta chunks
-- **Google**: `thinkingConfig` with `thinkingBudget` — emits `thought` parts in content
-
-Goal: unified `thinking` option (on/off or budget) that each dialect translates to its provider-specific config.
-
-### 5. Expand integration tests
-
-Expand dialect integration tests to cover three scenarios each, using fixture data captured from live APIs via `Omni.Test.Capture.record/5`:
-
-- **Simple text generation** (already done for all dialects)
-- **Tool calling** — verify `:block_start` with tool id/name, `:block_delta` with JSON fragments, `:message` with `:tool_use` stop reason
-- **Thinking/reasoning** — verify `:block_delta` with thinking content (requires thinking option from step 4)
-
-Live tests will be left as-is for now — once `stream_text` exists (Phase 5), live tests at the top-level API will exercise the full pipeline end-to-end for every provider.
+**Integration tests** — all 4 dialects now have text, tool use, and thinking fixture-based integration tests (12 total).
 
 ### Index semantics note
 
-Anthropic uses global content block indices (text at 0, tool_use at 1). OpenAI uses per-type index namespaces (output_index for items, content_index for text within items). Dialects should emit indices as-is from their wire format. StreamingResponse identifies blocks by the `{type, index}` pair, so per-type indexing works naturally. The important thing is that within a single response, each `{type, index}` pair maps to exactly one content block.
-
-### Suggested order
-
-1. ~~`parse_event` returns lists~~ ✓
-2. ~~New delta format~~ ✓
-3. ~~Fix Google event parsing~~ ✓
-4. Thinking option design + implementation
-5. Expanded integration tests (validates everything with fixture data)
+Anthropic uses global content block indices (text at 0, tool_use at 1). OpenAI uses per-type index namespaces (output_index for items, content_index for text within items). Dialects emit indices as-is. StreamingResponse identifies blocks by `{type, index}` pairs.
 
 ---
 
@@ -131,13 +87,17 @@ Accumulation logic and the Enumerable contract. Simpler than originally planned 
 **Build:**
 - StreamingResponse struct (`events`, `resp`, `req`, `model`)
 - `Enumerable` protocol implementation (drive the lazy event stream, accumulate partial Response, yield three-element consumer tuples)
-- Accumulation logic: text concatenation, tool use JSON assembly, content block building
+- Accumulation logic: text concatenation, tool use JSON assembly, thinking text concatenation, content block building
 - `complete/1` — consume stream into final `%Response{}`
 - `cancel/1` — delegates to `Req.cancel_async_response/1`
 
 **Test:** Build a mock lazy stream of scripted delta tuple sequences, wrap in StreamingResponse, assert the enumerable yields correct consumer events with correctly accumulated partial responses. Test cancellation and mid-stream error events. All testable without HTTP, providers, or dialects — just feed it a list or stream of delta tuples.
 
-**Note:** The main complexity here is the accumulation logic — correctly building up content blocks from deltas, especially tool use JSON assembly. The process lifecycle complexity from the original design has been eliminated by using Req's async mode.
+**Notes from Phase 3c:**
+- The accumulation logic must handle 3 block types: `:text` (concatenate deltas), `:tool_use` (join JSON fragments, parse on completion), and `:thinking` (concatenate deltas, build `%Thinking{}` content block — no signature available from streaming, only from Anthropic's block_start).
+- `:block_start` is optional for `:text` and `:thinking` — StreamingResponse should create blocks implicitly on first `:block_delta` if no explicit start was received. Required for `:tool_use` (carries `:id` and `:name`).
+- `:message` events may appear multiple times with partial data — merge all into the response envelope. No explicit `:stop` event; `stop_reason` in accumulated message data signals intentional completion. Consumer-facing `_end` events are synthesized by StreamingResponse from stream termination, not emitted by dialects.
+- Google sends function call args complete (as a map) in `:block_start`, not as streamed `:block_delta` JSON fragments. The `:block_start` for tool_use may carry an `:input` key with the full args map.
 
 ---
 
@@ -164,7 +124,7 @@ Wiring everything together. Mostly composition of tested parts.
 
 2. **Where does validation live?** — Options, content blocks, and media types all need validation. Candidates: top-level API boundary (Peri schemas in `stream_text`/`generate_text`), inside `build_body/3`, or both. Currently `encode_content/1` will crash on unsupported attachment media types (no catch-all clause). Defer to Phase 5.
 
-3. **Universal options location** — `max_tokens`, `temperature`, `cache`, `metadata`, and `thinking` are universal (apply to all providers). Where is the schema defined and how does it compose with dialect/provider schemas? Defer to Phase 5.
+3. **Universal options location** — `max_tokens`, `temperature`, `cache`, `metadata`, and `thinking` are universal (apply to all providers). Where is the schema defined and how does it compose with dialect/provider schemas? Defer to Phase 5. For `thinking` specifically: validate type (atom | keyword list), Anthropic temperature + thinking incompatibility (currently silently dropped — could warn or error), and budget minimum enforcement (Anthropic requires >= 1024).
 
 4. **Plain text attachment source** — Should `Attachment.source` support `{:text, content}` in addition to `{:base64, data}` and `{:url, url}`? Wait to see if multiple providers support it.
 

@@ -37,6 +37,44 @@ defmodule Omni.Providers.OpenRouterTest do
     end
   end
 
+  describe "adapt_body/2" do
+    test "converts reasoning_effort to reasoning object" do
+      body = %{"model" => "test", "reasoning_effort" => "high"}
+
+      result = OpenRouter.adapt_body(body, [])
+
+      assert result["reasoning"] == %{"effort" => "high"}
+      refute Map.has_key?(result, "reasoning_effort")
+    end
+
+    test "maps max to xhigh" do
+      body = %{"model" => "test", "reasoning_effort" => "max"}
+
+      result = OpenRouter.adapt_body(body, [])
+
+      assert result["reasoning"] == %{"effort" => "xhigh"}
+    end
+
+    test "passes through body without reasoning_effort" do
+      body = %{"model" => "test", "messages" => []}
+
+      result = OpenRouter.adapt_body(body, [])
+
+      assert result == body
+    end
+
+    test "passes through other effort levels unchanged" do
+      for level <- ["low", "medium", "high"] do
+        body = %{"model" => "test", "reasoning_effort" => level}
+
+        result = OpenRouter.adapt_body(body, [])
+
+        assert result["reasoning"]["effort"] == level,
+               "expected #{level} to pass through"
+      end
+    end
+  end
+
   describe "new_request/4 integration" do
     test "builds request with correct URL and Bearer auth" do
       {:ok, req} =
