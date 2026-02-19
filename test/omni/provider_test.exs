@@ -304,4 +304,49 @@ defmodule Omni.ProviderTest do
       assert nil == Provider.parse_event(TestProvider, event)
     end
   end
+
+  describe "load/1" do
+    setup do
+      on_exit(fn ->
+        try do
+          :persistent_term.erase({Omni, :test_load})
+        rescue
+          ArgumentError -> :ok
+        end
+      end)
+
+      :ok
+    end
+
+    test "loads models into persistent_term for a builtin provider atom" do
+      Provider.load([:openai])
+
+      models = :persistent_term.get({Omni, :openai})
+      assert is_map(models)
+      assert map_size(models) > 0
+      assert %Omni.Model{} = models |> Map.values() |> hd()
+    end
+
+    test "loads models for a {id, module} custom provider" do
+      Provider.load(test_load: TestProvider)
+
+      models = :persistent_term.get({Omni, :test_load})
+      assert models == %{}
+    end
+
+    test "merges with existing entries" do
+      :persistent_term.put({Omni, :test_load}, %{"existing" => :kept})
+
+      Provider.load(test_load: TestProvider)
+
+      models = :persistent_term.get({Omni, :test_load})
+      assert models["existing"] == :kept
+    end
+
+    test "raises on unknown atom" do
+      assert_raise ArgumentError, ~r/unknown built-in provider/, fn ->
+        Provider.load([:nonexistent_provider])
+      end
+    end
+  end
 end

@@ -1,0 +1,2616 @@
+[
+  {
+    "cache_read_cost": 0.08,
+    "cache_write_cost": 1,
+    "context_size": 200000,
+    "id": "anthropic/claude-3.5-haiku",
+    "input_cost": 0.8,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Claude Haiku 3.5",
+    "output_cost": 4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 1.5,
+    "cache_write_cost": 18.75,
+    "context_size": 200000,
+    "id": "anthropic/claude-3.7-sonnet",
+    "input_cost": 15,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 128000,
+    "name": "Claude Sonnet 3.7",
+    "output_cost": 75,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.1,
+    "cache_write_cost": 1.25,
+    "context_size": 200000,
+    "id": "anthropic/claude-haiku-4.5",
+    "input_cost": 1,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 64000,
+    "name": "Claude Haiku 4.5",
+    "output_cost": 5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 1.5,
+    "cache_write_cost": 18.75,
+    "context_size": 200000,
+    "id": "anthropic/claude-opus-4",
+    "input_cost": 15,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 32000,
+    "name": "Claude Opus 4",
+    "output_cost": 75,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 1.5,
+    "cache_write_cost": 18.75,
+    "context_size": 200000,
+    "id": "anthropic/claude-opus-4.1",
+    "input_cost": 15,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 32000,
+    "name": "Claude Opus 4.1",
+    "output_cost": 75,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.5,
+    "cache_write_cost": 6.25,
+    "context_size": 200000,
+    "id": "anthropic/claude-opus-4.5",
+    "input_cost": 5,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 32000,
+    "name": "Claude Opus 4.5",
+    "output_cost": 25,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.5,
+    "cache_write_cost": 6.25,
+    "context_size": 1000000,
+    "id": "anthropic/claude-opus-4.6",
+    "input_cost": 5,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 128000,
+    "name": "Claude Opus 4.6",
+    "output_cost": 25,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.3,
+    "cache_write_cost": 3.75,
+    "context_size": 200000,
+    "id": "anthropic/claude-sonnet-4",
+    "input_cost": 3,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 64000,
+    "name": "Claude Sonnet 4",
+    "output_cost": 15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.3,
+    "cache_write_cost": 3.75,
+    "context_size": 1000000,
+    "id": "anthropic/claude-sonnet-4.5",
+    "input_cost": 3,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 64000,
+    "name": "Claude Sonnet 4.5",
+    "output_cost": 15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.3,
+    "cache_write_cost": 3.75,
+    "context_size": 1000000,
+    "id": "anthropic/claude-sonnet-4.6",
+    "input_cost": 3,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "Claude Sonnet 4.6",
+    "output_cost": 15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "arcee-ai/trinity-large-preview:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "Trinity Large Preview",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "arcee-ai/trinity-mini:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "Trinity Mini",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32768,
+    "id": "cognitivecomputations/dolphin3.0-mistral-24b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Dolphin3.0 Mistral 24B",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32768,
+    "id": "cognitivecomputations/dolphin3.0-r1-mistral-24b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Dolphin3.0 R1 Mistral 24B",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 163840,
+    "id": "deepseek/deepseek-chat-v3.1",
+    "input_cost": 0.2,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 163840,
+    "name": "DeepSeek-V3.1",
+    "output_cost": 0.8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "deepseek/deepseek-r1-0528-qwen3-8b:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "Deepseek R1 0528 Qwen3 8B (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 163840,
+    "id": "deepseek/deepseek-r1:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 163840,
+    "name": "R1 (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "deepseek/deepseek-v3.1-terminus",
+    "input_cost": 0.27,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "DeepSeek V3.1 Terminus",
+    "output_cost": 1,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "deepseek/deepseek-v3.1-terminus:exacto",
+    "input_cost": 0.27,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "DeepSeek V3.1 Terminus (exacto)",
+    "output_cost": 1,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 163840,
+    "id": "deepseek/deepseek-v3.2",
+    "input_cost": 0.28,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "DeepSeek V3.2",
+    "output_cost": 0.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 163840,
+    "id": "deepseek/deepseek-v3.2-speciale",
+    "input_cost": 0.27,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "DeepSeek V3.2 Speciale",
+    "output_cost": 0.41,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.025,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "id": "google/gemini-2.0-flash-001",
+    "input_cost": 0.1,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Gemini 2.0 Flash",
+    "output_cost": 0.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "id": "google/gemini-2.0-flash-exp:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 1048576,
+    "name": "Gemini 2.0 Flash Experimental (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0.0375,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "id": "google/gemini-2.5-flash",
+    "input_cost": 0.3,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Gemini 2.5 Flash",
+    "output_cost": 2.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.025,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "id": "google/gemini-2.5-flash-lite",
+    "input_cost": 0.1,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Gemini 2.5 Flash Lite",
+    "output_cost": 0.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.025,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "id": "google/gemini-2.5-flash-lite-preview-09-2025",
+    "input_cost": 0.1,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Gemini 2.5 Flash Lite Preview 09-25",
+    "output_cost": 0.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.031,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "id": "google/gemini-2.5-flash-preview-09-2025",
+    "input_cost": 0.3,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Gemini 2.5 Flash Preview 09-25",
+    "output_cost": 2.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.31,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "id": "google/gemini-2.5-pro",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Gemini 2.5 Pro",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.31,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "id": "google/gemini-2.5-pro-preview-05-06",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Gemini 2.5 Pro Preview 05-06",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.31,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "id": "google/gemini-2.5-pro-preview-06-05",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Gemini 2.5 Pro Preview 06-05",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.05,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "id": "google/gemini-3-flash-preview",
+    "input_cost": 0.5,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Gemini 3 Flash Preview",
+    "output_cost": 3,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1050000,
+    "id": "google/gemini-3-pro-preview",
+    "input_cost": 2,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 66000,
+    "name": "Gemini 3 Pro Preview",
+    "output_cost": 12,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 96000,
+    "id": "google/gemma-3-27b-it",
+    "input_cost": 0.04,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 96000,
+    "name": "Gemma 3 27B",
+    "output_cost": 0.15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "google/gemma-3-27b-it:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Gemma 3 27B (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 256000,
+    "id": "kwaipilot/kat-coder-pro:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Kat Coder Pro (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "meta-llama/llama-3.3-70b-instruct:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "Llama 3.3 70B Instruct (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 64000,
+    "id": "meta-llama/llama-4-scout:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 64000,
+    "name": "Llama 4 Scout (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 163840,
+    "id": "microsoft/mai-ds-r1:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 163840,
+    "name": "MAI DS R1 (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1000000,
+    "id": "minimax/minimax-01",
+    "input_cost": 0.2,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 1000000,
+    "name": "MiniMax-01",
+    "output_cost": 1.1,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1000000,
+    "id": "minimax/minimax-m1",
+    "input_cost": 0.4,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 40000,
+    "name": "MiniMax M1",
+    "output_cost": 2.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.28,
+    "cache_write_cost": 1.15,
+    "context_size": 196600,
+    "id": "minimax/minimax-m2",
+    "input_cost": 0.28,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 118000,
+    "name": "MiniMax M2",
+    "output_cost": 1.15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "id": "minimax/minimax-m2.1",
+    "input_cost": 0.3,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "MiniMax M2.1",
+    "output_cost": 1.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.03,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "id": "minimax/minimax-m2.5",
+    "input_cost": 0.3,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "MiniMax M2.5",
+    "output_cost": 1.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 256000,
+    "id": "mistralai/codestral-2508",
+    "input_cost": 0.3,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 256000,
+    "name": "Codestral 2508",
+    "output_cost": 0.9,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "mistralai/devstral-2512",
+    "input_cost": 0.15,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Devstral 2 2512",
+    "output_cost": 0.6,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "mistralai/devstral-2512:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Devstral 2 2512 (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "mistralai/devstral-medium-2507",
+    "input_cost": 0.4,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "Devstral Medium",
+    "output_cost": 2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "mistralai/devstral-small-2505",
+    "input_cost": 0.06,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 128000,
+    "name": "Devstral Small",
+    "output_cost": 0.12,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32768,
+    "id": "mistralai/devstral-small-2505:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Devstral Small 2505 (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "mistralai/devstral-small-2507",
+    "input_cost": 0.1,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "Devstral Small 1.1",
+    "output_cost": 0.3,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32768,
+    "id": "mistralai/mistral-7b-instruct:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Mistral 7B Instruct (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "mistralai/mistral-medium-3",
+    "input_cost": 0.4,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 131072,
+    "name": "Mistral Medium 3",
+    "output_cost": 2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "mistralai/mistral-medium-3.1",
+    "input_cost": 0.4,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Mistral Medium 3.1",
+    "output_cost": 2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "mistralai/mistral-nemo:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "Mistral Nemo (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "mistralai/mistral-small-3.1-24b-instruct",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Mistral Small 3.1 24B Instruct",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 96000,
+    "id": "mistralai/mistral-small-3.2-24b-instruct",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Mistral Small 3.2 24B Instruct",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 96000,
+    "id": "mistralai/mistral-small-3.2-24b-instruct:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 96000,
+    "name": "Mistral Small 3.2 24B (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "moonshotai/kimi-dev-72b:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "Kimi Dev 72b (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "moonshotai/kimi-k2",
+    "input_cost": 0.55,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Kimi K2",
+    "output_cost": 2.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "moonshotai/kimi-k2-0905",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 16384,
+    "name": "Kimi K2 Instruct 0905",
+    "output_cost": 2.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "moonshotai/kimi-k2-0905:exacto",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 16384,
+    "name": "Kimi K2 Instruct 0905 (exacto)",
+    "output_cost": 2.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0.15,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "moonshotai/kimi-k2-thinking",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Kimi K2 Thinking",
+    "output_cost": 2.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.1,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "moonshotai/kimi-k2.5",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Kimi K2.5",
+    "output_cost": 3,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32800,
+    "id": "moonshotai/kimi-k2:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32800,
+    "name": "Kimi K2 (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "nousresearch/deephermes-3-llama-3-8b-preview",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "DeepHermes 3 Llama 3 8B Preview",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "nousresearch/hermes-4-405b",
+    "input_cost": 1,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "Hermes 4 405B",
+    "output_cost": 3,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "nousresearch/hermes-4-70b",
+    "input_cost": 0.13,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "Hermes 4 70B",
+    "output_cost": 0.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 256000,
+    "id": "nvidia/nemotron-3-nano-30b-a3b:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 256000,
+    "name": "Nemotron 3 Nano 30B A3B (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "nvidia/nemotron-nano-12b-v2-vl:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "Nemotron Nano 12B 2 VL (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "nvidia/nemotron-nano-9b-v2",
+    "input_cost": 0.04,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "nvidia-nemotron-nano-9b-v2",
+    "output_cost": 0.16,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "nvidia/nemotron-nano-9b-v2:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 128000,
+    "name": "Nemotron Nano 9B V2 (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.5,
+    "cache_write_cost": 0,
+    "context_size": 1047576,
+    "id": "openai/gpt-4.1",
+    "input_cost": 2,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 32768,
+    "name": "GPT-4.1",
+    "output_cost": 8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0.1,
+    "cache_write_cost": 0,
+    "context_size": 1047576,
+    "id": "openai/gpt-4.1-mini",
+    "input_cost": 0.4,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 32768,
+    "name": "GPT-4.1 Mini",
+    "output_cost": 1.6,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0.08,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "openai/gpt-4o-mini",
+    "input_cost": 0.15,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 16384,
+    "name": "GPT-4o-mini",
+    "output_cost": 0.6,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "openai/gpt-5",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.125,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "openai/gpt-5-codex",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5 Codex",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 1.25,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "openai/gpt-5-image",
+    "input_cost": 5,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5 Image",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "openai/gpt-5-mini",
+    "input_cost": 0.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5 Mini",
+    "output_cost": 2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "openai/gpt-5-nano",
+    "input_cost": 0.05,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5 Nano",
+    "output_cost": 0.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "openai/gpt-5-pro",
+    "input_cost": 15,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 272000,
+    "name": "GPT-5 Pro",
+    "output_cost": 120,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.125,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "openai/gpt-5.1",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.1",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.125,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "openai/gpt-5.1-chat",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 16384,
+    "name": "GPT-5.1 Chat",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.125,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "openai/gpt-5.1-codex",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.1-Codex",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.11,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "openai/gpt-5.1-codex-max",
+    "input_cost": 1.1,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.1-Codex-Max",
+    "output_cost": 9,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.025,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "openai/gpt-5.1-codex-mini",
+    "input_cost": 0.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 100000,
+    "name": "GPT-5.1-Codex-Mini",
+    "output_cost": 2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.175,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "openai/gpt-5.2",
+    "input_cost": 1.75,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.2",
+    "output_cost": 14,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.175,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "openai/gpt-5.2-chat",
+    "input_cost": 1.75,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 16384,
+    "name": "GPT-5.2 Chat",
+    "output_cost": 14,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.175,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "openai/gpt-5.2-codex",
+    "input_cost": 1.75,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.2-Codex",
+    "output_cost": 14,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "id": "openai/gpt-5.2-pro",
+    "input_cost": 21,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.2 Pro",
+    "output_cost": 168,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "openai/gpt-oss-120b",
+    "input_cost": 0.072,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "GPT OSS 120B",
+    "output_cost": 0.28,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "openai/gpt-oss-120b:exacto",
+    "input_cost": 0.05,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "GPT OSS 120B (exacto)",
+    "output_cost": 0.24,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "openai/gpt-oss-120b:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "gpt-oss-120b (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "openai/gpt-oss-20b",
+    "input_cost": 0.05,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "GPT OSS 20B",
+    "output_cost": 0.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "openai/gpt-oss-20b:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "gpt-oss-20b (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "openai/gpt-oss-safeguard-20b",
+    "input_cost": 0.075,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "GPT OSS Safeguard 20B",
+    "output_cost": 0.3,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.28,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "id": "openai/o4-mini",
+    "input_cost": 1.1,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 100000,
+    "name": "o4 Mini",
+    "output_cost": 4.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "openrouter/aurora-alpha",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 50000,
+    "name": "Aurora Alpha",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1840000,
+    "id": "openrouter/sherlock-dash-alpha",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 0,
+    "name": "Sherlock Dash Alpha",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1840000,
+    "id": "openrouter/sherlock-think-alpha",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 0,
+    "name": "Sherlock Think Alpha",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "prime-intellect/intellect-3",
+    "input_cost": 0.2,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Intellect 3",
+    "output_cost": 1.1,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32768,
+    "id": "qwen/qwen-2.5-vl-7b-instruct:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Qwen2.5-VL 7B Instruct (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 8192,
+    "id": "qwen/qwen2.5-vl-32b-instruct:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Qwen2.5 VL 32B Instruct (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32768,
+    "id": "qwen/qwen2.5-vl-72b-instruct:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Qwen2.5 VL 72B Instruct (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 40960,
+    "id": "qwen/qwen3-14b:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 40960,
+    "name": "Qwen3 14B (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen/qwen3-235b-a22b-07-25",
+    "input_cost": 0.15,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "Qwen3 235B A22B Instruct 2507",
+    "output_cost": 0.85,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen/qwen3-235b-a22b-07-25:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "Qwen3 235B A22B Instruct 2507 (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen/qwen3-235b-a22b-thinking-2507",
+    "input_cost": 0.078,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 81920,
+    "name": "Qwen3 235B A22B Thinking 2507",
+    "output_cost": 0.312,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "qwen/qwen3-235b-a22b:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "Qwen3 235B A22B (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262000,
+    "id": "qwen/qwen3-30b-a3b-instruct-2507",
+    "input_cost": 0.2,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262000,
+    "name": "Qwen3 30B A3B Instruct 2507",
+    "output_cost": 0.8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262000,
+    "id": "qwen/qwen3-30b-a3b-thinking-2507",
+    "input_cost": 0.2,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262000,
+    "name": "Qwen3 30B A3B Thinking 2507",
+    "output_cost": 0.8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 40960,
+    "id": "qwen/qwen3-30b-a3b:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 40960,
+    "name": "Qwen3 30B A3B (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 40960,
+    "id": "qwen/qwen3-32b:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 40960,
+    "name": "Qwen3 32B (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 40960,
+    "id": "qwen/qwen3-4b:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 40960,
+    "name": "Qwen3 4B (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 40960,
+    "id": "qwen/qwen3-8b:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 40960,
+    "name": "Qwen3 8B (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen/qwen3-coder",
+    "input_cost": 0.3,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 66536,
+    "name": "Qwen3 Coder",
+    "output_cost": 1.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 160000,
+    "id": "qwen/qwen3-coder-30b-a3b-instruct",
+    "input_cost": 0.07,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Qwen3 Coder 30B A3B Instruct",
+    "output_cost": 0.27,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "qwen/qwen3-coder-flash",
+    "input_cost": 0.3,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 66536,
+    "name": "Qwen3 Coder Flash",
+    "output_cost": 1.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "qwen/qwen3-coder:exacto",
+    "input_cost": 0.38,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Qwen3 Coder (exacto)",
+    "output_cost": 1.53,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen/qwen3-coder:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 66536,
+    "name": "Qwen3 Coder 480B A35B Instruct (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen/qwen3-max",
+    "input_cost": 1.2,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Qwen3 Max",
+    "output_cost": 6,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen/qwen3-next-80b-a3b-instruct",
+    "input_cost": 0.14,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Qwen3 Next 80B A3B Instruct",
+    "output_cost": 1.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen/qwen3-next-80b-a3b-instruct:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Qwen3 Next 80B A3B Instruct (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen/qwen3-next-80b-a3b-thinking",
+    "input_cost": 0.14,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Qwen3 Next 80B A3B Thinking",
+    "output_cost": 1.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen/qwen3.5-397b-a17b",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Qwen3.5 397B A17B",
+    "output_cost": 3.6,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1000000,
+    "id": "qwen/qwen3.5-plus-02-15",
+    "input_cost": 0.4,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Qwen3.5 Plus 2026-02-15",
+    "output_cost": 2.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32768,
+    "id": "qwen/qwq-32b:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "QwQ 32B (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32768,
+    "id": "rekaai/reka-flash-3",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Reka Flash 3",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32768,
+    "id": "sarvamai/sarvam-m:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Sarvam-M (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.02,
+    "cache_write_cost": 0,
+    "context_size": 256000,
+    "id": "stepfun/step-3.5-flash",
+    "input_cost": 0.1,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 256000,
+    "name": "Step 3.5 Flash",
+    "output_cost": 0.3,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 256000,
+    "id": "stepfun/step-3.5-flash:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 256000,
+    "name": "Step 3.5 Flash (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32768,
+    "id": "thudm/glm-z1-32b:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "GLM Z1 32B (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 163840,
+    "id": "tngtech/tng-r1t-chimera:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 163840,
+    "name": "R1T Chimera (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.75,
+    "cache_write_cost": 15,
+    "context_size": 131072,
+    "id": "x-ai/grok-3",
+    "input_cost": 3,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Grok 3",
+    "output_cost": 15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0.75,
+    "cache_write_cost": 15,
+    "context_size": 131072,
+    "id": "x-ai/grok-3-beta",
+    "input_cost": 3,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Grok 3 Beta",
+    "output_cost": 15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0.075,
+    "cache_write_cost": 0.5,
+    "context_size": 131072,
+    "id": "x-ai/grok-3-mini",
+    "input_cost": 0.3,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Grok 3 Mini",
+    "output_cost": 0.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.075,
+    "cache_write_cost": 0.5,
+    "context_size": 131072,
+    "id": "x-ai/grok-3-mini-beta",
+    "input_cost": 0.3,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Grok 3 Mini Beta",
+    "output_cost": 0.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.75,
+    "cache_write_cost": 15,
+    "context_size": 256000,
+    "id": "x-ai/grok-4",
+    "input_cost": 3,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 64000,
+    "name": "Grok 4",
+    "output_cost": 15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.05,
+    "cache_write_cost": 0.05,
+    "context_size": 2000000,
+    "id": "x-ai/grok-4-fast",
+    "input_cost": 0.2,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 30000,
+    "name": "Grok 4 Fast",
+    "output_cost": 0.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.05,
+    "cache_write_cost": 0.05,
+    "context_size": 2000000,
+    "id": "x-ai/grok-4.1-fast",
+    "input_cost": 0.2,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 30000,
+    "name": "Grok 4.1 Fast",
+    "output_cost": 0.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.02,
+    "cache_write_cost": 0,
+    "context_size": 256000,
+    "id": "x-ai/grok-code-fast-1",
+    "input_cost": 0.2,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 10000,
+    "name": "Grok Code Fast 1",
+    "output_cost": 1.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.01,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "xiaomi/mimo-v2-flash",
+    "input_cost": 0.1,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "MiMo-V2-Flash",
+    "output_cost": 0.3,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "z-ai/glm-4.5",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 96000,
+    "name": "GLM 4.5",
+    "output_cost": 2.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "id": "z-ai/glm-4.5-air",
+    "input_cost": 0.2,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 96000,
+    "name": "GLM 4.5 Air",
+    "output_cost": 1.1,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 64000,
+    "id": "z-ai/glm-4.5v",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 16384,
+    "name": "GLM 4.5V",
+    "output_cost": 1.8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.11,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "id": "z-ai/glm-4.6",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GLM 4.6",
+    "output_cost": 2.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.11,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "id": "z-ai/glm-4.6:exacto",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GLM 4.6 (exacto)",
+    "output_cost": 1.9,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.11,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "id": "z-ai/glm-4.7",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "GLM-4.7",
+    "output_cost": 2.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "id": "z-ai/glm-4.7-flash",
+    "input_cost": 0.07,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65535,
+    "name": "GLM-4.7-Flash",
+    "output_cost": 0.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.2,
+    "cache_write_cost": 0,
+    "context_size": 202752,
+    "id": "z-ai/glm-5",
+    "input_cost": 1,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131000,
+    "name": "GLM-5",
+    "output_cost": 3.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  }
+]

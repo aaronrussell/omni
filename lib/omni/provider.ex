@@ -34,12 +34,20 @@ defmodule Omni.Provider do
 
   ## Shared functions
 
+  - `load/1` — loads providers' models into `:persistent_term` on demand
   - `load_models/2` — reads a JSON data file and builds `%Model{}` structs
   - `resolve_auth/1` — resolves API key values (literal, env var, MFA)
   - `new_request/4` — builds an authenticated `%Req.Request{}` for streaming
   """
 
   alias Omni.{Context, Model}
+
+  @builtin_providers %{
+    anthropic: Omni.Providers.Anthropic,
+    google: Omni.Providers.Google,
+    openai: Omni.Providers.OpenAI,
+    openrouter: Omni.Providers.OpenRouter
+  }
 
   @doc "Returns the provider's base configuration map."
   @callback config() :: map()
@@ -90,6 +98,48 @@ defmodule Omni.Provider do
   end
 
   def resolve_auth(nil), do: {:error, :no_api_key}
+
+  @doc """
+  Loads providers' models into `:persistent_term`.
+
+  Accepts a list of built-in provider atoms or `{id, module}` tuples for
+  custom providers. Models are merged with any existing entries for that
+  provider, so calling `load/1` multiple times is safe.
+
+      # Load a built-in provider on demand
+      Omni.Provider.load([:openrouter])
+
+      # Load a custom provider
+      Omni.Provider.load(my_llm: MyApp.Providers.CustomLLM)
+  """
+  @spec load([atom() | {atom(), module()}]) :: :ok
+  def load(providers) when is_list(providers) do
+    for provider <- providers do
+      {id, mod} = normalize_provider(provider)
+      model_map = Map.new(mod.models(), &{&1.id, &1})
+      existing = :persistent_term.get({Omni, id}, %{})
+      :persistent_term.put({Omni, id}, Map.merge(existing, model_map))
+    end
+
+    :ok
+  end
+
+  @doc false
+  def builtin_providers, do: @builtin_providers
+
+  defp normalize_provider({_id, _mod} = pair), do: pair
+
+  defp normalize_provider(id) when is_atom(id) do
+    case @builtin_providers[id] do
+      nil ->
+        raise ArgumentError,
+              "unknown built-in provider #{inspect(id)} — " <>
+                "use {id, module} for custom providers"
+
+      mod ->
+        {id, mod}
+    end
+  end
 
   @doc """
   Loads models from a JSON file and builds `%Model{}` structs.

@@ -20,7 +20,7 @@ defmodule Mix.Tasks.Models.Get do
 
   @api_url "https://models.dev/api.json"
   @output_dir "priv/models"
-  @providers ["anthropic", "google", "openai"]
+  @providers ["anthropic", "google", "openai", "openrouter"]
   @supported_input_modalities Enum.map(Omni.Model.supported_input_modalities(), &to_string/1)
   @supported_output_modalities Enum.map(Omni.Model.supported_output_modalities(), &to_string/1)
 
