@@ -40,7 +40,7 @@ defmodule Omni.Dialects.OpenAICompletions do
   # Parse events — OpenAI sends homogeneous `chat.completion.chunk` objects
 
   @impl true
-  def parse_event(%{"choices" => [], "usage" => usage}) do
+  def parse_event(%{"usage" => %{} = usage}) do
     {:usage, %{usage: normalize_usage(usage)}}
   end
 
@@ -66,16 +66,16 @@ defmodule Omni.Dialects.OpenAICompletions do
      }}
   end
 
+  def parse_event(%{"choices" => [%{"delta" => %{"content" => content}}]})
+      when is_binary(content) and content != "" do
+    {:text_delta, %{index: 0, delta: content}}
+  end
+
   def parse_event(%{
         "choices" => [%{"delta" => %{"role" => "assistant"}}],
         "model" => model_id
       }) do
     {:start, %{model: model_id}}
-  end
-
-  def parse_event(%{"choices" => [%{"delta" => %{"content" => content}}]})
-      when is_binary(content) and content != "" do
-    {:text_delta, %{index: 0, delta: content}}
   end
 
   def parse_event(_), do: nil

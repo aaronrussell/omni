@@ -1,0 +1,12 @@
+data: {"id":"chatcmpl-or123","object":"chat.completion.chunk","created":1700000000,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-or123","object":"chat.completion.chunk","created":1700000000,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"Hello"},"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-or123","object":"chat.completion.chunk","created":1700000000,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{"content":"!"},"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-or123","object":"chat.completion.chunk","created":1700000000,"model":"meta-llama/llama-3.1-8b-instruct","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":null}
+
+data: {"id":"chatcmpl-or123","object":"chat.completion.chunk","created":1700000000,"model":"meta-llama/llama-3.1-8b-instruct","choices":[],"usage":{"prompt_tokens":10,"completion_tokens":5,"total_tokens":15}}
+
+data: [DONE]
+

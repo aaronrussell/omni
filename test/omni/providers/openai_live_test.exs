@@ -7,16 +7,15 @@ defmodule Omni.Providers.OpenAILiveTest do
   alias Omni.Providers.OpenAI
   alias Omni.SSE
 
-  test "streams a real response from the OpenAI API" do
+  test "streams a real response from the OpenAI Responses API" do
     body = %{
       "model" => "gpt-4.1-nano",
-      "max_completion_tokens" => 50,
+      "max_output_tokens" => 50,
       "stream" => true,
-      "stream_options" => %{"include_usage" => true},
-      "messages" => [%{"role" => "user", "content" => "Say hello in one word."}]
+      "input" => [%{"role" => "user", "content" => "Say hello in one word."}]
     }
 
-    {:ok, req} = Provider.new_request(OpenAI, "/v1/chat/completions", body)
+    {:ok, req} = Provider.new_request(OpenAI, "/v1/responses", body)
     {:ok, resp} = Req.request(req)
 
     assert resp.status == 200
@@ -26,7 +25,7 @@ defmodule Omni.Providers.OpenAILiveTest do
 
     assert length(events) > 0
 
-    # OpenAI chunks have choices arrays
-    assert Enum.any?(events, &match?(%{"choices" => [_ | _]}, &1))
+    # Responses API events have a "type" field
+    assert Enum.any?(events, &match?(%{"type" => "response.completed"}, &1))
   end
 end

@@ -15,8 +15,8 @@ defmodule Omni.Providers.OpenAITest do
   end
 
   describe "dialect/0" do
-    test "returns OpenAICompletions dialect" do
-      assert OpenAI.dialect() == Omni.Dialects.OpenAICompletions
+    test "returns OpenAIResponses dialect" do
+      assert OpenAI.dialect() == Omni.Dialects.OpenAIResponses
     end
   end
 
@@ -32,7 +32,7 @@ defmodule Omni.Providers.OpenAITest do
     test "stamps provider and dialect on every model" do
       for model <- OpenAI.models() do
         assert model.provider == OpenAI
-        assert model.dialect == Omni.Dialects.OpenAICompletions
+        assert model.dialect == Omni.Dialects.OpenAIResponses
       end
     end
   end
@@ -40,11 +40,11 @@ defmodule Omni.Providers.OpenAITest do
   describe "new_request/4 integration" do
     test "builds request with correct URL and Bearer auth" do
       {:ok, req} =
-        Provider.new_request(OpenAI, "/v1/chat/completions", %{"model" => "test"},
+        Provider.new_request(OpenAI, "/v1/responses", %{"model" => "test"},
           api_key: "sk-test-123"
         )
 
-      assert URI.to_string(req.url) == "https://api.openai.com/v1/chat/completions"
+      assert URI.to_string(req.url) == "https://api.openai.com/v1/responses"
       assert Req.Request.get_header(req, "authorization") == ["Bearer sk-test-123"]
     end
   end

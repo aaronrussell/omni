@@ -1,24 +1,24 @@
-defmodule Omni.Dialects.OpenAICompletionsIntegrationTest do
+defmodule Omni.Dialects.OpenAIResponsesIntegrationTest do
   use ExUnit.Case, async: true
 
   alias Omni.{Context, Message, Model, Provider, SSE, Tool}
-  alias Omni.Providers.OpenRouter
-  alias Omni.Dialects.OpenAICompletions
+  alias Omni.Providers.OpenAI
+  alias Omni.Dialects.OpenAIResponses
 
-  @text_fixture "test/support/fixtures/sse/openrouter_text.sse"
-  @tool_use_fixture "test/support/fixtures/sse/openrouter_tool_use.sse"
+  @text_fixture "test/support/fixtures/sse/openai_responses_text.sse"
+  @tool_use_fixture "test/support/fixtures/sse/openai_responses_tool_use.sse"
 
   @model Model.new(
-           id: "meta-llama/llama-3.1-8b-instruct",
-           name: "Llama 3.1 8B Instruct",
-           provider: OpenRouter,
-           dialect: OpenAICompletions,
+           id: "gpt-4.1-nano",
+           name: "GPT-4.1 nano",
+           provider: OpenAI,
+           dialect: OpenAIResponses,
            max_output_tokens: 32768
          )
 
   describe "text streaming pipeline" do
     setup do
-      Req.Test.stub(:openrouter_text, fn conn ->
+      Req.Test.stub(:openai_responses_text, fn conn ->
         body = File.read!(@text_fixture)
 
         conn
@@ -33,20 +33,20 @@ defmodule Omni.Dialects.OpenAICompletionsIntegrationTest do
       context = Context.new("Hello")
 
       {:ok, req} = Provider.build_request(@model, context, api_key: "test-key")
-      {:ok, resp} = req |> Req.merge(plug: {Req.Test, :openrouter_text}) |> Req.request()
+      {:ok, resp} = req |> Req.merge(plug: {Req.Test, :openai_responses_text}) |> Req.request()
 
       assert resp.status == 200
 
       deltas =
         resp.body
         |> SSE.stream()
-        |> Stream.map(&Provider.parse_event(OpenRouter, &1))
+        |> Stream.map(&Provider.parse_event(OpenAI, &1))
         |> Stream.reject(&is_nil/1)
         |> Enum.to_list()
 
       types = Enum.map(deltas, &elem(&1, 0))
 
-      assert types == [:start, :text_delta, :text_delta, :done, :usage]
+      assert types == [:start, :text_delta, :text_delta, :done]
 
       text_deltas =
         deltas
@@ -57,16 +57,14 @@ defmodule Omni.Dialects.OpenAICompletionsIntegrationTest do
 
       {:done, done} = Enum.find(deltas, &match?({:done, _}, &1))
       assert done.stop_reason == :stop
-
-      {:usage, usage} = List.last(deltas)
-      assert usage.usage["input_tokens"] == 10
-      assert usage.usage["output_tokens"] == 5
+      assert done.usage["input_tokens"] == 10
+      assert done.usage["output_tokens"] == 5
     end
   end
 
   describe "tool use streaming pipeline" do
     setup do
-      Req.Test.stub(:openrouter_tool_use, fn conn ->
+      Req.Test.stub(:openai_responses_tool_use, fn conn ->
         body = File.read!(@tool_use_fixture)
 
         conn
@@ -94,28 +92,28 @@ defmodule Omni.Dialects.OpenAICompletionsIntegrationTest do
       {:ok, req} = Provider.build_request(@model, context, api_key: "test-key")
 
       {:ok, resp} =
-        req |> Req.merge(plug: {Req.Test, :openrouter_tool_use}) |> Req.request()
+        req |> Req.merge(plug: {Req.Test, :openai_responses_tool_use}) |> Req.request()
 
       assert resp.status == 200
 
       deltas =
         resp.body
         |> SSE.stream()
-        |> Stream.map(&Provider.parse_event(OpenRouter, &1))
+        |> Stream.map(&Provider.parse_event(OpenAI, &1))
         |> Stream.reject(&is_nil/1)
         |> Enum.to_list()
 
       types = Enum.map(deltas, &elem(&1, 0))
 
       assert types == [
+               :start,
                :tool_use_start,
                :tool_use_delta,
                :tool_use_delta,
-               :done,
-               :usage
+               :done
              ]
 
-      {:tool_use_start, start} = Enum.at(deltas, 0)
+      {:tool_use_start, start} = Enum.at(deltas, 1)
       assert start.id == "call_abc123"
       assert start.name == "get_weather"
 

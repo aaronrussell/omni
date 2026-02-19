@@ -1,11 +1,11 @@
 defmodule Omni.Providers.OpenAI do
   @moduledoc """
-  Provider for the OpenAI Chat Completions API.
+  Provider for the OpenAI Responses API.
 
   Authenticates via the `Authorization: Bearer <key>` header.
   """
 
-  use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+  use Omni.Provider, dialect: Omni.Dialects.OpenAIResponses
 
   @impl true
   def config do

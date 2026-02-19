@@ -69,7 +69,7 @@ lib/omni/
 ├── provider.ex                     # Provider behaviour + shared HTTP logic
 ├── providers/{anthropic,openai,...}.ex
 ├── dialect.ex                      # Dialect behaviour
-└── dialects/{anthropic_messages,openai_completions,...}.ex
+└── dialects/{anthropic_messages,openai_completions,openai_responses,...}.ex
 ```
 
 ## Conventions

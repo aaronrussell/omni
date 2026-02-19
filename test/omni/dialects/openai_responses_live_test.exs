@@ -1,18 +1,13 @@
-defmodule Omni.Dialects.OpenAICompletionsLiveTest do
+defmodule Omni.Dialects.OpenAIResponsesLiveTest do
   use ExUnit.Case, async: false
 
   @moduletag :live
 
   alias Omni.{Context, Provider, SSE}
-  alias Omni.Providers.OpenRouter
+  alias Omni.Providers.OpenAI
 
-  setup_all do
-    Provider.load([:openrouter])
-    :ok
-  end
-
-  test "full pipeline with live OpenRouter API" do
-    {:ok, model} = Omni.get_model(:openrouter, "openai/gpt-4.1-mini")
+  test "full pipeline with live OpenAI Responses API" do
+    {:ok, model} = Omni.get_model(:openai, "gpt-4.1-nano")
     context = Context.new("Say hello in one word.")
 
     {:ok, req} = Provider.build_request(model, context, max_tokens: 50)
@@ -24,7 +19,7 @@ defmodule Omni.Dialects.OpenAICompletionsLiveTest do
     deltas =
       resp.body
       |> SSE.stream()
-      |> Stream.map(&Provider.parse_event(OpenRouter, &1))
+      |> Stream.map(&Provider.parse_event(OpenAI, &1))
       |> Stream.reject(&is_nil/1)
       |> Enum.to_list()
 
