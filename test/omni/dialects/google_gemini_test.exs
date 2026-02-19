@@ -307,7 +307,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
   end
 
   describe "parse_event/1" do
-    test "text delta from content chunk" do
+    test "text content emits message with usage and block_delta" do
       event = %{
         "candidates" => [
           %{
@@ -323,10 +323,16 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         }
       }
 
-      assert {:text_delta, %{index: 0, delta: "Hello"}} = GoogleGemini.parse_event(event)
+      assert [
+               {:message, %{usage: usage}},
+               {:block_delta, %{type: :text, index: 0, delta: "Hello"}}
+             ] = GoogleGemini.parse_event(event)
+
+      assert usage["input_tokens"] == 5
+      assert usage["output_tokens"] == 1
     end
 
-    test "function call produces tool_use_start with generated ID and complete input" do
+    test "function call emits message and block_start with generated ID and complete input" do
       event = %{
         "candidates" => [
           %{
@@ -347,7 +353,12 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert {:tool_use_start, result} = GoogleGemini.parse_event(event)
+      assert [
+               {:message, %{stop_reason: :tool_use}},
+               {:block_start, result}
+             ] = GoogleGemini.parse_event(event)
+
+      assert result.type == :tool_use
       assert result.name == "get_weather"
       assert result.input == %{"city" => "London"}
       assert result.index == 0
@@ -362,7 +373,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert {:done, %{stop_reason: :stop}} = GoogleGemini.parse_event(event)
+      assert [{:message, %{stop_reason: :stop}}] = GoogleGemini.parse_event(event)
     end
 
     test "MAX_TOKENS maps to :length" do
@@ -372,7 +383,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert {:done, %{stop_reason: :length}} = GoogleGemini.parse_event(event)
+      assert [{:message, %{stop_reason: :length}}] = GoogleGemini.parse_event(event)
     end
 
     test "SAFETY maps to :content_filter" do
@@ -382,7 +393,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert {:done, %{stop_reason: :content_filter}} = GoogleGemini.parse_event(event)
+      assert [{:message, %{stop_reason: :content_filter}}] = GoogleGemini.parse_event(event)
     end
 
     test "RECITATION maps to :content_filter" do
@@ -392,10 +403,10 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert {:done, %{stop_reason: :content_filter}} = GoogleGemini.parse_event(event)
+      assert [{:message, %{stop_reason: :content_filter}}] = GoogleGemini.parse_event(event)
     end
 
-    test "usage normalization" do
+    test "usage emits message with normalized usage" do
       event = %{
         "usageMetadata" => %{
           "promptTokenCount" => 10,
@@ -404,12 +415,12 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         }
       }
 
-      assert {:usage, %{usage: usage}} = GoogleGemini.parse_event(event)
+      assert [{:message, %{usage: usage}}] = GoogleGemini.parse_event(event)
       assert usage["input_tokens"] == 10
       assert usage["output_tokens"] == 5
     end
 
-    test "done event includes usage when present" do
+    test "finishReason with usageMetadata emits combined message" do
       event = %{
         "candidates" => [
           %{"finishReason" => "STOP", "index" => 0}
@@ -421,12 +432,14 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         }
       }
 
-      assert {:done, %{stop_reason: :stop, usage: usage}} = GoogleGemini.parse_event(event)
+      assert [{:message, %{stop_reason: :stop, usage: usage}}] =
+               GoogleGemini.parse_event(event)
+
       assert usage["input_tokens"] == 10
       assert usage["output_tokens"] == 5
     end
 
-    test "text takes priority over finishReason in same event" do
+    test "text and finishReason in same event emits both" do
       event = %{
         "candidates" => [
           %{
@@ -437,10 +450,13 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert {:text_delta, %{delta: "Final words"}} = GoogleGemini.parse_event(event)
+      assert [
+               {:message, %{stop_reason: :stop}},
+               {:block_delta, %{type: :text, delta: "Final words"}}
+             ] = GoogleGemini.parse_event(event)
     end
 
-    test "functionCall takes priority over text in same event" do
+    test "functionCall and empty text emits only block_start" do
       event = %{
         "candidates" => [
           %{
@@ -456,14 +472,15 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert {:tool_use_start, %{name: "search"}} = GoogleGemini.parse_event(event)
+      assert [{:block_start, %{type: :tool_use, name: "search"}}] =
+               GoogleGemini.parse_event(event)
     end
 
-    test "unknown event returns nil" do
-      assert nil == GoogleGemini.parse_event(%{"type" => "something_else"})
+    test "unknown event returns empty list" do
+      assert [] == GoogleGemini.parse_event(%{"type" => "something_else"})
     end
 
-    test "empty text is not treated as text_delta" do
+    test "empty text with finishReason emits only message" do
       event = %{
         "candidates" => [
           %{
@@ -474,7 +491,29 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert {:done, %{stop_reason: :stop}} = GoogleGemini.parse_event(event)
+      assert [{:message, %{stop_reason: :stop}}] = GoogleGemini.parse_event(event)
+    end
+
+    test "modelVersion is extracted into message" do
+      event = %{
+        "modelVersion" => "gemini-2.0-flash-lite",
+        "usageMetadata" => %{
+          "promptTokenCount" => 5,
+          "candidatesTokenCount" => 1,
+          "totalTokenCount" => 6
+        },
+        "candidates" => [
+          %{
+            "content" => %{"parts" => [%{"text" => "Hi"}], "role" => "model"},
+            "index" => 0
+          }
+        ]
+      }
+
+      assert [
+               {:message, %{model: "gemini-2.0-flash-lite", usage: _}},
+               {:block_delta, %{type: :text, delta: "Hi"}}
+             ] = GoogleGemini.parse_event(event)
     end
   end
 end

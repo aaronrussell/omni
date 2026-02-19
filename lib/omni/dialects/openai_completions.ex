@@ -41,44 +41,59 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   @impl true
   def parse_event(%{"usage" => %{} = usage}) do
-    {:usage, %{usage: normalize_usage(usage)}}
+    [{:message, %{usage: normalize_usage(usage)}}]
   end
 
   def parse_event(%{"choices" => [%{"finish_reason" => reason}]}) when is_binary(reason) do
-    {:done, %{stop_reason: normalize_stop_reason(reason)}}
+    [{:message, %{stop_reason: normalize_stop_reason(reason)}}]
   end
 
-  def parse_event(%{"choices" => [%{"delta" => %{"tool_calls" => [tool_call | _]}} = choice]})
+  def parse_event(
+        %{"choices" => [%{"delta" => %{"tool_calls" => [tool_call | _]}} = choice]} = event
+      )
       when is_map_key(tool_call, "id") do
-    {:tool_use_start,
-     %{
-       index: choice["index"] || 0,
-       id: tool_call["id"],
-       name: tool_call["function"]["name"]
-     }}
+    message =
+      case event do
+        %{"model" => model_id} -> [{:message, %{model: model_id}}]
+        _ -> []
+      end
+
+    message ++
+      [
+        {:block_start,
+         %{
+           type: :tool_use,
+           index: choice["index"] || 0,
+           id: tool_call["id"],
+           name: tool_call["function"]["name"]
+         }}
+      ]
   end
 
   def parse_event(%{"choices" => [%{"delta" => %{"tool_calls" => [tool_call | _]}} = choice]}) do
-    {:tool_use_delta,
-     %{
-       index: choice["index"] || 0,
-       delta: tool_call["function"]["arguments"]
-     }}
+    [
+      {:block_delta,
+       %{
+         type: :tool_use,
+         index: choice["index"] || 0,
+         delta: tool_call["function"]["arguments"]
+       }}
+    ]
   end
 
   def parse_event(%{"choices" => [%{"delta" => %{"content" => content}}]})
       when is_binary(content) and content != "" do
-    {:text_delta, %{index: 0, delta: content}}
+    [{:block_delta, %{type: :text, index: 0, delta: content}}]
   end
 
   def parse_event(%{
         "choices" => [%{"delta" => %{"role" => "assistant"}}],
         "model" => model_id
       }) do
-    {:start, %{model: model_id}}
+    [{:message, %{model: model_id}}]
   end
 
-  def parse_event(_), do: nil
+  def parse_event(_), do: []
 
   # Message encoding
 

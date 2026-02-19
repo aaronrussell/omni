@@ -396,13 +396,13 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
   end
 
   describe "parse_event/1" do
-    test "start from role delta" do
+    test "message from role delta" do
       event = %{
         "choices" => [%{"index" => 0, "delta" => %{"role" => "assistant", "content" => ""}}],
         "model" => "gpt-4.1-nano"
       }
 
-      assert {:start, %{model: "gpt-4.1-nano"}} = OpenAICompletions.parse_event(event)
+      assert [{:message, %{model: "gpt-4.1-nano"}}] = OpenAICompletions.parse_event(event)
     end
 
     test "text delta" do
@@ -410,62 +410,63 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{"content" => "Hello"}}]
       }
 
-      assert {:text_delta, %{index: 0, delta: "Hello"}} = OpenAICompletions.parse_event(event)
+      assert [{:block_delta, %{type: :text, index: 0, delta: "Hello"}}] =
+               OpenAICompletions.parse_event(event)
     end
 
-    test "empty content in start returns start not text_delta" do
+    test "empty content in start returns message not block_delta" do
       event = %{
         "choices" => [%{"index" => 0, "delta" => %{"role" => "assistant", "content" => ""}}],
         "model" => "gpt-4.1-nano"
       }
 
-      assert {:start, _} = OpenAICompletions.parse_event(event)
+      assert [{:message, _}] = OpenAICompletions.parse_event(event)
     end
 
-    test "done with stop" do
+    test "message with stop" do
       event = %{
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "stop"}]
       }
 
-      assert {:done, %{stop_reason: :stop}} = OpenAICompletions.parse_event(event)
+      assert [{:message, %{stop_reason: :stop}}] = OpenAICompletions.parse_event(event)
     end
 
-    test "done with tool_calls" do
+    test "message with tool_calls" do
       event = %{
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "tool_calls"}]
       }
 
-      assert {:done, %{stop_reason: :tool_use}} = OpenAICompletions.parse_event(event)
+      assert [{:message, %{stop_reason: :tool_use}}] = OpenAICompletions.parse_event(event)
     end
 
-    test "done with length" do
+    test "message with length" do
       event = %{
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "length"}]
       }
 
-      assert {:done, %{stop_reason: :length}} = OpenAICompletions.parse_event(event)
+      assert [{:message, %{stop_reason: :length}}] = OpenAICompletions.parse_event(event)
     end
 
-    test "done with content_filter" do
+    test "message with content_filter" do
       event = %{
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "content_filter"}]
       }
 
-      assert {:done, %{stop_reason: :content_filter}} = OpenAICompletions.parse_event(event)
+      assert [{:message, %{stop_reason: :content_filter}}] = OpenAICompletions.parse_event(event)
     end
 
-    test "usage from final chunk with normalized keys" do
+    test "message with usage from final chunk" do
       event = %{
         "choices" => [],
         "usage" => %{"prompt_tokens" => 10, "completion_tokens" => 5, "total_tokens" => 15}
       }
 
-      assert {:usage, %{usage: usage}} = OpenAICompletions.parse_event(event)
+      assert [{:message, %{usage: usage}}] = OpenAICompletions.parse_event(event)
       assert usage["input_tokens"] == 10
       assert usage["output_tokens"] == 5
     end
 
-    test "tool use start with id" do
+    test "tool use start with id emits message and block_start" do
       event = %{
         "choices" => [
           %{
@@ -486,8 +487,11 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "model" => "gpt-4.1-nano"
       }
 
-      assert {:tool_use_start, %{index: 0, id: "call_abc123", name: "get_weather"}} =
-               OpenAICompletions.parse_event(event)
+      assert [
+               {:message, %{model: "gpt-4.1-nano"}},
+               {:block_start,
+                %{type: :tool_use, index: 0, id: "call_abc123", name: "get_weather"}}
+             ] = OpenAICompletions.parse_event(event)
     end
 
     test "tool use delta without id" do
@@ -504,11 +508,11 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         ]
       }
 
-      assert {:tool_use_delta, %{index: 0, delta: "{\"city\""}} =
+      assert [{:block_delta, %{type: :tool_use, index: 0, delta: "{\"city\""}}] =
                OpenAICompletions.parse_event(event)
     end
 
-    test "tool use start takes priority over start when both role and tool_calls present" do
+    test "tool_calls with role emits message and block_start" do
       event = %{
         "choices" => [
           %{
@@ -529,19 +533,19 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "model" => "gpt-4.1-nano"
       }
 
-      assert {:tool_use_start, _} = OpenAICompletions.parse_event(event)
+      assert [{:message, _}, {:block_start, _}] = OpenAICompletions.parse_event(event)
     end
 
-    test "empty delta returns nil" do
+    test "empty delta returns empty list" do
       event = %{
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => nil}]
       }
 
-      assert nil == OpenAICompletions.parse_event(event)
+      assert [] == OpenAICompletions.parse_event(event)
     end
 
-    test "unknown event returns nil" do
-      assert nil == OpenAICompletions.parse_event(%{"type" => "something_else"})
+    test "unknown event returns empty list" do
+      assert [] == OpenAICompletions.parse_event(%{"type" => "something_else"})
     end
   end
 end

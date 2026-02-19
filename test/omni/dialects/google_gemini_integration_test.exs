@@ -40,22 +40,21 @@ defmodule Omni.Dialects.GoogleGeminiIntegrationTest do
       deltas =
         resp.body
         |> SSE.stream()
-        |> Stream.map(&Provider.parse_event(Google, &1))
-        |> Stream.reject(&is_nil/1)
+        |> Stream.flat_map(&Provider.parse_event(Google, &1))
         |> Enum.to_list()
 
       types = Enum.map(deltas, &elem(&1, 0))
 
-      assert types == [:text_delta, :text_delta, :done]
+      assert types == [:message, :block_delta, :message, :block_delta, :message]
 
       text_deltas =
         deltas
-        |> Enum.filter(&match?({:text_delta, _}, &1))
-        |> Enum.map(fn {:text_delta, %{delta: text}} -> text end)
+        |> Enum.filter(&match?({:block_delta, %{type: :text}}, &1))
+        |> Enum.map(fn {:block_delta, %{delta: text}} -> text end)
 
       assert text_deltas == ["Hello", "!"]
 
-      {:done, done} = Enum.find(deltas, &match?({:done, _}, &1))
+      {:message, done} = Enum.find(deltas, &match?({:message, %{stop_reason: _}}, &1))
       assert done.stop_reason == :stop
       assert done.usage["input_tokens"] == 5
       assert done.usage["output_tokens"] == 2
@@ -97,16 +96,15 @@ defmodule Omni.Dialects.GoogleGeminiIntegrationTest do
       deltas =
         resp.body
         |> SSE.stream()
-        |> Stream.map(&Provider.parse_event(Google, &1))
-        |> Stream.reject(&is_nil/1)
+        |> Stream.flat_map(&Provider.parse_event(Google, &1))
         |> Enum.to_list()
 
       types = Enum.map(deltas, &elem(&1, 0))
 
-      # Google sends functionCall complete, so only tool_use_start (no deltas)
-      assert types == [:tool_use_start]
+      # Google sends functionCall complete, so only block_start (no deltas)
+      assert types == [:message, :block_start]
 
-      {:tool_use_start, start} = Enum.at(deltas, 0)
+      {:block_start, start} = Enum.at(deltas, 1)
       assert start.name == "get_weather"
       assert start.input == %{"city" => "London"}
       assert is_binary(start.id)

@@ -40,22 +40,21 @@ defmodule Omni.Dialects.AnthropicMessagesIntegrationTest do
       deltas =
         resp.body
         |> SSE.stream()
-        |> Stream.map(&Provider.parse_event(Anthropic, &1))
-        |> Stream.reject(&is_nil/1)
+        |> Stream.flat_map(&Provider.parse_event(Anthropic, &1))
         |> Enum.to_list()
 
       types = Enum.map(deltas, &elem(&1, 0))
 
-      assert types == [:start, :text_start, :text_delta, :text_delta, :content_block_end, :done]
+      assert types == [:message, :block_start, :block_delta, :block_delta, :message]
 
       text_deltas =
         deltas
-        |> Enum.filter(&match?({:text_delta, _}, &1))
-        |> Enum.map(fn {:text_delta, %{delta: text}} -> text end)
+        |> Enum.filter(&match?({:block_delta, %{type: :text}}, &1))
+        |> Enum.map(fn {:block_delta, %{delta: text}} -> text end)
 
       assert text_deltas == ["Hello", "!"]
 
-      {:done, done} = List.last(deltas)
+      {:message, done} = List.last(deltas)
       assert done.stop_reason == :stop
     end
   end
@@ -95,33 +94,31 @@ defmodule Omni.Dialects.AnthropicMessagesIntegrationTest do
       deltas =
         resp.body
         |> SSE.stream()
-        |> Stream.map(&Provider.parse_event(Anthropic, &1))
-        |> Stream.reject(&is_nil/1)
+        |> Stream.flat_map(&Provider.parse_event(Anthropic, &1))
         |> Enum.to_list()
 
       types = Enum.map(deltas, &elem(&1, 0))
 
       assert types == [
-               :start,
-               :tool_use_start,
-               :tool_use_delta,
-               :tool_use_delta,
-               :content_block_end,
-               :done
+               :message,
+               :block_start,
+               :block_delta,
+               :block_delta,
+               :message
              ]
 
-      {:tool_use_start, start} = Enum.at(deltas, 1)
+      {:block_start, start} = Enum.at(deltas, 1)
       assert start.id == "toolu_01ABC"
       assert start.name == "get_weather"
 
       json_fragments =
         deltas
-        |> Enum.filter(&match?({:tool_use_delta, _}, &1))
-        |> Enum.map(fn {:tool_use_delta, %{delta: json}} -> json end)
+        |> Enum.filter(&match?({:block_delta, %{type: :tool_use}}, &1))
+        |> Enum.map(fn {:block_delta, %{delta: json}} -> json end)
 
       assert Enum.join(json_fragments) == "{\"city\": \"London\"}"
 
-      {:done, done} = List.last(deltas)
+      {:message, done} = List.last(deltas)
       assert done.stop_reason == :tool_use
     end
   end

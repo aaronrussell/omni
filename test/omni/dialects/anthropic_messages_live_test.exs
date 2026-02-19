@@ -19,15 +19,13 @@ defmodule Omni.Dialects.AnthropicMessagesLiveTest do
     deltas =
       resp.body
       |> SSE.stream()
-      |> Stream.map(&Provider.parse_event(Anthropic, &1))
-      |> Stream.reject(&is_nil/1)
+      |> Stream.flat_map(&Provider.parse_event(Anthropic, &1))
       |> Enum.to_list()
 
     types = Enum.map(deltas, &elem(&1, 0))
 
-    assert :start in types
-    assert :text_start in types
-    assert :text_delta in types
-    assert :done in types
+    assert :message in types
+    assert :block_start in types
+    assert :block_delta in types
   end
 end

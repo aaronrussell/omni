@@ -242,9 +242,9 @@ defmodule Omni.Provider do
   Parses a raw SSE event map through the provider and dialect layers.
 
   The provider's `adapt_event/1` is applied first, then the dialect's
-  `parse_event/1` transforms the event into a delta tuple (or nil).
+  `parse_event/1` transforms the event into a list of delta tuples.
   """
-  @spec parse_event(module(), map()) :: {atom(), map()} | nil
+  @spec parse_event(module(), map()) :: [{atom(), map()}]
   def parse_event(provider, raw_event) do
     raw_event
     |> provider.adapt_event()

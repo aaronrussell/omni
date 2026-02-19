@@ -17,13 +17,9 @@ defmodule Omni.Dialects.GoogleGemini do
 
   ## Known limitations
 
-  - No `:start` event emitted (Google has no equivalent of Anthropic's
-    `message_start`)
-  - Google may bundle text + finishReason + usage in a single SSE event;
-    content is prioritized, which may cause `:done`/`:usage` signals to be
-    lost from bundled events
   - No `:tool_use_delta` events — Google sends function call args complete
-    (as a map), not as streamed JSON fragments
+    (as a map), not as streamed JSON fragments. The `:block_start` for
+    tool_use carries the full input directly.
   - Cache option is a no-op (Google uses server-side caching, incompatible
     model)
   """
@@ -54,49 +50,76 @@ defmodule Omni.Dialects.GoogleGemini do
     {:ok, body}
   end
 
-  # Parse events — Google sends `GenerateContentResponse` objects with
-  # `candidates[0].content.parts` as the primary content carrier.
-  # Priority: content parts > finishReason > usageMetadata-only.
+  # Parse events — Google sends `GenerateContentResponse` objects.
+  # Each event is decomposed into envelope (:message) + content (:block_delta/:block_start).
 
   @impl true
-  def parse_event(%{"candidates" => [%{"content" => %{"parts" => parts}} | _]} = event) do
-    cond do
-      fc = Enum.find(parts, &is_map_key(&1, "functionCall")) ->
-        %{"functionCall" => %{"name" => name, "args" => args}} = fc
+  def parse_event(event) do
+    message = extract_message(event)
+    content = extract_content(event)
 
-        {:tool_use_start,
-         %{
-           index: 0,
-           id: "google_fc_#{System.unique_integer([:positive])}",
-           name: name,
-           input: args
-         }}
-
-      text_part = Enum.find(parts, fn p -> is_binary(p["text"]) and p["text"] != "" end) ->
-        {:text_delta, %{index: 0, delta: text_part["text"]}}
-
-      true ->
-        parse_finish(event)
-    end
+    case message do
+      data when data == %{} -> []
+      data -> [{:message, data}]
+    end ++ content
   end
 
-  def parse_event(%{"candidates" => [%{"finishReason" => reason} | _]} = event) do
-    {:done, %{stop_reason: normalize_stop_reason(reason), usage: extract_usage(event)}}
+  defp extract_message(event) do
+    %{}
+    |> maybe_put_model(event)
+    |> maybe_put_stop_reason(event)
+    |> maybe_put_usage(event)
   end
 
-  def parse_event(%{"usageMetadata" => usage}) do
-    {:usage, %{usage: normalize_usage(usage)}}
+  defp maybe_put_model(map, %{"modelVersion" => model_id}), do: Map.put(map, :model, model_id)
+  defp maybe_put_model(map, _), do: map
+
+  defp maybe_put_stop_reason(map, %{"candidates" => [%{"finishReason" => reason} = candidate | _]})
+       when is_binary(reason) do
+    stop =
+      if has_function_call?(candidate),
+        do: :tool_use,
+        else: normalize_stop_reason(reason)
+
+    Map.put(map, :stop_reason, stop)
   end
 
-  def parse_event(_), do: nil
+  defp maybe_put_stop_reason(map, _), do: map
 
-  # Fallback for events with finishReason but content was already extracted
+  defp has_function_call?(%{"content" => %{"parts" => parts}}),
+    do: Enum.any?(parts, &is_map_key(&1, "functionCall"))
 
-  defp parse_finish(%{"candidates" => [%{"finishReason" => reason} | _]} = event) do
-    {:done, %{stop_reason: normalize_stop_reason(reason), usage: extract_usage(event)}}
+  defp has_function_call?(_), do: false
+
+  defp maybe_put_usage(map, %{"usageMetadata" => usage}),
+    do: Map.put(map, :usage, normalize_usage(usage))
+
+  defp maybe_put_usage(map, _), do: map
+
+  defp extract_content(%{"candidates" => [%{"content" => %{"parts" => parts}} | _]}) do
+    Enum.flat_map(parts, &parse_part/1)
   end
 
-  defp parse_finish(_), do: nil
+  defp extract_content(_), do: []
+
+  defp parse_part(%{"functionCall" => %{"name" => name, "args" => args}}) do
+    [
+      {:block_start,
+       %{
+         type: :tool_use,
+         index: 0,
+         id: "google_fc_#{System.unique_integer([:positive])}",
+         name: name,
+         input: args
+       }}
+    ]
+  end
+
+  defp parse_part(%{"text" => text}) when is_binary(text) and text != "" do
+    [{:block_delta, %{type: :text, index: 0, delta: text}}]
+  end
+
+  defp parse_part(_), do: []
 
   # System encoding
 
@@ -171,10 +194,7 @@ defmodule Omni.Dialects.GoogleGemini do
     %{"name" => name, "description" => description, "parameters" => schema}
   end
 
-  # Usage extraction and normalization
-
-  defp extract_usage(%{"usageMetadata" => usage}), do: normalize_usage(usage)
-  defp extract_usage(_), do: nil
+  # Usage normalization
 
   defp normalize_usage(usage) do
     %{

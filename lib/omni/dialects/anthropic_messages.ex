@@ -42,7 +42,7 @@ defmodule Omni.Dialects.AnthropicMessages do
 
   @impl true
   def parse_event(%{"type" => "message_start", "message" => %{"model" => model_id}}) do
-    {:start, %{model: model_id}}
+    [{:message, %{model: model_id}}]
   end
 
   def parse_event(%{
@@ -50,7 +50,7 @@ defmodule Omni.Dialects.AnthropicMessages do
         "index" => idx,
         "content_block" => %{"type" => "text"}
       }) do
-    {:text_start, %{index: idx}}
+    [{:block_start, %{type: :text, index: idx}}]
   end
 
   def parse_event(%{
@@ -58,7 +58,7 @@ defmodule Omni.Dialects.AnthropicMessages do
         "index" => idx,
         "content_block" => %{"type" => "thinking"}
       }) do
-    {:thinking_start, %{index: idx}}
+    [{:block_start, %{type: :thinking, index: idx}}]
   end
 
   def parse_event(%{
@@ -66,7 +66,7 @@ defmodule Omni.Dialects.AnthropicMessages do
         "index" => idx,
         "content_block" => %{"type" => "tool_use", "id" => id, "name" => name}
       }) do
-    {:tool_use_start, %{index: idx, id: id, name: name}}
+    [{:block_start, %{type: :tool_use, index: idx, id: id, name: name}}]
   end
 
   def parse_event(%{
@@ -74,7 +74,7 @@ defmodule Omni.Dialects.AnthropicMessages do
         "index" => idx,
         "delta" => %{"type" => "text_delta", "text" => text}
       }) do
-    {:text_delta, %{index: idx, delta: text}}
+    [{:block_delta, %{type: :text, index: idx, delta: text}}]
   end
 
   def parse_event(%{
@@ -82,7 +82,7 @@ defmodule Omni.Dialects.AnthropicMessages do
         "index" => idx,
         "delta" => %{"type" => "thinking_delta", "thinking" => text}
       }) do
-    {:thinking_delta, %{index: idx, delta: text}}
+    [{:block_delta, %{type: :thinking, index: idx, delta: text}}]
   end
 
   def parse_event(%{
@@ -90,18 +90,21 @@ defmodule Omni.Dialects.AnthropicMessages do
         "index" => idx,
         "delta" => %{"type" => "input_json_delta", "partial_json" => json}
       }) do
-    {:tool_use_delta, %{index: idx, delta: json}}
+    [{:block_delta, %{type: :tool_use, index: idx, delta: json}}]
   end
 
-  def parse_event(%{"type" => "content_block_stop", "index" => idx}) do
-    {:content_block_end, %{index: idx}}
+  def parse_event(%{"type" => "content_block_stop"}) do
+    []
   end
 
   def parse_event(%{"type" => "message_delta", "delta" => delta} = event) do
-    {:done, %{stop_reason: normalize_stop_reason(delta["stop_reason"]), usage: event["usage"]}}
+    [
+      {:message,
+       %{stop_reason: normalize_stop_reason(delta["stop_reason"]), usage: event["usage"]}}
+    ]
   end
 
-  def parse_event(_), do: nil
+  def parse_event(_), do: []
 
   # System encoding
 

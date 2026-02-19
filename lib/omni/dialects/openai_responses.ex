@@ -41,7 +41,7 @@ defmodule Omni.Dialects.OpenAIResponses do
 
   @impl true
   def parse_event(%{"type" => "response.created", "response" => %{"model" => model_id}}) do
-    {:start, %{model: model_id}}
+    [{:message, %{model: model_id}}]
   end
 
   def parse_event(%{
@@ -49,7 +49,7 @@ defmodule Omni.Dialects.OpenAIResponses do
         "content_index" => content_index,
         "delta" => delta
       }) do
-    {:text_delta, %{index: content_index, delta: delta}}
+    [{:block_delta, %{type: :text, index: content_index, delta: delta}}]
   end
 
   def parse_event(%{
@@ -57,7 +57,7 @@ defmodule Omni.Dialects.OpenAIResponses do
         "output_index" => output_index,
         "item" => %{"type" => "function_call", "call_id" => call_id, "name" => name}
       }) do
-    {:tool_use_start, %{index: output_index, id: call_id, name: name}}
+    [{:block_start, %{type: :tool_use, index: output_index, id: call_id, name: name}}]
   end
 
   def parse_event(%{
@@ -65,7 +65,7 @@ defmodule Omni.Dialects.OpenAIResponses do
         "output_index" => output_index,
         "delta" => delta
       }) do
-    {:tool_use_delta, %{index: output_index, delta: delta}}
+    [{:block_delta, %{type: :tool_use, index: output_index, delta: delta}}]
   end
 
   def parse_event(%{
@@ -73,14 +73,14 @@ defmodule Omni.Dialects.OpenAIResponses do
         "summary_index" => summary_index,
         "delta" => delta
       }) do
-    {:thinking_delta, %{index: summary_index, delta: delta}}
+    [{:block_delta, %{type: :thinking, index: summary_index, delta: delta}}]
   end
 
   def parse_event(%{"type" => "response.completed", "response" => response}) do
-    {:done, %{stop_reason: infer_stop_reason(response), usage: normalize_usage(response)}}
+    [{:message, %{stop_reason: infer_stop_reason(response), usage: normalize_usage(response)}}]
   end
 
-  def parse_event(_), do: nil
+  def parse_event(_), do: []
 
   # Input encoding — flat-maps messages into a mixed array
 

@@ -19,6 +19,6 @@ defmodule Omni.Dialect do
   @doc "Builds the request body from a model, context, and validated options."
   @callback build_body(Model.t(), Context.t(), keyword()) :: {:ok, map()} | {:error, term()}
 
-  @doc "Parses a raw SSE event map into a delta tuple, or nil to skip."
-  @callback parse_event(map()) :: {atom(), map()} | nil
+  @doc "Parses a raw SSE event map into a list of delta tuples."
+  @callback parse_event(map()) :: [{atom(), map()}]
 end

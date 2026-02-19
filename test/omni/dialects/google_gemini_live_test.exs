@@ -19,12 +19,11 @@ defmodule Omni.Dialects.GoogleGeminiLiveTest do
     deltas =
       resp.body
       |> SSE.stream()
-      |> Stream.map(&Provider.parse_event(Google, &1))
-      |> Stream.reject(&is_nil/1)
+      |> Stream.flat_map(&Provider.parse_event(Google, &1))
       |> Enum.to_list()
 
     types = Enum.map(deltas, &elem(&1, 0))
 
-    assert :text_delta in types
+    assert :block_delta in types
   end
 end

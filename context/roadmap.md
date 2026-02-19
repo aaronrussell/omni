@@ -60,18 +60,13 @@ Dialect behaviour, Anthropic Messages dialect, and the Provider composition func
 
 Simplify and normalize the dialect event contract before building StreamingResponse. The goal is a minimal, consistent set of delta tuples that all dialects emit, with StreamingResponse responsible for expanding them into the rich consumer-facing event vocabulary.
 
-### 1. Refactor `parse_event` to return lists
+### 1. Refactor `parse_event` to return lists ✓
 
-Change `Dialect.parse_event/1` and `Provider.parse_event/2` from returning `{atom, map} | nil` to returning `[{atom, map}]`. This solves two problems:
+Changed `Dialect.parse_event/1` and `Provider.parse_event/2` from returning `{atom, map} | nil` to returning `[{atom, map}]`. Callers use `Stream.flat_map` instead of `Stream.map |> Stream.reject(&is_nil/1)`.
 
-- No more nils leaking through the pipeline requiring `Stream.reject` — empty list means "skip"
-- Providers that bundle multiple signals in one SSE event (Google bundles text + finishReason + usage in every event) can emit multiple logical events from a single parse
+### 2. New delta format ✓
 
-Callers change from `Stream.map |> Stream.reject(&is_nil/1)` to `Stream.flat_map`. Mechanical refactor touching all dialects, `Provider.parse_event/2`, and all integration tests.
-
-### 2. New delta format
-
-Replace the current type-specific delta vocabulary with a minimal set of generic events:
+Replaced the type-specific delta vocabulary with 4 generic event types:
 
 ```elixir
 {:message, %{model: _, usage: _, stop_reason: _}}  # envelope/metadata accumulator
@@ -90,7 +85,11 @@ Replace the current type-specific delta vocabulary with a minimal set of generic
 
 **No `_end` events** — StreamingResponse synthesizes block completion from stream termination. Consumer-facing `_end` events (`:text_end`, `:tool_use_end`, etc.) are emitted by StreamingResponse, not by dialects.
 
-### 3. Thinking/reasoning option
+### 3. Fix Google Gemini event parsing ✓
+
+Google Gemini `parse_event` rewritten to decompose each SSE event into envelope (`:message`) + content (`:block_delta`/`:block_start`). Every event now correctly emits all bundled signals — `modelVersion`, `usageMetadata`, `finishReason`, and content parts are all captured. When `functionCall` + `finishReason: "STOP"` coexist, `stop_reason` is inferred as `:tool_use`.
+
+### 4. Thinking/reasoning option
 
 Design and implement the `thinking` option across all dialects. Research needed for each provider's thinking/reasoning config:
 
@@ -101,19 +100,15 @@ Design and implement the `thinking` option across all dialects. Research needed 
 
 Goal: unified `thinking` option (on/off or budget) that each dialect translates to its provider-specific config.
 
-### 4. Fix Google Gemini event parsing
+### 5. Expand integration tests
 
-Google sends `modelVersion` and `usageMetadata` in every SSE event, and `finishReason` in the final event. Currently the dialect only emits `:text_delta` and drops the rest (model, usage, finish info). With the list return + new delta format, every Google event can emit `[{:message, %{...}}, {:block_delta, %{...}}]`, capturing all available data.
-
-### 5. Expand live tests
-
-Expand dialect live tests to cover three scenarios each, inspecting the actual delta tuples:
+Expand dialect integration tests to cover three scenarios each, using fixture data captured from live APIs via `Omni.Test.Capture.record/5`:
 
 - **Simple text generation** (already done for all dialects)
 - **Tool calling** — verify `:block_start` with tool id/name, `:block_delta` with JSON fragments, `:message` with `:tool_use` stop reason
-- **Thinking/reasoning** — verify `:block_delta` with thinking content (requires thinking option from step 3)
+- **Thinking/reasoning** — verify `:block_delta` with thinking content (requires thinking option from step 4)
 
-This validates real API data against the normalized event contract and confirms StreamingResponse will have everything it needs (usage, stop reason, content) across all providers.
+Live tests will be left as-is for now — once `stream_text` exists (Phase 5), live tests at the top-level API will exercise the full pipeline end-to-end for every provider.
 
 ### Index semantics note
 
@@ -121,11 +116,11 @@ Anthropic uses global content block indices (text at 0, tool_use at 1). OpenAI u
 
 ### Suggested order
 
-1. `parse_event` returns lists (mechanical, unblocks everything)
-2. New delta format (refactor all `parse_event` implementations)
-3. Fix Google event parsing (now possible with lists + new format)
+1. ~~`parse_event` returns lists~~ ✓
+2. ~~New delta format~~ ✓
+3. ~~Fix Google event parsing~~ ✓
 4. Thinking option design + implementation
-5. Expanded live tests (validates everything end-to-end)
+5. Expanded integration tests (validates everything with fixture data)
 
 ---
 

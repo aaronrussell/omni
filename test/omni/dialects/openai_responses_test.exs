@@ -367,16 +367,16 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
   end
 
   describe "parse_event/1" do
-    test "response.created returns start with model" do
+    test "response.created returns message with model" do
       event = %{
         "type" => "response.created",
         "response" => %{"id" => "resp_123", "model" => "gpt-4.1-nano", "status" => "in_progress"}
       }
 
-      assert {:start, %{model: "gpt-4.1-nano"}} = OpenAIResponses.parse_event(event)
+      assert [{:message, %{model: "gpt-4.1-nano"}}] = OpenAIResponses.parse_event(event)
     end
 
-    test "response.output_text.delta returns text_delta" do
+    test "response.output_text.delta returns block_delta" do
       event = %{
         "type" => "response.output_text.delta",
         "output_index" => 0,
@@ -384,10 +384,11 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
         "delta" => "Hello"
       }
 
-      assert {:text_delta, %{index: 0, delta: "Hello"}} = OpenAIResponses.parse_event(event)
+      assert [{:block_delta, %{type: :text, index: 0, delta: "Hello"}}] =
+               OpenAIResponses.parse_event(event)
     end
 
-    test "response.output_item.added with function_call returns tool_use_start" do
+    test "response.output_item.added with function_call returns block_start" do
       event = %{
         "type" => "response.output_item.added",
         "output_index" => 0,
@@ -399,33 +400,36 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
         }
       }
 
-      assert {:tool_use_start, %{index: 0, id: "call_abc123", name: "get_weather"}} =
+      assert [
+               {:block_start,
+                %{type: :tool_use, index: 0, id: "call_abc123", name: "get_weather"}}
+             ] =
                OpenAIResponses.parse_event(event)
     end
 
-    test "response.function_call_arguments.delta returns tool_use_delta" do
+    test "response.function_call_arguments.delta returns block_delta" do
       event = %{
         "type" => "response.function_call_arguments.delta",
         "output_index" => 0,
         "delta" => "{\"city\""
       }
 
-      assert {:tool_use_delta, %{index: 0, delta: "{\"city\""}} =
+      assert [{:block_delta, %{type: :tool_use, index: 0, delta: "{\"city\""}}] =
                OpenAIResponses.parse_event(event)
     end
 
-    test "response.reasoning_summary_text.delta returns thinking_delta" do
+    test "response.reasoning_summary_text.delta returns block_delta" do
       event = %{
         "type" => "response.reasoning_summary_text.delta",
         "summary_index" => 0,
         "delta" => "Let me think about this..."
       }
 
-      assert {:thinking_delta, %{index: 0, delta: "Let me think about this..."}} =
+      assert [{:block_delta, %{type: :thinking, index: 0, delta: "Let me think about this..."}}] =
                OpenAIResponses.parse_event(event)
     end
 
-    test "response.completed with text output returns done with :stop" do
+    test "response.completed with text output returns message with :stop" do
       event = %{
         "type" => "response.completed",
         "response" => %{
@@ -437,12 +441,14 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
         }
       }
 
-      assert {:done, %{stop_reason: :stop, usage: usage}} = OpenAIResponses.parse_event(event)
+      assert [{:message, %{stop_reason: :stop, usage: usage}}] =
+               OpenAIResponses.parse_event(event)
+
       assert usage["input_tokens"] == 10
       assert usage["output_tokens"] == 5
     end
 
-    test "response.completed with function_call output returns done with :tool_use" do
+    test "response.completed with function_call output returns message with :tool_use" do
       event = %{
         "type" => "response.completed",
         "response" => %{
@@ -454,10 +460,10 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
         }
       }
 
-      assert {:done, %{stop_reason: :tool_use}} = OpenAIResponses.parse_event(event)
+      assert [{:message, %{stop_reason: :tool_use}}] = OpenAIResponses.parse_event(event)
     end
 
-    test "response.completed with incomplete status returns done with :length" do
+    test "response.completed with incomplete status returns message with :length" do
       event = %{
         "type" => "response.completed",
         "response" => %{
@@ -467,25 +473,25 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
         }
       }
 
-      assert {:done, %{stop_reason: :length}} = OpenAIResponses.parse_event(event)
+      assert [{:message, %{stop_reason: :length}}] = OpenAIResponses.parse_event(event)
     end
 
-    test "response.output_item.added with non-function_call returns nil" do
+    test "response.output_item.added with non-function_call returns empty list" do
       event = %{
         "type" => "response.output_item.added",
         "output_index" => 0,
         "item" => %{"type" => "message", "role" => "assistant"}
       }
 
-      assert nil == OpenAIResponses.parse_event(event)
+      assert [] == OpenAIResponses.parse_event(event)
     end
 
-    test "unknown event returns nil" do
-      assert nil == OpenAIResponses.parse_event(%{"type" => "response.output_text.done"})
+    test "unknown event returns empty list" do
+      assert [] == OpenAIResponses.parse_event(%{"type" => "response.output_text.done"})
     end
 
-    test "completely unknown structure returns nil" do
-      assert nil == OpenAIResponses.parse_event(%{"something" => "else"})
+    test "completely unknown structure returns empty list" do
+      assert [] == OpenAIResponses.parse_event(%{"something" => "else"})
     end
   end
 end

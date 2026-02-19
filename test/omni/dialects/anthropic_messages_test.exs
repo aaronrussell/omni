@@ -393,7 +393,8 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         "message" => %{"model" => "claude-sonnet-4-20250514", "role" => "assistant"}
       }
 
-      assert {:start, %{model: "claude-sonnet-4-20250514"}} = AnthropicMessages.parse_event(event)
+      assert [{:message, %{model: "claude-sonnet-4-20250514"}}] =
+               AnthropicMessages.parse_event(event)
     end
 
     test "content_block_start text" do
@@ -403,7 +404,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         "content_block" => %{"type" => "text", "text" => ""}
       }
 
-      assert {:text_start, %{index: 0}} = AnthropicMessages.parse_event(event)
+      assert [{:block_start, %{type: :text, index: 0}}] = AnthropicMessages.parse_event(event)
     end
 
     test "content_block_start thinking" do
@@ -413,7 +414,8 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         "content_block" => %{"type" => "thinking", "thinking" => ""}
       }
 
-      assert {:thinking_start, %{index: 0}} = AnthropicMessages.parse_event(event)
+      assert [{:block_start, %{type: :thinking, index: 0}}] =
+               AnthropicMessages.parse_event(event)
     end
 
     test "content_block_start tool_use" do
@@ -428,7 +430,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         }
       }
 
-      assert {:tool_use_start, %{index: 1, id: "toolu_01", name: "get_weather"}} =
+      assert [{:block_start, %{type: :tool_use, index: 1, id: "toolu_01", name: "get_weather"}}] =
                AnthropicMessages.parse_event(event)
     end
 
@@ -439,7 +441,8 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         "delta" => %{"type" => "text_delta", "text" => "Hello"}
       }
 
-      assert {:text_delta, %{index: 0, delta: "Hello"}} = AnthropicMessages.parse_event(event)
+      assert [{:block_delta, %{type: :text, index: 0, delta: "Hello"}}] =
+               AnthropicMessages.parse_event(event)
     end
 
     test "content_block_delta thinking_delta" do
@@ -449,7 +452,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         "delta" => %{"type" => "thinking_delta", "thinking" => "Hmm..."}
       }
 
-      assert {:thinking_delta, %{index: 0, delta: "Hmm..."}} =
+      assert [{:block_delta, %{type: :thinking, index: 0, delta: "Hmm..."}}] =
                AnthropicMessages.parse_event(event)
     end
 
@@ -460,14 +463,14 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         "delta" => %{"type" => "input_json_delta", "partial_json" => "{\"city\""}
       }
 
-      assert {:tool_use_delta, %{index: 1, delta: "{\"city\""}} =
+      assert [{:block_delta, %{type: :tool_use, index: 1, delta: "{\"city\""}}] =
                AnthropicMessages.parse_event(event)
     end
 
-    test "content_block_stop" do
+    test "content_block_stop returns empty list" do
       event = %{"type" => "content_block_stop", "index" => 0}
 
-      assert {:content_block_end, %{index: 0}} = AnthropicMessages.parse_event(event)
+      assert [] == AnthropicMessages.parse_event(event)
     end
 
     test "message_delta" do
@@ -477,20 +480,20 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         "usage" => %{"output_tokens" => 5}
       }
 
-      assert {:done, %{stop_reason: :stop, usage: %{"output_tokens" => 5}}} =
+      assert [{:message, %{stop_reason: :stop, usage: %{"output_tokens" => 5}}}] =
                AnthropicMessages.parse_event(event)
     end
 
-    test "ping returns nil" do
-      assert nil == AnthropicMessages.parse_event(%{"type" => "ping"})
+    test "ping returns empty list" do
+      assert [] == AnthropicMessages.parse_event(%{"type" => "ping"})
     end
 
-    test "message_stop returns nil" do
-      assert nil == AnthropicMessages.parse_event(%{"type" => "message_stop"})
+    test "message_stop returns empty list" do
+      assert [] == AnthropicMessages.parse_event(%{"type" => "message_stop"})
     end
 
-    test "unknown event returns nil" do
-      assert nil == AnthropicMessages.parse_event(%{"type" => "unknown_event"})
+    test "unknown event returns empty list" do
+      assert [] == AnthropicMessages.parse_event(%{"type" => "unknown_event"})
     end
 
     test "stop reason normalization" do
@@ -502,16 +505,16 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         }
       end
 
-      assert {:done, %{stop_reason: :stop}} =
+      assert [{:message, %{stop_reason: :stop}}] =
                AnthropicMessages.parse_event(make_event.("end_turn"))
 
-      assert {:done, %{stop_reason: :stop}} =
+      assert [{:message, %{stop_reason: :stop}}] =
                AnthropicMessages.parse_event(make_event.("stop_sequence"))
 
-      assert {:done, %{stop_reason: :length}} =
+      assert [{:message, %{stop_reason: :length}}] =
                AnthropicMessages.parse_event(make_event.("max_tokens"))
 
-      assert {:done, %{stop_reason: :tool_use}} =
+      assert [{:message, %{stop_reason: :tool_use}}] =
                AnthropicMessages.parse_event(make_event.("tool_use"))
     end
   end

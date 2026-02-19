@@ -40,22 +40,21 @@ defmodule Omni.Dialects.OpenAIResponsesIntegrationTest do
       deltas =
         resp.body
         |> SSE.stream()
-        |> Stream.map(&Provider.parse_event(OpenAI, &1))
-        |> Stream.reject(&is_nil/1)
+        |> Stream.flat_map(&Provider.parse_event(OpenAI, &1))
         |> Enum.to_list()
 
       types = Enum.map(deltas, &elem(&1, 0))
 
-      assert types == [:start, :text_delta, :text_delta, :done]
+      assert types == [:message, :block_delta, :block_delta, :message]
 
       text_deltas =
         deltas
-        |> Enum.filter(&match?({:text_delta, _}, &1))
-        |> Enum.map(fn {:text_delta, %{delta: text}} -> text end)
+        |> Enum.filter(&match?({:block_delta, %{type: :text}}, &1))
+        |> Enum.map(fn {:block_delta, %{delta: text}} -> text end)
 
       assert text_deltas == ["Hello", "!"]
 
-      {:done, done} = Enum.find(deltas, &match?({:done, _}, &1))
+      {:message, done} = Enum.find(deltas, &match?({:message, %{stop_reason: _}}, &1))
       assert done.stop_reason == :stop
       assert done.usage["input_tokens"] == 10
       assert done.usage["output_tokens"] == 5
@@ -99,32 +98,31 @@ defmodule Omni.Dialects.OpenAIResponsesIntegrationTest do
       deltas =
         resp.body
         |> SSE.stream()
-        |> Stream.map(&Provider.parse_event(OpenAI, &1))
-        |> Stream.reject(&is_nil/1)
+        |> Stream.flat_map(&Provider.parse_event(OpenAI, &1))
         |> Enum.to_list()
 
       types = Enum.map(deltas, &elem(&1, 0))
 
       assert types == [
-               :start,
-               :tool_use_start,
-               :tool_use_delta,
-               :tool_use_delta,
-               :done
+               :message,
+               :block_start,
+               :block_delta,
+               :block_delta,
+               :message
              ]
 
-      {:tool_use_start, start} = Enum.at(deltas, 1)
+      {:block_start, start} = Enum.at(deltas, 1)
       assert start.id == "call_abc123"
       assert start.name == "get_weather"
 
       json_fragments =
         deltas
-        |> Enum.filter(&match?({:tool_use_delta, _}, &1))
-        |> Enum.map(fn {:tool_use_delta, %{delta: json}} -> json end)
+        |> Enum.filter(&match?({:block_delta, %{type: :tool_use}}, &1))
+        |> Enum.map(fn {:block_delta, %{delta: json}} -> json end)
 
       assert Enum.join(json_fragments) == "{\"city\":\"London\"}"
 
-      {:done, done} = Enum.find(deltas, &match?({:done, _}, &1))
+      {:message, done} = Enum.find(deltas, &match?({:message, %{stop_reason: _}}, &1))
       assert done.stop_reason == :tool_use
     end
   end

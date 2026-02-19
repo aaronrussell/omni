@@ -19,14 +19,12 @@ defmodule Omni.Dialects.OpenAIResponsesLiveTest do
     deltas =
       resp.body
       |> SSE.stream()
-      |> Stream.map(&Provider.parse_event(OpenAI, &1))
-      |> Stream.reject(&is_nil/1)
+      |> Stream.flat_map(&Provider.parse_event(OpenAI, &1))
       |> Enum.to_list()
 
     types = Enum.map(deltas, &elem(&1, 0))
 
-    assert :start in types
-    assert :text_delta in types
-    assert :done in types
+    assert :message in types
+    assert :block_delta in types
   end
 end
