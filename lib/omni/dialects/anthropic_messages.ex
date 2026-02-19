@@ -108,40 +108,28 @@ defmodule Omni.Dialects.AnthropicMessages do
   defp maybe_put_system(body, nil, _cache), do: body
 
   defp maybe_put_system(body, system, cache) do
-    block = %{"type" => "text", "text" => system}
-    block = maybe_put_cache_control(block, cache)
-    Map.put(body, "system", [block])
+    blocks = maybe_put_cache_control([%{"type" => "text", "text" => system}], cache)
+    Map.put(body, "system", blocks)
   end
 
   # Message encoding
+
+  defp encode_messages([], _cache), do: []
 
   defp encode_messages(messages, nil) do
     Enum.map(messages, &encode_message/1)
   end
 
-  defp encode_messages([], _cache), do: []
-
   defp encode_messages(messages, cache) do
-    {last, rest} = List.pop_at(messages, -1)
-    encoded_rest = Enum.map(rest, &encode_message/1)
-    encoded_last = encode_message_with_cache(last, cache)
-    encoded_rest ++ [encoded_last]
+    messages
+    |> Enum.map(&encode_message/1)
+    |> List.update_at(-1, fn last ->
+      Map.update!(last, "content", &maybe_put_cache_control(&1, cache))
+    end)
   end
 
   defp encode_message(%{role: role, content: content}) do
     %{"role" => to_string(role), "content" => Enum.map(content, &encode_content/1)}
-  end
-
-  defp encode_message_with_cache(%{role: role, content: content}, cache) do
-    encoded = Enum.map(content, &encode_content/1)
-
-    encoded =
-      case encoded do
-        [] -> []
-        blocks -> List.update_at(blocks, -1, &maybe_put_cache_control(&1, cache))
-      end
-
-    %{"role" => to_string(role), "content" => encoded}
   end
 
   # Content block encoding
@@ -191,15 +179,11 @@ defmodule Omni.Dialects.AnthropicMessages do
   defp maybe_put_tools(body, [], _cache), do: body
   defp maybe_put_tools(body, nil, _cache), do: body
 
-  defp maybe_put_tools(body, tools, nil) do
-    Map.put(body, "tools", Enum.map(tools, &encode_tool/1))
-  end
-
   defp maybe_put_tools(body, tools, cache) do
-    encoded = Enum.map(tools, &encode_tool/1)
-
     encoded =
-      List.update_at(encoded, -1, &maybe_put_cache_control(&1, cache))
+      tools
+      |> Enum.map(&encode_tool/1)
+      |> maybe_put_cache_control(cache)
 
     Map.put(body, "tools", encoded)
   end
@@ -210,15 +194,17 @@ defmodule Omni.Dialects.AnthropicMessages do
 
   # Cache control
 
-  defp maybe_put_cache_control(block, :short) do
-    Map.put(block, "cache_control", %{"type" => "ephemeral"})
+  defp maybe_put_cache_control(blocks, :short) do
+    cache_control = %{"type" => "ephemeral"}
+    List.update_at(blocks, -1, &Map.put(&1, "cache_control", cache_control))
   end
 
-  defp maybe_put_cache_control(block, :long) do
-    Map.put(block, "cache_control", %{"type" => "ephemeral", "ttl" => "1h"})
+  defp maybe_put_cache_control(blocks, :long) do
+    cache_control = %{"type" => "ephemeral", "ttl" => "1h"}
+    List.update_at(blocks, -1, &Map.put(&1, "cache_control", cache_control))
   end
 
-  defp maybe_put_cache_control(block, _), do: block
+  defp maybe_put_cache_control(blocks, _), do: blocks
 
   # Helpers
 
