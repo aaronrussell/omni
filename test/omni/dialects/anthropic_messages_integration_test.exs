@@ -170,11 +170,17 @@ defmodule Omni.Dialects.AnthropicMessagesIntegrationTest do
 
       thinking_deltas =
         deltas
-        |> Enum.filter(&match?({:block_delta, %{type: :thinking}}, &1))
+        |> Enum.filter(&match?({:block_delta, %{type: :thinking, delta: _}}, &1))
         |> Enum.map(fn {:block_delta, %{delta: text}} -> text end)
 
       assert length(thinking_deltas) > 0
       assert Enum.all?(thinking_deltas, &(is_binary(&1) and &1 != ""))
+
+      thinking_signatures =
+        deltas
+        |> Enum.filter(&match?({:block_delta, %{type: :thinking, signature: _}}, &1))
+
+      assert length(thinking_signatures) > 0
 
       text_deltas =
         deltas

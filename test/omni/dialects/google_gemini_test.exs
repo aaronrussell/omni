@@ -288,7 +288,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert part["functionResponse"]["response"]["result"] == "Sunny, 22°C"
     end
 
-    test "Thinking block is skipped" do
+    test "Thinking block with text encodes as thought part" do
       msg =
         Message.new(
           role: :assistant,
@@ -302,7 +302,104 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       {:ok, body} = GoogleGemini.build_body(@model, context, [])
 
       [encoded] = body["contents"]
-      assert [%{"text" => "Here's the answer."}] = encoded["parts"]
+
+      assert [thought_part, text_part] = encoded["parts"]
+      assert thought_part["text"] == "Let me think..."
+      assert thought_part["thought"] == true
+      assert thought_part["thoughtSignature"] == "sig123"
+      assert text_part["text"] == "Here's the answer."
+    end
+
+    test "Thinking block without signature omits thoughtSignature" do
+      msg =
+        Message.new(
+          role: :assistant,
+          content: [Thinking.new(text: "reasoning", signature: nil)]
+        )
+
+      context = Context.new([msg])
+      {:ok, body} = GoogleGemini.build_body(@model, context, [])
+
+      [encoded] = body["contents"]
+      [part] = encoded["parts"]
+      assert part == %{"text" => "reasoning", "thought" => true}
+    end
+
+    test "Thinking block with signature only (no text) encodes as standalone thoughtSignature" do
+      msg =
+        Message.new(
+          role: :assistant,
+          content: [Thinking.new(text: nil, signature: "sig_hidden")]
+        )
+
+      context = Context.new([msg])
+      {:ok, body} = GoogleGemini.build_body(@model, context, [])
+
+      [encoded] = body["contents"]
+      assert [%{"thoughtSignature" => "sig_hidden"}] = encoded["parts"]
+    end
+
+    test "Thinking block with no text and no signature is skipped" do
+      msg =
+        Message.new(
+          role: :assistant,
+          content: [Thinking.new(text: nil), Text.new("answer")]
+        )
+
+      context = Context.new([msg])
+      {:ok, body} = GoogleGemini.build_body(@model, context, [])
+
+      [encoded] = body["contents"]
+      assert [%{"text" => "answer"}] = encoded["parts"]
+    end
+
+    test "Text block with signature encodes thoughtSignature" do
+      msg =
+        Message.new(
+          role: :user,
+          content: [Text.new(text: "hello", signature: "sig_text")]
+        )
+
+      context = Context.new([msg])
+      {:ok, body} = GoogleGemini.build_body(@model, context, [])
+
+      [encoded] = body["contents"]
+      [part] = encoded["parts"]
+      assert part["text"] == "hello"
+      assert part["thoughtSignature"] == "sig_text"
+    end
+
+    test "Text block without signature omits thoughtSignature" do
+      msg = Message.new(role: :user, content: [Text.new("hello")])
+      context = Context.new([msg])
+      {:ok, body} = GoogleGemini.build_body(@model, context, [])
+
+      [encoded] = body["contents"]
+      [part] = encoded["parts"]
+      assert part == %{"text" => "hello"}
+    end
+
+    test "ToolUse block with signature encodes thoughtSignature" do
+      msg =
+        Message.new(
+          role: :assistant,
+          content: [
+            ToolUse.new(
+              id: "call_01",
+              name: "get_weather",
+              input: %{"city" => "London"},
+              signature: "sig_fc"
+            )
+          ]
+        )
+
+      context = Context.new([msg])
+      {:ok, body} = GoogleGemini.build_body(@model, context, [])
+
+      [encoded] = body["contents"]
+      [part] = encoded["parts"]
+      assert part["functionCall"] == %{"name" => "get_weather", "args" => %{"city" => "London"}}
+      assert part["thoughtSignature"] == "sig_fc"
     end
   end
 
@@ -591,6 +688,67 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       }
 
       assert [{:block_delta, %{type: :thinking, index: 0, delta: "Let me reason..."}}] =
+               GoogleGemini.parse_event(event)
+    end
+
+    test "thought part with thoughtSignature emits signature" do
+      event = %{
+        "candidates" => [
+          %{
+            "content" => %{
+              "parts" => [
+                %{"text" => "Let me reason...", "thought" => true, "thoughtSignature" => "sig_t1"}
+              ],
+              "role" => "model"
+            },
+            "index" => 0
+          }
+        ]
+      }
+
+      assert [
+               {:block_delta,
+                %{type: :thinking, index: 0, delta: "Let me reason...", signature: "sig_t1"}}
+             ] =
+               GoogleGemini.parse_event(event)
+    end
+
+    test "text part with thoughtSignature emits signature" do
+      event = %{
+        "candidates" => [
+          %{
+            "content" => %{
+              "parts" => [%{"text" => "Answer text", "thoughtSignature" => "sig_x1"}],
+              "role" => "model"
+            },
+            "index" => 0
+          }
+        ]
+      }
+
+      assert [{:block_delta, %{type: :text, index: 0, delta: "Answer text", signature: "sig_x1"}}] =
+               GoogleGemini.parse_event(event)
+    end
+
+    test "functionCall with thoughtSignature emits signature" do
+      event = %{
+        "candidates" => [
+          %{
+            "content" => %{
+              "parts" => [
+                %{
+                  "functionCall" => %{"name" => "search", "args" => %{"q" => "test"}},
+                  "thoughtSignature" => "sig_fc1"
+                }
+              ],
+              "role" => "model"
+            },
+            "index" => 0
+          }
+        ]
+      }
+
+      assert [{:block_start, %{type: :tool_use, name: "search", signature: "sig_fc1"}}] =
                GoogleGemini.parse_event(event)
     end
 

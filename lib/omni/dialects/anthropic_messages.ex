@@ -65,6 +65,14 @@ defmodule Omni.Dialects.AnthropicMessages do
   def parse_event(%{
         "type" => "content_block_start",
         "index" => idx,
+        "content_block" => %{"type" => "redacted_thinking", "data" => data}
+      }) do
+    [{:block_start, %{type: :thinking, index: idx, redacted_data: data}}]
+  end
+
+  def parse_event(%{
+        "type" => "content_block_start",
+        "index" => idx,
         "content_block" => %{"type" => "tool_use", "id" => id, "name" => name}
       }) do
     [{:block_start, %{type: :tool_use, index: idx, id: id, name: name}}]
@@ -85,6 +93,14 @@ defmodule Omni.Dialects.AnthropicMessages do
       })
       when is_binary(text) and text != "" do
     [{:block_delta, %{type: :thinking, index: idx, delta: text}}]
+  end
+
+  def parse_event(%{
+        "type" => "content_block_delta",
+        "index" => idx,
+        "delta" => %{"type" => "signature_delta", "signature" => sig}
+      }) do
+    [{:block_delta, %{type: :thinking, index: idx, signature: sig}}]
   end
 
   def parse_event(%{
@@ -197,6 +213,10 @@ defmodule Omni.Dialects.AnthropicMessages do
   # Content block encoding
 
   defp encode_content(%Text{text: text}), do: %{"type" => "text", "text" => text}
+
+  defp encode_content(%Thinking{redacted_data: data}) when is_binary(data) do
+    %{"type" => "redacted_thinking", "data" => data}
+  end
 
   defp encode_content(%Thinking{text: text, signature: signature}) do
     %{"type" => "thinking", "thinking" => text, "signature" => signature}

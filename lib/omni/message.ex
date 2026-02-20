@@ -13,7 +13,7 @@ defmodule Omni.Message do
   alias Omni.Content.{Text, Thinking, Attachment, ToolUse, ToolResult}
 
   @enforce_keys [:role]
-  defstruct [:role, content: [], timestamp: nil]
+  defstruct [:role, content: [], timestamp: nil, private: %{}]
 
   @typedoc "Any content block that can appear in a message."
   @type content :: Text.t() | Thinking.t() | Attachment.t() | ToolUse.t() | ToolResult.t()
@@ -22,7 +22,8 @@ defmodule Omni.Message do
   @type t :: %__MODULE__{
           role: :user | :assistant,
           content: [content()],
-          timestamp: DateTime.t()
+          timestamp: DateTime.t(),
+          private: map()
         }
 
   @doc """

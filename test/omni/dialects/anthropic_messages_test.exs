@@ -156,6 +156,20 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       assert block["signature"] == "sig123"
     end
 
+    test "encodes redacted thinking content block" do
+      msg =
+        Message.new(
+          role: :assistant,
+          content: [Thinking.new(text: nil, redacted_data: "encrypted_blob")]
+        )
+
+      context = Context.new([msg])
+      {:ok, body} = AnthropicMessages.build_body(@model, context, [])
+
+      [%{"content" => [block]}] = body["messages"]
+      assert block == %{"type" => "redacted_thinking", "data" => "encrypted_blob"}
+    end
+
     test "encodes ToolUse content block" do
       msg =
         Message.new(
@@ -625,6 +639,28 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
     test "unknown event returns empty list" do
       assert [] == AnthropicMessages.parse_event(%{"type" => "unknown_event"})
+    end
+
+    test "content_block_start redacted_thinking" do
+      event = %{
+        "type" => "content_block_start",
+        "index" => 2,
+        "content_block" => %{"type" => "redacted_thinking", "data" => "encrypted_blob_data"}
+      }
+
+      assert [{:block_start, %{type: :thinking, index: 2, redacted_data: "encrypted_blob_data"}}] =
+               AnthropicMessages.parse_event(event)
+    end
+
+    test "content_block_delta signature_delta" do
+      event = %{
+        "type" => "content_block_delta",
+        "index" => 0,
+        "delta" => %{"type" => "signature_delta", "signature" => "sig_abc123"}
+      }
+
+      assert [{:block_delta, %{type: :thinking, index: 0, signature: "sig_abc123"}}] =
+               AnthropicMessages.parse_event(event)
     end
 
     test "stop reason normalization" do

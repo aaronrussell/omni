@@ -94,10 +94,13 @@ Accumulation logic and the Enumerable contract. Simpler than originally planned 
 **Test:** Build a mock lazy stream of scripted delta tuple sequences, wrap in StreamingResponse, assert the enumerable yields correct consumer events with correctly accumulated partial responses. Test cancellation and mid-stream error events. All testable without HTTP, providers, or dialects — just feed it a list or stream of delta tuples.
 
 **Notes from Phase 3c:**
-- The accumulation logic must handle 3 block types: `:text` (concatenate deltas), `:tool_use` (join JSON fragments, parse on completion), and `:thinking` (concatenate deltas, build `%Thinking{}` content block — no signature available from streaming, only from Anthropic's block_start).
+- The accumulation logic must handle 3 block types: `:text` (concatenate deltas), `:tool_use` (join JSON fragments, parse on completion), and `:thinking` (concatenate deltas, build `%Thinking{}` content block).
 - `:block_start` is optional for `:text` and `:thinking` — StreamingResponse should create blocks implicitly on first `:block_delta` if no explicit start was received. Required for `:tool_use` (carries `:id` and `:name`).
 - `:message` events may appear multiple times with partial data — merge all into the response envelope. No explicit `:stop` event; `stop_reason` in accumulated message data signals intentional completion. Consumer-facing `_end` events are synthesized by StreamingResponse from stream termination, not emitted by dialects.
 - Google sends function call args complete (as a map) in `:block_start`, not as streamed `:block_delta` JSON fragments. The `:block_start` for tool_use may carry an `:input` key with the full args map.
+- `:block_delta` events may carry an optional `signature` key (with or without `delta`). The accumulator must check for `signature` and set it on the corresponding content block (`Thinking`, `Text`, or `ToolUse`). Anthropic sends `signature_delta` events; Google sends `thoughtSignature` on parts.
+- `:block_start` for thinking may carry a `redacted_data` key (Anthropic `redacted_thinking`) — create `Thinking{text: nil, redacted_data: data}` with no subsequent deltas expected.
+- `:block_start` for tool_use may carry a `signature` key (Google `thoughtSignature`) — set on `ToolUse.signature`.
 
 ---
 
@@ -127,6 +130,16 @@ Wiring everything together. Mostly composition of tested parts.
 3. **Universal options location** — `max_tokens`, `temperature`, `cache`, `metadata`, and `thinking` are universal (apply to all providers). Where is the schema defined and how does it compose with dialect/provider schemas? Defer to Phase 5. For `thinking` specifically: validate type (atom | keyword list), Anthropic temperature + thinking incompatibility (currently silently dropped — could warn or error), and budget minimum enforcement (Anthropic requires >= 1024).
 
 4. **Plain text attachment source** — Should `Attachment.source` support `{:text, content}` in addition to `{:base64, data}` and `{:url, url}`? Wait to see if multiple providers support it.
+
+---
+
+5. **OpenRouter `reasoning_details` round-tripping** — OpenRouter extends the Completions wire format with a `reasoning_details` array on assistant messages for reasoning round-trips. Each streaming chunk carries `reasoning_details` alongside the `reasoning` text delta, containing typed objects: `reasoning.summary` (duplicates the visible reasoning text), `reasoning.encrypted` (opaque blob with `data`, `id`, `format` fields — needed for tool-calling flows), and `reasoning.text` (raw text with optional signature). The full array must be passed back unmodified on the assistant message in follow-up requests — ordering matters. This is distinct from direct OpenAI Chat Completions where reasoning is truly ephemeral (no field to send it back).
+
+   **Decided approach:** Store in `Message.private` (a `%{}` map for provider-specific opaque round-trip data, named after Req's precedent). During streaming, `reasoning_details` arrives alongside thinking deltas — the provider emits it as `{:message, %{private: %{reasoning_details: [...]}}}` and StreamingResponse accumulates it onto the Message. During encoding, the provider reads from `message.private` and places it on the wire message body. Flat atom keys, no namespacing for now.
+
+   **Provider hook gap:** The current `adapt_event/1` (pre-dialect, JSON→JSON) can't emit delta tuples, and the Completions dialect shouldn't know about `reasoning_details`. Need a **post-dialect provider hook** — `adapt_deltas/2` taking `(deltas, raw_event)` — so the provider can augment dialect output with additional tuples. This mirrors the encoding side where `adapt_body/2` augments dialect output. Default passes through unchanged. Note: `adapt_deltas` receiving the raw event may make `adapt_event` redundant — the provider could do all pre/post work in one place. Revisit when implementing.
+
+   **Encoding side:** OpenRouter's `adapt_body/2` already handles provider-specific body transforms. It would pull `reasoning_details` from the Message's `private` map (accessed via content blocks or passed through) and place it on the assistant message. Exact mechanism TBD when multi-turn encoding is implemented.
 
 ---
 

@@ -2,18 +2,19 @@ defmodule Omni.Content.Thinking do
   @moduledoc """
   A thinking content block representing the model's chain-of-thought reasoning.
 
-  When `text` is `nil`, the thinking content was redacted by the provider. The
-  `signature` field is an opaque token used to verify thinking block integrity
-  across round trips.
+  When `text` is `nil` and `redacted_data` is present, the block contains
+  encrypted/redacted thinking content that must round-trip but cannot be
+  displayed. The `signature` field is an opaque token used to verify thinking
+  block integrity across round trips.
   """
 
-  @enforce_keys [:text]
-  defstruct [:text, :signature]
+  defstruct [:text, :signature, :redacted_data]
 
-  @typedoc "A thinking content block. `text` is `nil` when redacted."
+  @typedoc "A thinking content block. `text` is `nil` when redacted or hidden."
   @type t :: %__MODULE__{
-          text: String.t(),
-          signature: String.t() | nil
+          text: String.t() | nil,
+          signature: String.t() | nil,
+          redacted_data: String.t() | nil
         }
 
   @doc "Creates a new thinking content block from a keyword list or map."

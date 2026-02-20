@@ -135,6 +135,23 @@ defmodule Omni.Dialects.GoogleGemini do
 
   defp extract_content(_), do: []
 
+  defp parse_part(%{
+         "functionCall" => %{"name" => name, "args" => args},
+         "thoughtSignature" => sig
+       }) do
+    [
+      {:block_start,
+       %{
+         type: :tool_use,
+         index: 0,
+         id: "google_fc_#{System.unique_integer([:positive])}",
+         name: name,
+         input: args,
+         signature: sig
+       }}
+    ]
+  end
+
   defp parse_part(%{"functionCall" => %{"name" => name, "args" => args}}) do
     [
       {:block_start,
@@ -148,8 +165,18 @@ defmodule Omni.Dialects.GoogleGemini do
     ]
   end
 
+  defp parse_part(%{"text" => text, "thought" => true, "thoughtSignature" => sig})
+       when is_binary(text) and text != "" do
+    [{:block_delta, %{type: :thinking, index: 0, delta: text, signature: sig}}]
+  end
+
   defp parse_part(%{"text" => text, "thought" => true}) when is_binary(text) and text != "" do
     [{:block_delta, %{type: :thinking, index: 0, delta: text}}]
+  end
+
+  defp parse_part(%{"text" => text, "thoughtSignature" => sig})
+       when is_binary(text) and text != "" do
+    [{:block_delta, %{type: :text, index: 0, delta: text, signature: sig}}]
   end
 
   defp parse_part(%{"text" => text}) when is_binary(text) and text != "" do
@@ -184,7 +211,11 @@ defmodule Omni.Dialects.GoogleGemini do
 
   # Content part encoding
 
-  defp encode_part(%Text{text: text}), do: [%{"text" => text}]
+  defp encode_part(%Text{text: text, signature: sig}) do
+    part = %{"text" => text}
+    part = if sig, do: Map.put(part, "thoughtSignature", sig), else: part
+    [part]
+  end
 
   defp encode_part(%Attachment{source: {:base64, data}, media_type: mt}) do
     [%{"inlineData" => %{"mimeType" => mt, "data" => data}}]
@@ -194,8 +225,10 @@ defmodule Omni.Dialects.GoogleGemini do
     [%{"fileData" => %{"fileUri" => url, "mimeType" => mt}}]
   end
 
-  defp encode_part(%ToolUse{name: name, input: args}) do
-    [%{"functionCall" => %{"name" => name, "args" => args}}]
+  defp encode_part(%ToolUse{name: name, input: args, signature: sig}) do
+    part = %{"functionCall" => %{"name" => name, "args" => args}}
+    part = if sig, do: Map.put(part, "thoughtSignature", sig), else: part
+    [part]
   end
 
   defp encode_part(%ToolResult{name: name, content: content}) do
@@ -205,6 +238,16 @@ defmodule Omni.Dialects.GoogleGemini do
       |> Enum.map_join("", & &1.text)
 
     [%{"functionResponse" => %{"name" => name, "response" => %{"result" => text}}}]
+  end
+
+  defp encode_part(%Thinking{text: text, signature: sig}) when is_binary(text) do
+    part = %{"text" => text, "thought" => true}
+    part = if sig, do: Map.put(part, "thoughtSignature", sig), else: part
+    [part]
+  end
+
+  defp encode_part(%Thinking{text: nil, signature: sig}) when is_binary(sig) do
+    [%{"thoughtSignature" => sig}]
   end
 
   defp encode_part(%Thinking{}), do: []
