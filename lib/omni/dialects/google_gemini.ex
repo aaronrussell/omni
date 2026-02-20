@@ -59,19 +59,16 @@ defmodule Omni.Dialects.GoogleGemini do
   defp maybe_put_thinking(body, %Model{reasoning: false}, _thinking), do: body
 
   defp maybe_put_thinking(body, _model, thinking) do
-    case normalize_thinking(thinking) do
-      {:effort, level} ->
-        Map.put(body, "thinkingConfig", %{
-          "thinkingLevel" => level_string(level),
-          "includeThoughts" => true
-        })
+    thinking_config =
+      case normalize_thinking(thinking) do
+        {:effort, level} ->
+          %{"thinkingLevel" => level_string(level), "includeThoughts" => true}
 
-      {:effort, _level, budget} ->
-        Map.put(body, "thinkingConfig", %{
-          "thinkingBudget" => budget,
-          "includeThoughts" => true
-        })
-    end
+        {:effort, _level, budget} ->
+          %{"thinkingBudget" => budget, "includeThoughts" => true}
+      end
+
+    Map.update!(body, "generationConfig", &Map.put(&1, "thinkingConfig", thinking_config))
   end
 
   defp level_string(:low), do: "low"
