@@ -82,7 +82,8 @@ defmodule Omni.Dialects.AnthropicMessages do
         "type" => "content_block_delta",
         "index" => idx,
         "delta" => %{"type" => "thinking_delta", "thinking" => text}
-      }) do
+      })
+      when is_binary(text) and text != "" do
     [{:block_delta, %{type: :thinking, index: idx, delta: text}}]
   end
 

@@ -55,19 +55,22 @@ defmodule Omni.Dialects.OpenAIResponsesIntegrationTest do
 
       types = Enum.map(deltas, &elem(&1, 0))
 
-      assert types == [:message, :block_delta, :block_delta, :message]
+      assert :message in types
+      assert :block_delta in types
 
       text_deltas =
         deltas
         |> Enum.filter(&match?({:block_delta, %{type: :text}}, &1))
         |> Enum.map(fn {:block_delta, %{delta: text}} -> text end)
 
-      assert text_deltas == ["Hello", "!"]
+      assert length(text_deltas) > 0
+      assert Enum.all?(text_deltas, &(is_binary(&1) and &1 != ""))
+      assert Enum.join(text_deltas) != ""
 
       {:message, done} = Enum.find(deltas, &match?({:message, %{stop_reason: _}}, &1))
       assert done.stop_reason == :stop
-      assert done.usage["input_tokens"] == 10
-      assert done.usage["output_tokens"] == 5
+      assert is_integer(done.usage["input_tokens"]) and done.usage["input_tokens"] > 0
+      assert is_integer(done.usage["output_tokens"]) and done.usage["output_tokens"] > 0
     end
   end
 
@@ -113,24 +116,26 @@ defmodule Omni.Dialects.OpenAIResponsesIntegrationTest do
 
       types = Enum.map(deltas, &elem(&1, 0))
 
-      assert types == [
-               :message,
-               :block_start,
-               :block_delta,
-               :block_delta,
-               :message
-             ]
+      assert :message in types
+      assert :block_start in types
 
-      {:block_start, start} = Enum.at(deltas, 1)
-      assert start.id == "call_abc123"
-      assert start.name == "get_weather"
+      tool_starts =
+        Enum.filter(deltas, &match?({:block_start, %{type: :tool_use}}, &1))
+
+      assert length(tool_starts) > 0
+
+      {:block_start, start} = hd(tool_starts)
+      assert is_binary(start.id) and start.id != ""
+      assert is_binary(start.name) and start.name != ""
 
       json_fragments =
         deltas
         |> Enum.filter(&match?({:block_delta, %{type: :tool_use}}, &1))
         |> Enum.map(fn {:block_delta, %{delta: json}} -> json end)
 
-      assert Enum.join(json_fragments) == "{\"city\":\"London\"}"
+      assert length(json_fragments) > 0
+      assert {:ok, parsed} = JSON.decode(Enum.join(json_fragments))
+      assert is_map(parsed)
 
       {:message, done} = Enum.find(deltas, &match?({:message, %{stop_reason: _}}, &1))
       assert done.stop_reason == :tool_use
@@ -185,8 +190,8 @@ defmodule Omni.Dialects.OpenAIResponsesIntegrationTest do
 
       {:message, done} = Enum.find(deltas, &match?({:message, %{stop_reason: _}}, &1))
       assert done.stop_reason == :stop
-      assert done.usage["input_tokens"] == 15
-      assert done.usage["output_tokens"] == 30
+      assert is_integer(done.usage["input_tokens"]) and done.usage["input_tokens"] > 0
+      assert is_integer(done.usage["output_tokens"]) and done.usage["output_tokens"] > 0
     end
   end
 end

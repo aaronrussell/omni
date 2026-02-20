@@ -116,6 +116,13 @@ defmodule Omni.Dialects.OpenAICompletions do
     [{:block_delta, %{type: :thinking, index: 0, delta: content}}]
   end
 
+  # OpenRouter and vLLM use "reasoning" instead of DeepSeek's "reasoning_content".
+  # Both are legitimate field names in the Completions wire format ecosystem.
+  def parse_event(%{"choices" => [%{"delta" => %{"reasoning" => content}}]})
+      when is_binary(content) and content != "" do
+    [{:block_delta, %{type: :thinking, index: 0, delta: content}}]
+  end
+
   def parse_event(%{"choices" => [%{"delta" => %{"content" => content}}]})
       when is_binary(content) and content != "" do
     [{:block_delta, %{type: :text, index: 0, delta: content}}]

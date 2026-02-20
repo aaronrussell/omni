@@ -320,18 +320,18 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       context = Context.new("Hello")
       {:ok, body} = GoogleGemini.build_body(@reasoning_model, context, thinking: true)
 
-      assert body["thinkingConfig"] == %{
+      assert body["generationConfig"]["thinkingConfig"] == %{
                "thinkingLevel" => "high",
                "includeThoughts" => true
              }
     end
 
-    test "thinkingConfig is top-level, not inside generationConfig" do
+    test "thinkingConfig is nested inside generationConfig" do
       context = Context.new("Hello")
       {:ok, body} = GoogleGemini.build_body(@reasoning_model, context, thinking: true)
 
-      assert Map.has_key?(body, "thinkingConfig")
-      refute Map.has_key?(body["generationConfig"], "thinkingConfig")
+      assert Map.has_key?(body["generationConfig"], "thinkingConfig")
+      refute Map.has_key?(body, "thinkingConfig")
     end
 
     test "effort levels map correctly, :max caps to high" do
@@ -340,10 +340,10 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       for {level, expected} <- [low: "low", medium: "medium", high: "high", max: "high"] do
         {:ok, body} = GoogleGemini.build_body(@reasoning_model, context, thinking: level)
 
-        assert body["thinkingConfig"]["thinkingLevel"] == expected,
+        assert body["generationConfig"]["thinkingConfig"]["thinkingLevel"] == expected,
                "expected #{expected} for level #{level}"
 
-        assert body["thinkingConfig"]["includeThoughts"] == true
+        assert body["generationConfig"]["thinkingConfig"]["includeThoughts"] == true
       end
     end
 
@@ -355,9 +355,9 @@ defmodule Omni.Dialects.GoogleGeminiTest do
           thinking: [effort: :high, budget: 8192]
         )
 
-      assert body["thinkingConfig"]["thinkingBudget"] == 8192
-      assert body["thinkingConfig"]["includeThoughts"] == true
-      refute Map.has_key?(body["thinkingConfig"], "thinkingLevel")
+      assert body["generationConfig"]["thinkingConfig"]["thinkingBudget"] == 8192
+      assert body["generationConfig"]["thinkingConfig"]["includeThoughts"] == true
+      refute Map.has_key?(body["generationConfig"]["thinkingConfig"], "thinkingLevel")
     end
 
     test "thinking: false is no-op" do
