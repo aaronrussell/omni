@@ -47,10 +47,10 @@ defmodule Omni.Dialects.OpenAIResponses do
 
   def parse_event(%{
         "type" => "response.output_text.delta",
-        "content_index" => content_index,
+        "output_index" => output_index,
         "delta" => delta
       }) do
-    [{:block_delta, %{type: :text, index: content_index, delta: delta}}]
+    [{:block_delta, %{type: :text, index: output_index, delta: delta}}]
   end
 
   def parse_event(%{
@@ -71,10 +71,10 @@ defmodule Omni.Dialects.OpenAIResponses do
 
   def parse_event(%{
         "type" => "response.reasoning_summary_text.delta",
-        "summary_index" => summary_index,
+        "output_index" => output_index,
         "delta" => delta
       }) do
-    [{:block_delta, %{type: :thinking, index: summary_index, delta: delta}}]
+    [{:block_delta, %{type: :thinking, index: output_index, delta: delta}}]
   end
 
   def parse_event(%{"type" => "response.completed", "response" => response}) do

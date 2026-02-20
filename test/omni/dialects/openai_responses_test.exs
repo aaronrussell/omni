@@ -492,6 +492,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
     test "response.reasoning_summary_text.delta returns block_delta" do
       event = %{
         "type" => "response.reasoning_summary_text.delta",
+        "output_index" => 0,
         "summary_index" => 0,
         "delta" => "Let me think about this..."
       }

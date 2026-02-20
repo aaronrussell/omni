@@ -76,31 +76,29 @@ Simplified and normalized the dialect event contract. All dialects now emit a mi
 
 ### Index semantics note
 
-Anthropic uses global content block indices (text at 0, tool_use at 1). OpenAI uses per-type index namespaces (output_index for items, content_index for text within items). Dialects emit indices as-is. StreamingResponse identifies blocks by `{type, index}` pairs.
+Anthropic uses global content block indices (text at 0, tool_use at 1). OpenAI Responses has three index namespaces (`output_index`, `content_index`, `summary_index`) — all dialects now normalize to `output_index` (the global position in the response's `output[]` array) so block ordering is consistent. StreamingResponse identifies blocks by `{type, index}` pairs.
 
 ---
 
-## Phase 4 — StreamingResponse
+## Phase 4 — StreamingResponse ✓
 
-Accumulation logic and the Enumerable contract. Simpler than originally planned — Req's `into: :self` eliminates the need for a spawned process and its lifecycle management.
+Consumer-facing streaming layer. `StreamingResponse` wraps the delta stream from Phase 3c, accumulates a partial `%Response{}`, and yields rich typed events via `Enumerable`.
 
-**Build:**
-- StreamingResponse struct (`events`, `resp`, `req`, `model`)
-- `Enumerable` protocol implementation (drive the lazy event stream, accumulate partial Response, yield three-element consumer tuples)
-- Accumulation logic: text concatenation, tool use JSON assembly, thinking text concatenation, content block building
-- `complete/1` — consume stream into final `%Response{}`
+- `start/2` — takes `%Req.Request{}` + `%Model{}`, executes the request, builds the full pipeline internally (`resp.body |> SSE.stream() |> Stream.flat_map(&Provider.parse_event/2)`)
+- `new/1` — simple struct constructor for testing with scripted delta lists
+- `Enumerable` protocol — delegates to `to_stream/1`, yields `{event_type, event_map, partial_response}` three-element tuples
+- `to_stream/1` — explicit `Stream` conversion
+- `text_stream/1` — stream of text delta binaries only
+- `complete/1` — efficient reduce over raw deltas → `{:ok, Response.t()} | {:error, term()}`
 - `cancel/1` — delegates to `Req.cancel_async_response/1`
 
-**Test:** Build a mock lazy stream of scripted delta tuple sequences, wrap in StreamingResponse, assert the enumerable yields correct consumer events with correctly accumulated partial responses. Test cancellation and mid-stream error events. All testable without HTTP, providers, or dialects — just feed it a list or stream of delta tuples.
+**Consumer events:** Per-type lifecycle atoms (`text_start/delta/end`, `thinking_start/delta/end`, `tool_use_start/delta/end`) plus `:error` and `:done`. `_end` events carry `content: %ContentBlock{}` (fully built struct). `_start` events are synthesized for text/thinking if not explicitly received.
 
-**Notes from Phase 3c:**
-- The accumulation logic must handle 3 block types: `:text` (concatenate deltas), `:tool_use` (join JSON fragments, parse on completion), and `:thinking` (concatenate deltas, build `%Thinking{}` content block).
-- `:block_start` is optional for `:text` and `:thinking` — StreamingResponse should create blocks implicitly on first `:block_delta` if no explicit start was received. Required for `:tool_use` (carries `:id` and `:name`).
-- `:message` events may appear multiple times with partial data — merge all into the response envelope. No explicit `:stop` event; `stop_reason` in accumulated message data signals intentional completion. Consumer-facing `_end` events are synthesized by StreamingResponse from stream termination, not emitted by dialects.
-- Google sends function call args complete (as a map) in `:block_start`, not as streamed `:block_delta` JSON fragments. The `:block_start` for tool_use may carry an `:input` key with the full args map.
-- `:block_delta` events may carry an optional `signature` key (with or without `delta`). The accumulator must check for `signature` and set it on the corresponding content block (`Thinking`, `Text`, or `ToolUse`). Anthropic sends `signature_delta` events; Google sends `thoughtSignature` on parts.
-- `:block_start` for thinking may carry a `redacted_data` key (Anthropic `redacted_thinking`) — create `Thinking{text: nil, redacted_data: data}` with no subsequent deltas expected.
-- `:block_start` for tool_use may carry a `signature` key (Google `thoughtSignature`) — set on `ToolUse.signature`.
+**Accumulation:** Text/thinking parts collected as iodata (prepend + reverse). Tool use JSON fragments assembled and parsed on finalization (graceful fallback to `%{}` on decode failure). Google complete-input tool_use (`:input` on `:block_start`) bypasses JSON assembly. Signatures, redacted thinking, and Message.private all accumulated correctly.
+
+**Usage computation:** String-keyed token counts from `:message` events mapped to `%Usage{}` with costs derived from `%Model{}` pricing fields.
+
+**Tests:** Integration tests use `start/2` with real SSE fixtures (Anthropic text/tool_use/thinking, Google text) via `Req.Test.stub`. Unit tests use `new/1` with scripted delta lists for edge cases (redacted thinking, signatures, Google complete-input, errors, partial responses).
 
 ---
 
