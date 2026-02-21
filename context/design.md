@@ -360,12 +360,14 @@ The separation from dialects exists because the mapping is many-to-one. There ar
 
 ### The Omni.Provider module
 
-`Omni.Provider` serves as both the behaviour definition and the home for shared logic that all providers use. This includes:
+`Omni.Provider` serves as both the behaviour definition and the home for shared utilities. This includes:
 
 - The provider behaviour and `__using__` macro with default implementations
 - Model data loading logic (`load_models/2` -- reading JSON, building model structs)
-- Request building logic (`build_request/3` and `new_request/4`) for constructing authenticated Req requests
-- Event parsing combinator (`parse_event/2`) composing `adapt_event/1` and dialect `parse_event/1`
+- Auth resolution (`resolve_auth/1` -- literal, `{:system, env}`, MFA, nil)
+- Provider loading (`load/1` -- loads providers' models into `:persistent_term`)
+
+Request building and event parsing orchestration lives in `Omni.stream_text/3`, not on Provider. The Provider module defines callbacks; `Omni` composes them.
 
 ### Provider declaration
 
@@ -385,13 +387,12 @@ The provider behaviour defines the following callbacks:
 
 | Callback | Returns | Default | Purpose |
 |----------|---------|---------|---------|
-| `config/0` | `map()` | *required* | Base URL, auth header name, auth default value |
-| `option_schema/0` | `map()` | `%{}` | Peri schema declaring provider-specific options |
+| `config/0` | `map()` | *required* | Base URL, auth header name, auth default value, headers |
 | `models/0` | `[%Model{}]` | `[]` | Returns the provider's model list |
-| `build_url/2` | `String.t()` | Concatenation | Builds full URL from base URL and dialect path |
+| `build_url/2` | `String.t()` | Concatenation | Builds full URL from path and merged config map |
 | `authenticate/2` | `{:ok, Req.Request.t()} \| {:error, reason}` | API key header | Adds auth to a Req request |
-| `adapt_body/2` | `map()` | Passthrough | Adapts the dialect-built request body for this provider |
-| `adapt_event/1` | `map()` | Passthrough | Adapts an SSE event map for this provider |
+| `modify_body/2` | `map()` | Passthrough | Modifies the dialect-built request body for this provider |
+| `modify_events/2` | `[{atom(), map()}]` | Passthrough | Modifies dialect-parsed deltas (post-dialect, receives raw event for context) |
 
 **Which callbacks can fail:** Only `authenticate/2` returns an ok/error tuple, because authentication involves real external dependencies that can fail at runtime (missing environment variables, unreachable vaults, expired tokens). All other callbacks either return static data or perform deterministic transformations on already-validated inputs.
 
@@ -502,61 +503,42 @@ This separates two concerns: the `:providers` key controls which providers are r
 
 ### URL building
 
-The `build_url/2` callback constructs the full URL from the provider's base URL and the path built by the dialect. The default implementation is simple concatenation:
+The `build_url/2` callback constructs the full URL from the dialect-built path and the merged config map. The default implementation concatenates `config.base_url` with the path:
 
 ```elixir
-def build_url(base_url, path) do
-  base_url <> path
+def build_url(path, config) do
+  config.base_url <> path
 end
 ```
 
-Providers that restructure URLs (e.g. Azure OpenAI, which reorganises the path around deployment names and API versions) override this callback entirely.
+The config map contains `base_url` (from three-tier merge), `api_key`, `auth_header`, `headers`, and any other provider config. Providers that restructure URLs (e.g. Azure OpenAI, which reorganises the path around deployment names and API versions) override this callback and pull what they need from config.
 
-### Provider adaptations
+### Provider modifications
 
-Some providers speak a standard dialect but with minor deviations -- an extra required field, a parameter that needs renaming, a slightly different event envelope. Two optional callbacks handle this:
+Some providers speak a standard dialect but with minor deviations -- an extra required field, a parameter that needs renaming, additional data in streaming events. Two optional callbacks handle this:
 
-- **`adapt_body/2`** -- receives the dialect-built request body and the merged opts keyword list (containing inference options, provider options, and request config). The provider pulls out whatever it needs. Returns the adjusted body. Default is passthrough.
-- **`adapt_event/1`** -- receives an SSE event map, returns the adjusted event map. Default is passthrough.
+- **`modify_body/2`** -- receives the dialect-built request body and the validated options map. The provider pulls out whatever it needs. Returns the modified body. Default is passthrough.
+- **`modify_events/2`** -- receives the dialect-parsed delta list and the original raw SSE event map. The provider can modify, remove, or add deltas. Returns the modified delta list. Default is passthrough.
 
-These are *adaptations* of the dialect's standard output, not alternatives to it. The dialect does the real transformation; the provider makes small, targeted adjustments. Most providers don't need either callback.
+These are *modifications* of the dialect's standard output, not alternatives to it. The dialect does the real transformation; the provider makes small, targeted adjustments. Most providers don't need either callback.
 
-### Direct provider usage
+**`modify_events/2` runs post-dialect.** The dialect parses the raw SSE event first (`handle_event/1`), then the provider can augment the parsed deltas with provider-specific data. This mirrors the request side where the dialect builds first (`handle_body/3`), then the provider modifies (`modify_body/2`). The raw event is passed as the second argument so the provider can inspect it for data the dialect doesn't know about (e.g. OpenRouter's `reasoning_details`).
 
-The provider layer exposes two request-building functions at different levels of abstraction. Both return a ready-to-execute `%Req.Request{}` struct -- the caller controls when and how it is executed.
+### Orchestration lives in Omni
 
-**`Omni.Provider.new_request/4`** builds a Req request from raw provider-native parameters. No dialect, no Omni types -- just URL building, authentication, and Req setup:
+Request building and event parsing orchestration lives in `Omni.stream_text/3`, not on the Provider module. The Provider module defines callbacks; `Omni` composes them. This keeps the Provider as a pure behaviour + utilities module and makes the full pipeline visible in one place.
 
-```elixir
-# Build an authenticated request from raw provider params
-{:ok, req} = Omni.Provider.new_request(Omni.Providers.Anthropic, "/v1/messages", %{
-  "model" => "claude-sonnet-4-20250514",
-  "messages" => [%{"role" => "user", "content" => "Hi"}],
-  "max_tokens" => 100,
-  "stream" => true
-}, api_key: "sk-...")
-
-# Execute it -- the caller decides how
-{:ok, resp} = Req.request(req)
-```
-
-`new_request/4` takes a provider module, a path, a body map, and a keyword list of options (`api_key:`, `base_url:`, etc.). It calls `provider.build_url/2` to construct the URL, sets up the Req request with `into: :self` for async streaming, and calls `provider.authenticate/2` to add auth. The caller supplies the path and body in the provider's native format. This makes the provider layer independently testable without involving dialects or Omni's type system.
-
-**`Omni.Provider.build_request/3`** is the higher-level entry point. It takes Omni types (`%Model{}`, `%Context{}`, opts), uses the dialect to build the path and body, applies provider adaptations, then delegates to `new_request/4`:
+The orchestration in `stream_text` calls provider and dialect callbacks directly via the module references on the `%Model{}` struct:
 
 ```elixir
-# Build a request from Omni types -- dialect + provider composition
-{:ok, req} = Omni.Provider.build_request(model, context, opts)
+body = model.dialect.handle_body(model, context, opts)
+body = model.provider.modify_body(body, opts)
+path = model.dialect.handle_path(model)
+config = merge_config(model.provider, request_config)
+url = model.provider.build_url(path, config)
 ```
 
-This is primarily useful for testing the full request-building pipeline (dialect + provider) without making HTTP calls.
-
-**`Omni.Provider.parse_event/2`** composes event parsing: it pipes a raw SSE event map through `provider.adapt_event/1` then `provider.dialect().parse_event/1`, returning the normalised delta tuple (or nil to skip):
-
-```elixir
-delta = Omni.Provider.parse_event(Omni.Providers.Anthropic, raw_event)
-# => {:text_delta, %{index: 0, delta: "Hello"}}
-```
+Each layer is independently testable: dialect callbacks are pure functions (maps in, maps out), provider callbacks are small targeted modifications, and the full pipeline is tested via `stream_text` with Req.Test stubs.
 
 ### Custom providers
 
@@ -636,66 +618,67 @@ The dialect behaviour defines the following callbacks:
 | Callback | Returns | Purpose |
 |----------|---------|---------|
 | `option_schema/0` | `map()` | Peri schema declaring which inference/dialect options are accepted |
-| `build_path/1` | `String.t()` | Builds the URL path from the model |
-| `build_body/3` | `{:ok, map()} \| {:error, reason}` | Builds the request body from model, context, and options |
-| `parse_event/1` | `{atom(), map()} \| nil` | Transforms a decoded SSE event map into a normalised delta tuple |
+| `handle_path/1` | `String.t()` | Returns the URL path for the given model |
+| `handle_body/3` | `map()` | Builds the request body from model, context, and validated options |
+| `handle_event/1` | `[{atom(), map()}]` | Parses a decoded SSE event map into a list of delta tuples |
 
-**Which callbacks can fail:** Only `build_body/3` returns an ok/error tuple. This is the first place that the *context content* is examined against the dialect's capabilities -- an audio attachment on a dialect that doesn't support audio, a thinking block passed to a dialect that can't handle it in multi-turn. These are real "this won't work" scenarios that should produce clear errors, not crashes.
-
-`option_schema/0` returns static data. `build_path/1` is trivial string derivation from a known-good model. `parse_event/1` runs in the streaming process where crashes naturally become error events; the nil return already handles "skip this event."
+**No callback returns ok/error tuples.** Option validation happens at the API boundary (`stream_text`) before any dialect callbacks are called. Dialects receive validated options and operate on known-good data. `handle_body/3` returns a bare map. `handle_event/1` returns a list of delta tuples (empty list to skip). `option_schema/0` and `handle_path/1` return static data.
 
 ### Dialect callback details
 
-**`option_schema/0`** -- returns a Peri schema map declaring which options this dialect understands. The orchestration layer merges this with the provider's `option_schema/0` and a base request schema, then validates the full options keyword list in a single pass before any work begins.
+**`option_schema/0`** -- returns a Peri schema map declaring which options this dialect understands. The orchestration layer merges this with the universal option schema, then validates the full options in a single pass before any work begins. Result is a map with defaults filled in.
 
-**`build_path/1`** -- receives a `%Model{}` struct and returns the URL path string. This is typically a static path with the model ID interpolated for some API families:
+**`handle_path/1`** -- receives a `%Model{}` struct and returns the URL path string. This is typically a static path with the model ID interpolated for some API families:
 
 ```elixir
 # Anthropic Messages dialect
-def build_path(_model), do: "/v1/messages"
+def handle_path(_model), do: "/v1/messages"
 
 # OpenAI Completions dialect
-def build_path(_model), do: "/v1/chat/completions"
+def handle_path(_model), do: "/v1/chat/completions"
 ```
 
-**`build_body/3`** -- receives a `%Model{}`, `%Context{}`, and validated options keyword list. Returns `{:ok, body_map}` or `{:error, reason}`. This is where Omni's types become the provider's native JSON structure -- messages are reshaped, content blocks are encoded, tools are serialized, and options are mapped to API parameters.
+**`handle_body/3`** -- receives a `%Model{}`, `%Context{}`, and validated options map. Returns a body map. This is where Omni's types become the provider's native JSON structure -- messages are reshaped, content blocks are encoded, tools are serialized, and options are mapped to API parameters. Options have already been validated and include defaults, so there is no need for fallback values.
 
 ```elixir
 # Simplified example
-def build_body(model, context, opts) do
-  {:ok, %{
+def handle_body(model, context, opts) do
+  %{
     "model" => model.id,
     "messages" => encode_messages(context.messages),
     "system" => context.system,
-    "max_tokens" => Keyword.get(opts, :max_tokens, model.max_output_tokens),
-    "temperature" => Keyword.get(opts, :temperature),
+    "max_tokens" => opts.max_tokens,
+    "temperature" => opts[:temperature],
     "stream" => true
-  }}
+  }
 end
 ```
 
-**`parse_event/1`** -- receives a single decoded JSON event map (from the SSE parser) and returns a normalised `{event_type, event_map}` delta tuple, or `nil` to skip the event. The function is stateless and pure -- it receives one event, returns one delta. No accumulation, no knowledge of what came before. This makes dialects trivially testable: give it a JSON map, assert the tuple that comes out.
+**`handle_event/1`** -- receives a single decoded JSON event map (from the SSE parser) and returns a list of normalised `{event_type, event_map}` delta tuples. Returns an empty list `[]` to skip the event. The function is stateless and pure -- it receives one event, returns deltas. No accumulation, no knowledge of what came before. This makes dialects trivially testable: give it a JSON map, assert the tuples that come out.
 
 ```elixir
 # Anthropic dialect example
-def parse_event(%{"type" => "content_block_delta", "index" => idx,
-                  "delta" => %{"type" => "text_delta", "text" => text}}) do
-  {:text_delta, %{index: idx, delta: text}}
+def handle_event(%{"type" => "content_block_delta", "index" => idx,
+                   "delta" => %{"type" => "text_delta", "text" => text}}) do
+  [{:block_delta, %{type: :text, index: idx, delta: text}}]
 end
 
-def parse_event(%{"type" => "message_delta",
-                  "delta" => %{"stop_reason" => reason}, "usage" => usage}) do
-  {:done, %{stop_reason: normalise_stop_reason(reason), usage: usage}}
+def handle_event(%{"type" => "message_delta",
+                   "delta" => %{"stop_reason" => reason}, "usage" => usage}) do
+  [{:message, %{stop_reason: normalise_stop_reason(reason), usage: usage}}]
 end
 ```
 
 ### Option validation
 
-The valid option set for any request is a *composition* of three layers: options the dialect handles (temperature, max_tokens), options the provider handles (thinking, effort), and options the request layer handles (api_key, base_url, raw). No single layer knows the full picture.
+Options are validated once, early, in `stream_text` before any callbacks are called. The validation schema is composed from two sources:
 
-Each layer declares what it accepts via `option_schema/0`. The orchestration layer merges these into one Peri schema and validates the full options keyword list in a single pass. One validation call, one error surface. Each callback that *receives* options (`build_body`, `adapt_body`, `authenticate`) can trust that they're already validated.
+1. **Universal schema** -- defined as a module attribute in `Omni`. Covers standard inference options: `max_tokens`, `temperature`, `cache`, `metadata`, `thinking`.
+2. **Dialect schema** -- from `dialect.option_schema/0`. Covers dialect-specific options.
 
-**Implementation note:** The exact shape of `option_schema/0` return values and the merging strategy need to be worked out during implementation. The intent is clear -- each layer declares a Peri schema map of what it accepts, and these are merged and validated once -- but the details of how universal options (temperature, max_tokens) compose with dialect-specific and provider-specific options may require iteration. For example, a dialect might declare `%{temperature: {:float, []}, max_tokens: {:integer, []}}` while a provider adds `%{thinking: {:boolean, []}}`. How overlaps are handled (if both dialect and provider declare the same key) is an implementation detail to resolve.
+These are merged into one Peri schema and validated in a single pass using strict mode (unknown keys are rejected, catching typos). The result is a map with all defaults filled in. All downstream callbacks receive this validated map.
+
+Request config options (`api_key`, `base_url`, `headers`, `plug`, `raw`) are separated out before validation -- they are transport/framework concerns, not inference options.
 
 Dialect output (the request body) is not validated at runtime. If a dialect produces malformed output, that's a bug in the library caught by tests, not a runtime concern.
 
@@ -709,26 +692,21 @@ Each layer is testable independently:
 
 ```elixir
 # Test a dialect in pure isolation -- no HTTP, no provider
-body = AnthropicMessages.build_body(model, context, opts)
+body = AnthropicMessages.handle_body(model, context, opts)
 assert body["messages"] == [...]
 
-delta = AnthropicMessages.parse_event(%{"type" => "content_block_delta", ...})
-assert delta == {:text_delta, %{index: 0, delta: "Hello"}}
+deltas = AnthropicMessages.handle_event(%{"type" => "content_block_delta", ...})
+assert deltas == [{:block_delta, %{type: :text, index: 0, delta: "Hello"}}]
 
-# Test a provider in isolation -- real HTTP, native body
-{:ok, req} = Omni.Provider.new_request(Omni.Providers.Anthropic, "/v1/messages", %{
-  "model" => "claude-sonnet-4-20250514",
-  "messages" => [%{"role" => "user", "content" => "Hi"}],
-  "max_tokens" => 100,
-  "stream" => true
-}, api_key: "sk-...")
-{:ok, resp} = Req.request(req)
+# Test a provider's modifications in isolation
+modified = OpenRouter.modify_body(body, opts)
+assert modified["reasoning"] == %{"effort" => "high"}
 
 # Test the full stack
 {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-4-20250514"}, "Hi")
 ```
 
-The dialect is pure functions (maps in, maps out). The provider is a thin authenticated HTTP client. The top-level API composes them.
+The dialect is pure functions (maps in, maps out). The provider makes small targeted modifications. The top-level API composes them.
 
 ---
 
@@ -1248,8 +1226,11 @@ Req async response (into: :self)
 SSE.stream/1 (shared, stateful for framing)
     │  → decoded JSON map (one at a time, buffering across chunks)
     ▼
-Provider.parse_event/2 (composes adapt_event + dialect parse_event)
-    │  → {event_type, event_map} delta tuple (or nil to skip)
+dialect.handle_event/1 (parse to delta tuples)
+    │  → [{event_type, event_map}] list
+    ▼
+provider.modify_events/2 (optional post-dialect augmentation)
+    │  → [{event_type, event_map}] list (potentially augmented)
     ▼
 StreamingResponse Enumerable (wraps the delta stream)
     │  → accumulates partial Response
@@ -1326,40 +1307,40 @@ The SSE parser is shared across all dialects. If a provider does something non-s
 
 ### Dialect event parsing
 
-Each dialect implements a `parse_event/1` callback that receives a single decoded JSON event map and returns a normalised delta tuple:
+Each dialect implements a `handle_event/1` callback that receives a single decoded JSON event map and returns a list of normalised delta tuples:
 
 ```elixir
-@callback parse_event(event :: map()) :: {atom(), map()} | nil
+@callback handle_event(event :: map()) :: [{atom(), map()}]
 ```
 
-The return is a `{event_type, event_map}` tagged tuple. The function returns `nil` if the event should be dropped (an edge case -- the SSE parser filters most non-content events, but the callback allows for it).
+The return is a list of `{event_type, event_map}` tagged tuples. The function returns `[]` if the event should be dropped. The list form allows a single SSE event to produce multiple deltas (some providers bundle data that maps to separate delta types).
 
-The function is stateless and pure -- it receives one event, returns one delta. No accumulation, no knowledge of what came before. This makes dialects trivially testable: give it a JSON map, assert the tuple that comes out.
+The function is stateless and pure -- it receives one event, returns deltas. No accumulation, no knowledge of what came before. This makes dialects trivially testable: give it a JSON map, assert the tuples that come out.
 
 ```elixir
 # Anthropic dialect example
-def parse_event(%{"type" => "content_block_start", "index" => idx,
-                  "content_block" => %{"type" => "text"}}) do
-  {:text_start, %{index: idx}}
+def handle_event(%{"type" => "content_block_start", "index" => idx,
+                   "content_block" => %{"type" => "text"}}) do
+  [{:block_start, %{type: :text, index: idx}}]
 end
 
-def parse_event(%{"type" => "content_block_delta", "index" => idx,
-                  "delta" => %{"type" => "text_delta", "text" => text}}) do
-  {:text_delta, %{index: idx, delta: text}}
+def handle_event(%{"type" => "content_block_delta", "index" => idx,
+                   "delta" => %{"type" => "text_delta", "text" => text}}) do
+  [{:block_delta, %{type: :text, index: idx, delta: text}}]
 end
 
-def parse_event(%{"type" => "content_block_start", "index" => idx,
-                  "content_block" => %{"type" => "tool_use", "id" => id, "name" => name}}) do
-  {:tool_use_start, %{index: idx, id: id, name: name}}
+def handle_event(%{"type" => "content_block_start", "index" => idx,
+                   "content_block" => %{"type" => "tool_use", "id" => id, "name" => name}}) do
+  [{:block_start, %{type: :tool_use, index: idx, id: id, name: name}}]
 end
 
-def parse_event(%{"type" => "message_start", "message" => %{"model" => model}}) do
-  {:start, %{model: model}}
+def handle_event(%{"type" => "message_start", "message" => %{"model" => model}}) do
+  [{:message, %{model: model}}]
 end
 
-def parse_event(%{"type" => "message_delta",
-                  "delta" => %{"stop_reason" => reason}, "usage" => usage}) do
-  {:done, %{stop_reason: normalise_stop_reason(reason), usage: usage}}
+def handle_event(%{"type" => "message_delta",
+                   "delta" => %{"stop_reason" => reason}, "usage" => usage}) do
+  [{:message, %{stop_reason: normalise_stop_reason(reason), usage: usage}}]
 end
 ```
 
@@ -1473,27 +1454,42 @@ def stream_text({_, _} = model, context, opts) do
 end
 
 def stream_text(%Omni.Model{} = model, context, opts) do
-  context = to_context(context)
-  opts = merge_config(model.provider, opts)
+  provider = model.provider
+  dialect = model.dialect
+  context = Context.new(context)
+  {request_config, inference_opts} = split_request_config(opts)
 
-  with {:ok, opts} <- validate_options(opts, model),
-       {:ok, req} <- Provider.build_request(model, context, opts),
-       {:ok, resp} <- Req.request(req),
-       :ok <- check_status(resp)
-  do
-    deltas =
-      resp.body
-      |> SSE.stream()
-      |> Stream.flat_map(&Provider.parse_event(model.provider, &1))
+  with {:ok, opts} <- validate_opts(build_schema(dialect), inference_opts) do
+    # Build request body (dialect builds, provider modifies)
+    body = dialect.handle_body(model, context, opts)
+    body = provider.modify_body(body, opts)
 
-    cancel = fn -> Req.cancel_async_response(resp) end
-    raw = if opts[:raw], do: {req, resp}
+    # Build HTTP request
+    path = dialect.handle_path(model)
+    config = merge_config(provider, request_config)
 
-    {:ok, StreamingResponse.new(deltas,
-      model: model,
-      cancel: cancel,
-      raw: raw
-    )}
+    with {:ok, req} <- build_request(provider, path, body, config),
+         {:ok, resp} <- req |> maybe_plug(request_config) |> Req.request(),
+         :ok <- check_status(resp) do
+      # Compose event stream (dialect handles, provider modifies)
+      deltas =
+        resp.body
+        |> SSE.stream()
+        |> Stream.flat_map(fn event ->
+          event
+          |> dialect.handle_event()
+          |> provider.modify_events(event)
+        end)
+
+      cancel = fn -> Req.cancel_async_response(resp) end
+      raw = if request_config.raw, do: {req, resp}
+
+      {:ok, StreamingResponse.new(deltas,
+        model: model,
+        cancel: cancel,
+        raw: raw
+      )}
+    end
   end
 end
 ```
@@ -1502,21 +1498,21 @@ The key architectural points:
 
 - **Model resolution is a separate clause.** The tuple `{:anthropic, "claude-sonnet-4-20250514"}` is resolved via `get_model/1` (a `:persistent_term` lookup), then the resolved `%Model{}` falls through to the main clause. No resolution step needed when the caller already has a model struct.
 
-- **Provider and dialect come from the model.** The `%Model{}` struct carries the provider module reference. No lookup table, no atom-to-module mapping. `model.provider` is immediately callable, and the dialect is accessed through `model.provider.dialect()`.
+- **Provider and dialect come from the model.** The `%Model{}` struct carries module references for both provider and dialect. `model.provider` and `model.dialect` are immediately callable.
 
-- **`merge_config/2`** merges `provider.config/0` with overrides from application config (keyed by the provider module, e.g. `config :omni, Omni.Providers.Anthropic, ...`) and call-time opts (api_key, base_url, headers, etc.) into a single keyword list. The result flows through the pipeline -- each callback that receives `opts` pulls out what it needs. Priority order: call-time opts > application config > provider defaults.
+- **Request config is separated from inference options.** `split_request_config/1` pops transport/framework options (`:api_key`, `:base_url`, `:headers`, `:plug`, `:raw`) from the keyword list. The remaining inference options are validated against the merged schema.
 
-- **Validation happens once, early.** `validate_options/2` merges schemas from `dialect.option_schema/0`, `provider.option_schema/0`, and a base request schema, then runs Peri once. After this point, all callbacks can trust their inputs are valid.
+- **Validation happens once, early.** The universal option schema (defined in `Omni`) is merged with `dialect.option_schema/0` and validated via Peri in strict mode. The result is a map with defaults filled in. After this point, all callbacks receive this validated map and can trust their inputs.
 
-- **Build request separates construction from execution.** `Provider.build_request/3` handles the full dialect-to-Req pipeline (build path, build body, adapt body, build URL, authenticate) and returns a `%Req.Request{}`. `Req.request/1` executes it, returning immediately with an async response. This separation gives us both the request and response structs for `raw: true` at no extra cost.
+- **`merge_config/2`** merges the provider's `config/0` with overrides from application config (keyed by the provider module, e.g. `config :omni, Omni.Providers.Anthropic, ...`) and call-time request config into a single map. Priority order: call-time > application config > provider defaults. The result is passed to `build_url/2` and `authenticate/2`.
+
+- **Request building is private orchestration.** `build_request/4` is a private function in `Omni` that calls `provider.build_url/2` and `provider.authenticate/2`. It returns `{:ok, %Req.Request{}}` without executing. `Req.request/1` executes, returning immediately with an async response.
 
 - **Status check catches HTTP errors early.** After `Req.request/1` returns, `check_status/1` verifies the response is 200. Non-200 responses (400, 401, 429, 500, etc.) are read and turned into `{:error, reason}` before any streaming begins.
 
-- **The event stream is lazy composition.** `resp.body` is a `Req.Response.Async` enumerable that yields raw binary chunks. `SSE.stream/1` transforms these into decoded JSON event maps (handling buffering across chunk boundaries via `Stream.transform/3`). `Provider.parse_event/2` composes `adapt_event/1` and dialect `parse_event/1` into normalised delta tuples. Nothing executes until the consumer drives the stream.
+- **The event stream is lazy composition.** `resp.body` is a `Req.Response.Async` enumerable that yields raw binary chunks. `SSE.stream/1` transforms these into decoded JSON event maps. `dialect.handle_event/1` parses them into normalised delta tuples, and `provider.modify_events/2` optionally augments them. Nothing executes until the consumer drives the stream.
 
 - **StreamingResponse is generic.** It receives pre-built delta tuples and builds the consumer event pipeline at construction time via `Stream.transform/5`. Its `Enumerable` implementation delegates directly to this pipeline. The struct holds only two fields: `stream` (the pipeline) and `cancel` (an opaque function). Model, raw HTTP data, and accumulation state are baked into the transform closure. It has no knowledge of providers, dialects, or HTTP.
-
-- **`Provider.new_request/4` is independently usable.** It takes a provider module, path, body, and opts. It handles URL building, authentication, and Req setup. This can be called directly for testing or advanced use cases where the caller has a provider-native request body.
 
 ### High-level flow diagram
 
@@ -1525,39 +1521,46 @@ Omni.stream_text(model, context, opts)
 │
 ├── 1. Resolve model (if tuple, look up from :persistent_term)
 │
-├── 2. Normalise context (to_context/1)
+├── 2. Normalise context (Context.new/1)
 │
-├── 3. Merge config and opts
-│     Merge provider.config/0 with app config overrides and call-time opts
+├── 3. Split opts → request_config + inference_opts
+│     Pop :api_key, :base_url, :headers, :plug, :raw
 │
-├── 4. Validate options
-│     Merge schemas from dialect, provider, and base request layer
-│     Validate via Peri; return {:error, reason} if invalid
+├── 4. Validate inference options
+│     Merge universal schema + dialect.option_schema()
+│     Validate via Peri (strict mode); return {:error, reason} if invalid
+│     Result: map with defaults filled in
 │
-├── 5. Provider.build_request(model, context, opts)
-│     ├── dialect.build_path(model) → "/v1/messages"
-│     ├── dialect.build_body(model, context, opts) → {:ok, body_map}
-│     ├── provider.adapt_body(body, opts) → adjusted body
-│     └── Provider.new_request(provider, path, body, opts)
-│         ├── provider.build_url(base_url, path) → full URL
-│         ├── Req.new(url, method: :post, json: body, into: :self)
-│         └── provider.authenticate(req, opts) → {:ok, authenticated_req}
+├── 5. Build request body
+│     ├── dialect.handle_body(model, context, opts) → body map
+│     └── provider.modify_body(body, opts) → modified body
 │
-├── 6. Req.request(req) → {:ok, resp}
+├── 6. Build HTTP request
+│     ├── dialect.handle_path(model) → "/v1/messages"
+│     ├── merge_config(provider, request_config) → config map
+│     ├── provider.build_url(path, config) → full URL
+│     ├── Req.new(url, method: :post, json: body, into: :self)
+│     ├── apply_headers(req, config.headers)
+│     └── provider.authenticate(req, config) → {:ok, authenticated_req}
+│
+├── 7. Req.request(req) → {:ok, resp}
 │     Returns immediately; resp.body is Req.Response.Async
 │
-├── 7. Check status (non-200 → {:error, reason})
+├── 8. Check status (non-200 → {:error, reason})
 │
-├── 8. Compose lazy event stream
+├── 9. Compose lazy event stream
 │     resp.body (async chunks)
 │       |> SSE.stream() (decode, buffer, emit JSON maps)
-│       |> Stream.flat_map(&Provider.parse_event/2)
+│       |> Stream.flat_map(fn event ->
+│            dialect.handle_event(event)
+│            |> provider.modify_events(event)
+│          end)
 │
-└── 9. StreamingResponse.new(deltas, model: model, cancel: cancel, raw: raw)
-        Builds consumer event pipeline via Stream.transform/5
-        Enumerable impl delegates to pre-built pipeline
-        Yields {event_type, event_map, partial_response} to consumer
-        cancel/1 invokes opaque cancel function
+└── 10. StreamingResponse.new(deltas, model: model, cancel: cancel, raw: raw)
+         Builds consumer event pipeline via Stream.transform/5
+         Enumerable impl delegates to pre-built pipeline
+         Yields {event_type, event_map, partial_response} to consumer
+         cancel/1 invokes opaque cancel function
 ```
 
 ---
@@ -1587,8 +1590,7 @@ lib/omni/
 │   └── tool_result.ex         # Tool result content block
 ├── sse.ex                     # Shared SSE parser (framing, decoding, buffering)
 ├── provider.ex                # Provider behaviour, default implementations,
-│                              #   build_request/3, new_request/4, parse_event/2,
-│                              #   load_models/2
+│                              #   resolve_auth/1, load/1, load_models/2
 ├── providers/
 │   ├── anthropic.ex
 │   ├── openai.ex
@@ -1622,9 +1624,7 @@ This needs further research to flesh out, but the architectural intent is a laye
 
 ## Open Questions
 
-### Option schema composition
-
-The `option_schema/0` callback on both Dialect and Provider behaviours returns a Peri schema map. How these schemas are merged, how universal options (temperature, max_tokens) are declared (on a base schema? on the dialect?), and how conflicts between layers are handled needs to be worked out during implementation. See the implementation note in the [Option validation](#option-validation) section.
+*(Previously open questions about option schema composition, `build_body/3` return type, and validation location have been resolved. See `context/refactor.md` for the decisions.)*
 
 ---
 
@@ -1649,12 +1649,12 @@ The `option_schema/0` callback on both Dialect and Provider behaviours returns a
 - **Redacted thinking via nil text** -- when a thinking block's text is `nil`, it's redacted. No separate `redacted` boolean needed since it's directly derivable.
 - **StreamingResponse struct with Enumerable** -- `Omni.StreamingResponse` is a struct implementing the `Enumerable` protocol. It holds two fields: `stream` (the pre-built consumer event pipeline) and `cancel` (an opaque zero-arity function). Model, raw HTTP data, and accumulation state are baked into the `Stream.transform/5` closure at construction time. Consumers use it directly with `Enum`/`Stream` functions, and can cancel via `StreamingResponse.cancel/1`. Named `StreamingResponse` (not `TextStream` or `Stream`) for consistency with `Response` and because the struct is not content-type-specific.
 - **No spawned process -- Req async handles it** -- Req's `into: :self` mode delivers body chunks as messages from Finch's connection pool. No Omni-owned process is needed. The event pipeline is composed as a lazy `Stream` that the consumer drives. Cancellation delegates to `Req.cancel_async_response/1`. This eliminates the complexity of process lifecycle management, bidirectional monitors, and failure propagation.
-- **Three-layer streaming architecture** -- streaming has three layers: (1) a shared SSE parser handles framing and JSON decoding, (2) the dialect's `parse_event/1` transforms a JSON map into a normalised delta tuple (stateless, pure), (3) `StreamingResponse` accumulates deltas into a partial response and yields rich consumer events. The dialect never accumulates state; the SSE parser never interprets semantics.
-- **Internal delta format as tagged tuples** -- dialects emit `{event_type, event_map}` tuples where the event type atom encodes the content type (`:text_delta`, `:tool_use_start`, etc.). Every delta is self-describing -- consumers can pattern match a single event without tracking state.
+- **Three-layer streaming architecture** -- streaming has three layers: (1) a shared SSE parser handles framing and JSON decoding, (2) the dialect's `handle_event/1` transforms a JSON map into normalised delta tuples (stateless, pure), (3) `StreamingResponse` accumulates deltas into a partial response and yields rich consumer events. The dialect never accumulates state; the SSE parser never interprets semantics.
+- **Internal delta format as tagged tuples** -- dialects emit `{event_type, event_map}` tuples where the event type atom encodes the content type (`:block_delta`, `:block_start`, etc.). Every delta is self-describing -- consumers can pattern match a single event without tracking state.
 - **Consumer events as three-element tuples** -- the `StreamingResponse` enumerable yields `{event_type, event_map, partial_response}`. The first two elements mirror the dialect's delta format; the third is the accumulated `%Response{}` built up as events arrive. Memory overhead is negligible due to Elixir's structural sharing.
 - **Partial response on every event** -- every consumer event carries the accumulated partial `%Response{}`. Consumers who don't need it ignore it via underscore. Consumers who do (UI state, agentic loops) get it without reimplementing accumulation logic.
 - **`_end` events carry completed values** -- `text_end` carries the full text string, `tool_use_end` carries the parsed `%ToolUse{}` struct. Consumers who don't want to process deltas can listen only for `_end` events.
-- **Dialect `parse_event/1` is one-in, one-out** -- receives one decoded JSON event map, returns one `{event_type, event_map}` tuple or `nil`. The SSE parser filters pings/keepalives before they reach the dialect; nil is an edge case escape hatch.
+- **Dialect `handle_event/1` is one-in, list-out** -- receives one decoded JSON event map, returns a list of `{event_type, event_map}` tuples. Returns `[]` to skip. The SSE parser filters pings/keepalives before they reach the dialect.
 - **Shared SSE parser outside dialects** -- SSE framing (buffering, multi-event splitting, `[DONE]` detection, JSON decoding) is handled once in a shared module. Dialects receive clean, decoded JSON maps. All major LLM APIs use JSON-over-SSE; dialect-specific behaviour is in the JSON schema, not the transport framing.
 - **Two error surfaces** -- pre-stream errors (model not found, validation, auth, HTTP status) return `{:error, reason}` from `stream_text/3`. Mid-stream errors (connection drops, provider errors) emit as `{:error, event_map, partial_response}` events through the enumeration.
 - **`complete/1` discards partial on error** -- `StreamingResponse.complete/1` returns `{:ok, %Response{}} | {:error, reason}`. Partial data is not surfaced on error. Consumers who need partial data under failure should consume the stream manually.
@@ -1670,12 +1670,12 @@ The `option_schema/0` callback on both Dialect and Provider behaviours returns a
 - **Stateful tools via `init/1`** -- `init/1` receives args passed to `new/1`, returns opts passed as second argument to `call/2`. Default is passthrough. Provides a place to validate state at construction time rather than mid-conversation. Stateless tools use `call/1` (default `call/2` delegates to it).
 - **No automatic tool execution** -- `generate_text` and `stream_text` do not execute tools. They are pure request/response functions. `Omni.Tool.execute/2` is a convenience helper for dispatching tool uses to handlers.
 - **Caching as a TTL hint, not an on/off switch** -- `cache: :short | :long | nil` controls explicit caching directives. `nil` means no explicit directives (providers with implicit caching may still cache). `:short` and `:long` map to provider-specific TTL tiers (e.g. Anthropic's 5min/1hr breakpoints, OpenAI's retention parameter). Dialects without caching support silently ignore the option -- caching is an optimisation hint, not a semantic requirement.
-- **Provider as authenticated HTTP layer** -- the provider layer exposes two request-building functions: `Provider.new_request/4` builds a `%Req.Request{}` from raw provider-native params (no dialect), and `Provider.build_request/3` composes dialect and provider into a ready-to-fire request from Omni types. Both return request structs without executing them -- the caller controls execution. This makes each layer independently testable.
-- **Dialect builds, provider adapts** -- the dialect produces the standard request body and URL path for an API family. The provider optionally adapts these for service-specific quirks via `adapt_body/2` and `adapt_event/1`. These are *adaptations* of the dialect's output, not alternatives to it. Most providers don't need either callback.
-- **"Adapt" over "tweak" for provider callbacks** -- `adapt_body/2` and `adapt_event/1` communicate the purpose clearly: adapting standard dialect output to fit a specific provider's requirements. The dialect *builds*, the provider *adapts*.
-- **Declarative option schemas over validation callbacks** -- each layer declares what options it accepts via `option_schema/0` (on both the Dialect and Provider behaviours). The orchestration merges these into one Peri schema and validates once, early. No separate validate callback; no defensive checking in individual callbacks.
+- **Provider as authenticated HTTP layer** -- the provider defines callbacks for URL building, authentication, and adaptation. Orchestration (composing dialect + provider) lives in `Omni.stream_text/3`, not on the Provider module. The Provider module defines callbacks; `Omni` composes them.
+- **Dialect handles, provider modifies** -- the dialect produces the standard request body (`handle_body/3`), URL path (`handle_path/1`), and event parsing (`handle_event/1`). The provider optionally modifies these via `modify_body/2` and `modify_events/2`. The `handle_*` prefix signals mandatory dialect callbacks; `modify_*` signals optional provider adjustments.
+- **`modify_events/2` is post-dialect** -- the provider's `modify_events/2` runs after `dialect.handle_event/1`, receiving the parsed deltas and the raw event. This lets the provider augment deltas with provider-specific data (e.g. OpenRouter's `reasoning_details`). The pre-dialect `adapt_event/1` pattern was replaced because providers need to see parsed deltas, not raw JSON.
+- **Declarative option schemas, validation at the boundary** -- the dialect declares what options it accepts via `option_schema/0`. The orchestration merges this with the universal schema and validates once via Peri in strict mode. No provider option_schema (config overrides are universal). No validation inside callbacks.
 - **Dialect output is not validated at runtime** -- the request body a dialect produces is internal library code, not user input. If it's malformed, that's a bug caught by tests, not a runtime validation concern.
-- **`build_body/3` and `authenticate/2` return ok/error tuples** -- these are the two callbacks that can fail due to legitimate runtime conditions (unsupported content in context, missing API keys, unreachable vaults). All other callbacks return bare values because they either produce static data or perform deterministic transformations on already-validated inputs.
+- **Only `authenticate/2` returns ok/error** -- `authenticate/2` can fail due to missing API keys or unreachable vaults. `handle_body/3` returns a bare map -- validation happens at the API boundary before it is called, not inside the dialect.
 - **`use Omni.Provider` with dialect only** -- providers declare `use Omni.Provider, dialect: Omni.Dialects.AnthropicMessages`. The `:dialect` option is required. The macro generates a `dialect/0` accessor function. Provider IDs are not declared on modules -- they are assigned in the application config when registering providers.
 - **Provider IDs in config, not modules** -- `config :omni, :providers, [:anthropic, :openai, custom: MyApp.Provider]`. Shorthand atoms are normalised to built-in modules at startup (`:anthropic` → `Omni.Providers.Anthropic`). Custom providers use `{id, module}` tuples. This eliminates ID conflicts between modules -- IDs are visible in one place and easy to change.
 - **Separate config keys for registration and overrides** -- `:providers` controls which providers are loaded at startup. Per-provider runtime config (api_key, base_url) uses the provider module as a separate config key: `config :omni, Omni.Providers.OpenAI, api_key: "..."`. This cleanly separates the two concerns.
@@ -1683,12 +1683,12 @@ The `option_schema/0` callback on both Dialect and Provider behaviours returns a
 - **`load_models/2` takes module and path** -- `Omni.Provider.load_models(__MODULE__, "priv/models/anthropic.json")` reads the JSON file and stamps each model with the provider module and its dialect. Models returned from `models/0` are always complete structs with all enforce_keys populated.
 - **Full module references on Model struct** -- `%Model{provider: Omni.Providers.Anthropic, dialect: Omni.Dialects.AnthropicMessages}` stores full modules, not shorthand atoms. The model is self-contained -- provider and dialect callbacks can be called directly from the struct with no runtime resolution.
 - **Default provider set** -- if no `:providers` config is set, a sensible default set (Anthropic, OpenAI, etc.) is loaded so the library works out of the box.
-- **`Provider.new_request/4` takes modules, not atoms** -- `Omni.Provider.new_request/4` accepts a provider module directly. It does not resolve shorthand atoms. This function is primarily for testing and debugging the provider layer in isolation.
+- **No public request-building functions on Provider** -- orchestration (composing dialect + provider into an HTTP request) lives in `Omni.stream_text/3` as private functions. The Provider module defines callbacks and shared utilities (`resolve_auth`, `load`, `load_models`), not orchestration.
 - **Omni.Application for startup loading** -- an OTP Application module loads providers into `:persistent_term` at startup. The `start/2` callback calls `models/0` on each configured provider, builds model maps, and stores them. Returns a minimal supervisor with no children (just the OTP contract). This guarantees models are available before any user code runs, with no lazy loading races or forgotten init calls.
-- **Provider `build_url/2` callback** -- providers implement `build_url/2` receiving the base URL and dialect-built path. Default is concatenation. Exists because some providers (Azure OpenAI) completely restructure the URL path.
-- **Lazy stream composition at stream_text level** -- `stream_text` composes a lazy `Stream` pipeline: `resp.body` (async chunks) → `SSE.stream/1` (decode) → `Provider.parse_event/2` (adapt + parse). This keeps StreamingResponse generic (it just wraps a stream of delta tuples) and keeps `Provider.new_request/4` independently usable.
+- **Provider `build_url/2` callback** -- providers implement `build_url/2` receiving the dialect-built path and merged config map. Default is `config.base_url <> path`. Exists because some providers (Azure OpenAI) completely restructure the URL path based on deployment config.
+- **Lazy stream composition at stream_text level** -- `stream_text` composes a lazy `Stream` pipeline: `resp.body` (async chunks) → `SSE.stream/1` (decode) → `dialect.handle_event/1` (parse) → `provider.modify_events/2` (augment). This keeps StreamingResponse generic (it just wraps a stream of delta tuples).
 - **StreamingResponse is provider/dialect-agnostic** -- `StreamingResponse` receives raw delta tuples and builds the consumer event pipeline at construction time. Its `Enumerable` implementation delegates directly to this pipeline. It holds no Req types, no provider references, and no dialect knowledge. Cancellation is via an opaque function; raw HTTP data is baked into the accumulator closure.
-- **Single merged opts keyword list** -- provider config, application config overrides, and call-time opts are merged into a single keyword list early in the pipeline. Each callback that receives opts pulls out what it needs. Priority: call-time > app config > provider defaults.
-- **Request building separated from execution** -- `Provider.build_request/3` and `Provider.new_request/4` return `{:ok, %Req.Request{}}` without executing. The caller runs `Req.request/1` to execute. This separation naturally provides both the request and response structs for `raw: true`, and makes each layer testable in isolation (assert on the built request without making HTTP calls).
-- **`Provider.parse_event/2` composes adapt + parse** -- `Provider.parse_event(provider, raw_event)` pipes a decoded SSE event through `provider.adapt_event/1` then `provider.dialect().parse_event/1`. A simple combinator that keeps the composition in one place.
+- **Two option categories** -- options are split into request config (`:api_key`, `:base_url`, `:headers`, `:plug`, `:raw`) and inference options (everything else). Request config is separated before validation and merged into a config map for `build_url` and `authenticate`. Inference options are validated via Peri and passed as a map to `handle_body` and `modify_body`.
+- **Three-tier config merge** -- provider config, application config overrides, and call-time request config are merged for `api_key`, `base_url`, and `headers`. Priority: call-time > app config > provider defaults. Headers are merged (not replaced) at each tier.
+- **Request building separated from execution** -- `build_request/4` (private in Omni) returns `{:ok, %Req.Request{}}` without executing. The caller runs `Req.request/1` to execute. This separation naturally provides both the request and response structs for `raw: true`.
 - **Signature round-tripping is a dialect concern** -- `signature` fields on Text, Thinking, and ToolUse blocks are received from providers in responses and must be included by dialects when building request bodies for subsequent turns. The content block structs carry signatures transparently; dialects handle the round-trip logic.

@@ -102,50 +102,75 @@ Consumer-facing streaming layer. `StreamingResponse` wraps the delta stream from
 
 **Usage computation:** String-keyed token counts from `:message` events mapped to `%Usage{}` with costs derived from `%Model{}` pricing fields.
 
-**HTTP execution:** StreamingResponse does not execute HTTP requests. The caller (`stream_text` in Phase 5) executes the request, composes the SSE + parse_event pipeline, and passes the resulting delta stream into `new/2`. StreamingResponse is provider/dialect/HTTP-agnostic.
+**HTTP execution:** StreamingResponse does not execute HTTP requests. The caller (`stream_text` in Phase 5) executes the request, composes the SSE + event pipeline, and passes the resulting delta stream into `new/2`. StreamingResponse is provider/dialect/HTTP-agnostic.
 
 **Tests:** Unit tests use `new/2` with scripted delta lists for all cases (block lifecycle, redacted thinking, signatures, Google complete-input, errors, partial responses, cancel, raw pass-through). Integration tests deferred to Phase 5 `stream_text`.
 
 ---
 
-## Phase 5 — Top-Level Orchestration
+## Phase 5 — Top-Level Orchestration ✓
 
 Wiring everything together. Mostly composition of tested parts.
 
 **Build:**
-- `Omni.stream_text/3` — model resolution, context coercion, config merging, option validation, request building and execution, lazy event stream composition, StreamingResponse wrapping
+- `Omni.stream_text/3` — model resolution, context coercion, request building and execution, lazy event stream composition, StreamingResponse wrapping
 - `Omni.generate_text/3` — built on `stream_text` + `complete/1`
-- `merge_config/2` — priority chain (call-time > app config > provider defaults)
-- Option schema merging and Peri validation
 - HTTP error handling — non-200 status detection and error body reading
 
 **Test:** Integration tests (`test/integration/`) exercise `generate_text` and `stream_text` through the full stack per provider (text, tool use, thinking, streaming). Error tests cover HTTP errors (401/429/500), mid-stream SSE errors (synthetic fixture), auth failures, model resolution errors, context coercion, and stream features (cancel, raw). Live tests (`test/live/`) make real API calls per provider. All use `Omni.get_model/2` for model resolution.
 
-**Why last:** Everything this phase calls already exists and is tested. The new logic is config merging, schema composition, and the orchestration pipeline — all relatively thin composition of tested parts.
+---
+
+## Phase 5b — Refactor: Callbacks, Orchestration, Validation
+
+Cleans up deferred design decisions from Phase 5. Three sub-phases, each independently shippable. See `context/refactor.md` for full details.
+
+### Phase 5b-A — Rename Callbacks + Simplify Signatures ✗
+
+Mechanical renames across the codebase. No logic changes.
+
+- Dialect: `build_path` → `handle_path`, `build_body` → `handle_body`, `parse_event` → `handle_event`
+- Provider: `adapt_body` → `modify_body`
+- `handle_body` returns bare `map()` instead of `{:ok, map()}`
+- Remove unused `option_schema/0` from Provider behaviour
+- Update all implementations, callers, tests
+
+### Phase 5b-B — Restructure Orchestration ✗
+
+Move orchestration from Provider into Omni. Change event hook position.
+
+- Move `Provider.build_request/3`, `parse_event/2`, `new_request/4` logic into private functions in `Omni.stream_text/3`
+- Replace pre-dialect `adapt_event/1` with post-dialect `modify_events/2` `([deltas], raw_event) → [deltas]`
+- Change `build_url/2` to receive `(path, config_map)` instead of `(base_url, path)`
+- Change `authenticate/2` to receive config map instead of keyword list
+- Add `merge_config/2` and `split_request_config/1` to Omni
+- Three-tier config merge extended to `base_url` and `headers` (not just `api_key`)
+
+### Phase 5b-C — Option Validation ✗
+
+Add validation and switch opts from keyword list to validated map.
+
+- Define universal option schema as module attribute in `Omni` (`max_tokens`, `temperature`, `cache`, `metadata`, `thinking`)
+- Merge universal + `dialect.option_schema()`, validate via Peri (strict mode)
+- Result is a map with defaults filled in — all downstream callbacks receive map, not keyword list
+- Update all `handle_body`/`modify_body` implementations to use map access
+- Implement actual Peri schemas in dialect `option_schema/0` callbacks
 
 ---
 
-## Open Questions
+## Resolved Open Questions
 
-1. **`build_body/3` return type** — Returns `{:ok, map()} | {:error, term()}` but no dialect currently validates or fails. Should it return a bare map? Depends on where validation ends up living. Defer to Phase 5 (`stream_text` orchestration).
+1. **~~`build_body/3` return type~~** — Resolved: returns bare `map()`. Validation happens at the API boundary before `handle_body` is called. (Phase 5b-A)
 
-2. **Where does validation live?** — Options, content blocks, and media types all need validation. Candidates: top-level API boundary (Peri schemas in `stream_text`/`generate_text`), inside `build_body/3`, or both. Currently `encode_content/1` will crash on unsupported attachment media types (no catch-all clause). Defer to Phase 5.
+2. **~~Where does validation live?~~** — Resolved: at the `stream_text` API boundary. Universal schema + dialect `option_schema()` merged and validated via Peri once, before any callbacks. (Phase 5b-C)
 
-3. **Universal options location** — `max_tokens`, `temperature`, `cache`, `metadata`, and `thinking` are universal (apply to all providers). Where is the schema defined and how does it compose with dialect/provider schemas? Defer to Phase 5. For `thinking` specifically: validate type (atom | keyword list), Anthropic temperature + thinking incompatibility (currently silently dropped — could warn or error), and budget minimum enforcement (Anthropic requires >= 1024).
+3. **~~Universal options location~~** — Resolved: module attribute in `Omni`. Covers `max_tokens`, `temperature`, `cache`, `metadata`, `thinking`. (Phase 5b-C)
 
 4. **Plain text attachment source** — Should `Attachment.source` support `{:text, content}` in addition to `{:base64, data}` and `{:url, url}`? Wait to see if multiple providers support it.
 
-5. **StreamingResponse consumption patterns** — Explore how consumers will use StreamingResponse in practice. Key scenario: a consumer may want to process structured events (tool_use_start, thinking, etc.) AND simultaneously feed a text stream to the UI. Does the current single-enumerable API support this, or do we need something like tee/fork/broadcast? Consider whether `text_stream/1` and direct enumeration can coexist on the same StreamingResponse, or if consuming one exhausts the other.
+5. **StreamingResponse consumption patterns** — Explore how consumers will use StreamingResponse in practice. Key scenario: a consumer may want to process structured events (tool_use_start, thinking, etc.) AND simultaneously feed a text stream to the UI. Does the current single-enumerable API support this, or do we need something like tee/fork/broadcast?
 
----
-
-6. **OpenRouter `reasoning_details` round-tripping** — OpenRouter extends the Completions wire format with a `reasoning_details` array on assistant messages for reasoning round-trips. Each streaming chunk carries `reasoning_details` alongside the `reasoning` text delta, containing typed objects: `reasoning.summary` (duplicates the visible reasoning text), `reasoning.encrypted` (opaque blob with `data`, `id`, `format` fields — needed for tool-calling flows), and `reasoning.text` (raw text with optional signature). The full array must be passed back unmodified on the assistant message in follow-up requests — ordering matters. This is distinct from direct OpenAI Chat Completions where reasoning is truly ephemeral (no field to send it back).
-
-   **Decided approach:** Store in `Message.private` (a `%{}` map for provider-specific opaque round-trip data, named after Req's precedent). During streaming, `reasoning_details` arrives alongside thinking deltas — the provider emits it as `{:message, %{private: %{reasoning_details: [...]}}}` and StreamingResponse accumulates it onto the Message. During encoding, the provider reads from `message.private` and places it on the wire message body. Flat atom keys, no namespacing for now.
-
-   **Provider hook gap:** The current `adapt_event/1` (pre-dialect, JSON→JSON) can't emit delta tuples, and the Completions dialect shouldn't know about `reasoning_details`. Need a **post-dialect provider hook** — `adapt_deltas/2` taking `(deltas, raw_event)` — so the provider can augment dialect output with additional tuples. This mirrors the encoding side where `adapt_body/2` augments dialect output. Default passes through unchanged. Note: `adapt_deltas` receiving the raw event may make `adapt_event` redundant — the provider could do all pre/post work in one place. Revisit when implementing.
-
-   **Encoding side:** OpenRouter's `adapt_body/2` already handles provider-specific body transforms. It would pull `reasoning_details` from the Message's `private` map (accessed via content blocks or passed through) and place it on the assistant message. Exact mechanism TBD when multi-turn encoding is implemented.
+6. **~~OpenRouter `reasoning_details` / provider event hook~~** — Resolved: post-dialect `modify_events/2` replaces pre-dialect `adapt_event/1`. The provider receives parsed deltas + raw event, can augment with provider-specific data. (Phase 5b-B)
 
 ---
 
@@ -155,7 +180,7 @@ Not part of initial implementation, but noted in the design:
 
 - **~~Mix task for models.dev import~~** — done (`mix models.get`).
 - **Additional providers** — Groq, Together, Fireworks, Bedrock, Azure, Vertex AI. Each is a small module once the infrastructure exists.
-- **Option schema composition** — exact merging strategy for Peri schemas (open question in design doc, resolve during phase 5).
+- **~~Option schema composition~~** — resolved in Phase 5b-C.
 - **~~`raw: true` plumbing~~** — resolved. Separating request building from execution means both `%Req.Request{}` and `%Req.Response{}` are naturally available. `StreamingResponse` holds them when `raw: true` is passed.
 - **Automated tool calling loop** — distinct functions that loop over single-request primitives.
 - **Agent capabilities** — goal-orientation, hooks, error recovery, observability. Needs further design work.
