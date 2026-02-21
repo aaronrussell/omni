@@ -2,271 +2,33 @@ defmodule Omni.StreamingResponseTest do
   use ExUnit.Case, async: true
 
   alias Omni.StreamingResponse
-  alias Omni.{Context, Model, Provider, Response}
+  alias Omni.{Model, Response}
   alias Omni.Content.{Text, Thinking, ToolUse}
-  alias Omni.Providers.{Anthropic, Google}
-  alias Omni.Dialects.{AnthropicMessages, GoogleGemini}
-
-  @fixtures "test/support/fixtures/sse"
-
-  # -- Test Models --
-
-  @anthropic_model Model.new(
-                     id: "claude-haiku-4-5-20251001",
-                     name: "Claude Haiku",
-                     provider: Anthropic,
-                     dialect: AnthropicMessages,
-                     max_output_tokens: 8192,
-                     input_cost: 0.80,
-                     output_cost: 4.0,
-                     cache_read_cost: 0.08,
-                     cache_write_cost: 1.0
-                   )
-
-  @anthropic_reasoning_model Model.new(
-                               id: "claude-sonnet-4-20250514",
-                               name: "Claude Sonnet 4",
-                               provider: Anthropic,
-                               dialect: AnthropicMessages,
-                               max_output_tokens: 16384,
-                               reasoning: true
-                             )
-
-  @google_model Model.new(
-                  id: "gemini-2.0-flash-lite",
-                  name: "Gemini 2.0 Flash Lite",
-                  provider: Google,
-                  dialect: GoogleGemini,
-                  max_output_tokens: 8192
-                )
+  alias Omni.Providers.Anthropic
+  alias Omni.Dialects.AnthropicMessages
 
   # -- Helpers --
-
-  defp stub_fixture(name, fixture_file) do
-    Req.Test.stub(name, fn conn ->
-      body = File.read!(Path.join(@fixtures, fixture_file))
-
-      conn
-      |> Plug.Conn.put_resp_content_type("text/event-stream")
-      |> Plug.Conn.send_resp(200, body)
-    end)
-  end
-
-  defp start_with_fixture(model, stub_name) do
-    context = Context.new("Hello")
-    {:ok, req} = Provider.build_request(model, context, api_key: "test-key")
-    req = Req.merge(req, plug: {Req.Test, stub_name})
-    StreamingResponse.start(req, model)
-  end
 
   defp event_types(consumer_events) do
     Enum.map(consumer_events, fn {type, _data, _resp} -> type end)
   end
 
   defp collect_scripted(events, opts \\ []) do
-    sr = StreamingResponse.new(events: events, model: opts[:model])
+    sr = StreamingResponse.new(events, opts)
     Enum.to_list(sr)
   end
 
   # ============================================================
-  # Integration tests — real fixtures through start/2
+  # Integration tests — skipped pending Phase 5 (stream_text)
   # ============================================================
 
-  describe "Anthropic text streaming" do
-    setup do
-      stub_fixture(:sr_anthropic_text, "anthropic_text.sse")
-      :ok
-    end
-
-    test "start/2 → enumerate yields text lifecycle events" do
-      {:ok, sr} = start_with_fixture(@anthropic_model, :sr_anthropic_text)
-
-      events = Enum.to_list(sr)
-      types = event_types(events)
-
-      assert :text_start in types
-      assert :text_delta in types
-      assert :text_end in types
-      assert :done in types
-      assert List.last(types) == :done
-    end
-
-    test "text_end carries complete Text content" do
-      {:ok, sr} = start_with_fixture(@anthropic_model, :sr_anthropic_text)
-
-      events = Enum.to_list(sr)
-      {_, %{content: content}, _} = Enum.find(events, &match?({:text_end, _, _}, &1))
-
-      assert %Text{text: text} = content
-      assert is_binary(text) and text != ""
-    end
-
-    test "done carries stop_reason" do
-      {:ok, sr} = start_with_fixture(@anthropic_model, :sr_anthropic_text)
-
-      events = Enum.to_list(sr)
-      {:done, %{stop_reason: stop_reason}, _} = List.last(events)
-
-      assert stop_reason == :stop
-    end
-
-    test "complete/1 returns final response" do
-      {:ok, sr} = start_with_fixture(@anthropic_model, :sr_anthropic_text)
-
-      assert {:ok, %Response{} = resp} = StreamingResponse.complete(sr)
-      assert resp.stop_reason == :stop
-      assert [%Text{text: text}] = resp.message.content
-      assert is_binary(text) and text != ""
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-    end
-
-    test "complete/1 sets raw to {req, resp}" do
-      {:ok, sr} = start_with_fixture(@anthropic_model, :sr_anthropic_text)
-
-      assert {:ok, %Response{raw: {%Req.Request{}, %Req.Response{}}}} =
-               StreamingResponse.complete(sr)
-    end
-
-    test "text_stream/1 yields text binaries" do
-      {:ok, sr} = start_with_fixture(@anthropic_model, :sr_anthropic_text)
-
-      texts = sr |> StreamingResponse.text_stream() |> Enum.to_list()
-
-      assert length(texts) > 0
-      assert Enum.all?(texts, &is_binary/1)
-      assert Enum.join(texts) != ""
-    end
-
-    test "usage includes costs from model pricing" do
-      {:ok, sr} = start_with_fixture(@anthropic_model, :sr_anthropic_text)
-      {:ok, resp} = StreamingResponse.complete(sr)
-
-      assert resp.usage.input_cost == resp.usage.input_tokens * @anthropic_model.input_cost
-      assert resp.usage.output_cost == resp.usage.output_tokens * @anthropic_model.output_cost
-      assert resp.usage.total_cost > 0
-    end
-  end
-
-  describe "Anthropic tool use streaming" do
-    setup do
-      stub_fixture(:sr_anthropic_tool_use, "anthropic_tool_use.sse")
-      :ok
-    end
-
-    test "yields text and tool_use lifecycle events" do
-      {:ok, sr} = start_with_fixture(@anthropic_model, :sr_anthropic_tool_use)
-
-      events = Enum.to_list(sr)
-      types = event_types(events)
-
-      assert :text_start in types
-      assert :tool_use_start in types
-      assert :tool_use_delta in types
-      assert :tool_use_end in types
-    end
-
-    test "tool_use_start carries id and name" do
-      {:ok, sr} = start_with_fixture(@anthropic_model, :sr_anthropic_tool_use)
-
-      events = Enum.to_list(sr)
-      {_, data, _} = Enum.find(events, &match?({:tool_use_start, _, _}, &1))
-
-      assert is_binary(data.id) and data.id != ""
-      assert is_binary(data.name) and data.name != ""
-    end
-
-    test "tool_use_end carries ToolUse with parsed input" do
-      {:ok, sr} = start_with_fixture(@anthropic_model, :sr_anthropic_tool_use)
-
-      events = Enum.to_list(sr)
-      {_, %{content: content}, _} = Enum.find(events, &match?({:tool_use_end, _, _}, &1))
-
-      assert %ToolUse{id: id, name: name, input: input} = content
-      assert is_binary(id) and id != ""
-      assert is_binary(name) and name != ""
-      assert is_map(input) and map_size(input) > 0
-    end
-
-    test "complete/1 returns response with text and tool_use blocks" do
-      {:ok, sr} = start_with_fixture(@anthropic_model, :sr_anthropic_tool_use)
-      {:ok, resp} = StreamingResponse.complete(sr)
-
-      assert resp.stop_reason == :tool_use
-
-      assert Enum.any?(resp.message.content, &match?(%Text{}, &1))
-      assert Enum.any?(resp.message.content, &match?(%ToolUse{}, &1))
-    end
-  end
-
-  describe "Anthropic thinking streaming" do
-    setup do
-      stub_fixture(:sr_anthropic_thinking, "anthropic_thinking.sse")
-      :ok
-    end
-
-    test "yields thinking and text lifecycle events" do
-      {:ok, sr} = start_with_fixture(@anthropic_reasoning_model, :sr_anthropic_thinking)
-
-      events = Enum.to_list(sr)
-      types = event_types(events)
-
-      assert :thinking_start in types
-      assert :thinking_delta in types
-      assert :thinking_end in types
-      assert :text_start in types
-      assert :text_delta in types
-      assert :text_end in types
-    end
-
-    test "thinking_end carries Thinking with text and signature" do
-      {:ok, sr} = start_with_fixture(@anthropic_reasoning_model, :sr_anthropic_thinking)
-
-      events = Enum.to_list(sr)
-      {_, %{content: content}, _} = Enum.find(events, &match?({:thinking_end, _, _}, &1))
-
-      assert %Thinking{text: text, signature: sig} = content
-      assert is_binary(text) and text != ""
-      assert is_binary(sig) and sig != ""
-    end
-
-    test "complete/1 returns response with thinking and text" do
-      {:ok, sr} = start_with_fixture(@anthropic_reasoning_model, :sr_anthropic_thinking)
-      {:ok, resp} = StreamingResponse.complete(sr)
-
-      assert Enum.any?(resp.message.content, &match?(%Thinking{}, &1))
-      assert Enum.any?(resp.message.content, &match?(%Text{}, &1))
-    end
-  end
-
-  describe "Google text streaming" do
-    setup do
-      stub_fixture(:sr_google_text, "google_text.sse")
-      :ok
-    end
-
-    test "start/2 → complete/1 works with Google dialect" do
-      {:ok, sr} = start_with_fixture(@google_model, :sr_google_text)
-      {:ok, resp} = StreamingResponse.complete(sr)
-
-      assert resp.stop_reason == :stop
-      assert [%Text{text: text}] = resp.message.content
-      assert is_binary(text) and text != ""
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-    end
-
-    test "text_stream/1 yields text fragments" do
-      {:ok, sr} = start_with_fixture(@google_model, :sr_google_text)
-      texts = sr |> StreamingResponse.text_stream() |> Enum.to_list()
-
-      assert length(texts) > 0
-      assert Enum.all?(texts, &(is_binary(&1) and &1 != ""))
-    end
-  end
+  # Integration tests that exercised start/2 with real SSE fixtures have been
+  # removed. The same coverage will be provided by stream_text/generate_text
+  # integration tests in Phase 5. Dialect-level parsing is already covered by
+  # each dialect's own integration tests.
 
   # ============================================================
-  # Unit tests — scripted deltas through new/1
+  # Unit tests — scripted deltas through new/2
   # ============================================================
 
   describe "implicit text start (synthesized)" do
@@ -394,12 +156,28 @@ defmodule Omni.StreamingResponseTest do
       assert resp.error == "rate_limit"
     end
 
+    test "error event is terminal — no :done follows" do
+      events = [
+        {:block_delta, %{type: :text, index: 0, delta: "partial"}},
+        {:error, %{reason: "rate_limit"}}
+      ]
+
+      result = collect_scripted(events)
+      types = event_types(result)
+
+      assert :error in types
+      refute :done in types
+
+      # Block _end events still fire (partial content finalized)
+      assert :text_end in types
+    end
+
     test "complete/1 returns {:error, reason} on error" do
       events = [
         {:error, %{reason: "overloaded"}}
       ]
 
-      sr = StreamingResponse.new(events: events)
+      sr = StreamingResponse.new(events)
       assert {:error, "overloaded"} = StreamingResponse.complete(sr)
     end
   end
@@ -418,9 +196,70 @@ defmodule Omni.StreamingResponseTest do
   end
 
   describe "cancel/1" do
-    test "returns :ok with nil resp" do
-      sr = StreamingResponse.new(events: [])
+    test "returns :ok with nil cancel function" do
+      sr = StreamingResponse.new([])
       assert :ok = StreamingResponse.cancel(sr)
+    end
+
+    test "invokes the cancel function" do
+      test_pid = self()
+
+      cancel_fn = fn ->
+        send(test_pid, :cancelled)
+        :ok
+      end
+
+      sr = StreamingResponse.new([], cancel: cancel_fn)
+      assert :ok = StreamingResponse.cancel(sr)
+      assert_received :cancelled
+    end
+  end
+
+  describe "complete/1" do
+    test "returns final response on success" do
+      events = [
+        {:message, %{stop_reason: :stop}},
+        {:block_delta, %{type: :text, index: 0, delta: "Hello"}}
+      ]
+
+      sr = StreamingResponse.new(events)
+      assert {:ok, %Response{} = resp} = StreamingResponse.complete(sr)
+      assert resp.stop_reason == :stop
+      assert [%Text{text: "Hello"}] = resp.message.content
+    end
+
+    test "attaches raw to final response when provided" do
+      events = [
+        {:block_delta, %{type: :text, index: 0, delta: "Hi"}}
+      ]
+
+      fake_req = %Req.Request{}
+      fake_resp = %Req.Response{status: 200, body: ""}
+
+      sr = StreamingResponse.new(events, raw: {fake_req, fake_resp})
+
+      assert {:ok, %Response{raw: {%Req.Request{}, %Req.Response{}}}} =
+               StreamingResponse.complete(sr)
+    end
+
+    test "raw is nil when not provided" do
+      events = [{:block_delta, %{type: :text, index: 0, delta: "Hi"}}]
+      sr = StreamingResponse.new(events)
+      assert {:ok, %Response{raw: nil}} = StreamingResponse.complete(sr)
+    end
+  end
+
+  describe "text_stream/1" do
+    test "yields only text delta binaries" do
+      events = [
+        {:block_delta, %{type: :text, index: 0, delta: "Hello"}},
+        {:block_delta, %{type: :text, index: 0, delta: " world"}}
+      ]
+
+      sr = StreamingResponse.new(events)
+      texts = sr |> StreamingResponse.text_stream() |> Enum.to_list()
+
+      assert texts == ["Hello", " world"]
     end
   end
 
@@ -452,7 +291,7 @@ defmodule Omni.StreamingResponseTest do
         {:block_delta, %{type: :text, index: 0, delta: "Hi"}}
       ]
 
-      sr = StreamingResponse.new(events: events, model: model)
+      sr = StreamingResponse.new(events, model: model)
       {:ok, resp} = StreamingResponse.complete(sr)
 
       assert resp.usage.input_tokens == 100
@@ -474,7 +313,7 @@ defmodule Omni.StreamingResponseTest do
         {:block_delta, %{type: :text, index: 0, delta: "Hi"}}
       ]
 
-      sr = StreamingResponse.new(events: events, model: nil)
+      sr = StreamingResponse.new(events, model: nil)
       {:ok, resp} = StreamingResponse.complete(sr)
 
       assert resp.usage.input_tokens == 100

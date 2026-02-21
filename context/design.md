@@ -1268,22 +1268,32 @@ StreamingResponse itself is a generic mechanism -- it wraps a pre-built lazy str
 
 ```elixir
 defmodule Omni.StreamingResponse do
-  defstruct [:events, :resp, :req, :model]
+  defstruct [:stream, :cancel]
 end
 
 defimpl Enumerable, for: Omni.StreamingResponse do
-  # Wraps the lazy event stream
-  # Maintains accumulation state (partial Response)
-  # Yields rich consumer events
+  def reduce(sr, cmd, fun) do
+    Enumerable.reduce(sr.stream, cmd, fun)
+  end
 end
 ```
 
-The struct holds:
+The struct holds two fields:
 
-- `events` -- a lazy stream of `{event_type, event_map}` delta tuples (provider/dialect-agnostic)
-- `resp` -- the `%Req.Response{}` (for cancellation via `Req.cancel_async_response/1`, and for `raw: true`)
-- `req` -- the `%Req.Request{}` (for `raw: true`, nil otherwise)
-- `model` -- the `%Model{}` (for building the partial Response with cost data)
+- `stream` -- the pre-built consumer event pipeline (built at construction time via `Stream.transform/5`)
+- `cancel` -- a zero-arity function to cancel the underlying HTTP request (or nil)
+
+Model, raw HTTP data, and all accumulation state are baked into the `Stream.transform/5` closure at construction time -- they are not stored on the struct. This keeps the struct minimal and provider/HTTP-agnostic.
+
+The constructor takes raw delta events and builds the full pipeline:
+
+```elixir
+StreamingResponse.new(deltas,
+  model: model,
+  cancel: fn -> Req.cancel_async_response(resp) end,
+  raw: if(opts[:raw], do: {req, resp})
+)
+```
 
 Consumers interact with it as a standard enumerable:
 
@@ -1304,7 +1314,9 @@ end)
 Omni.StreamingResponse.cancel(stream)
 ```
 
-**Why no spawned process?** Req's `into: :self` mode handles async delivery -- the HTTP client (Finch) manages connections in its own process pool and sends body chunks as messages to the calling process. `StreamingResponse` wraps a lazy stream that receives and transforms these messages. Cancellation delegates to `Req.cancel_async_response/1`. No Omni-owned process is needed, eliminating the complexity of process lifecycle management, bidirectional monitors, and failure propagation.
+**Finalization:** `Stream.transform/5`'s `last_fun` handles stream finalization -- emitting block `_end` events and the `:done` event. This replaces a synthetic sentinel approach. On error, `last_fun` emits block `_end` events (so consumers get finalized partial content) but no `:done` -- the `:error` event is the terminal event.
+
+**Why no spawned process?** Req's `into: :self` mode handles async delivery -- the HTTP client (Finch) manages connections in its own process pool and sends body chunks as messages to the calling process. `StreamingResponse` wraps a lazy stream that receives and transforms these messages. Cancellation is via an opaque function passed at construction time. No Omni-owned process is needed, eliminating the complexity of process lifecycle management, bidirectional monitors, and failure propagation.
 
 ### SSE parser
 
@@ -1469,20 +1481,18 @@ def stream_text(%Omni.Model{} = model, context, opts) do
        {:ok, resp} <- Req.request(req),
        :ok <- check_status(resp)
   do
-    events =
+    deltas =
       resp.body
       |> SSE.stream()
-      |> Stream.flat_map(fn raw_event ->
-        case Provider.parse_event(model.provider, raw_event) do
-          nil -> []
-          delta -> [delta]
-        end
-      end)
+      |> Stream.flat_map(&Provider.parse_event(model.provider, &1))
 
-    {:ok, StreamingResponse.new(events,
-      resp: resp,
-      req: if(opts[:raw], do: req),
-      model: model
+    cancel = fn -> Req.cancel_async_response(resp) end
+    raw = if opts[:raw], do: {req, resp}
+
+    {:ok, StreamingResponse.new(deltas,
+      model: model,
+      cancel: cancel,
+      raw: raw
     )}
   end
 end
@@ -1504,7 +1514,7 @@ The key architectural points:
 
 - **The event stream is lazy composition.** `resp.body` is a `Req.Response.Async` enumerable that yields raw binary chunks. `SSE.stream/1` transforms these into decoded JSON event maps (handling buffering across chunk boundaries via `Stream.transform/3`). `Provider.parse_event/2` composes `adapt_event/1` and dialect `parse_event/1` into normalised delta tuples. Nothing executes until the consumer drives the stream.
 
-- **StreamingResponse is generic.** It wraps the pre-built lazy event stream and adds accumulation logic. Its `Enumerable` implementation drives the inner stream, accumulates a partial `%Response{}`, and yields three-element consumer tuples. It has no knowledge of providers, dialects, or HTTP. Cancellation delegates to `Req.cancel_async_response/1`.
+- **StreamingResponse is generic.** It receives pre-built delta tuples and builds the consumer event pipeline at construction time via `Stream.transform/5`. Its `Enumerable` implementation delegates directly to this pipeline. The struct holds only two fields: `stream` (the pipeline) and `cancel` (an opaque function). Model, raw HTTP data, and accumulation state are baked into the transform closure. It has no knowledge of providers, dialects, or HTTP.
 
 - **`Provider.new_request/4` is independently usable.** It takes a provider module, path, body, and opts. It handles URL building, authentication, and Req setup. This can be called directly for testing or advanced use cases where the caller has a provider-native request body.
 
@@ -1543,11 +1553,11 @@ Omni.stream_text(model, context, opts)
 │       |> SSE.stream() (decode, buffer, emit JSON maps)
 │       |> Stream.flat_map(&Provider.parse_event/2)
 │
-└── 9. StreamingResponse.new(events, resp: resp, ...)
-        Wraps lazy event stream
-        Enumerable impl accumulates partial Response
+└── 9. StreamingResponse.new(deltas, model: model, cancel: cancel, raw: raw)
+        Builds consumer event pipeline via Stream.transform/5
+        Enumerable impl delegates to pre-built pipeline
         Yields {event_type, event_map, partial_response} to consumer
-        cancel/1 delegates to Req.cancel_async_response/1
+        cancel/1 invokes opaque cancel function
 ```
 
 ---
@@ -1637,7 +1647,7 @@ The `option_schema/0` callback on both Dialect and Provider behaviours returns a
 - **`is_error` boolean on tool results** -- a simple flag indicating failure, not a separate error details field. The error message is the content itself. `is_error` is preferred over `error?` because the question mark suffix doesn't work cleanly in struct pattern matching.
 - **No `details` field on tool results** -- structured exception data is the user's application concern, not the content block's. The model needs the error message (in content) and the flag (is_error), nothing more.
 - **Redacted thinking via nil text** -- when a thinking block's text is `nil`, it's redacted. No separate `redacted` boolean needed since it's directly derivable.
-- **StreamingResponse struct with Enumerable** -- `Omni.StreamingResponse` is a struct implementing the `Enumerable` protocol. It serves as both the iterable and the cancellation handle. Consumers use it directly with `Enum`/`Stream` functions, and can cancel via `StreamingResponse.cancel/1`. Named `StreamingResponse` (not `TextStream` or `Stream`) for consistency with `Response` and because the struct is not content-type-specific.
+- **StreamingResponse struct with Enumerable** -- `Omni.StreamingResponse` is a struct implementing the `Enumerable` protocol. It holds two fields: `stream` (the pre-built consumer event pipeline) and `cancel` (an opaque zero-arity function). Model, raw HTTP data, and accumulation state are baked into the `Stream.transform/5` closure at construction time. Consumers use it directly with `Enum`/`Stream` functions, and can cancel via `StreamingResponse.cancel/1`. Named `StreamingResponse` (not `TextStream` or `Stream`) for consistency with `Response` and because the struct is not content-type-specific.
 - **No spawned process -- Req async handles it** -- Req's `into: :self` mode delivers body chunks as messages from Finch's connection pool. No Omni-owned process is needed. The event pipeline is composed as a lazy `Stream` that the consumer drives. Cancellation delegates to `Req.cancel_async_response/1`. This eliminates the complexity of process lifecycle management, bidirectional monitors, and failure propagation.
 - **Three-layer streaming architecture** -- streaming has three layers: (1) a shared SSE parser handles framing and JSON decoding, (2) the dialect's `parse_event/1` transforms a JSON map into a normalised delta tuple (stateless, pure), (3) `StreamingResponse` accumulates deltas into a partial response and yields rich consumer events. The dialect never accumulates state; the SSE parser never interprets semantics.
 - **Internal delta format as tagged tuples** -- dialects emit `{event_type, event_map}` tuples where the event type atom encodes the content type (`:text_delta`, `:tool_use_start`, etc.). Every delta is self-describing -- consumers can pattern match a single event without tracking state.
@@ -1677,7 +1687,7 @@ The `option_schema/0` callback on both Dialect and Provider behaviours returns a
 - **Omni.Application for startup loading** -- an OTP Application module loads providers into `:persistent_term` at startup. The `start/2` callback calls `models/0` on each configured provider, builds model maps, and stores them. Returns a minimal supervisor with no children (just the OTP contract). This guarantees models are available before any user code runs, with no lazy loading races or forgotten init calls.
 - **Provider `build_url/2` callback** -- providers implement `build_url/2` receiving the base URL and dialect-built path. Default is concatenation. Exists because some providers (Azure OpenAI) completely restructure the URL path.
 - **Lazy stream composition at stream_text level** -- `stream_text` composes a lazy `Stream` pipeline: `resp.body` (async chunks) → `SSE.stream/1` (decode) → `Provider.parse_event/2` (adapt + parse). This keeps StreamingResponse generic (it just wraps a stream of delta tuples) and keeps `Provider.new_request/4` independently usable.
-- **StreamingResponse is provider/dialect-agnostic** -- `StreamingResponse` wraps a pre-built lazy event stream and adds accumulation. Its `Enumerable` implementation drives the inner stream, accumulates a partial `%Response{}`, and yields three-element consumer tuples. It holds the `%Req.Response{}` for cancellation and `raw: true` plumbing, but has no knowledge of providers, dialects, or event parsing.
+- **StreamingResponse is provider/dialect-agnostic** -- `StreamingResponse` receives raw delta tuples and builds the consumer event pipeline at construction time. Its `Enumerable` implementation delegates directly to this pipeline. It holds no Req types, no provider references, and no dialect knowledge. Cancellation is via an opaque function; raw HTTP data is baked into the accumulator closure.
 - **Single merged opts keyword list** -- provider config, application config overrides, and call-time opts are merged into a single keyword list early in the pipeline. Each callback that receives opts pulls out what it needs. Priority: call-time > app config > provider defaults.
 - **Request building separated from execution** -- `Provider.build_request/3` and `Provider.new_request/4` return `{:ok, %Req.Request{}}` without executing. The caller runs `Req.request/1` to execute. This separation naturally provides both the request and response structs for `raw: true`, and makes each layer testable in isolation (assert on the built request without making HTTP calls).
 - **`Provider.parse_event/2` composes adapt + parse** -- `Provider.parse_event(provider, raw_event)` pipes a decoded SSE event through `provider.adapt_event/1` then `provider.dialect().parse_event/1`. A simple combinator that keeps the composition in one place.

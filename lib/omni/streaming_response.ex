@@ -25,19 +25,21 @@ defmodule Omni.StreamingResponse do
 
       {:error, %{reason: term()}, %Response{}}
       {:done,  %{stop_reason: :stop}, %Response{}}
+
+  The `:done` event is only emitted on successful completion. When an error
+  occurs mid-stream, the `:error` event is the terminal event — no `:done`
+  follows.
   """
 
-  alias Omni.{Message, Model, Provider, Response, SSE, Usage}
+  alias Omni.{Message, Model, Response, Usage}
   alias Omni.Content.{Text, Thinking, ToolUse}
 
-  defstruct [:events, :resp, :req, :model]
+  defstruct [:stream, :cancel]
 
   @typedoc "A streaming response wrapper."
   @type t :: %__MODULE__{
-          events: Enumerable.t(),
-          resp: Req.Response.t() | nil,
-          req: Req.Request.t() | nil,
-          model: Model.t() | nil
+          stream: Enumerable.t(),
+          cancel: (-> :ok) | nil
         }
 
   @typedoc "A consumer event emitted during enumeration."
@@ -54,57 +56,49 @@ defmodule Omni.StreamingResponse do
           | {:error, map(), Response.t()}
           | {:done, map(), Response.t()}
 
-  @doc "Creates a streaming response struct from a keyword list or map."
-  @spec new(Enumerable.t()) :: t()
-  def new(attrs), do: struct!(__MODULE__, attrs)
-
   @doc """
-  Starts a streaming response by executing a request and building the event pipeline.
+  Creates a streaming response from raw delta events.
 
-  Takes a `%Req.Request{}` (from `Provider.build_request/3`) and a `%Model{}`.
-  Executes the request, then pipes the async response body through SSE parsing
-  and the provider's event parser to produce generic delta tuples.
+  Builds the full consumer event pipeline at construction time. The `deltas`
+  argument is any enumerable of dialect delta tuples. Options:
+
+    * `:model` — `%Model{}` used for usage cost computation and response metadata
+    * `:cancel` — zero-arity function to cancel the underlying HTTP request
+    * `:raw` — `{%Req.Request{}, %Req.Response{}}` tuple attached to the final response
   """
-  @spec start(Req.Request.t(), Model.t()) :: {:ok, t()} | {:error, term()}
-  def start(%Req.Request{} = req, %Model{} = model) do
-    case Req.request(req) do
-      {:ok, resp} ->
-        provider = model.provider
+  @spec new(Enumerable.t(), keyword()) :: t()
+  def new(deltas, opts \\ []) do
+    model = opts[:model]
+    raw = opts[:raw]
 
-        events =
-          resp.body
-          |> SSE.stream()
-          |> Stream.flat_map(&Provider.parse_event(provider, &1))
+    stream =
+      Stream.transform(
+        deltas,
+        fn -> initial_acc(model, raw) end,
+        &process_delta/2,
+        &finalize/1,
+        fn _acc -> :ok end
+      )
 
-        {:ok, %__MODULE__{events: events, resp: resp, req: req, model: model}}
-
-      {:error, reason} ->
-        {:error, reason}
-    end
+    %__MODULE__{stream: stream, cancel: opts[:cancel]}
   end
 
   @doc "Consumes the stream and returns the final response."
   @spec complete(t()) :: {:ok, Response.t()} | {:error, term()}
-  def complete(%__MODULE__{events: events, model: model, req: req, resp: resp}) do
-    final_acc =
-      Enum.reduce(events, initial_acc(model), fn delta, acc ->
-        {_consumer_events, new_acc} = process_delta(delta, acc)
-        new_acc
-      end)
-
-    if final_acc.error do
-      {:error, final_acc.error}
-    else
-      response = build_response(final_acc, true)
-      response = if req && resp, do: %{response | raw: {req, resp}}, else: response
-      {:ok, response}
+  def complete(%__MODULE__{} = sr) do
+    case Enum.at(sr, -1) do
+      {:done, _, response} -> {:ok, response}
+      {:error, %{reason: reason}, _} -> {:error, reason}
+      {_, _, %{error: nil} = response} -> {:ok, response}
+      {_, _, %{error: reason}} -> {:error, reason}
+      nil -> {:error, :empty_stream}
     end
   end
 
   @doc "Cancels the underlying async HTTP response."
   @spec cancel(t()) :: :ok
-  def cancel(%__MODULE__{resp: nil}), do: :ok
-  def cancel(%__MODULE__{resp: resp}), do: Req.cancel_async_response(resp)
+  def cancel(%__MODULE__{cancel: nil}), do: :ok
+  def cancel(%__MODULE__{cancel: fun}), do: fun.()
 
   @doc "Returns a stream of text delta binaries."
   @spec text_stream(t()) :: Enumerable.t()
@@ -116,7 +110,7 @@ defmodule Omni.StreamingResponse do
 
   # -- Accumulator --
 
-  defp initial_acc(model) do
+  defp initial_acc(model, raw) do
     %{
       blocks: %{},
       block_order: [],
@@ -125,16 +119,12 @@ defmodule Omni.StreamingResponse do
       usage: %{},
       private: %{},
       error: nil,
-      model: model
+      model: model,
+      raw: raw
     }
   end
 
   # -- Delta Processing --
-
-  defp process_delta(:__finalize__, acc) do
-    events = finalize_blocks(acc) ++ [finalize_done(acc)]
-    {events, acc}
-  end
 
   defp process_delta({:message, data}, acc) do
     acc =
@@ -184,6 +174,33 @@ defmodule Omni.StreamingResponse do
     acc = %{acc | error: data.reason}
     event = {:error, %{reason: data.reason}, build_response(acc, false)}
     {[event], acc}
+  end
+
+  # -- Finalization --
+
+  defp finalize(acc) do
+    ends = finalize_blocks(acc)
+
+    if acc.error do
+      {ends, acc}
+    else
+      {ends ++ [finalize_done(acc)], acc}
+    end
+  end
+
+  defp finalize_blocks(acc) do
+    Enum.map(acc.block_order, fn key ->
+      block = Map.fetch!(acc.blocks, key)
+      content = finalize_block(block)
+      {type, index} = key
+      {end_atom(type), %{index: index, content: content}, build_response(acc, true)}
+    end)
+  end
+
+  defp finalize_done(acc) do
+    response = build_response(acc, true)
+    response = if acc.raw, do: %{response | raw: acc.raw}, else: response
+    {:done, %{stop_reason: acc.stop_reason || :stop}, response}
   end
 
   # -- Block Helpers --
@@ -268,20 +285,7 @@ defmodule Omni.StreamingResponse do
     %{index: data.index}
   end
 
-  # -- Finalization --
-
-  defp finalize_blocks(acc) do
-    Enum.map(acc.block_order, fn key ->
-      block = Map.fetch!(acc.blocks, key)
-      content = finalize_block(block)
-      {type, index} = key
-      {end_atom(type), %{index: index, content: content}, build_response(acc, true)}
-    end)
-  end
-
-  defp finalize_done(acc) do
-    {:done, %{stop_reason: acc.stop_reason || :stop}, build_response(acc, true)}
-  end
+  # -- Block Finalization --
 
   defp finalize_block(%{type: :text} = b) do
     text = b.parts |> Enum.reverse() |> IO.iodata_to_binary()
@@ -428,19 +432,9 @@ defmodule Omni.StreamingResponse do
 
   # -- Enumerable --
 
-  @doc "Converts the streaming response into a `Stream` of consumer event tuples."
-  @spec to_stream(t()) :: Enumerable.t()
-  def to_stream(%__MODULE__{events: events, model: model}) do
-    events
-    |> Stream.concat([:__finalize__])
-    |> Stream.transform(initial_acc(model), &process_delta/2)
-  end
-
   defimpl Enumerable do
     def reduce(sr, cmd, fun) do
-      sr
-      |> @for.to_stream()
-      |> Enumerable.reduce(cmd, fun)
+      Enumerable.reduce(sr.stream, cmd, fun)
     end
 
     def count(_sr), do: {:error, __MODULE__}

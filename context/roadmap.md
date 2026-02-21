@@ -84,21 +84,25 @@ Anthropic uses global content block indices (text at 0, tool_use at 1). OpenAI R
 
 Consumer-facing streaming layer. `StreamingResponse` wraps the delta stream from Phase 3c, accumulates a partial `%Response{}`, and yields rich typed events via `Enumerable`.
 
-- `start/2` — takes `%Req.Request{}` + `%Model{}`, executes the request, builds the full pipeline internally (`resp.body |> SSE.stream() |> Stream.flat_map(&Provider.parse_event/2)`)
-- `new/1` — simple struct constructor for testing with scripted delta lists
-- `Enumerable` protocol — delegates to `to_stream/1`, yields `{event_type, event_map, partial_response}` three-element tuples
-- `to_stream/1` — explicit `Stream` conversion
+- `new/2` — takes raw delta events + keyword opts (`model`, `cancel`, `raw`), builds the full consumer event pipeline at construction time via `Stream.transform/5`
+- `Enumerable` protocol — delegates directly to the pre-built pipeline on the struct, yields `{event_type, event_map, partial_response}` three-element tuples
 - `text_stream/1` — stream of text delta binaries only
-- `complete/1` — efficient reduce over raw deltas → `{:ok, Response.t()} | {:error, term()}`
-- `cancel/1` — delegates to `Req.cancel_async_response/1`
+- `complete/1` — consumes stream via `Enum.at/2`, returns `{:ok, Response.t()} | {:error, term()}`
+- `cancel/1` — invokes opaque cancel function (passed in at construction, no Req dependency)
 
-**Consumer events:** Per-type lifecycle atoms (`text_start/delta/end`, `thinking_start/delta/end`, `tool_use_start/delta/end`) plus `:error` and `:done`. `_end` events carry `content: %ContentBlock{}` (fully built struct). `_start` events are synthesized for text/thinking if not explicitly received.
+**Struct:** Two fields only — `stream` (the pre-built consumer event pipeline) and `cancel` (zero-arity function or nil). Model and raw are baked into the `Stream.transform/5` accumulator closure at construction time, not stored on the struct.
+
+**Pipeline:** Uses `Stream.transform/5` with `last_fun` for finalization (replaces synthetic `:__finalize__` sentinel). `last_fun` emits block `_end` events always; `:done` only on success (no `:done` after `:error`).
+
+**Consumer events:** Per-type lifecycle atoms (`text_start/delta/end`, `thinking_start/delta/end`, `tool_use_start/delta/end`) plus `:error` and `:done`. `_end` events carry `content: %ContentBlock{}` (fully built struct). `_start` events are synthesized for text/thinking if not explicitly received. `:done` is a success-only terminal event; `:error` is the terminal event on failure.
 
 **Accumulation:** Text/thinking parts collected as iodata (prepend + reverse). Tool use JSON fragments assembled and parsed on finalization (graceful fallback to `%{}` on decode failure). Google complete-input tool_use (`:input` on `:block_start`) bypasses JSON assembly. Signatures, redacted thinking, and Message.private all accumulated correctly.
 
 **Usage computation:** String-keyed token counts from `:message` events mapped to `%Usage{}` with costs derived from `%Model{}` pricing fields.
 
-**Tests:** Integration tests use `start/2` with real SSE fixtures (Anthropic text/tool_use/thinking, Google text) via `Req.Test.stub`. Unit tests use `new/1` with scripted delta lists for edge cases (redacted thinking, signatures, Google complete-input, errors, partial responses).
+**HTTP execution:** StreamingResponse does not execute HTTP requests. The caller (`stream_text` in Phase 5) executes the request, composes the SSE + parse_event pipeline, and passes the resulting delta stream into `new/2`. StreamingResponse is provider/dialect/HTTP-agnostic.
+
+**Tests:** Unit tests use `new/2` with scripted delta lists for all cases (block lifecycle, redacted thinking, signatures, Google complete-input, errors, partial responses, cancel, raw pass-through). Integration tests deferred to Phase 5 `stream_text`.
 
 ---
 
