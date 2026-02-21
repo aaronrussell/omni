@@ -72,7 +72,7 @@ Simplified and normalized the dialect event contract. All dialects now emit a mi
 
 **Parse events for thinking**: Completions parses `reasoning_content` deltas, Gemini parses `"thought" => true` parts. Both emit `{:block_delta, %{type: :thinking, ...}}`.
 
-**Integration tests** — all 4 dialects now have text, tool use, and thinking fixture-based integration tests (12 total).
+**Dialect unit tests** — all 4 dialects have `parse_event/1` and `build_body/3` unit tests. Integration tests live at the top level (see Phase 5).
 
 ### Index semantics note
 
@@ -98,6 +98,8 @@ Consumer-facing streaming layer. `StreamingResponse` wraps the delta stream from
 
 **Accumulation:** Text/thinking parts collected as iodata (prepend + reverse). Tool use JSON fragments assembled and parsed on finalization (graceful fallback to `%{}` on decode failure). Google complete-input tool_use (`:input` on `:block_start`) bypasses JSON assembly. Signatures, redacted thinking, and Message.private all accumulated correctly.
 
+**Stop reason inference:** At finalization, `infer_stop_reason/1` checks accumulated blocks — if tool_use blocks exist, the stop reason is `:tool_use` regardless of what the dialect reported. This handles Google (which sends `finishReason: "STOP"` even for function calls, sometimes split across separate SSE events from the function call itself).
+
 **Usage computation:** String-keyed token counts from `:message` events mapped to `%Usage{}` with costs derived from `%Model{}` pricing fields.
 
 **HTTP execution:** StreamingResponse does not execute HTTP requests. The caller (`stream_text` in Phase 5) executes the request, composes the SSE + parse_event pipeline, and passes the resulting delta stream into `new/2`. StreamingResponse is provider/dialect/HTTP-agnostic.
@@ -117,7 +119,7 @@ Wiring everything together. Mostly composition of tested parts.
 - Option schema merging and Peri validation
 - HTTP error handling — non-200 status detection and error body reading
 
-**Test:** End-to-end integration: `Omni.generate_text({:anthropic, "claude-sonnet-4-20250514"}, "Hello")` returns a proper `%Response{}`. Tool use round-trips. Streaming to console. Error cases (bad model, invalid options, auth failure, non-200 responses). Option validation error messages.
+**Test:** Integration tests (`test/integration/`) exercise `generate_text` and `stream_text` through the full stack per provider (text, tool use, thinking, streaming). Error tests cover HTTP errors (401/429/500), mid-stream SSE errors (synthetic fixture), auth failures, model resolution errors, context coercion, and stream features (cancel, raw). Live tests (`test/live/`) make real API calls per provider. All use `Omni.get_model/2` for model resolution.
 
 **Why last:** Everything this phase calls already exists and is tested. The new logic is config merging, schema composition, and the orchestration pipeline — all relatively thin composition of tested parts.
 
@@ -133,9 +135,11 @@ Wiring everything together. Mostly composition of tested parts.
 
 4. **Plain text attachment source** — Should `Attachment.source` support `{:text, content}` in addition to `{:base64, data}` and `{:url, url}`? Wait to see if multiple providers support it.
 
+5. **StreamingResponse consumption patterns** — Explore how consumers will use StreamingResponse in practice. Key scenario: a consumer may want to process structured events (tool_use_start, thinking, etc.) AND simultaneously feed a text stream to the UI. Does the current single-enumerable API support this, or do we need something like tee/fork/broadcast? Consider whether `text_stream/1` and direct enumeration can coexist on the same StreamingResponse, or if consuming one exhausts the other.
+
 ---
 
-5. **OpenRouter `reasoning_details` round-tripping** — OpenRouter extends the Completions wire format with a `reasoning_details` array on assistant messages for reasoning round-trips. Each streaming chunk carries `reasoning_details` alongside the `reasoning` text delta, containing typed objects: `reasoning.summary` (duplicates the visible reasoning text), `reasoning.encrypted` (opaque blob with `data`, `id`, `format` fields — needed for tool-calling flows), and `reasoning.text` (raw text with optional signature). The full array must be passed back unmodified on the assistant message in follow-up requests — ordering matters. This is distinct from direct OpenAI Chat Completions where reasoning is truly ephemeral (no field to send it back).
+6. **OpenRouter `reasoning_details` round-tripping** — OpenRouter extends the Completions wire format with a `reasoning_details` array on assistant messages for reasoning round-trips. Each streaming chunk carries `reasoning_details` alongside the `reasoning` text delta, containing typed objects: `reasoning.summary` (duplicates the visible reasoning text), `reasoning.encrypted` (opaque blob with `data`, `id`, `format` fields — needed for tool-calling flows), and `reasoning.text` (raw text with optional signature). The full array must be passed back unmodified on the assistant message in follow-up requests — ordering matters. This is distinct from direct OpenAI Chat Completions where reasoning is truly ephemeral (no field to send it back).
 
    **Decided approach:** Store in `Message.private` (a `%{}` map for provider-specific opaque round-trip data, named after Req's precedent). During streaming, `reasoning_details` arrives alongside thinking deltas — the provider emits it as `{:message, %{private: %{reasoning_details: [...]}}}` and StreamingResponse accumulates it onto the Message. During encoding, the provider reads from `message.private` and places it on the wire message body. Flat atom keys, no namespacing for now.
 

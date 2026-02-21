@@ -1,120 +1,129 @@
 event: message_start
-data: {"type":"message_start","message":{"model":"claude-haiku-4-5-20251001","id":"msg_0177g1Xc72B39oxxHD7jtLth","type":"message","role":"assistant","content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":45,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":1,"service_tier":"standard","inference_geo":"not_available"}}              }
+data: {"type":"message_start","message":{"model":"claude-haiku-4-5-20251001","id":"msg_017QXFNqVtK7hCGQbkWbDMaW","type":"message","role":"assistant","content":[],"stop_reason":null,"stop_sequence":null,"usage":{"input_tokens":45,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":1,"service_tier":"standard","inference_geo":"not_available"}}          }
 
 event: content_block_start
-data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}       }
+data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}              }
 
 event: ping
 data: {"type": "ping"}
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"The"} }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Let"} }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" wor"}         }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" me spell"}        }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"d is \"strawberry\". Let me count"}           }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" out the word \"strawberry\" an"}        }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" the R's in it."}      }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"d count the R's:\n\ns-"}           }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"\n\ns-t-r-a"}             }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"t-r-a-w-"}       }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"-w-b-e-r"}          }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"b-e-r-r-"}   }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"-r-y\n\nLooking at each"}     }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"y\n\nGoing through each letter:"}            }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" letter:\n- s: not an"}          }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"\n- s: not an R\n-"}  }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" R\n- t: not an R"}   }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" t: not an R\n- r"}       }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"\n- r: this is an R"}       }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":": this is an R (1st"}    }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" (1st R)\n- a"}              }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" R)\n- a: not an"}             }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":": not an R\n- w:"}           }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" R\n- w: not an R"}          }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" not an R\n- b: not"}         }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"\n- b: not an R"}          }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" an R\n- e: not an"}         }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"\n- e: not an R\n-"}     }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" R\n- r: this is an"}      }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" r: this is an R (2"}            }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" R (2nd R)\n-"}        }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"nd R)\n- r: this"}              }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" r: this is an R (3"}          }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" is an R (3rd R)"} }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"rd R)\n- y: not"}         }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"\n- y: not an R"} }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" an R\n\nSo there are 3"}         }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"\n\nSo there are 3 R's"}         }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" R's in \"strawberry\"."}     }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" in \"strawberry\"."}             }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":""}   }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":""}  }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"Et4DCkYICxgCKkDj1+xCzCNAbM5xqIZx/DeJyRMwz+NdLJJ9uh5murlvgECVQPY33rqukDYVffCUay6xeDld5UbkTJvBOy2EBSg/EgwPTyvLEWWUDgPza5waDLTjql3x3iMflNe0tCIwDjtk5r8UUi2mjybR6wiCXTqvKDIQbZWb9a/l0vHfl8MQBSVeWGOK3OAhKw0ktvU5KsUCCOkZU+Ae29SVlAuAqdnO3ifIdEHzxTWCuTEPKCe3wH1b7kopR7ijXstbFGtCP9SZIGJhPOQUKnEome5ofQvbeDktPw2J8gSSaHaYD0l+ZIzkzCqmg9oDhrIgMFnYm5frkX/8G63mw75J4jLaOsktcxqGBJU6DOz2l6NVcSdUxa1IEdIdK+JV83YkcXGTEZRq8+atKWu7mYph2aUFJIwgdUZJ764CMMK1yixqBnuxyPSDs6Zs1KDWZb8FPNgCRtwhJ9uQTRGxy5ZAFDwtj8k23HWrsBrALGt4rmPwbtUOgjB+MvfSzZyDYDKwMW3IxA+O9EqriR5Efn7QNGpvSfv6/28DPNEdgVIdETlz37Oyqubu2jtigHDcCR2ZaUCp2mb3Vw6fJT02ZEbvBnDbok069p2/fIveb1kE6N+BpnEWyqSKXM2P7hgB"}      }
+data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"EuIDCkYICxgCKkDsAJsgXQGI0bu9naxbdGEqqhIOlcYSUL0/RDFl/h+vibdBQUYfMCzhLkvpLzT6ksN7Ihj1KzqUixIGQ1cJsRjwEgwf9lzmUoBD/76C0CYaDO+KEtkcoBw9i73bQyIwOAi18oeRPgvVpebR0JXtR0Q/O4U/Mjkzj1yDlh+xtwmk567d+4zlSw0TTvth+5R3KskCDZJF8NI7dTHR1TdkEM4rf3fREZxwUkMpTYjkwMEEJ4FQRVFgk9IQU50nujzm9np5gAeO0/+zIOVPRy9HrxEBScODWVwu8198avpjyL2NKm+oKo5YQiG6UkQ5jgDhC+QwyeA3v3V+Z2QHtyyPcfSv4JjmgFkAvfo36ObrBKGkb5Cg2q19w9ewFOPE/IgqcNWHnjqdrQvVtF/KCc45cGdPr8Qmxvm3W/+Rkwfrl9wFuoHD4Iqx1XoRhHVvczpoHCXtxcXta/d2ltEsYJFbXnVagl+mC4UakmGbgJbivQ9f5LIgaDn22RiRN8ni/cojicGVEvJ9S+yQONYBbBpaqo0GN+BoPO1nX6bQLRFuJhF5+z7lyUHayT2wMlHIqw2SqPNnc5XW/1v3DaHrxNLNlqbp3CXBPwnExQdu+DjOHRBexG4TpN+S3nE59k4YAQ=="}     }
 
 event: content_block_stop
-data: {"type":"content_block_stop","index":0     }
+data: {"type":"content_block_stop","index":0   }
 
 event: content_block_start
-data: {"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}  }
+data: {"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}              }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"To count the R's in \"straw"}         }
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"To count the"}   }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"berry\", I'll go through each letter"}         }
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" R's in \"strawberry\", I"}        }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":":\n\ns-t-**"}   }
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"'ll go through each letter:\n\ns"}   }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"r**-a-w-b"}          }
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"-t-r-a-w"}    }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"-e-**"}               }
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"-b-e-r-r"}           }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"r**-**"}              }
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"-y\n\nThe R's appear in"}          }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"r**-y\n\nThere"}           }
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" positions:\n- 3rd position"}              }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" are **3 "}     }
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":": **"}}
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"R's** in the"}          }
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"r**\n- 8"}     }
 
 event: content_block_delta
-data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" word \"strawberry\"."}      }
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"th position: **r**\n-"} }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" 9th position: **r**"}    }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"\n\nThere are **3 "}           }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"R's** in \"strawberry\"."}       }
 
 event: content_block_stop
 data: {"type":"content_block_stop","index":1}
 
 event: message_delta
-data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"input_tokens":45,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":214}          }
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null},"usage":{"input_tokens":45,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":244}            }
 
 event: message_stop
-data: {"type":"message_stop"  }
+data: {"type":"message_stop" }
 

@@ -115,6 +115,10 @@ defmodule Omni.Dialects.AnthropicMessages do
     []
   end
 
+  def parse_event(%{"type" => "error", "error" => %{"message" => message}}) do
+    [{:error, %{reason: message}}]
+  end
+
   def parse_event(%{"type" => "message_delta", "delta" => delta} = event) do
     [
       {:message,

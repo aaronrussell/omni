@@ -94,10 +94,12 @@ lib/omni/
 
 Tests are organized in four layers, none of which require API keys except live tests:
 
-1. **Unit tests** — pure logic, no HTTP. SSE parser tests pass plain lists of binary chunks. Provider tests inspect `%Req.Request{}` structs without executing them.
-2. **Mocked integration tests** — use `Req.Test.stub/2` with a plug to simulate HTTP responses. The plug returns SSE fixture data; `Req.merge(req, plug: {Req.Test, :name})` injects it into a request built by `new_request/4`. This exercises the full path: request building → Req execution → SSE parsing.
-3. **Live tests** — tagged `@moduletag :live`, excluded by default. Run with `mix test --include live`. Require API keys via environment variables (e.g. `ANTHROPIC_API_KEY`). Use `direnv` with a `.envrc` file (gitignored).
-4. **Capture helper** — `Omni.Test.Capture.record/5` in `test/support/capture.ex` records real API responses as SSE fixture files. The `.sse` files in `test/support/fixtures/sse/` are committed so CI never needs API keys.
+1. **Unit tests** (`test/omni/`) — pure logic, no HTTP. SSE parser tests pass plain lists of binary chunks. Provider tests inspect `%Req.Request{}` structs without executing them. Dialect tests verify `parse_event/1` and `build_body/3` in isolation.
+2. **Integration tests** (`test/integration/`) — use `Req.Test.stub/2` with a plug to simulate HTTP responses. One file per provider (anthropic, openai, google, openrouter) plus `error_test.exs` for cross-cutting error/edge cases. All tests go through the top-level `Omni.generate_text/3` and `Omni.stream_text/3` API. Use `Omni.get_model/2` for model resolution. Assertions are loose/structural (no specific strings or token counts) since fixtures are real API recordings that may be regenerated.
+3. **Live tests** (`test/live/`) — tagged `@moduletag :live`, excluded by default. Run with `mix test --include live`. One file per provider with text, tool use, and thinking tests. Require API keys via environment variables (e.g. `ANTHROPIC_API_KEY`). Use `direnv` with a `.envrc` file (gitignored).
+4. **Capture helper** — `Omni.Test.Capture.record/5` in `test/support/capture.ex` records real API responses as SSE fixture files.
+
+**Fixtures:** Core fixtures (`test/support/fixtures/sse/`) are real API recordings, committed so CI never needs API keys. Synthetic fixtures (`test/support/fixtures/synthetic/`) are hand-crafted SSE data for controlled error/edge case scenarios — tests can assert exact values.
 
 `test/support/` is compiled in the test environment via `elixirc_paths`.
 

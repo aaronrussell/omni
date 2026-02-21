@@ -107,22 +107,12 @@ defmodule Omni.Dialects.GoogleGemini do
   defp maybe_put_model(map, %{"modelVersion" => model_id}), do: Map.put(map, :model, model_id)
   defp maybe_put_model(map, _), do: map
 
-  defp maybe_put_stop_reason(map, %{"candidates" => [%{"finishReason" => reason} = candidate | _]})
+  defp maybe_put_stop_reason(map, %{"candidates" => [%{"finishReason" => reason} | _]})
        when is_binary(reason) do
-    stop =
-      if has_function_call?(candidate),
-        do: :tool_use,
-        else: normalize_stop_reason(reason)
-
-    Map.put(map, :stop_reason, stop)
+    Map.put(map, :stop_reason, normalize_stop_reason(reason))
   end
 
   defp maybe_put_stop_reason(map, _), do: map
-
-  defp has_function_call?(%{"content" => %{"parts" => parts}}),
-    do: Enum.any?(parts, &is_map_key(&1, "functionCall"))
-
-  defp has_function_call?(_), do: false
 
   defp maybe_put_usage(map, %{"usageMetadata" => usage}),
     do: Map.put(map, :usage, normalize_usage(usage))

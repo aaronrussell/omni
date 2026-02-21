@@ -533,8 +533,9 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
+      # Dialect reports :stop; StreamingResponse infers :tool_use from blocks.
       assert [
-               {:message, %{stop_reason: :tool_use}},
+               {:message, %{stop_reason: :stop}},
                {:block_start, result}
              ] = GoogleGemini.parse_event(event)
 

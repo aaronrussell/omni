@@ -198,9 +198,25 @@ defmodule Omni.StreamingResponse do
   end
 
   defp finalize_done(acc) do
+    stop_reason = infer_stop_reason(acc)
+    acc = %{acc | stop_reason: stop_reason}
     response = build_response(acc, true)
     response = if acc.raw, do: %{response | raw: acc.raw}, else: response
-    {:done, %{stop_reason: acc.stop_reason || :stop}, response}
+    {:done, %{stop_reason: stop_reason}, response}
+  end
+
+  # Google sends finishReason "STOP" even for function calls, and may split
+  # the function call and finish reason across separate SSE events. Since
+  # parse_event is stateless, the dialect can't detect this. We infer the
+  # correct stop_reason from accumulated blocks at finalization.
+  defp infer_stop_reason(%{stop_reason: reason, block_order: blocks}) do
+    has_tool_use? = Enum.any?(blocks, fn {type, _} -> type == :tool_use end)
+
+    cond do
+      reason == :tool_use -> :tool_use
+      has_tool_use? -> :tool_use
+      true -> reason || :stop
+    end
   end
 
   # -- Block Helpers --
