@@ -14,11 +14,11 @@ defmodule Omni.Dialect do
   @callback option_schema() :: map()
 
   @doc "Returns the URL path for the given model."
-  @callback build_path(Model.t()) :: String.t()
+  @callback handle_path(Model.t(), keyword()) :: String.t()
 
   @doc "Builds the request body from a model, context, and validated options."
-  @callback build_body(Model.t(), Context.t(), keyword()) :: {:ok, map()} | {:error, term()}
+  @callback handle_body(Model.t(), Context.t(), keyword()) :: map()
 
   @doc "Parses a raw SSE event map into a list of delta tuples."
-  @callback parse_event(map()) :: [{atom(), map()}]
+  @callback handle_event(map()) :: [{atom(), map()}]
 end

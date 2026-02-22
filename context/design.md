@@ -535,7 +535,7 @@ The orchestration calls provider and dialect callbacks directly via the module r
 ```elixir
 body = model.dialect.handle_body(model, context, opts)
 body = model.provider.modify_body(body, opts)
-path = model.dialect.handle_path(model)
+path = model.dialect.handle_path(model, opts)
 url = model.provider.build_url(path, opts)
 ```
 
@@ -619,24 +619,24 @@ The dialect behaviour defines the following callbacks:
 | Callback | Returns | Purpose |
 |----------|---------|---------|
 | `option_schema/0` | `map()` | Peri schema declaring which inference/dialect options are accepted |
-| `handle_path/1` | `String.t()` | Returns the URL path for the given model |
+| `handle_path/2` | `String.t()` | Returns the URL path for the given model and opts |
 | `handle_body/3` | `map()` | Builds the request body from model, context, and validated options |
 | `handle_event/1` | `[{atom(), map()}]` | Parses a decoded SSE event map into a list of delta tuples |
 
-**No callback returns ok/error tuples.** Option validation happens at the API boundary (`stream_text`) before any dialect callbacks are called. Dialects receive validated options and operate on known-good data. `handle_body/3` returns a bare map. `handle_event/1` returns a list of delta tuples (empty list to skip). `option_schema/0` and `handle_path/1` return static data.
+**No callback returns ok/error tuples.** Option validation happens at the API boundary (`stream_text`) before any dialect callbacks are called. Dialects receive validated options and operate on known-good data. `handle_body/3` returns a bare map. `handle_event/1` returns a list of delta tuples (empty list to skip). `option_schema/0` and `handle_path/2` return static data.
 
 ### Dialect callback details
 
 **`option_schema/0`** -- returns a Peri schema map declaring which options this dialect understands. The orchestration layer merges this with the universal option schema, then validates the full options in a single pass before any work begins. Result is a map with defaults filled in.
 
-**`handle_path/1`** -- receives a `%Model{}` struct and returns the URL path string. This is typically a static path with the model ID interpolated for some API families:
+**`handle_path/2`** -- receives a `%Model{}` struct and opts, returns the URL path string. This is typically a static path with the model ID interpolated for some API families:
 
 ```elixir
 # Anthropic Messages dialect
-def handle_path(_model), do: "/v1/messages"
+def handle_path(_model, _opts), do: "/v1/messages"
 
 # OpenAI Completions dialect
-def handle_path(_model), do: "/v1/chat/completions"
+def handle_path(_model, _opts), do: "/v1/chat/completions"
 ```
 
 **`handle_body/3`** -- receives a `%Model{}`, `%Context{}`, and validated options map. Returns a body map. This is where Omni's types become the provider's native JSON structure -- messages are reshaped, content blocks are encoded, tools are serialized, and options are mapped to API parameters. Options have already been validated and include defaults, so there is no need for fallback values.
@@ -1472,7 +1472,7 @@ def build(model, context, opts) do
 
     body = model.dialect.handle_body(model, context, opts)
     body = model.provider.modify_body(body, opts)
-    path = model.dialect.handle_path(model)
+    path = model.dialect.handle_path(model, opts)
     url = model.provider.build_url(path, opts)
 
     req =
@@ -1540,7 +1540,7 @@ Omni.stream_text(model, context, opts)
 │     ├── Pop plug and timeout from unified map
 │     ├── dialect.handle_body(model, context, opts) → body map
 │     ├── provider.modify_body(body, opts) → modified body
-│     ├── dialect.handle_path(model) → path
+│     ├── dialect.handle_path(model, opts) → path
 │     ├── provider.build_url(path, opts) → URL
 │     ├── Req.new(url, method: :post, json: body, into: :self, receive_timeout: timeout)
 │     ├── apply_headers(req, opts.headers) + maybe_merge_plug(plug)
@@ -1671,7 +1671,7 @@ This needs further research to flesh out, but the architectural intent is a laye
 - **No automatic tool execution** -- `generate_text` and `stream_text` do not execute tools. They are pure request/response functions. `Omni.Tool.execute/2` is a convenience helper for dispatching tool uses to handlers.
 - **Caching as a TTL hint, not an on/off switch** -- `cache: :short | :long | nil` controls explicit caching directives. `nil` means no explicit directives (providers with implicit caching may still cache). `:short` and `:long` map to provider-specific TTL tiers (e.g. Anthropic's 5min/1hr breakpoints, OpenAI's retention parameter). Dialects without caching support silently ignore the option -- caching is an optimisation hint, not a semantic requirement.
 - **Provider as authenticated HTTP layer** -- the provider defines callbacks for URL building, authentication, and adaptation. Orchestration (composing dialect + provider) lives in `Omni.Request`, not on the Provider module. The Provider module defines callbacks; `Omni.Request` composes them.
-- **Dialect handles, provider modifies** -- the dialect produces the standard request body (`handle_body/3`), URL path (`handle_path/1`), and event parsing (`handle_event/1`). The provider optionally modifies these via `modify_body/2` and `modify_events/2`. The `handle_*` prefix signals mandatory dialect callbacks; `modify_*` signals optional provider adjustments.
+- **Dialect handles, provider modifies** -- the dialect produces the standard request body (`handle_body/3`), URL path (`handle_path/2`), and event parsing (`handle_event/1`). The provider optionally modifies these via `modify_body/2` and `modify_events/2`. The `handle_*` prefix signals mandatory dialect callbacks; `modify_*` signals optional provider adjustments.
 - **`modify_events/2` is post-dialect** -- the provider's `modify_events/2` runs after `dialect.handle_event/1`, receiving the parsed deltas and the raw event. This lets the provider augment deltas with provider-specific data (e.g. OpenRouter's `reasoning_details`). The pre-dialect `adapt_event/1` pattern was replaced because providers need to see parsed deltas, not raw JSON.
 - **Declarative option schemas, validation at the boundary** -- the dialect declares what options it accepts via `option_schema/0`. `Request.validate/2` merges this with the universal schema (defined on `Omni.Request`) and validates once via Peri in strict mode. Config keys are popped before validation and three-tier merged separately, then combined into a unified opts map. No provider option_schema (config overrides are universal). No validation inside callbacks.
 - **Dialect output is not validated at runtime** -- the request body a dialect produces is internal library code, not user input. If it's malformed, that's a bug caught by tests, not a runtime validation concern.

@@ -1,6 +1,6 @@
 # Phase 5b Refactor — Callback Renames, Orchestration Restructure, Validation
 
-**Status:** Ready for implementation
+**Status:** Phase A complete. Phases B and C ready for implementation.
 **Last updated:** February 2026
 
 This document covers a three-phase refactor of the callback naming, orchestration flow, and option validation in Omni. The refactor cleans up deferred design decisions from Phase 5 and prepares the architecture for future provider additions (Azure, Bedrock, etc.).
@@ -28,7 +28,7 @@ After completing Phase 5 (top-level orchestration), several loose ends remain:
 Mechanical renames across the codebase. No logic changes.
 
 **Dialect callbacks:**
-- `build_path/1` → `handle_path/1`
+- `build_path/1` → `handle_path/2` (added opts arg)
 - `build_body/3` → `handle_body/3` (also changes return from `{:ok, map()}` to `map()`)
 - `parse_event/1` → `handle_event/1`
 - `option_schema/0` — unchanged
@@ -41,7 +41,7 @@ Mechanical renames across the codebase. No logic changes.
 
 | Current | Phase A | Notes |
 |---------|---------|-------|
-| Dialect `build_path/1` | `handle_path/1` | Rename only |
+| Dialect `build_path/1` | `handle_path/2` | Rename + added opts arg |
 | Dialect `build_body/3` | `handle_body/3` | Rename + return `map()` instead of `{:ok, map()}` |
 | Dialect `parse_event/1` | `handle_event/1` | Rename only |
 | Provider `adapt_body/2` | `modify_body/2` | Rename only |
@@ -195,7 +195,7 @@ def build(model, context, opts) do
 
     body = model.dialect.handle_body(model, context, opts)
     body = model.provider.modify_body(body, opts)
-    path = model.dialect.handle_path(model)
+    path = model.dialect.handle_path(model, opts)
     url = model.provider.build_url(path, opts)
 
     req =
@@ -351,7 +351,7 @@ def build(model, context, opts) do
 
     body = model.dialect.handle_body(model, context, opts)
     body = model.provider.modify_body(body, opts)
-    path = model.dialect.handle_path(model)
+    path = model.dialect.handle_path(model, opts)
     url = model.provider.build_url(path, opts)
 
     req =
@@ -393,7 +393,7 @@ Omni.stream_text(model, context, opts)
 │     ├── Pop plug and timeout from unified map
 │     ├── dialect.handle_body(model, context, opts) → body map
 │     ├── provider.modify_body(body, opts) → modified body
-│     ├── dialect.handle_path(model) → path
+│     ├── dialect.handle_path(model, opts) → path
 │     ├── provider.build_url(path, opts) → URL
 │     ├── Req.new(url, method: :post, json: body, into: :self, receive_timeout: timeout)
 │     ├── apply_headers(req, opts.headers) + maybe_merge_plug(plug)
@@ -426,7 +426,7 @@ Omni.stream_text(model, context, opts)
 - `lib/omni/dialects/google_gemini.ex`
 
 Each needs:
-- `build_path/1` → `handle_path/1`
+- `build_path/1` → `handle_path/2` (added opts arg)
 - `build_body/3` → `handle_body/3` + remove `{:ok, ...}` wrapper from return
 - `parse_event/1` → `handle_event/1`
 
@@ -503,7 +503,7 @@ defmodule Omni.Dialect do
   @callback option_schema() :: map()
 
   @doc "Returns the URL path for the given model."
-  @callback handle_path(Model.t()) :: String.t()
+  @callback handle_path(Model.t(), keyword()) :: String.t()
 
   @doc "Builds the request body from the model, context, and validated options."
   @callback handle_body(Model.t(), Context.t(), map()) :: map()

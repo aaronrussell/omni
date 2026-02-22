@@ -19,16 +19,16 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
     end
   end
 
-  describe "build_path/1" do
+  describe "handle_path/1" do
     test "returns /v1/chat/completions" do
-      assert OpenAICompletions.build_path(@model) == "/v1/chat/completions"
+      assert OpenAICompletions.handle_path(@model, []) == "/v1/chat/completions"
     end
   end
 
-  describe "build_body/3" do
+  describe "handle_body/3" do
     test "simple text message" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       assert body["model"] == "gpt-4.1-nano"
       refute Map.has_key?(body, "max_completion_tokens")
@@ -43,7 +43,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
 
     test "system prompt as first message with system role" do
       context = Context.new(system: "You are helpful.", messages: [Message.new("Hi")])
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       [system_msg | rest] = body["messages"]
       assert system_msg["role"] == "system"
@@ -53,7 +53,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
 
     test "no system prompt omits system message" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       roles = Enum.map(body["messages"], & &1["role"])
       refute "system" in roles
@@ -61,56 +61,56 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
 
     test "max_tokens in opts overrides default" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@model, context, max_tokens: 1024)
+      body = OpenAICompletions.handle_body(@model, context, max_tokens: 1024)
 
       assert body["max_completion_tokens"] == 1024
     end
 
     test "temperature in opts" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@model, context, temperature: 0.7)
+      body = OpenAICompletions.handle_body(@model, context, temperature: 0.7)
 
       assert body["temperature"] == 0.7
     end
 
     test "no temperature omits key" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       refute Map.has_key?(body, "temperature")
     end
 
     test "metadata in opts" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@model, context, metadata: %{"user_id" => "123"})
+      body = OpenAICompletions.handle_body(@model, context, metadata: %{"user_id" => "123"})
 
       assert body["metadata"] == %{"user_id" => "123"}
     end
 
     test "no metadata omits key" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       refute Map.has_key?(body, "metadata")
     end
 
     test "cache :long sets prompt_cache_retention" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@model, context, cache: :long)
+      body = OpenAICompletions.handle_body(@model, context, cache: :long)
 
       assert body["prompt_cache_retention"] == "24h"
     end
 
     test "cache :short omits prompt_cache_retention" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@model, context, cache: :short)
+      body = OpenAICompletions.handle_body(@model, context, cache: :short)
 
       refute Map.has_key?(body, "prompt_cache_retention")
     end
 
     test "no cache omits prompt_cache_retention" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       refute Map.has_key?(body, "prompt_cache_retention")
     end
@@ -124,7 +124,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         )
 
       context = Context.new(messages: [Message.new("What's the weather?")], tools: [tool])
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       assert [encoded_tool] = body["tools"]
       assert encoded_tool["type"] == "function"
@@ -139,7 +139,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
 
     test "empty tools omits key" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       refute Map.has_key?(body, "tools")
     end
@@ -152,7 +152,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       ]
 
       context = Context.new(messages)
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       assert length(body["messages"]) == 3
       roles = Enum.map(body["messages"], & &1["role"])
@@ -162,7 +162,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
     test "single text block encodes as string content" do
       msg = Message.new(role: :user, content: [Text.new("Hello")])
       context = Context.new([msg])
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       [user_msg] = body["messages"]
       assert user_msg["content"] == "Hello"
@@ -176,7 +176,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         )
 
       context = Context.new([msg])
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       [user_msg] = body["messages"]
       assert is_list(user_msg["content"])
@@ -191,7 +191,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
     test "assistant text message" do
       msg = Message.new(role: :assistant, content: "Hi there!")
       context = Context.new([msg])
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       [assistant_msg] = body["messages"]
       assert assistant_msg["role"] == "assistant"
@@ -208,7 +208,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         )
 
       context = Context.new([msg])
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       [assistant_msg] = body["messages"]
       assert [tool_call] = assistant_msg["tool_calls"]
@@ -229,7 +229,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         )
 
       context = Context.new([msg])
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       [assistant_msg] = body["messages"]
       assert assistant_msg["content"] == "Let me check the weather."
@@ -248,7 +248,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         )
 
       context = Context.new([msg])
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       [assistant_msg] = body["messages"]
       assert assistant_msg["content"] == "Here's the answer."
@@ -270,7 +270,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         )
 
       context = Context.new([msg])
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       assert [tool_msg] = body["messages"]
       assert tool_msg["role"] == "tool"
@@ -294,7 +294,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         )
 
       context = Context.new([msg])
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       assert length(body["messages"]) == 2
 
@@ -327,7 +327,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         )
 
       context = Context.new([msg])
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       assert length(body["messages"]) == 2
 
@@ -343,7 +343,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         )
 
       context = Context.new([msg])
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       [user_msg] = body["messages"]
       [block] = user_msg["content"]
@@ -364,7 +364,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         )
 
       context = Context.new([msg])
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       [user_msg] = body["messages"]
       [block] = user_msg["content"]
@@ -383,7 +383,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         )
 
       context = Context.new([msg])
-      {:ok, body} = OpenAICompletions.build_body(@model, context, [])
+      body = OpenAICompletions.handle_body(@model, context, [])
 
       [user_msg] = body["messages"]
       assert is_list(user_msg["content"])
@@ -395,7 +395,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
     end
   end
 
-  describe "build_body/3 thinking" do
+  describe "handle_body/3 thinking" do
     @reasoning_model Model.new(
                        id: "o3-mini",
                        name: "o3-mini",
@@ -407,7 +407,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
 
     test "thinking: true sets reasoning_effort to high" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@reasoning_model, context, thinking: true)
+      body = OpenAICompletions.handle_body(@reasoning_model, context, thinking: true)
 
       assert body["reasoning_effort"] == "high"
     end
@@ -416,7 +416,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       context = Context.new("Hello")
 
       for {level, expected} <- [low: "low", medium: "medium", high: "high", max: "max"] do
-        {:ok, body} = OpenAICompletions.build_body(@reasoning_model, context, thinking: level)
+        body = OpenAICompletions.handle_body(@reasoning_model, context, thinking: level)
 
         assert body["reasoning_effort"] == expected,
                "expected #{expected} for level #{level}"
@@ -426,8 +426,8 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
     test "budget is ignored" do
       context = Context.new("Hello")
 
-      {:ok, body} =
-        OpenAICompletions.build_body(@reasoning_model, context,
+      body =
+        OpenAICompletions.handle_body(@reasoning_model, context,
           thinking: [effort: :medium, budget: 10_000]
         )
 
@@ -436,41 +436,41 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
 
     test "thinking: false is no-op" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@reasoning_model, context, thinking: false)
+      body = OpenAICompletions.handle_body(@reasoning_model, context, thinking: false)
 
       refute Map.has_key?(body, "reasoning_effort")
     end
 
     test "thinking: :none is no-op" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@reasoning_model, context, thinking: :none)
+      body = OpenAICompletions.handle_body(@reasoning_model, context, thinking: :none)
 
       refute Map.has_key?(body, "reasoning_effort")
     end
 
     test "non-reasoning model ignores thinking option" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@model, context, thinking: :high)
+      body = OpenAICompletions.handle_body(@model, context, thinking: :high)
 
       refute Map.has_key?(body, "reasoning_effort")
     end
 
     test "nil thinking is no-op" do
       context = Context.new("Hello")
-      {:ok, body} = OpenAICompletions.build_body(@reasoning_model, context, [])
+      body = OpenAICompletions.handle_body(@reasoning_model, context, [])
 
       refute Map.has_key?(body, "reasoning_effort")
     end
   end
 
-  describe "parse_event/1" do
+  describe "handle_event/1" do
     test "message from role delta" do
       event = %{
         "choices" => [%{"index" => 0, "delta" => %{"role" => "assistant", "content" => ""}}],
         "model" => "gpt-4.1-nano"
       }
 
-      assert [{:message, %{model: "gpt-4.1-nano"}}] = OpenAICompletions.parse_event(event)
+      assert [{:message, %{model: "gpt-4.1-nano"}}] = OpenAICompletions.handle_event(event)
     end
 
     test "text delta" do
@@ -479,7 +479,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       }
 
       assert [{:block_delta, %{type: :text, index: 0, delta: "Hello"}}] =
-               OpenAICompletions.parse_event(event)
+               OpenAICompletions.handle_event(event)
     end
 
     test "empty content in start returns message not block_delta" do
@@ -488,7 +488,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "model" => "gpt-4.1-nano"
       }
 
-      assert [{:message, _}] = OpenAICompletions.parse_event(event)
+      assert [{:message, _}] = OpenAICompletions.handle_event(event)
     end
 
     test "message with stop" do
@@ -496,7 +496,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "stop"}]
       }
 
-      assert [{:message, %{stop_reason: :stop}}] = OpenAICompletions.parse_event(event)
+      assert [{:message, %{stop_reason: :stop}}] = OpenAICompletions.handle_event(event)
     end
 
     test "message with tool_calls" do
@@ -504,7 +504,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "tool_calls"}]
       }
 
-      assert [{:message, %{stop_reason: :tool_use}}] = OpenAICompletions.parse_event(event)
+      assert [{:message, %{stop_reason: :tool_use}}] = OpenAICompletions.handle_event(event)
     end
 
     test "message with length" do
@@ -512,7 +512,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "length"}]
       }
 
-      assert [{:message, %{stop_reason: :length}}] = OpenAICompletions.parse_event(event)
+      assert [{:message, %{stop_reason: :length}}] = OpenAICompletions.handle_event(event)
     end
 
     test "message with content_filter" do
@@ -520,7 +520,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "content_filter"}]
       }
 
-      assert [{:message, %{stop_reason: :content_filter}}] = OpenAICompletions.parse_event(event)
+      assert [{:message, %{stop_reason: :content_filter}}] = OpenAICompletions.handle_event(event)
     end
 
     test "message with usage from final chunk" do
@@ -529,7 +529,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "usage" => %{"prompt_tokens" => 10, "completion_tokens" => 5, "total_tokens" => 15}
       }
 
-      assert [{:message, %{usage: usage}}] = OpenAICompletions.parse_event(event)
+      assert [{:message, %{usage: usage}}] = OpenAICompletions.handle_event(event)
       assert usage["input_tokens"] == 10
       assert usage["output_tokens"] == 5
     end
@@ -559,7 +559,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
                {:message, %{model: "gpt-4.1-nano"}},
                {:block_start,
                 %{type: :tool_use, index: 0, id: "call_abc123", name: "get_weather"}}
-             ] = OpenAICompletions.parse_event(event)
+             ] = OpenAICompletions.handle_event(event)
     end
 
     test "tool use delta without id" do
@@ -577,7 +577,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       }
 
       assert [{:block_delta, %{type: :tool_use, index: 0, delta: "{\"city\""}}] =
-               OpenAICompletions.parse_event(event)
+               OpenAICompletions.handle_event(event)
     end
 
     test "tool_calls with role emits message and block_start" do
@@ -601,7 +601,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "model" => "gpt-4.1-nano"
       }
 
-      assert [{:message, _}, {:block_start, _}] = OpenAICompletions.parse_event(event)
+      assert [{:message, _}, {:block_start, _}] = OpenAICompletions.handle_event(event)
     end
 
     test "empty delta returns empty list" do
@@ -609,7 +609,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => nil}]
       }
 
-      assert [] == OpenAICompletions.parse_event(event)
+      assert [] == OpenAICompletions.handle_event(event)
     end
 
     test "reasoning_content delta emits thinking block_delta" do
@@ -618,7 +618,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       }
 
       assert [{:block_delta, %{type: :thinking, index: 0, delta: "Let me think..."}}] =
-               OpenAICompletions.parse_event(event)
+               OpenAICompletions.handle_event(event)
     end
 
     test "empty reasoning_content returns empty list" do
@@ -626,11 +626,11 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{"reasoning_content" => ""}}]
       }
 
-      assert [] == OpenAICompletions.parse_event(event)
+      assert [] == OpenAICompletions.handle_event(event)
     end
 
     test "unknown event returns empty list" do
-      assert [] == OpenAICompletions.parse_event(%{"type" => "something_else"})
+      assert [] == OpenAICompletions.handle_event(%{"type" => "something_else"})
     end
   end
 end

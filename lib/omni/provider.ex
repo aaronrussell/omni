@@ -52,9 +52,6 @@ defmodule Omni.Provider do
   @doc "Returns the provider's base configuration map."
   @callback config() :: map()
 
-  @doc "Returns a Peri schema for provider-specific options."
-  @callback option_schema() :: map()
-
   @doc "Returns the provider's list of model structs."
   @callback models() :: [Model.t()]
 
@@ -65,8 +62,8 @@ defmodule Omni.Provider do
   @callback authenticate(req :: Req.Request.t(), opts :: keyword()) ::
               {:ok, Req.Request.t()} | {:error, term()}
 
-  @doc "Adapts a dialect-built request body for this provider."
-  @callback adapt_body(body :: map(), opts :: keyword()) :: map()
+  @doc "Modifies a dialect-built request body for this provider."
+  @callback modify_body(body :: map(), opts :: keyword()) :: map()
 
   @doc "Adapts an SSE event map for this provider."
   @callback adapt_event(event :: map()) :: map()
@@ -223,32 +220,30 @@ defmodule Omni.Provider do
   Builds an authenticated `%Req.Request{}` from Omni types.
 
   Composes the dialect and provider layers: the dialect builds the path and body
-  from the model, context, and options; the provider adapts the body and builds
+  from the model, context, and options; the provider modifies the body and builds
   the final authenticated request.
   """
   @spec build_request(Model.t(), Context.t(), keyword()) ::
           {:ok, Req.Request.t()} | {:error, term()}
   def build_request(%Model{} = model, %Context{} = context, opts \\ []) do
     dialect = model.dialect
-
-    with {:ok, body} <- dialect.build_body(model, context, opts) do
-      path = dialect.build_path(model)
-      body = model.provider.adapt_body(body, opts)
-      new_request(model.provider, path, body, opts)
-    end
+    body = dialect.handle_body(model, context, opts)
+    path = dialect.handle_path(model, opts)
+    body = model.provider.modify_body(body, opts)
+    new_request(model.provider, path, body, opts)
   end
 
   @doc """
   Parses a raw SSE event map through the provider and dialect layers.
 
   The provider's `adapt_event/1` is applied first, then the dialect's
-  `parse_event/1` transforms the event into a list of delta tuples.
+  `handle_event/1` transforms the event into a list of delta tuples.
   """
   @spec parse_event(module(), map()) :: [{atom(), map()}]
   def parse_event(provider, raw_event) do
     raw_event
     |> provider.adapt_event()
-    |> provider.dialect().parse_event()
+    |> provider.dialect().handle_event()
   end
 
   defp apply_headers(req, nil), do: req
@@ -267,9 +262,6 @@ defmodule Omni.Provider do
       def dialect, do: unquote(dialect)
 
       @impl Omni.Provider
-      def option_schema, do: %{}
-
-      @impl Omni.Provider
       def models, do: []
 
       @impl Omni.Provider
@@ -286,16 +278,15 @@ defmodule Omni.Provider do
       end
 
       @impl Omni.Provider
-      def adapt_body(body, _opts), do: body
+      def modify_body(body, _opts), do: body
 
       @impl Omni.Provider
       def adapt_event(event), do: event
 
-      defoverridable option_schema: 0,
-                     models: 0,
+      defoverridable models: 0,
                      build_url: 2,
                      authenticate: 2,
-                     adapt_body: 2,
+                     modify_body: 2,
                      adapt_event: 1
     end
   end

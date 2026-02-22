@@ -19,10 +19,10 @@ defmodule Omni.Dialects.AnthropicMessages do
   def option_schema, do: %{}
 
   @impl true
-  def build_path(%Model{}), do: "/v1/messages"
+  def handle_path(%Model{}, _opts), do: "/v1/messages"
 
   @impl true
-  def build_body(%Model{} = model, %Context{} = context, opts) do
+  def handle_body(%Model{} = model, %Context{} = context, opts) do
     cache = Keyword.get(opts, :cache)
 
     body =
@@ -38,15 +38,15 @@ defmodule Omni.Dialects.AnthropicMessages do
       |> maybe_put_tools(context.tools, cache)
       |> maybe_put_thinking(model, Keyword.get(opts, :thinking))
 
-    {:ok, body}
+    body
   end
 
   @impl true
-  def parse_event(%{"type" => "message_start", "message" => %{"model" => model_id}}) do
+  def handle_event(%{"type" => "message_start", "message" => %{"model" => model_id}}) do
     [{:message, %{model: model_id}}]
   end
 
-  def parse_event(%{
+  def handle_event(%{
         "type" => "content_block_start",
         "index" => idx,
         "content_block" => %{"type" => "text"}
@@ -54,7 +54,7 @@ defmodule Omni.Dialects.AnthropicMessages do
     [{:block_start, %{type: :text, index: idx}}]
   end
 
-  def parse_event(%{
+  def handle_event(%{
         "type" => "content_block_start",
         "index" => idx,
         "content_block" => %{"type" => "thinking"}
@@ -62,7 +62,7 @@ defmodule Omni.Dialects.AnthropicMessages do
     [{:block_start, %{type: :thinking, index: idx}}]
   end
 
-  def parse_event(%{
+  def handle_event(%{
         "type" => "content_block_start",
         "index" => idx,
         "content_block" => %{"type" => "redacted_thinking", "data" => data}
@@ -70,7 +70,7 @@ defmodule Omni.Dialects.AnthropicMessages do
     [{:block_start, %{type: :thinking, index: idx, redacted_data: data}}]
   end
 
-  def parse_event(%{
+  def handle_event(%{
         "type" => "content_block_start",
         "index" => idx,
         "content_block" => %{"type" => "tool_use", "id" => id, "name" => name}
@@ -78,7 +78,7 @@ defmodule Omni.Dialects.AnthropicMessages do
     [{:block_start, %{type: :tool_use, index: idx, id: id, name: name}}]
   end
 
-  def parse_event(%{
+  def handle_event(%{
         "type" => "content_block_delta",
         "index" => idx,
         "delta" => %{"type" => "text_delta", "text" => text}
@@ -86,7 +86,7 @@ defmodule Omni.Dialects.AnthropicMessages do
     [{:block_delta, %{type: :text, index: idx, delta: text}}]
   end
 
-  def parse_event(%{
+  def handle_event(%{
         "type" => "content_block_delta",
         "index" => idx,
         "delta" => %{"type" => "thinking_delta", "thinking" => text}
@@ -95,7 +95,7 @@ defmodule Omni.Dialects.AnthropicMessages do
     [{:block_delta, %{type: :thinking, index: idx, delta: text}}]
   end
 
-  def parse_event(%{
+  def handle_event(%{
         "type" => "content_block_delta",
         "index" => idx,
         "delta" => %{"type" => "signature_delta", "signature" => sig}
@@ -103,7 +103,7 @@ defmodule Omni.Dialects.AnthropicMessages do
     [{:block_delta, %{type: :thinking, index: idx, signature: sig}}]
   end
 
-  def parse_event(%{
+  def handle_event(%{
         "type" => "content_block_delta",
         "index" => idx,
         "delta" => %{"type" => "input_json_delta", "partial_json" => json}
@@ -111,22 +111,22 @@ defmodule Omni.Dialects.AnthropicMessages do
     [{:block_delta, %{type: :tool_use, index: idx, delta: json}}]
   end
 
-  def parse_event(%{"type" => "content_block_stop"}) do
+  def handle_event(%{"type" => "content_block_stop"}) do
     []
   end
 
-  def parse_event(%{"type" => "error", "error" => %{"message" => message}}) do
+  def handle_event(%{"type" => "error", "error" => %{"message" => message}}) do
     [{:error, %{reason: message}}]
   end
 
-  def parse_event(%{"type" => "message_delta", "delta" => delta} = event) do
+  def handle_event(%{"type" => "message_delta", "delta" => delta} = event) do
     [
       {:message,
        %{stop_reason: normalize_stop_reason(delta["stop_reason"]), usage: event["usage"]}}
     ]
   end
 
-  def parse_event(_), do: []
+  def handle_event(_), do: []
 
   # Thinking
 

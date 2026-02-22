@@ -17,10 +17,10 @@ defmodule Omni.Dialects.OpenAIResponses do
   def option_schema, do: %{}
 
   @impl true
-  def build_path(%Model{}), do: "/v1/responses"
+  def handle_path(%Model{}, _opts), do: "/v1/responses"
 
   @impl true
-  def build_body(%Model{} = model, %Context{} = context, opts) do
+  def handle_body(%Model{} = model, %Context{} = context, opts) do
     body =
       %{
         "model" => model.id,
@@ -35,17 +35,17 @@ defmodule Omni.Dialects.OpenAIResponses do
       |> maybe_put_cache(Keyword.get(opts, :cache))
       |> maybe_put_thinking(model, Keyword.get(opts, :thinking))
 
-    {:ok, body}
+    body
   end
 
   # Parse events — OpenAI Responses sends named events with "type" field
 
   @impl true
-  def parse_event(%{"type" => "response.created", "response" => %{"model" => model_id}}) do
+  def handle_event(%{"type" => "response.created", "response" => %{"model" => model_id}}) do
     [{:message, %{model: model_id}}]
   end
 
-  def parse_event(%{
+  def handle_event(%{
         "type" => "response.output_text.delta",
         "output_index" => output_index,
         "delta" => delta
@@ -53,7 +53,7 @@ defmodule Omni.Dialects.OpenAIResponses do
     [{:block_delta, %{type: :text, index: output_index, delta: delta}}]
   end
 
-  def parse_event(%{
+  def handle_event(%{
         "type" => "response.output_item.added",
         "output_index" => output_index,
         "item" => %{"type" => "function_call", "call_id" => call_id, "name" => name}
@@ -61,7 +61,7 @@ defmodule Omni.Dialects.OpenAIResponses do
     [{:block_start, %{type: :tool_use, index: output_index, id: call_id, name: name}}]
   end
 
-  def parse_event(%{
+  def handle_event(%{
         "type" => "response.function_call_arguments.delta",
         "output_index" => output_index,
         "delta" => delta
@@ -69,7 +69,7 @@ defmodule Omni.Dialects.OpenAIResponses do
     [{:block_delta, %{type: :tool_use, index: output_index, delta: delta}}]
   end
 
-  def parse_event(%{
+  def handle_event(%{
         "type" => "response.reasoning_summary_text.delta",
         "output_index" => output_index,
         "delta" => delta
@@ -77,11 +77,11 @@ defmodule Omni.Dialects.OpenAIResponses do
     [{:block_delta, %{type: :thinking, index: output_index, delta: delta}}]
   end
 
-  def parse_event(%{"type" => "response.completed", "response" => response}) do
+  def handle_event(%{"type" => "response.completed", "response" => response}) do
     [{:message, %{stop_reason: infer_stop_reason(response), usage: normalize_usage(response)}}]
   end
 
-  def parse_event(_), do: []
+  def handle_event(_), do: []
 
   # Thinking
 

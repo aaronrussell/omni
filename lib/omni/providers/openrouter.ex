@@ -23,7 +23,7 @@ defmodule Omni.Providers.OpenRouter do
   end
 
   @impl true
-  def adapt_body(%{"reasoning_effort" => effort} = body, _opts) do
+  def modify_body(%{"reasoning_effort" => effort} = body, _opts) do
     mapped = if effort == "max", do: "xhigh", else: effort
 
     body
@@ -31,7 +31,7 @@ defmodule Omni.Providers.OpenRouter do
     |> Map.put("reasoning", %{"effort" => mapped})
   end
 
-  def adapt_body(body, _opts), do: body
+  def modify_body(body, _opts), do: body
 
   @impl true
   def authenticate(req, opts) do

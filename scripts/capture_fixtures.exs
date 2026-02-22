@@ -35,15 +35,15 @@ models = %{
   :openrouter => "openai/gpt-4o-mini"
 }
 
-for provider <- [:google] do
+for provider <- Map.keys(models) do
   {:ok, model} = Omni.get_model(provider, models[provider])
 
-  #IO.puts("Capturing #{provider}_text...")
-  #Capture.record(
-  #  model,
-  #  Omni.context(prompts[:text]),
-  #  "#{fixture_dir}/#{provider}_text.sse"
-  #)
+  IO.puts("Capturing #{provider}_text...")
+  Capture.record(
+    model,
+    Omni.context(prompts[:text]),
+    "#{fixture_dir}/#{provider}_text.sse"
+  )
 
   IO.puts("Capturing #{provider}_thinking...")
   Capture.record(
@@ -53,15 +53,15 @@ for provider <- [:google] do
     thinking: :low
   )
 
-  #IO.puts("Capturing #{provider}_tool_use...")
-  #Capture.record(
-  #  model,
-  #  Omni.context(
-  #    messages: [Omni.message("What is the weather in London?")],
-  #    tools: [weather_tool]
-  #  ),
-  #  "#{fixture_dir}/#{provider}_tool_use.sse"
-  #)
+  IO.puts("Capturing #{provider}_tool_use...")
+  Capture.record(
+    model,
+    Omni.context(
+      messages: [Omni.message("What is the weather in London?")],
+      tools: [weather_tool]
+    ),
+    "#{fixture_dir}/#{provider}_tool_use.sse"
+  )
 end
 
 IO.puts("Done! All fixtures captured.")

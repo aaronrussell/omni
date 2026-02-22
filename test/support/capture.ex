@@ -21,8 +21,6 @@ defmodule Omni.Test.Capture do
   def record(%Model{} = model, %Context{} = context, output_path, opts \\ []) do
     {:ok, req} = Provider.build_request(model, context, opts)
 
-    dbg req
-
     {:ok, resp} = Req.request(req)
 
     data =

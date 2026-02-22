@@ -33,12 +33,12 @@ defmodule Omni.Dialects.GoogleGemini do
   def option_schema, do: %{}
 
   @impl true
-  def build_path(%Model{id: model_id}) do
+  def handle_path(%Model{id: model_id}, _opts) do
     "/v1beta/models/#{model_id}:streamGenerateContent?alt=sse"
   end
 
   @impl true
-  def build_body(%Model{} = model, %Context{} = context, opts) do
+  def handle_body(%Model{} = model, %Context{} = context, opts) do
     body =
       %{
         "contents" => encode_messages(context.messages),
@@ -48,7 +48,7 @@ defmodule Omni.Dialects.GoogleGemini do
       |> maybe_put_tools(context.tools)
       |> maybe_put_thinking(model, Keyword.get(opts, :thinking))
 
-    {:ok, body}
+    body
   end
 
   # Thinking
@@ -87,7 +87,7 @@ defmodule Omni.Dialects.GoogleGemini do
   # Each event is decomposed into envelope (:message) + content (:block_delta/:block_start).
 
   @impl true
-  def parse_event(event) do
+  def handle_event(event) do
     message = extract_message(event)
     content = extract_content(event)
 

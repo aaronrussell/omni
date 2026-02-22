@@ -17,10 +17,10 @@ defmodule Omni.Dialects.OpenAICompletions do
   def option_schema, do: %{}
 
   @impl true
-  def build_path(%Model{}), do: "/v1/chat/completions"
+  def handle_path(%Model{}, _opts), do: "/v1/chat/completions"
 
   @impl true
-  def build_body(%Model{} = model, %Context{} = context, opts) do
+  def handle_body(%Model{} = model, %Context{} = context, opts) do
     body =
       %{
         "model" => model.id,
@@ -35,7 +35,7 @@ defmodule Omni.Dialects.OpenAICompletions do
       |> maybe_put_cache(Keyword.get(opts, :cache))
       |> maybe_put_thinking(model, Keyword.get(opts, :thinking))
 
-    {:ok, body}
+    body
   end
 
   # Thinking
@@ -70,15 +70,15 @@ defmodule Omni.Dialects.OpenAICompletions do
   # Parse events — OpenAI sends homogeneous `chat.completion.chunk` objects
 
   @impl true
-  def parse_event(%{"usage" => %{} = usage}) do
+  def handle_event(%{"usage" => %{} = usage}) do
     [{:message, %{usage: normalize_usage(usage)}}]
   end
 
-  def parse_event(%{"choices" => [%{"finish_reason" => reason}]}) when is_binary(reason) do
+  def handle_event(%{"choices" => [%{"finish_reason" => reason}]}) when is_binary(reason) do
     [{:message, %{stop_reason: normalize_stop_reason(reason)}}]
   end
 
-  def parse_event(
+  def handle_event(
         %{"choices" => [%{"delta" => %{"tool_calls" => [tool_call | _]}} = choice]} = event
       )
       when is_map_key(tool_call, "id") do
@@ -100,7 +100,7 @@ defmodule Omni.Dialects.OpenAICompletions do
       ]
   end
 
-  def parse_event(%{"choices" => [%{"delta" => %{"tool_calls" => [tool_call | _]}} = choice]}) do
+  def handle_event(%{"choices" => [%{"delta" => %{"tool_calls" => [tool_call | _]}} = choice]}) do
     [
       {:block_delta,
        %{
@@ -111,31 +111,31 @@ defmodule Omni.Dialects.OpenAICompletions do
     ]
   end
 
-  def parse_event(%{"choices" => [%{"delta" => %{"reasoning_content" => content}}]})
+  def handle_event(%{"choices" => [%{"delta" => %{"reasoning_content" => content}}]})
       when is_binary(content) and content != "" do
     [{:block_delta, %{type: :thinking, index: 0, delta: content}}]
   end
 
   # OpenRouter and vLLM use "reasoning" instead of DeepSeek's "reasoning_content".
   # Both are legitimate field names in the Completions wire format ecosystem.
-  def parse_event(%{"choices" => [%{"delta" => %{"reasoning" => content}}]})
+  def handle_event(%{"choices" => [%{"delta" => %{"reasoning" => content}}]})
       when is_binary(content) and content != "" do
     [{:block_delta, %{type: :thinking, index: 0, delta: content}}]
   end
 
-  def parse_event(%{"choices" => [%{"delta" => %{"content" => content}}]})
+  def handle_event(%{"choices" => [%{"delta" => %{"content" => content}}]})
       when is_binary(content) and content != "" do
     [{:block_delta, %{type: :text, index: 0, delta: content}}]
   end
 
-  def parse_event(%{
+  def handle_event(%{
         "choices" => [%{"delta" => %{"role" => "assistant"}}],
         "model" => model_id
       }) do
     [{:message, %{model: model_id}}]
   end
 
-  def parse_event(_), do: []
+  def handle_event(_), do: []
 
   # Message encoding
 

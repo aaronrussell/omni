@@ -41,10 +41,10 @@ The authenticated HTTP layer, model loading, and SSE parser. First phase with re
 
 Dialect behaviour, Anthropic Messages dialect, and the Provider composition functions.
 
-- Dialect behaviour (`option_schema/0`, `build_path/1`, `build_body/3`, `parse_event/1`)
+- Dialect behaviour (`option_schema/0`, `handle_path/2`, `handle_body/3`, `handle_event/1`)
 - Anthropic Messages dialect — full body building (messages, system as content block, tools, attachments with image/PDF type dispatch, cache control) and event parsing (all SSE event types, stop reason normalization)
 - `Provider.build_request/3` — composes dialect + provider into a `%Req.Request{}`
-- `Provider.parse_event/2` — composes `adapt_event/1` → dialect `parse_event/1`
+- `Provider.parse_event/2` — composes `adapt_event/1` → dialect `handle_event/1`
 - Cache control support — `:short` / `:long` universal option, applied to system, last message content block, last tool
 - Unit, mocked integration, and live tests for the full pipeline
 
@@ -54,7 +54,7 @@ Dialect behaviour, Anthropic Messages dialect, and the Provider composition func
 - OpenAI Responses dialect (used by OpenAI provider)
 - Google Gemini dialect
 - OpenRouter provider (Completions-based meta-provider)
-- Fixed Completions `parse_event` clause ordering (OpenRouter sends `role` on every chunk)
+- Fixed Completions `handle_event` clause ordering (OpenRouter sends `role` on every chunk)
 
 ## Phase 3c — Normalize Dialect Events ✓
 
@@ -68,11 +68,11 @@ Simplified and normalized the dialect event contract. All dialects now emit a mi
 - **OpenAI Responses**: Sets `"reasoning"` with effort + `"summary" => "auto"`. Caps `:max` → `"high"`.
 - **OpenAI Completions**: Sets `"reasoning_effort"` top-level. Preserves `:max` for provider adaptation.
 - **Google Gemini**: Sets top-level `"thinkingConfig"` with `thinkingLevel` or `thinkingBudget` + `includeThoughts`. Caps `:max` → `"high"`.
-- **OpenRouter**: `adapt_body/2` converts `"reasoning_effort"` → `"reasoning"` object, maps `"max"` → `"xhigh"`.
+- **OpenRouter**: `modify_body/2` converts `"reasoning_effort"` → `"reasoning"` object, maps `"max"` → `"xhigh"`.
 
 **Parse events for thinking**: Completions parses `reasoning_content` deltas, Gemini parses `"thought" => true` parts. Both emit `{:block_delta, %{type: :thinking, ...}}`.
 
-**Dialect unit tests** — all 4 dialects have `parse_event/1` and `build_body/3` unit tests. Integration tests live at the top level (see Phase 5).
+**Dialect unit tests** — all 4 dialects have `handle_event/1` and `handle_body/3` unit tests. Integration tests live at the top level (see Phase 5).
 
 ### Index semantics note
 
@@ -125,13 +125,14 @@ Wiring everything together. Mostly composition of tested parts.
 
 Cleans up deferred design decisions from Phase 5. Three sub-phases, each independently shippable. See `context/refactor.md` for full details.
 
-### Phase 5b-A — Rename Callbacks + Simplify Signatures ✗
+### Phase 5b-A — Rename Callbacks + Simplify Signatures ✓
 
 Mechanical renames across the codebase. No logic changes.
 
-- Dialect: `build_path` → `handle_path`, `build_body` → `handle_body`, `parse_event` → `handle_event`
+- Dialect: `build_path` → `handle_path/2`, `build_body` → `handle_body`, `parse_event` → `handle_event`
 - Provider: `adapt_body` → `modify_body`
 - `handle_body` returns bare `map()` instead of `{:ok, map()}`
+- `handle_path` takes `(model, opts)` instead of just `(model)` for future extensibility
 - Remove unused `option_schema/0` from Provider behaviour
 - Update all implementations, callers, tests
 
