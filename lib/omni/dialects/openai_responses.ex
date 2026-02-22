@@ -28,12 +28,12 @@ defmodule Omni.Dialects.OpenAIResponses do
         "input" => encode_input(context.messages)
       }
       |> maybe_put("instructions", context.system)
-      |> maybe_put("max_output_tokens", Keyword.get(opts, :max_tokens))
-      |> maybe_put("temperature", Keyword.get(opts, :temperature))
-      |> maybe_put("metadata", Keyword.get(opts, :metadata))
+      |> maybe_put("max_output_tokens", opts[:max_tokens])
+      |> maybe_put("temperature", opts[:temperature])
+      |> maybe_put("metadata", opts[:metadata])
       |> maybe_put_tools(context.tools)
-      |> maybe_put_cache(Keyword.get(opts, :cache))
-      |> maybe_put_thinking(model, Keyword.get(opts, :thinking))
+      |> maybe_put_cache(opts[:cache])
+      |> maybe_put_thinking(model, opts[:thinking])
 
     body
   end

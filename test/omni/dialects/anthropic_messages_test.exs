@@ -21,14 +21,14 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
   describe "handle_path/1" do
     test "returns /v1/messages" do
-      assert AnthropicMessages.handle_path(@model, []) == "/v1/messages"
+      assert AnthropicMessages.handle_path(@model, %{}) == "/v1/messages"
     end
   end
 
   describe "handle_body/3" do
     test "simple text message" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       assert body["model"] == "claude-sonnet-4-20250514"
       assert body["max_tokens"] == 4096
@@ -42,49 +42,49 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
     test "system prompt as content block array" do
       context = Context.new(system: "You are helpful.", messages: [Message.new("Hi")])
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       assert [%{"type" => "text", "text" => "You are helpful."}] = body["system"]
     end
 
     test "no system prompt omits key" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       refute Map.has_key?(body, "system")
     end
 
     test "max_tokens in opts overrides default" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@model, context, max_tokens: 1024)
+      body = AnthropicMessages.handle_body(@model, context, %{max_tokens: 1024})
 
       assert body["max_tokens"] == 1024
     end
 
     test "temperature in opts" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@model, context, temperature: 0.7)
+      body = AnthropicMessages.handle_body(@model, context, %{temperature: 0.7})
 
       assert body["temperature"] == 0.7
     end
 
     test "no temperature omits key" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       refute Map.has_key?(body, "temperature")
     end
 
     test "metadata in opts" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@model, context, metadata: %{"user_id" => "123"})
+      body = AnthropicMessages.handle_body(@model, context, %{metadata: %{"user_id" => "123"}})
 
       assert body["metadata"] == %{"user_id" => "123"}
     end
 
     test "no metadata omits key" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       refute Map.has_key?(body, "metadata")
     end
@@ -98,7 +98,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         )
 
       context = Context.new(messages: [Message.new("What's the weather?")], tools: [tool])
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       assert [encoded_tool] = body["tools"]
       assert encoded_tool["name"] == "get_weather"
@@ -112,7 +112,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
     test "empty tools omits key" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       refute Map.has_key?(body, "tools")
     end
@@ -125,7 +125,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       ]
 
       context = Context.new(messages)
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       assert length(body["messages"]) == 3
       roles = Enum.map(body["messages"], & &1["role"])
@@ -135,7 +135,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
     test "encodes Text content block" do
       msg = Message.new(role: :user, content: [Text.new("Hello")])
       context = Context.new([msg])
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       assert [%{"content" => [%{"type" => "text", "text" => "Hello"}]}] = body["messages"]
     end
@@ -148,7 +148,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         )
 
       context = Context.new([msg])
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       [%{"content" => [block]}] = body["messages"]
       assert block["type"] == "thinking"
@@ -164,7 +164,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         )
 
       context = Context.new([msg])
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       [%{"content" => [block]}] = body["messages"]
       assert block == %{"type" => "redacted_thinking", "data" => "encrypted_blob"}
@@ -180,7 +180,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         )
 
       context = Context.new([msg])
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       [%{"content" => [block]}] = body["messages"]
       assert block["type"] == "tool_use"
@@ -204,7 +204,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         )
 
       context = Context.new([msg])
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       [%{"content" => [block]}] = body["messages"]
       assert block["type"] == "tool_result"
@@ -222,7 +222,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         )
 
       context = Context.new([msg])
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       [%{"content" => [block]}] = body["messages"]
       assert block["type"] == "image"
@@ -244,7 +244,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         )
 
       context = Context.new([msg])
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       [%{"content" => [block]}] = body["messages"]
       assert block["type"] == "image"
@@ -262,7 +262,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         )
 
       context = Context.new([msg])
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       [%{"content" => [block]}] = body["messages"]
       assert block["type"] == "document"
@@ -284,7 +284,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         )
 
       context = Context.new([msg])
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       [%{"content" => [block]}] = body["messages"]
       assert block["type"] == "document"
@@ -301,7 +301,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
           )
 
         context = Context.new([msg])
-        body = AnthropicMessages.handle_body(@model, context, [])
+        body = AnthropicMessages.handle_body(@model, context, %{})
 
         [%{"content" => [block]}] = body["messages"]
         assert block["type"] == "image", "expected image type for #{mt}"
@@ -330,7 +330,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
     test "thinking: true with non-4.6 model uses manual format" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@reasoning_model, context, thinking: true)
+      body = AnthropicMessages.handle_body(@reasoning_model, context, %{thinking: true})
 
       assert body["thinking"] == %{"type" => "enabled", "budget_tokens" => 16384}
       assert body["max_tokens"] == 4096 + 16384
@@ -338,7 +338,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
     test "thinking: true with 4.6 model uses adaptive format" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@adaptive_model, context, thinking: true)
+      body = AnthropicMessages.handle_body(@adaptive_model, context, %{thinking: true})
 
       assert body["thinking"] == %{"type" => "adaptive"}
       assert body["output_config"] == %{"effort" => "high"}
@@ -350,7 +350,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
       for {level, expected_budget} <- [low: 1024, medium: 4096, high: 16384, max: 32768] do
         body =
-          AnthropicMessages.handle_body(@reasoning_model, context, thinking: level)
+          AnthropicMessages.handle_body(@reasoning_model, context, %{thinking: level})
 
         assert body["thinking"]["budget_tokens"] == expected_budget,
                "expected budget #{expected_budget} for level #{level}"
@@ -364,7 +364,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
       for level <- [:low, :medium, :high, :max] do
         body =
-          AnthropicMessages.handle_body(@adaptive_model, context, thinking: level)
+          AnthropicMessages.handle_body(@adaptive_model, context, %{thinking: level})
 
         assert body["thinking"] == %{"type" => "adaptive"}
         assert body["output_config"]["effort"] == to_string(level)
@@ -375,9 +375,9 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       context = Context.new("Hello")
 
       body =
-        AnthropicMessages.handle_body(@reasoning_model, context,
+        AnthropicMessages.handle_body(@reasoning_model, context, %{
           thinking: [effort: :high, budget: 10_000]
-        )
+        })
 
       assert body["thinking"] == %{"type" => "enabled", "budget_tokens" => 10_000}
       assert body["max_tokens"] == 4096 + 10_000
@@ -385,14 +385,14 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
     test "thinking: false sets disabled" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@reasoning_model, context, thinking: false)
+      body = AnthropicMessages.handle_body(@reasoning_model, context, %{thinking: false})
 
       assert body["thinking"] == %{"type" => "disabled"}
     end
 
     test "thinking: :none sets disabled" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@reasoning_model, context, thinking: :none)
+      body = AnthropicMessages.handle_body(@reasoning_model, context, %{thinking: :none})
 
       assert body["thinking"] == %{"type" => "disabled"}
     end
@@ -401,10 +401,10 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       context = Context.new("Hello")
 
       body =
-        AnthropicMessages.handle_body(@reasoning_model, context,
+        AnthropicMessages.handle_body(@reasoning_model, context, %{
           thinking: true,
           temperature: 0.7
-        )
+        })
 
       refute Map.has_key?(body, "temperature")
     end
@@ -413,28 +413,31 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       context = Context.new("Hello")
 
       body =
-        AnthropicMessages.handle_body(@adaptive_model, context, thinking: true, max_tokens: 2048)
+        AnthropicMessages.handle_body(@adaptive_model, context, %{
+          thinking: true,
+          max_tokens: 2048
+        })
 
       assert body["max_tokens"] == 2048
     end
 
     test "non-reasoning model ignores thinking option" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@model, context, thinking: :high)
+      body = AnthropicMessages.handle_body(@model, context, %{thinking: :high})
 
       refute Map.has_key?(body, "thinking")
     end
 
     test "non-reasoning model still gets disabled for :none" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@model, context, thinking: :none)
+      body = AnthropicMessages.handle_body(@model, context, %{thinking: :none})
 
       assert body["thinking"] == %{"type" => "disabled"}
     end
 
     test "nil thinking is no-op" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@reasoning_model, context, [])
+      body = AnthropicMessages.handle_body(@reasoning_model, context, %{})
 
       refute Map.has_key?(body, "thinking")
     end
@@ -443,7 +446,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
   describe "handle_body/3 cache control" do
     test "short cache on system prompt" do
       context = Context.new(system: "Be helpful.", messages: [Message.new("Hi")])
-      body = AnthropicMessages.handle_body(@model, context, cache: :short)
+      body = AnthropicMessages.handle_body(@model, context, %{cache: :short})
 
       [system_block] = body["system"]
       assert system_block["cache_control"] == %{"type" => "ephemeral"}
@@ -451,7 +454,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
     test "long cache on system prompt" do
       context = Context.new(system: "Be helpful.", messages: [Message.new("Hi")])
-      body = AnthropicMessages.handle_body(@model, context, cache: :long)
+      body = AnthropicMessages.handle_body(@model, context, %{cache: :long})
 
       [system_block] = body["system"]
       assert system_block["cache_control"] == %{"type" => "ephemeral", "ttl" => "1h"}
@@ -463,7 +466,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       ]
 
       context = Context.new(messages)
-      body = AnthropicMessages.handle_body(@model, context, cache: :short)
+      body = AnthropicMessages.handle_body(@model, context, %{cache: :short})
 
       [msg] = body["messages"]
       [first, last] = msg["content"]
@@ -478,7 +481,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       ]
 
       context = Context.new(messages: [Message.new("Hi")], tools: tools)
-      body = AnthropicMessages.handle_body(@model, context, cache: :short)
+      body = AnthropicMessages.handle_body(@model, context, %{cache: :short})
 
       [first_tool, last_tool] = body["tools"]
       refute Map.has_key?(first_tool, "cache_control")
@@ -495,7 +498,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
           tools: [tool]
         )
 
-      body = AnthropicMessages.handle_body(@model, context, [])
+      body = AnthropicMessages.handle_body(@model, context, %{})
 
       [system_block] = body["system"]
       refute Map.has_key?(system_block, "cache_control")
@@ -516,7 +519,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       ]
 
       context = Context.new(messages)
-      body = AnthropicMessages.handle_body(@model, context, cache: :short)
+      body = AnthropicMessages.handle_body(@model, context, %{cache: :short})
 
       [first, second, third] = body["messages"]
 

@@ -37,10 +37,9 @@ defmodule Omni.Provider do
   - `load/1` — loads providers' models into `:persistent_term` on demand
   - `load_models/2` — reads a JSON data file and builds `%Model{}` structs
   - `resolve_auth/1` — resolves API key values (literal, env var, MFA)
-  - `new_request/4` — builds an authenticated `%Req.Request{}` for streaming
   """
 
-  alias Omni.{Context, Model}
+  alias Omni.Model
 
   @builtin_providers %{
     anthropic: Omni.Providers.Anthropic,
@@ -55,18 +54,18 @@ defmodule Omni.Provider do
   @doc "Returns the provider's list of model structs."
   @callback models() :: [Model.t()]
 
-  @doc "Builds the full request URL from a base URL and path."
-  @callback build_url(base_url :: String.t(), path :: String.t()) :: String.t()
+  @doc "Builds the full request URL from a path and unified opts map."
+  @callback build_url(path :: String.t(), opts :: map()) :: String.t()
 
   @doc "Adds authentication to a Req request."
-  @callback authenticate(req :: Req.Request.t(), opts :: keyword()) ::
+  @callback authenticate(req :: Req.Request.t(), opts :: map()) ::
               {:ok, Req.Request.t()} | {:error, term()}
 
   @doc "Modifies a dialect-built request body for this provider."
-  @callback modify_body(body :: map(), opts :: keyword()) :: map()
+  @callback modify_body(body :: map(), opts :: map()) :: map()
 
-  @doc "Adapts an SSE event map for this provider."
-  @callback adapt_event(event :: map()) :: map()
+  @doc "Post-dialect event modification. Receives parsed deltas and the raw SSE event."
+  @callback modify_events(deltas :: [{atom(), map()}], raw_event :: map()) :: [{atom(), map()}]
 
   @doc """
   Resolves an API key value to a literal string.
@@ -179,79 +178,6 @@ defmodule Omni.Provider do
     )
   end
 
-  @doc """
-  Builds an authenticated `%Req.Request{}` for a streaming HTTP request.
-
-  Takes a provider module, a URL path, a request body map, and options.
-  Returns the built request without executing it — the caller runs
-  `Req.request/1` on the result.
-
-  ## Options
-
-  - `:base_url` — override the provider's default base URL
-  - `:api_key` — API key (falls back to app config, then the provider's default)
-  - `:headers` — extra headers to merge (override config headers)
-  """
-  @spec new_request(module(), String.t(), map(), keyword()) ::
-          {:ok, Req.Request.t()} | {:error, term()}
-  def new_request(provider, path, body, opts \\ []) do
-    config = provider.config()
-    base_url = Keyword.get(opts, :base_url, config[:base_url])
-    url = provider.build_url(base_url, path)
-
-    req =
-      Req.new(method: :post, url: url, json: body, into: :self)
-      |> apply_headers(config[:headers])
-      |> apply_headers(Keyword.get(opts, :headers))
-
-    app_config = Application.get_env(:omni, provider, [])
-
-    auth_opts =
-      opts
-      |> Keyword.put_new(:auth_header, config[:auth_header] || "authorization")
-      |> Keyword.put_new_lazy(:api_key, fn ->
-        Keyword.get(app_config, :api_key, config[:api_key])
-      end)
-
-    provider.authenticate(req, auth_opts)
-  end
-
-  @doc """
-  Builds an authenticated `%Req.Request{}` from Omni types.
-
-  Composes the dialect and provider layers: the dialect builds the path and body
-  from the model, context, and options; the provider modifies the body and builds
-  the final authenticated request.
-  """
-  @spec build_request(Model.t(), Context.t(), keyword()) ::
-          {:ok, Req.Request.t()} | {:error, term()}
-  def build_request(%Model{} = model, %Context{} = context, opts \\ []) do
-    dialect = model.dialect
-    body = dialect.handle_body(model, context, opts)
-    path = dialect.handle_path(model, opts)
-    body = model.provider.modify_body(body, opts)
-    new_request(model.provider, path, body, opts)
-  end
-
-  @doc """
-  Parses a raw SSE event map through the provider and dialect layers.
-
-  The provider's `adapt_event/1` is applied first, then the dialect's
-  `handle_event/1` transforms the event into a list of delta tuples.
-  """
-  @spec parse_event(module(), map()) :: [{atom(), map()}]
-  def parse_event(provider, raw_event) do
-    raw_event
-    |> provider.adapt_event()
-    |> provider.dialect().handle_event()
-  end
-
-  defp apply_headers(req, nil), do: req
-
-  defp apply_headers(req, headers) when is_map(headers) do
-    Enum.reduce(headers, req, fn {k, v}, acc -> Req.Request.put_header(acc, k, v) end)
-  end
-
   defmacro __using__(opts) do
     dialect = Keyword.fetch!(opts, :dialect)
 
@@ -265,14 +191,12 @@ defmodule Omni.Provider do
       def models, do: []
 
       @impl Omni.Provider
-      def build_url(base_url, path), do: base_url <> path
+      def build_url(path, opts), do: opts.base_url <> path
 
       @impl Omni.Provider
       def authenticate(req, opts) do
-        api_key = Keyword.get(opts, :api_key)
-
-        with {:ok, key} <- Omni.Provider.resolve_auth(api_key) do
-          header = Keyword.get(opts, :auth_header, "authorization")
+        with {:ok, key} <- Omni.Provider.resolve_auth(opts.api_key) do
+          header = Map.get(opts, :auth_header, "authorization")
           {:ok, Req.Request.put_header(req, header, key)}
         end
       end
@@ -281,13 +205,13 @@ defmodule Omni.Provider do
       def modify_body(body, _opts), do: body
 
       @impl Omni.Provider
-      def adapt_event(event), do: event
+      def modify_events(deltas, _raw_event), do: deltas
 
       defoverridable models: 0,
                      build_url: 2,
                      authenticate: 2,
                      modify_body: 2,
-                     adapt_event: 1
+                     modify_events: 2
     end
   end
 end

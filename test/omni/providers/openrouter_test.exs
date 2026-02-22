@@ -1,7 +1,6 @@
 defmodule Omni.Providers.OpenRouterTest do
   use ExUnit.Case, async: true
 
-  alias Omni.Provider
   alias Omni.Providers.OpenRouter
 
   describe "config/0" do
@@ -41,7 +40,7 @@ defmodule Omni.Providers.OpenRouterTest do
     test "converts reasoning_effort to reasoning object" do
       body = %{"model" => "test", "reasoning_effort" => "high"}
 
-      result = OpenRouter.modify_body(body, [])
+      result = OpenRouter.modify_body(body, %{})
 
       assert result["reasoning"] == %{"effort" => "high"}
       refute Map.has_key?(result, "reasoning_effort")
@@ -50,7 +49,7 @@ defmodule Omni.Providers.OpenRouterTest do
     test "maps max to xhigh" do
       body = %{"model" => "test", "reasoning_effort" => "max"}
 
-      result = OpenRouter.modify_body(body, [])
+      result = OpenRouter.modify_body(body, %{})
 
       assert result["reasoning"] == %{"effort" => "xhigh"}
     end
@@ -58,7 +57,7 @@ defmodule Omni.Providers.OpenRouterTest do
     test "passes through body without reasoning_effort" do
       body = %{"model" => "test", "messages" => []}
 
-      result = OpenRouter.modify_body(body, [])
+      result = OpenRouter.modify_body(body, %{})
 
       assert result == body
     end
@@ -67,7 +66,7 @@ defmodule Omni.Providers.OpenRouterTest do
       for level <- ["low", "medium", "high"] do
         body = %{"model" => "test", "reasoning_effort" => level}
 
-        result = OpenRouter.modify_body(body, [])
+        result = OpenRouter.modify_body(body, %{})
 
         assert result["reasoning"]["effort"] == level,
                "expected #{level} to pass through"
@@ -75,23 +74,11 @@ defmodule Omni.Providers.OpenRouterTest do
     end
   end
 
-  describe "new_request/4 integration" do
-    test "builds request with correct URL and Bearer auth" do
-      {:ok, req} =
-        Provider.new_request(OpenRouter, "/v1/chat/completions", %{"model" => "test"},
-          api_key: "sk-or-test-123"
-        )
-
-      assert URI.to_string(req.url) == "https://openrouter.ai/api/v1/chat/completions"
-      assert Req.Request.get_header(req, "authorization") == ["Bearer sk-or-test-123"]
-    end
-  end
-
   describe "authenticate/2" do
     test "sets Bearer authorization header" do
       req = Req.new()
 
-      {:ok, authed} = OpenRouter.authenticate(req, api_key: "sk-or-test-123")
+      {:ok, authed} = OpenRouter.authenticate(req, %{api_key: "sk-or-test-123"})
 
       assert Req.Request.get_header(authed, "authorization") == ["Bearer sk-or-test-123"]
     end
@@ -99,7 +86,7 @@ defmodule Omni.Providers.OpenRouterTest do
     test "returns error when api_key is nil" do
       req = Req.new()
 
-      assert {:error, :no_api_key} = OpenRouter.authenticate(req, api_key: nil)
+      assert {:error, :no_api_key} = OpenRouter.authenticate(req, %{api_key: nil})
     end
   end
 end

@@ -46,7 +46,7 @@ defmodule Omni.Dialects.GoogleGemini do
       }
       |> maybe_put_system(context.system)
       |> maybe_put_tools(context.tools)
-      |> maybe_put_thinking(model, Keyword.get(opts, :thinking))
+      |> maybe_put_thinking(model, opts[:thinking])
 
     body
   end
@@ -246,8 +246,8 @@ defmodule Omni.Dialects.GoogleGemini do
 
   defp build_generation_config(opts) do
     %{}
-    |> maybe_put("maxOutputTokens", Keyword.get(opts, :max_tokens))
-    |> maybe_put("temperature", Keyword.get(opts, :temperature))
+    |> maybe_put("maxOutputTokens", opts[:max_tokens])
+    |> maybe_put("temperature", opts[:temperature])
   end
 
   # Tool encoding

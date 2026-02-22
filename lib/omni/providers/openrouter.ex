@@ -35,7 +35,7 @@ defmodule Omni.Providers.OpenRouter do
 
   @impl true
   def authenticate(req, opts) do
-    with {:ok, key} <- Omni.Provider.resolve_auth(Keyword.get(opts, :api_key)) do
+    with {:ok, key} <- Omni.Provider.resolve_auth(opts.api_key) do
       {:ok, Req.Request.put_header(req, "authorization", "Bearer #{key}")}
     end
   end

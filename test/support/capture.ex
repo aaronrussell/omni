@@ -1,14 +1,14 @@
 defmodule Omni.Test.Capture do
   @moduledoc false
 
-  alias Omni.{Context, Model, Provider}
+  alias Omni.{Context, Model, Request}
 
   @doc """
   Records a real streaming API response as an SSE fixture file.
 
-  Uses `Provider.build_request/3` to build the request from Omni types,
-  executes it, collects all async body chunks, and writes the raw SSE
-  bytes to `output_path`.
+  Uses `Request.validate/2` and `Request.build/3` to build the request from
+  Omni types, executes it, collects all async body chunks, and writes the raw
+  SSE bytes to `output_path`.
 
   ## Example
 
@@ -19,7 +19,7 @@ defmodule Omni.Test.Capture do
   """
   @spec record(Model.t(), Context.t(), String.t(), keyword()) :: :ok
   def record(%Model{} = model, %Context{} = context, output_path, opts \\ []) do
-    {:ok, req} = Provider.build_request(model, context, opts)
+    {:ok, req} = Request.build(model, context, opts)
 
     {:ok, resp} = Req.request(req)
 

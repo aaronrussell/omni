@@ -23,20 +23,20 @@ defmodule Omni.Dialects.AnthropicMessages do
 
   @impl true
   def handle_body(%Model{} = model, %Context{} = context, opts) do
-    cache = Keyword.get(opts, :cache)
+    cache = opts[:cache]
 
     body =
       %{
         "model" => model.id,
         "messages" => encode_messages(context.messages, cache),
-        "max_tokens" => Keyword.get(opts, :max_tokens, @default_max_tokens),
+        "max_tokens" => opts[:max_tokens] || @default_max_tokens,
         "stream" => true
       }
       |> maybe_put_system(context.system, cache)
-      |> maybe_put("temperature", Keyword.get(opts, :temperature))
-      |> maybe_put("metadata", Keyword.get(opts, :metadata))
+      |> maybe_put("temperature", opts[:temperature])
+      |> maybe_put("metadata", opts[:metadata])
       |> maybe_put_tools(context.tools, cache)
-      |> maybe_put_thinking(model, Keyword.get(opts, :thinking))
+      |> maybe_put_thinking(model, opts[:thinking])
 
     body
   end

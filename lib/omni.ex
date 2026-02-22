@@ -3,7 +3,7 @@ defmodule Omni do
   Elixir library for interacting with LLM APIs across multiple providers.
   """
 
-  alias Omni.{Context, Model, Provider, Response, SSE, StreamingResponse}
+  alias Omni.{Context, Model, Request, Response, StreamingResponse}
 
   @doc """
   Streams a text generation request, returning a `%StreamingResponse{}`.
@@ -17,7 +17,7 @@ defmodule Omni do
     * `:plug` — a Req test plug for stubbing HTTP responses
     * `:raw` — when `true`, attaches the raw `{%Req.Request{}, %Req.Response{}}` to the response
 
-  All other options are passed through to `Provider.build_request/3`.
+  All other options are passed through to `Request.build/3`.
   """
   @spec stream_text(Model.t() | {atom(), String.t()}, term(), keyword()) ::
           {:ok, StreamingResponse.t()} | {:error, term()}
@@ -31,21 +31,9 @@ defmodule Omni do
 
   def stream_text(%Model{} = model, context, opts) do
     context = Context.new(context)
-    {plug, opts} = Keyword.pop(opts, :plug)
-    {raw?, opts} = Keyword.pop(opts, :raw, false)
 
-    with {:ok, req} <- Provider.build_request(model, context, opts),
-         {:ok, resp} <- req |> maybe_merge_plug(plug) |> Req.request(),
-         :ok <- check_status(resp) do
-      deltas =
-        resp.body
-        |> SSE.stream()
-        |> Stream.flat_map(&Provider.parse_event(model.provider, &1))
-
-      cancel = fn -> Req.cancel_async_response(resp) end
-      raw = if raw?, do: {req, resp}
-
-      {:ok, StreamingResponse.new(deltas, model: model, cancel: cancel, raw: raw)}
+    with {:ok, req} <- Request.build(model, context, opts) do
+      Request.stream(req, model, opts)
     end
   end
 
@@ -60,31 +48,6 @@ defmodule Omni do
   def generate_text(model, context, opts \\ []) do
     with {:ok, stream} <- stream_text(model, context, opts) do
       StreamingResponse.complete(stream)
-    end
-  end
-
-  # -- Private helpers --
-
-  defp maybe_merge_plug(req, nil), do: req
-  defp maybe_merge_plug(req, plug), do: Req.merge(req, plug: plug)
-
-  defp check_status(%Req.Response{status: 200}), do: :ok
-
-  defp check_status(%Req.Response{status: status, body: body}) do
-    {:error, {:http_error, status, read_error_body(body)}}
-  end
-
-  defp read_error_body(%Req.Response.Async{} = async) do
-    async |> Enum.to_list() |> IO.iodata_to_binary() |> try_decode_json()
-  end
-
-  defp read_error_body(body) when is_binary(body), do: try_decode_json(body)
-  defp read_error_body(body), do: body
-
-  defp try_decode_json(binary) do
-    case JSON.decode(binary) do
-      {:ok, decoded} -> decoded
-      {:error, _} -> binary
     end
   end
 
