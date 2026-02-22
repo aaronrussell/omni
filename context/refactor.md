@@ -12,11 +12,12 @@ This document covers a three-phase refactor of the callback naming, orchestratio
 After completing Phase 5 (top-level orchestration), several loose ends remain:
 
 1. **No option validation.** User options are passed through unchecked. Typos like `temperture` silently do nothing.
-2. **Orchestration lives on Provider.** `Provider.build_request/3` and `Provider.parse_event/2` compose dialect + provider logic, but this orchestration belongs in the top-level `Omni` module since that's where config merging, validation, and the full pipeline live.
+2. **Orchestration lives on Provider.** `Provider.build_request/3` and `Provider.parse_event/2` compose dialect + provider logic, but this orchestration doesn't belong on the Provider module. It should be separated into a dedicated `Omni.Request` module — keeping Provider as a pure behaviour/utilities module while enabling granular unit testing of request building, validation, and event parsing.
 3. **`adapt_event/1` runs pre-dialect.** The provider can mutate raw SSE JSON before the dialect sees it, but can't augment the parsed delta tuples. This blocks the OpenRouter `reasoning_details` use case where the provider needs to inject additional deltas post-parse.
 4. **`build_body/3` returns `{:ok, map()}`** but never fails. With validation happening before `build_body`, the ok-tuple is ceremony.
 5. **Callback names are inconsistent.** Dialect callbacks use `build_*` prefixes while provider adaptation uses `adapt_*`. Neither follows Elixir conventions strongly.
 6. **Provider `option_schema/0` is unused.** No provider has ever defined provider-specific inference options. Config overrides (`api_key`, `base_url`, `headers`) are consistent across all providers and belong in the universal schema.
+7. **No receive timeout.** Req defaults to 15 seconds, which is insufficient for LLMs (especially extended thinking models). Needs a first-class `:timeout` option with a generous default.
 
 ---
 
@@ -55,14 +56,24 @@ Mechanical renames across the codebase. No logic changes.
 - Update all tests (unit, integration, live)
 - Update `Omni.Dialect` behaviour module
 
-### Phase B — Restructure Orchestration
+### Phase B — Restructure Orchestration into Omni.Request
 
-Move orchestration from `Provider` into `Omni`. Change `adapt_event` to post-dialect `modify_events`. Update `build_url` and `authenticate` signatures.
+Introduce `Omni.Request` module to hold all orchestration logic. This replaces the previous plan of moving orchestration into private functions in `Omni` — a dedicated module enables granular unit testing of request building, config merging, and event parsing without requiring full HTTP round-trips.
 
-**What moves from Provider to Omni:**
-- `Provider.build_request/3` logic → private function(s) in `Omni`
-- `Provider.parse_event/2` logic → inlined in `Omni.stream_text/3` pipeline
-- `Provider.new_request/4` logic → private function in `Omni`
+**New module: `Omni.Request`**
+
+Public functions (the request lifecycle):
+- `build/3` — validates opts, builds request body, constructs authenticated `%Req.Request{}`
+- `stream/3` — executes request, composes SSE + event pipeline, returns `StreamingResponse`
+
+`@doc false` functions (exposed for testing):
+- `validate/2` — config extraction, three-tier merge, returns unified opts map
+- `parse_event/2` — `dialect.handle_event` + `provider.modify_events` composition
+
+**What moves from Provider to Omni.Request:**
+- `Provider.build_request/3` logic → `Request.build/3`
+- `Provider.parse_event/2` logic → `Request.parse_event/2`
+- `Provider.new_request/4` logic → absorbed into `Request.build/3`
 
 **What stays on Provider:**
 - Behaviour definition (callbacks)
@@ -78,8 +89,8 @@ Move orchestration from `Provider` into `Omni`. Change `adapt_event` to post-dia
 |----------|--------|-------|
 | `adapt_event/1` | `(map()) → map()` pre-dialect | **Removed** — replaced by `modify_events/2` |
 | `modify_events/2` | *(new)* | `([{atom(), map()}], map()) → [{atom(), map()}]` post-dialect |
-| `build_url/2` | `(base_url, path) → url` | `(path, config) → url` where config is the merged config map |
-| `authenticate/2` | `(req, keyword()) → {:ok, req}` | `(req, map()) → {:ok, req}` where map is the merged config |
+| `build_url/2` | `(base_url, path) → url` | `(path, opts) → url` where opts is the unified map |
+| `authenticate/2` | `(req, keyword()) → {:ok, req}` | `(req, opts) → {:ok, req}` where opts is the unified map |
 
 **`modify_events/2` details:**
 - First arg: the dialect's parsed delta list (output of `handle_event/1`)
@@ -103,198 +114,299 @@ raw_event → dialect.handle_event(event) → provider.modify_events(deltas, eve
 
 **`build_url/2` signature change:**
 - Before: `build_url(base_url, path)` — provider concatenates base URL + path
-- After: `build_url(path, config)` — provider receives path + full merged config map
-- The config map contains `base_url` (from three-tier merge) plus all other config
+- After: `build_url(path, opts)` — provider receives path + unified opts map
+- The opts map contains `base_url` (from three-tier merge) plus all other config and inference options
 - This supports Azure-style URL construction where the URL depends on deployment names, API versions, etc.
-- Default implementation: `config.base_url <> path`
+- Default implementation: `opts.base_url <> path`
 
 **`authenticate/2` signature change:**
 - Before: receives keyword list with `:api_key` and `:auth_header` keys
-- After: receives the same merged config map as `build_url`
-- The config map contains `api_key` (already resolved via three-tier), `auth_header`, `headers`, etc.
+- After: receives the same unified opts map as `build_url`
+- The opts map contains `api_key` (from three-tier merge, unresolved), `auth_header`, `headers`, plus inference options
+- The default implementation reads `opts.api_key` and `opts.auth_header`, ignoring the rest
 
-**The merged config map** (passed to `build_url`, `authenticate`, and available in the orchestration):
+**Unified opts map:**
+
+All callbacks receive one map containing both config and inference options. Each callback reads the keys it needs and ignores the rest. This replaces the previous design of separate config and opts maps, eliminating `split_request_config` and `merge_config` as standalone functions — config extraction and merging happen inside `validate`.
+
 ```elixir
 %{
-  base_url: "https://api.anthropic.com",   # from three-tier merge
-  api_key: {:system, "ANTHROPIC_API_KEY"},  # from three-tier merge (unresolved)
-  auth_header: "x-api-key",                # from provider config
-  headers: %{"anthropic-version" => "..."}  # from three-tier merge
+  # Config (from three-tier merge)
+  api_key: {:system, "ANTHROPIC_API_KEY"},
+  base_url: "https://api.anthropic.com",
+  auth_header: "x-api-key",
+  headers: %{"anthropic-version" => "..."},
+
+  # Framework
+  plug: nil,
+
+  # Inference (validated, with defaults — after Phase C)
+  max_tokens: 4096,
+  temperature: 1.0,
+  timeout: 300_000,
+  ...
 }
 ```
 
-Note: `api_key` in the config map is the **unresolved** value (could be a string, `{:system, env}`, or MFA tuple). `authenticate/2` calls `resolve_auth/1` internally to resolve it. This matches the current pattern where `new_request/4` passes the unresolved value and `authenticate/2` resolves it.
+Note: `api_key` in the unified map is the **unresolved** value (could be a string, `{:system, env}`, or MFA tuple). `authenticate/2` calls `resolve_auth/1` internally to resolve it. This matches the current pattern.
 
-**New `Omni.stream_text/3` flow after Phase B:**
+**`validate/2` — config extraction and three-tier merge:**
+
+In Phase B, `validate` handles config extraction and three-tier merging. No schema validation yet — that's Phase C:
+
 ```elixir
-def stream_text(%Model{} = model, context, opts) do
+@doc false
+def validate(model, opts) do
   provider = model.provider
-  dialect = model.dialect
-  context = Context.new(context)
-  {request_config, opts} = split_request_config(opts)
 
-  # Build request body (dialect builds, provider modifies)
-  body = dialect.handle_body(model, context, opts)
-  body = provider.modify_body(body, opts)
+  # Pop framework keys (not schema-validated)
+  {plug, opts} = Keyword.pop(opts, :plug)
 
-  # Build HTTP request
-  path = dialect.handle_path(model)
-  config = merge_config(provider, request_config)
+  # Pop config keys (three-tier merged, not schema-validated)
+  {api_key, opts} = Keyword.pop(opts, :api_key)
+  {base_url, opts} = Keyword.pop(opts, :base_url)
+  {headers, opts} = Keyword.pop(opts, :headers)
 
-  with {:ok, req} <- build_request(provider, path, body, config),
-       {:ok, resp} <- req |> maybe_plug(request_config) |> Req.request(),
+  # Three-tier merge: call-site > app config > provider default
+  provider_config = provider.config()
+  app_config = Application.get_env(:omni, provider, [])
+
+  config = %{
+    api_key: api_key || app_config[:api_key] || provider_config[:api_key],
+    base_url: base_url || app_config[:base_url] || provider_config[:base_url],
+    auth_header: provider_config[:auth_header] || "authorization",
+    headers: merge_headers(provider_config[:headers], app_config[:headers], headers),
+    plug: plug
+  }
+
+  # Combine into unified map
+  {:ok, Map.merge(Map.new(opts), config)}
+end
+```
+
+**`Request.build/3`:**
+
+```elixir
+@spec build(Model.t(), Context.t(), keyword()) ::
+        {:ok, Req.Request.t()} | {:error, term()}
+def build(model, context, opts) do
+  with {:ok, opts} <- validate(model, opts) do
+    {plug, opts} = Map.pop(opts, :plug)
+
+    body = model.dialect.handle_body(model, context, opts)
+    body = model.provider.modify_body(body, opts)
+    path = model.dialect.handle_path(model)
+    url = model.provider.build_url(path, opts)
+
+    req =
+      Req.new(method: :post, url: url, json: body, into: :self)
+      |> apply_headers(opts.headers)
+      |> maybe_merge_plug(plug)
+
+    model.provider.authenticate(req, opts)
+  end
+end
+```
+
+**`Request.stream/3`:**
+
+```elixir
+@spec stream(Req.Request.t(), Model.t(), keyword()) ::
+        {:ok, StreamingResponse.t()} | {:error, term()}
+def stream(req, model, opts \\ []) do
+  raw? = Keyword.get(opts, :raw, false)
+
+  with {:ok, resp} <- Req.request(req),
        :ok <- check_status(resp) do
-    # Compose event stream (dialect handles, provider modifies)
     deltas =
       resp.body
       |> SSE.stream()
-      |> Stream.flat_map(fn event ->
-        event
-        |> dialect.handle_event()
-        |> provider.modify_events(event)
-      end)
+      |> Stream.flat_map(&parse_event(model, &1))
 
     cancel = fn -> Req.cancel_async_response(resp) end
-    raw = if request_config[:raw], do: {req, resp}
+    raw = if raw?, do: {req, resp}
 
     {:ok, StreamingResponse.new(deltas, model: model, cancel: cancel, raw: raw)}
   end
 end
 ```
 
-Where `build_request/4` is a private function in Omni:
+**`Request.parse_event/2`:**
+
 ```elixir
-defp build_request(provider, path, body, config) do
-  url = provider.build_url(path, config)
-
-  req =
-    Req.new(method: :post, url: url, json: body, into: :self)
-    |> apply_headers(config.headers)
-
-  provider.authenticate(req, config)
+@doc false
+@spec parse_event(Model.t(), map()) :: [{atom(), map()}]
+def parse_event(model, raw_event) do
+  raw_event
+  |> model.dialect.handle_event()
+  |> model.provider.modify_events(raw_event)
 end
 ```
 
-And `merge_config/2` implements three-tier resolution:
-```elixir
-defp merge_config(provider, request_config) do
-  provider_config = provider.config()
-  app_config = Application.get_env(:omni, provider, [])
+**`Omni.stream_text/3` after Phase B:**
 
-  %{
-    base_url: request_config[:base_url] || app_config[:base_url] || provider_config[:base_url],
-    api_key: request_config[:api_key] || app_config[:api_key] || provider_config[:api_key],
-    auth_header: provider_config[:auth_header] || "authorization",
-    headers: merge_headers(provider_config[:headers], app_config[:headers], request_config[:headers])
-  }
-end
-```
-
-**`split_request_config/1`** separates transport/framework options from inference options:
 ```elixir
-defp split_request_config(opts) do
-  {api_key, opts} = Keyword.pop(opts, :api_key)
-  {base_url, opts} = Keyword.pop(opts, :base_url)
-  {headers, opts} = Keyword.pop(opts, :headers)
-  {plug, opts} = Keyword.pop(opts, :plug)
+def stream_text(%Model{} = model, context, opts) do
+  context = Context.new(context)
   {raw, opts} = Keyword.pop(opts, :raw, false)
 
-  config = %{api_key: api_key, base_url: base_url, headers: headers, plug: plug, raw: raw}
-  {config, opts}
+  with {:ok, req} <- Request.build(model, context, opts) do
+    Request.stream(req, model, raw: raw)
+  end
 end
 ```
 
-**What to do about tests that currently test Provider.build_request/3 and Provider.parse_event/2:**
-- These test the composition of dialect + provider. After the move, this composition lives in `Omni.stream_text/3`.
-- Dialect unit tests (handle_body, handle_event) remain unchanged.
-- Provider unit tests for `modify_body` and `modify_events` remain unchanged.
-- Integration tests already go through `Omni.generate_text/3` and `Omni.stream_text/3`, so they cover the composition.
-- Remove `Provider.build_request/3`, `Provider.parse_event/2`, and `Provider.new_request/4` from Provider module.
-- Remove or migrate any unit tests that directly tested these functions. The `parse_event/2` test in `provider_test.exs` that tested the adapt→parse composition can be removed since integration tests cover it. The `new_request/4` tests that verified auth resolution, header merging, and URL construction should be migrated to test the new private helper (or kept as integration tests).
+**What to do about existing tests:**
 
-### Phase C — Option Validation + Config Merging
+- `Provider.build_request/3`, `parse_event/2`, `new_request/4` tests → migrate to test `Request.build/3`, `Request.parse_event/2`, and `Request.validate/2`
+- Dialect unit tests (handle_body, handle_event) remain unchanged
+- Provider unit tests for `modify_body` and `modify_events` remain unchanged
+- Integration tests already go through `Omni.generate_text/3` and `Omni.stream_text/3` — they continue to work
+- New unit tests for `Request.validate/2`: config extraction, three-tier merge, unified map structure
+- New unit tests for `Request.build/3`: inspect `%Req.Request{}` (URL, body, headers, auth) without executing
+- New unit tests for `Request.parse_event/2`: event pipeline composition
 
-Add the universal option schema, Peri validation, and switch opts from keyword list to validated map.
+### Phase C — Option Validation + Timeout
 
-**Universal option schema** — defined as a module attribute in `Omni`:
+Add the universal option schema with Peri validation, a `:timeout` option, and switch opts from keyword list to validated map.
+
+**Universal option schema** — defined as a module attribute on `Omni.Request`:
+
 ```elixir
-@universal_schema %{
+@schema %{
   max_tokens: {:required, {:integer, {:default, 4096}}},
   temperature: {:float, {:default, 1.0}},
+  timeout: {:integer, {:default, 300_000}},
   cache: {:enum, [:short, :long]},
   metadata: :map,
-  thinking: :any  # complex type — validated structurally below
+  thinking: :any  # complex type — may need custom validator
 }
 ```
 
 Note: The exact Peri syntax will need to be verified against Peri's documentation. The schema above is illustrative. Key points:
 - `max_tokens` has a default of 4096
-- `temperature` has a default (provider-dependent? or fixed?)
+- `temperature` has a default of 1.0
+- `timeout` defaults to 300,000ms (5 minutes) — maps to Req's `receive_timeout`. This is generous enough for extended thinking models that may not send keepalives during long reasoning phases. Req's default of 15s is far too low for LLM APIs.
 - `cache`, `metadata`, `thinking` are optional (nil if not provided)
 - `thinking` accepts: `true | false | :none | :low | :medium | :high | :max | [effort: atom, budget: integer]` — this may need a custom validator
 
-**Schema merging** — `Omni` merges the universal schema with the dialect's `option_schema/0`:
+**Schema merging** — `Request.validate` merges the universal schema with the dialect's `option_schema/0`:
+
 ```elixir
-defp build_schema(dialect) do
-  Map.merge(@universal_schema, dialect.option_schema())
-end
+schema = Map.merge(@schema, dialect.option_schema())
 ```
 
 Provider no longer contributes an option schema (removed in Phase A). If a provider needs a provider-specific inference option in the future, we can re-add it.
 
-**Validation call:**
+**Updated `validate/2` after Phase C:**
+
 ```elixir
-with {:ok, opts} <- validate_opts(build_schema(dialect), inference_opts) do
-  # opts is now a map with all defaults filled in
-  # e.g. %{max_tokens: 4096, temperature: 1.0, cache: nil, ...}
+@doc false
+def validate(model, opts) do
+  provider = model.provider
+  dialect = provider.dialect()
+
+  # Pop framework keys (not schema-validated)
+  {plug, opts} = Keyword.pop(opts, :plug)
+
+  # Pop config keys (three-tier merged, not schema-validated)
+  {api_key, opts} = Keyword.pop(opts, :api_key)
+  {base_url, opts} = Keyword.pop(opts, :base_url)
+  {headers, opts} = Keyword.pop(opts, :headers)
+
+  # Validate inference opts — strict mode catches typos
+  schema = Map.merge(@schema, dialect.option_schema())
+
+  with {:ok, opts} <- Peri.validate(schema, Map.new(opts)) do
+    # Three-tier merge config values
+    provider_config = provider.config()
+    app_config = Application.get_env(:omni, provider, [])
+
+    config = %{
+      api_key: api_key || app_config[:api_key] || provider_config[:api_key],
+      base_url: base_url || app_config[:base_url] || provider_config[:base_url],
+      auth_header: provider_config[:auth_header] || "authorization",
+      headers: merge_headers(provider_config[:headers], app_config[:headers], headers),
+      plug: plug
+    }
+
+    {:ok, Map.merge(opts, config)}
+  end
 end
 ```
 
-Using `Peri.validate(schema, opts)` in strict mode (default). This:
-- Validates types for all provided options
-- Fills in defaults for missing options
-- Rejects unknown keys (catches typos)
-- Returns a map (not a keyword list)
+**How typos are caught:**
+
+Config keys, framework keys, and `:raw` are all popped before Peri strict validation. If any of these are misspelled (e.g. `api_kye`, `plg`, `rraw`), they won't be popped and will pass through to strict schema validation, which rejects unknown keys. Inference key typos (e.g. `temperture`) are caught directly by strict validation.
+
+**`:timeout` flows through to `build`:**
+
+After Phase C, `build` pops `:timeout` from the validated map and applies it to the Req request:
+
+```elixir
+def build(model, context, opts) do
+  with {:ok, opts} <- validate(model, opts) do
+    {plug, opts} = Map.pop(opts, :plug)
+    {timeout, opts} = Map.pop(opts, :timeout)
+
+    body = model.dialect.handle_body(model, context, opts)
+    body = model.provider.modify_body(body, opts)
+    path = model.dialect.handle_path(model)
+    url = model.provider.build_url(path, opts)
+
+    req =
+      Req.new(method: :post, url: url, json: body, into: :self, receive_timeout: timeout)
+      |> apply_headers(opts.headers)
+      |> maybe_merge_plug(plug)
+
+    model.provider.authenticate(req, opts)
+  end
+end
+```
+
+**No `:req_opts` escape hatch.** Arbitrary Req options (proxies, custom Finch pools, SSL config) are infrastructure concerns best handled at the Finch pool level, not per-request. Adding `:req_opts` later is a single non-breaking addition if needed — pop it in `build`, `Req.merge(req, req_opts)` before returning.
 
 **Downstream impact — opts becomes a map:**
 
-All callbacks that receive opts need to handle a map instead of a keyword list:
-- `dialect.handle_body(model, context, opts)` — opts is now `%{max_tokens: 4096, ...}`
+All callbacks that receive opts already receive a map (since `validate` returns a map in Phase B). The change in Phase C is that the map now has validated types and defaults filled in:
+- `dialect.handle_body(model, context, opts)` — opts is `%{max_tokens: 4096, ...}`
 - `provider.modify_body(body, opts)` — same
-- Every `Keyword.get(opts, :key, default)` becomes `Map.get(opts, :key, default)` or `opts.key` or `opts[:key]`
+- `provider.build_url(path, opts)` — same unified map
+- `provider.authenticate(req, opts)` — same unified map
+- Every `Keyword.get(opts, :key, default)` becomes `opts[:key]` or `opts.key` or `Map.get(opts, :key)`
 
 This affects all 4 dialect `handle_body` implementations and any provider `modify_body` that reads opts.
 
-**Three-tier config merge for base_url and headers:**
-
-Extending the existing three-tier pattern (call-site > app config > provider default) from just `api_key` to also cover `base_url` and `headers`. This was partially implemented in Phase B's `merge_config/2` — Phase C ensures it works end-to-end with validated options.
-
 **Updated full flow after Phase C:**
+
 ```
 Omni.stream_text(model, context, opts)
 ├── 1. Resolve model ({provider, id} tuple → %Model{})
 ├── 2. Coerce context (string/list → %Context{})
-├── 3. Split opts → request_config (map) + inference_opts (keyword)
-├── 4. Validate inference_opts → opts (map with defaults)
-│     Schema = universal + dialect.option_schema()
-│     Peri.validate in strict mode
-│     Result: %{max_tokens: 4096, temperature: 1.0, ...}
-├── 5. Build request body
-│     ├── dialect.handle_body(model, context, opts) → map()
-│     └── provider.modify_body(body, opts) → map()
-├── 6. Build HTTP request
+├── 3. Pop :raw from opts
+├── 4. Request.build(model, context, opts)
+│     ├── Request.validate(model, opts)
+│     │     ├── Pop config keys (api_key, base_url, headers) and framework keys (plug)
+│     │     ├── Validate inference opts via Peri (strict mode)
+│     │     ├── Three-tier merge config: call-site > app config > provider default
+│     │     └── Return unified map: %{api_key: ..., base_url: ..., max_tokens: 4096, ...}
+│     ├── Pop plug and timeout from unified map
+│     ├── dialect.handle_body(model, context, opts) → body map
+│     ├── provider.modify_body(body, opts) → modified body
 │     ├── dialect.handle_path(model) → path
-│     ├── merge_config(provider, request_config) → config map
-│     ├── provider.build_url(path, config) → url
-│     ├── Req.new(method: :post, url: url, json: body, into: :self)
-│     ├── apply_headers(req, config.headers)
-│     └── provider.authenticate(req, config) → {:ok, req}
-├── 7. Execute: Req.request(req)
-├── 8. Check HTTP status (200 ok, else error)
-├── 9. Compose event stream
+│     ├── provider.build_url(path, opts) → URL
+│     ├── Req.new(url, method: :post, json: body, into: :self, receive_timeout: timeout)
+│     ├── apply_headers(req, opts.headers) + maybe_merge_plug(plug)
+│     └── provider.authenticate(req, opts) → {:ok, req}
+├── 5. Request.stream(req, model, raw: raw)
+│     ├── Req.request(req) → {:ok, resp}
+│     ├── check_status(resp) → :ok | {:error, ...}
 │     ├── SSE.stream(resp.body)
-│     └── Stream.flat_map: dialect.handle_event → provider.modify_events
-└── 10. StreamingResponse.new(stream, model: model, cancel: cancel, raw: raw)
+│     ├── Stream.flat_map: Request.parse_event(model, event)
+│     │     ├── dialect.handle_event(event) → deltas
+│     │     └── provider.modify_events(deltas, event) → deltas
+│     └── StreamingResponse.new(stream, model: model, cancel: cancel, raw: raw)
+└── Return {:ok, StreamingResponse.t()} | {:error, term()}
 ```
 
 ---
@@ -341,29 +453,33 @@ Each needs:
 
 ### Phase B (orchestration restructure)
 
+**New module:**
+- `lib/omni/request.ex` — `Omni.Request` with `build/3`, `stream/3`, `validate/2`, `parse_event/2`
+
 **Provider module:**
-- `lib/omni/provider.ex` — remove `build_request/3`, `parse_event/2`, `new_request/4`. Add `modify_events/2` to behaviour. Remove `adapt_event/1` from behaviour. Change `build_url/2` and `authenticate/2` signatures.
+- `lib/omni/provider.ex` — remove `build_request/3`, `parse_event/2`, `new_request/4`. Add `modify_events/2` to behaviour. Remove `adapt_event/1` from behaviour. Change `build_url/2` and `authenticate/2` signatures (parameter is now the unified opts map).
 
 **Omni module:**
-- `lib/omni.ex` — add private orchestration functions: `build_request/4`, `merge_config/2`, `split_request_config/1`, `apply_headers/2`. Rewrite `stream_text/3` to inline the orchestration.
+- `lib/omni.ex` — simplify `stream_text/3` to delegate to `Request.build/3` and `Request.stream/3`. Remove private helpers that move to Request (`check_status`, error body reading, `maybe_merge_plug`, `apply_headers`).
 
 **Provider implementations:**
-- `lib/omni/providers/openai.ex` — update `authenticate/2` to work with config map
-- `lib/omni/providers/openrouter.ex` — update `authenticate/2` to work with config map
+- `lib/omni/providers/openai.ex` — update `authenticate/2` to work with unified opts map
+- `lib/omni/providers/openrouter.ex` — update `authenticate/2` to work with unified opts map
 - All providers: update `build_url/2` signature (most use default, but need to update the default in `use` macro)
 - All providers: remove `adapt_event/1` override if any, add `modify_events/2` if needed
 
 **Tests:**
 - `test/omni/provider_test.exs` — remove tests for `build_request/3`, `parse_event/2`, `new_request/4`. Update callback tests for new signatures.
+- `test/omni/request_test.exs` — new unit tests for `validate/2` (config merging, three-tier resolution), `build/3` (request inspection), `parse_event/2` (event pipeline)
 - Integration tests should continue passing (same top-level API)
 
 ### Phase C (validation)
 
-**Omni module:**
-- `lib/omni.ex` — add `@universal_schema`, `build_schema/1`, `validate_opts/2`. Update `stream_text/3` to validate before building.
+**Request module:**
+- `lib/omni/request.ex` — add `@schema` module attribute, Peri validation inside `validate/2`, `:timeout` handling in `build/3`
 
 **Dialect implementations (4 files):**
-- All `handle_body/3` implementations: change `Keyword.get(opts, :key)` → `opts[:key]` or `opts.key` or `Map.get(opts, :key)`
+- All `handle_body/3` implementations: change `Keyword.get(opts, :key)` → `opts[:key]` or `opts.key` or `Map.get(opts, :key)` (if not already done in Phase B)
 
 **Provider implementations:**
 - `lib/omni/providers/openrouter.ex` — update `modify_body/2` if it reads opts
@@ -372,7 +488,7 @@ Each needs:
 - Define actual Peri schemas in `option_schema/0` for dialect-specific options (e.g. Anthropic's thinking budget constraints)
 
 **Tests:**
-- Add validation tests (unknown keys rejected, defaults applied, type errors)
+- Add validation tests in `test/omni/request_test.exs` (unknown keys rejected, defaults applied, type errors, timeout default)
 - Update any tests that construct opts as keyword lists where the validated map is expected
 
 ---
@@ -407,11 +523,11 @@ defmodule Omni.Provider do
   @doc "Returns the provider's list of model structs."
   @callback models() :: [Model.t()]
 
-  @doc "Builds the full request URL from a path and merged config."
-  @callback build_url(path :: String.t(), config :: map()) :: String.t()
+  @doc "Builds the full request URL from a path and the unified opts map."
+  @callback build_url(path :: String.t(), opts :: map()) :: String.t()
 
   @doc "Adds authentication to a Req request."
-  @callback authenticate(Req.Request.t(), config :: map()) ::
+  @callback authenticate(Req.Request.t(), opts :: map()) ::
               {:ok, Req.Request.t()} | {:error, term()}
 
   @doc "Modifies the dialect-built request body for this provider."
@@ -438,12 +554,12 @@ defmacro __using__(opts) do
     def models, do: []
 
     @impl Omni.Provider
-    def build_url(path, config), do: config.base_url <> path
+    def build_url(path, opts), do: opts.base_url <> path
 
     @impl Omni.Provider
-    def authenticate(req, config) do
-      with {:ok, key} <- Omni.Provider.resolve_auth(config.api_key) do
-        header = Map.get(config, :auth_header, "authorization")
+    def authenticate(req, opts) do
+      with {:ok, key} <- Omni.Provider.resolve_auth(opts.api_key) do
+        header = Map.get(opts, :auth_header, "authorization")
         {:ok, Req.Request.put_header(req, header, key)}
       end
     end
@@ -467,15 +583,18 @@ end
 
 ## Design Decisions Made
 
-1. **Validation at the API boundary, not in callbacks.** `stream_text` validates once. Callbacks receive known-good data.
-2. **Universal schema in Omni, not a separate module.** Module attribute keeps it co-located with the orchestration that uses it.
-3. **No provider option_schema.** Config overrides are consistent across providers (universal). Re-add if a genuine provider-specific inference option appears.
-4. **Post-dialect `modify_events` replaces pre-dialect `adapt_event`.** Provider sees parsed deltas + raw event, can augment/modify. Mirrors request side (dialect builds, provider modifies).
-5. **`build_url` receives config map, not just base_url.** Supports Azure-style URL construction where URLs depend on deployment names, API versions, etc.
-6. **`authenticate` receives config map, not keyword list.** Consistency with `build_url`. Both get the same merged config.
-7. **`handle_body` returns bare `map()`.** Validation catches errors before the dialect runs. The ok-tuple wrapper added no value.
-8. **Opts become a map after validation.** Peri returns a map with defaults filled in. All downstream code works with maps.
-9. **Strict validation (no permissive mode).** Unknown keys are filtered out. Catches typos like `temperture`.
-10. **`handle_*` for dialect, `modify_*` for provider.** Dialect callbacks are mandatory handlers. Provider callbacks are optional modifiers. The naming reflects the distinction.
-11. **No `handle_params` — using `handle_body` instead.** `handle_params` collides with Phoenix LiveView's callback. `handle_body` is clear and maintains symmetry with `modify_body`.
-12. **Headers merge, not overwrite.** Three-tier: provider config → app config → call-site, each layer merged on top. `Map.merge/2` with later layers winning on key collision.
+1. **Orchestration in `Omni.Request`, not private functions in `Omni`.** A dedicated module enables unit testing of request building, validation, and event parsing in isolation. `Omni` stays as a thin public API layer. `Request.validate/2` and `Request.parse_event/2` are `@doc false` but public for testability.
+2. **Unified opts map, not separate config and inference maps.** All callbacks receive one map containing config, framework, and inference options. Each callback reads the keys it needs and ignores the rest. This eliminates the need for `split_request_config` and `merge_config` as separate functions — config extraction and merging happen inside `validate`.
+3. **Config keys bypass schema validation.** `validate` pops config keys (`api_key`, `base_url`, `headers`) and framework keys (`plug`) before Peri strict validation. This means: (a) config keys don't need complex union types in the schema, (b) typos in config keys are caught because the misspelled key passes through to strict validation and is rejected as unknown.
+4. **`:timeout` as a first-class option.** Defaults to 300,000ms (5 minutes). Maps to Req's `receive_timeout`. LLM APIs routinely exceed Req's default 15s, especially extended thinking models. Proxies and other Req options are deferred — YAGNI, and a `:req_opts` escape hatch is trivial to add later if needed.
+5. **Validation at the API boundary, not in callbacks.** `build` calls `validate` once. Callbacks receive known-good data.
+6. **Universal schema on `Omni.Request`, not `Omni`.** Co-located with the validation logic that uses it.
+7. **No provider option_schema.** Config overrides are consistent across providers (universal). Re-add if a genuine provider-specific inference option appears.
+8. **Post-dialect `modify_events` replaces pre-dialect `adapt_event`.** Provider sees parsed deltas + raw event, can augment/modify. Mirrors request side (dialect builds, provider modifies).
+9. **`build_url` and `authenticate` receive the unified opts map.** No separate config map. Supports Azure-style URL construction where the URL depends on deployment names, API versions, etc. Simpler plumbing — one map flows through everything.
+10. **`handle_body` returns bare `map()`.** Validation catches errors before the dialect runs. The ok-tuple wrapper added no value.
+11. **Opts become a map after validation.** Peri returns a map with defaults filled in. All downstream code works with maps.
+12. **Strict validation (reject unknown keys).** Catches typos like `temperture`.
+13. **`handle_*` for dialect, `modify_*` for provider.** Dialect callbacks are mandatory handlers. Provider callbacks are optional modifiers. The naming reflects the distinction.
+14. **No `handle_params` — using `handle_body` instead.** `handle_params` collides with Phoenix LiveView's callback. `handle_body` is clear and maintains symmetry with `modify_body`.
+15. **Headers merge, not overwrite.** Three-tier: provider config → app config → call-site, each layer merged on top. `Map.merge/2` with later layers winning on key collision.

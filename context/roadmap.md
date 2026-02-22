@@ -135,24 +135,29 @@ Mechanical renames across the codebase. No logic changes.
 - Remove unused `option_schema/0` from Provider behaviour
 - Update all implementations, callers, tests
 
-### Phase 5b-B — Restructure Orchestration ✗
+### Phase 5b-B — Restructure Orchestration into Omni.Request ✗
 
-Move orchestration from Provider into Omni. Change event hook position.
+Introduce `Omni.Request` module. Move orchestration from Provider into Request. Change event hook position.
 
-- Move `Provider.build_request/3`, `parse_event/2`, `new_request/4` logic into private functions in `Omni.stream_text/3`
+- New `Omni.Request` module with public `build/3` and `stream/3`, plus `@doc false` `validate/2` and `parse_event/2` for testability
+- Move `Provider.build_request/3`, `parse_event/2`, `new_request/4` logic into `Omni.Request`
+- `Omni.stream_text/3` becomes a thin wrapper: pop `:raw`, call `Request.build`, call `Request.stream`
 - Replace pre-dialect `adapt_event/1` with post-dialect `modify_events/2` `([deltas], raw_event) → [deltas]`
-- Change `build_url/2` to receive `(path, config_map)` instead of `(base_url, path)`
-- Change `authenticate/2` to receive config map instead of keyword list
-- Add `merge_config/2` and `split_request_config/1` to Omni
+- `validate/2` pops config keys, three-tier merges them, returns a unified opts map (config + inference combined)
+- All callbacks (`build_url`, `authenticate`, `handle_body`, `modify_body`) receive the unified opts map
+- Change `build_url/2` to receive `(path, opts)` instead of `(base_url, path)`
+- Change `authenticate/2` to receive unified opts map instead of keyword list
 - Three-tier config merge extended to `base_url` and `headers` (not just `api_key`)
 
-### Phase 5b-C — Option Validation ✗
+### Phase 5b-C — Option Validation + Timeout ✗
 
 Add validation and switch opts from keyword list to validated map.
 
-- Define universal option schema as module attribute in `Omni` (`max_tokens`, `temperature`, `cache`, `metadata`, `thinking`)
-- Merge universal + `dialect.option_schema()`, validate via Peri (strict mode)
+- Define universal option schema as module attribute on `Omni.Request` (`max_tokens`, `temperature`, `timeout`, `cache`, `metadata`, `thinking`)
+- `:timeout` defaults to 300,000ms (5 minutes) — maps to Req's `receive_timeout`. Req's 15s default is far too low for LLMs.
+- `validate/2` gains Peri validation: pops config/framework keys, validates inference opts (strict mode catches typos), three-tier merges config, returns unified map with defaults
 - Result is a map with defaults filled in — all downstream callbacks receive map, not keyword list
+- No `:req_opts` escape hatch — YAGNI, trivial to add later
 - Update all `handle_body`/`modify_body` implementations to use map access
 - Implement actual Peri schemas in dialect `option_schema/0` callbacks
 

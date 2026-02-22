@@ -66,7 +66,8 @@ lib/omni/
 ├── schema.ex                       # JSON Schema builder functions
 ├── content/{text,thinking,attachment,tool_use,tool_result}.ex
 ├── sse.ex                          # Shared SSE parser
-├── provider.ex                     # Provider behaviour + shared HTTP logic
+├── request.ex                      # Request orchestration (build, stream, validate, parse_event)
+├── provider.ex                     # Provider behaviour + shared utilities
 ├── providers/{anthropic,openai,...}.ex
 ├── dialect.ex                      # Dialect behaviour
 └── dialects/{anthropic_messages,openai_completions,openai_responses,...}.ex
