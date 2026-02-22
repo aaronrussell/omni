@@ -31,9 +31,10 @@ defmodule Omni do
 
   def stream_text(%Model{} = model, context, opts) do
     context = Context.new(context)
+    {raw, opts} = Keyword.pop(opts, :raw, false)
 
     with {:ok, req} <- Request.build(model, context, opts) do
-      Request.stream(req, model, opts)
+      Request.stream(req, model, raw: raw)
     end
   end
 

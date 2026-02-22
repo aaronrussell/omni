@@ -136,7 +136,7 @@ Mechanical renames across the codebase. No logic changes.
 - Remove unused `option_schema/0` from Provider behaviour
 - Update all implementations, callers, tests
 
-### Phase 5b-B — Restructure Orchestration into Omni.Request ✗
+### Phase 5b-B — Restructure Orchestration into Omni.Request ✓
 
 Introduce `Omni.Request` module. Move orchestration from Provider into Request. Change event hook position.
 
@@ -144,23 +144,23 @@ Introduce `Omni.Request` module. Move orchestration from Provider into Request. 
 - Move `Provider.build_request/3`, `parse_event/2`, `new_request/4` logic into `Omni.Request`
 - `Omni.stream_text/3` becomes a thin wrapper: pop `:raw`, call `Request.build`, call `Request.stream`
 - Replace pre-dialect `adapt_event/1` with post-dialect `modify_events/2` `([deltas], raw_event) → [deltas]`
-- `validate/2` pops config keys, three-tier merges them, returns a unified opts map (config + inference combined)
+- `validate/2` three-tier merges config, returns a unified opts map (config + inference combined)
 - All callbacks (`build_url`, `authenticate`, `handle_body`, `modify_body`) receive the unified opts map
 - Change `build_url/2` to receive `(path, opts)` instead of `(base_url, path)`
 - Change `authenticate/2` to receive unified opts map instead of keyword list
 - Three-tier config merge extended to `base_url` and `headers` (not just `api_key`)
 
-### Phase 5b-C — Option Validation + Timeout ✗
+### Phase 5b-C — Option Validation + Timeout ✓
 
-Add validation and switch opts from keyword list to validated map.
+Add Peri-based validation, universal option schema, and `:timeout` support.
 
-- Define universal option schema as module attribute on `Omni.Request` (`max_tokens`, `temperature`, `timeout`, `cache`, `metadata`, `thinking`)
+- Universal `@schema` on `Omni.Request` — config keys (`:any` typed: `api_key`, `base_url`, `auth_header`, `headers`, `plug`) and inference keys (strictly typed: `max_tokens`, `temperature`, `timeout`, `cache`, `metadata`, `thinking`)
 - `:timeout` defaults to 300,000ms (5 minutes) — maps to Req's `receive_timeout`. Req's 15s default is far too low for LLMs.
-- `validate/2` gains Peri validation: pops config/framework keys, validates inference opts (strict mode catches typos), three-tier merges config, returns unified map with defaults
-- Result is a map with defaults filled in — all downstream callbacks receive map, not keyword list
+- `validate/2` does flat three-tier merge (provider config ← app config ← call-site opts), rejects unknown keys (catches typos), validates via Peri (fills defaults, type-checks). Headers merge additively across all three tiers.
+- `build/3` accepts keyword list or map — single clause, always validates first
+- Result is a map with defaults filled in — all downstream callbacks receive map
+- Anthropic `option_schema/0` returns `%{max_tokens: {:integer, {:default, 4096}}}` (dialect-level override)
 - No `:req_opts` escape hatch — YAGNI, trivial to add later
-- Update all `handle_body`/`modify_body` implementations to use map access
-- Implement actual Peri schemas in dialect `option_schema/0` callbacks
 
 ---
 
@@ -170,7 +170,7 @@ Add validation and switch opts from keyword list to validated map.
 
 2. **~~Where does validation live?~~** — Resolved: at the `stream_text` API boundary. Universal schema + dialect `option_schema()` merged and validated via Peri once, before any callbacks. (Phase 5b-C)
 
-3. **~~Universal options location~~** — Resolved: module attribute in `Omni`. Covers `max_tokens`, `temperature`, `cache`, `metadata`, `thinking`. (Phase 5b-C)
+3. **~~Universal options location~~** — Resolved: `@schema` module attribute in `Omni.Request`. Covers config keys (`api_key`, `base_url`, `auth_header`, `headers`, `plug`) and inference keys (`max_tokens`, `temperature`, `timeout`, `cache`, `metadata`, `thinking`). Merged with `dialect.option_schema()` at validation time. (Phase 5b-C)
 
 4. **Plain text attachment source** — Should `Attachment.source` support `{:text, content}` in addition to `{:base64, data}` and `{:url, url}`? Wait to see if multiple providers support it.
 

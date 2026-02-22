@@ -9,39 +9,54 @@ defmodule Omni.Request do
 
   alias Omni.{Context, Model, SSE, StreamingResponse}
 
-  @config_keys ~w(api_key base_url auth_header headers plug timeout)a
+  @schema %{
+    # Config (type-loose — validated by infrastructure, not user input)
+    api_key: :any,
+    base_url: :any,
+    auth_header: {:string, {:default, "authorization"}},
+    headers: {:any, {:default, %{}}},
+    plug: :any,
+
+    # Inference (type-strict)
+    max_tokens: :integer,
+    temperature: {:either, {:integer, :float}},
+    timeout: {:integer, {:default, 300_000}},
+    cache: {:enum, [:short, :long]},
+    metadata: :map,
+    thinking:
+      {:either,
+       {{:enum, [true, false, :none, :low, :medium, :high, :max]},
+        {:schema, %{effort: {:enum, [:low, :medium, :high, :max]}, budget: :integer}}}}
+  }
 
   @doc """
   Builds an authenticated `%Req.Request{}` from a model, context, and options.
 
-  Accepts either raw keyword opts (validated internally) or a pre-validated map
-  from `validate/2`. Delegates body/path building to the dialect, applies provider
-  modifications, and returns the final request ready for execution.
+  Options can be a keyword list or map. Validates all options via `validate/2`,
+  then delegates body/path building to the dialect, applies provider modifications,
+  and returns the final request ready for execution.
   """
   @spec build(Model.t(), Context.t(), keyword() | map()) ::
           {:ok, Req.Request.t()} | {:error, term()}
-  def build(%Model{} = model, %Context{} = context, opts) when is_list(opts) do
-    with {:ok, validated} <- validate(model, opts) do
-      build(model, context, validated)
-    end
-  end
+  def build(%Model{} = model, %Context{} = context, opts) do
+    with {:ok, opts} <- validate(model, opts) do
+      url =
+        model
+        |> model.dialect.handle_path(opts)
+        |> model.provider.build_url(opts)
 
-  def build(%Model{} = model, %Context{} = context, %{} = opts) do
-    dialect = model.dialect
-    provider = model.provider
+      body =
+        model
+        |> model.dialect.handle_body(context, opts)
+        |> model.provider.modify_body(opts)
 
-    body = dialect.handle_body(model, context, opts)
-    path = dialect.handle_path(model, opts)
-    body = provider.modify_body(body, opts)
+      req =
+        [method: :post, url: url, json: body, receive_timeout: opts[:timeout], into: :self]
+        |> maybe_put(:headers, opts[:headers])
+        |> maybe_put(:plug, opts[:plug])
+        |> Req.new()
 
-    url = provider.build_url(path, opts)
-
-    req =
-      Req.new(method: :post, url: url, json: body, into: :self)
-      |> merge_headers(provider.config()[:headers], opts[:headers])
-
-    with {:ok, req} <- provider.authenticate(req, opts) do
-      {:ok, maybe_merge_plug(req, opts[:plug])}
+      model.provider.authenticate(req, opts)
     end
   end
 
@@ -56,8 +71,7 @@ defmodule Omni.Request do
   def stream(%Req.Request{} = req, %Model{} = model, opts) do
     raw? = opts[:raw] || false
 
-    with {:ok, resp} <- Req.request(req),
-         :ok <- check_status(resp) do
+    with {:ok, resp} <- Req.request(req), :ok <- check_status(resp) do
       deltas =
         resp.body
         |> SSE.stream()
@@ -71,41 +85,21 @@ defmodule Omni.Request do
   end
 
   @doc false
-  @spec validate(Model.t(), keyword()) :: {:ok, map()}
-  def validate(%Model{} = model, opts) when is_list(opts) do
-    provider = model.provider
-    config = provider.config()
-    app_config = Application.get_env(:omni, provider, [])
+  @spec validate(Model.t(), keyword() | map()) :: {:ok, map()} | {:error, term()}
+  def validate(%Model{} = model, opts) do
+    config = Application.get_env(:omni, model.provider, [])
+    schema = Map.merge(@schema, model.dialect.option_schema())
 
-    {config_opts, inference_opts} = Keyword.split(opts, @config_keys)
+    # Three-tier merge: provider config <- app config <- call-site opts
+    data =
+      model.provider.config()
+      |> Map.merge(Map.new(config), &merge_config/3)
+      |> Map.merge(Map.new(opts), &merge_config/3)
 
-    unified =
-      inference_opts
-      |> Map.new()
-      |> Map.put_new_lazy(:api_key, fn ->
-        cond do
-          Keyword.has_key?(config_opts, :api_key) -> config_opts[:api_key]
-          Keyword.has_key?(app_config, :api_key) -> app_config[:api_key]
-          true -> config[:api_key]
-        end
-      end)
-      |> Map.put_new_lazy(:base_url, fn ->
-        Keyword.get(config_opts, :base_url) || config[:base_url]
-      end)
-      |> Map.put_new_lazy(:auth_header, fn ->
-        Keyword.get(config_opts, :auth_header) || config[:auth_header] || "authorization"
-      end)
-      |> Map.put_new_lazy(:headers, fn ->
-        Keyword.get(config_opts, :headers)
-      end)
-      |> Map.put_new_lazy(:plug, fn ->
-        Keyword.get(config_opts, :plug)
-      end)
-      |> Map.put_new_lazy(:timeout, fn ->
-        Keyword.get(config_opts, :timeout, 300_000)
-      end)
-
-    {:ok, unified}
+    with :ok <- check_unknown_keys(data, schema),
+         {:ok, validated} <- Peri.validate(schema, data) do
+      {:ok, validated}
+    end
   end
 
   @doc false
@@ -117,20 +111,21 @@ defmodule Omni.Request do
 
   # -- Private helpers --
 
-  defp maybe_merge_plug(req, nil), do: req
-  defp maybe_merge_plug(req, plug), do: Req.merge(req, plug: plug)
+  defp check_unknown_keys(data, schema) do
+    unknown = Map.keys(data) -- Map.keys(schema)
 
-  defp merge_headers(req, config_headers, call_headers) do
-    req
-    |> apply_headers(config_headers)
-    |> apply_headers(call_headers)
+    case unknown do
+      [] -> :ok
+      keys -> {:error, {:unknown_options, keys}}
+    end
   end
 
-  defp apply_headers(req, nil), do: req
+  # Headers merge additively (not last-writer-wins)
+  defp merge_config(:headers, a, b), do: Map.merge(a, b)
+  defp merge_config(_key, _a, b), do: b
 
-  defp apply_headers(req, headers) when is_map(headers) do
-    Enum.reduce(headers, req, fn {k, v}, acc -> Req.Request.put_header(acc, k, v) end)
-  end
+  defp maybe_put(opts, _key, nil), do: opts
+  defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)
 
   defp check_status(%Req.Response{status: 200}), do: :ok
 

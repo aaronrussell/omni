@@ -14,8 +14,8 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
          )
 
   describe "option_schema/0" do
-    test "returns empty map" do
-      assert AnthropicMessages.option_schema() == %{}
+    test "returns max_tokens with default" do
+      assert AnthropicMessages.option_schema() == %{max_tokens: {:integer, {:default, 4096}}}
     end
   end
 
@@ -28,7 +28,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
   describe "handle_body/3" do
     test "simple text message" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@model, context, %{})
+      body = AnthropicMessages.handle_body(@model, context, %{max_tokens: 4096})
 
       assert body["model"] == "claude-sonnet-4-20250514"
       assert body["max_tokens"] == 4096
@@ -330,7 +330,12 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
     test "thinking: true with non-4.6 model uses manual format" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@reasoning_model, context, %{thinking: true})
+
+      body =
+        AnthropicMessages.handle_body(@reasoning_model, context, %{
+          thinking: true,
+          max_tokens: 4096
+        })
 
       assert body["thinking"] == %{"type" => "enabled", "budget_tokens" => 16384}
       assert body["max_tokens"] == 4096 + 16384
@@ -338,7 +343,12 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
     test "thinking: true with 4.6 model uses adaptive format" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@adaptive_model, context, %{thinking: true})
+
+      body =
+        AnthropicMessages.handle_body(@adaptive_model, context, %{
+          thinking: true,
+          max_tokens: 4096
+        })
 
       assert body["thinking"] == %{"type" => "adaptive"}
       assert body["output_config"] == %{"effort" => "high"}
@@ -350,7 +360,10 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
       for {level, expected_budget} <- [low: 1024, medium: 4096, high: 16384, max: 32768] do
         body =
-          AnthropicMessages.handle_body(@reasoning_model, context, %{thinking: level})
+          AnthropicMessages.handle_body(@reasoning_model, context, %{
+            thinking: level,
+            max_tokens: 4096
+          })
 
         assert body["thinking"]["budget_tokens"] == expected_budget,
                "expected budget #{expected_budget} for level #{level}"
@@ -376,7 +389,8 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
       body =
         AnthropicMessages.handle_body(@reasoning_model, context, %{
-          thinking: [effort: :high, budget: 10_000]
+          thinking: [effort: :high, budget: 10_000],
+          max_tokens: 4096
         })
 
       assert body["thinking"] == %{"type" => "enabled", "budget_tokens" => 10_000}
@@ -403,7 +417,8 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       body =
         AnthropicMessages.handle_body(@reasoning_model, context, %{
           thinking: true,
-          temperature: 0.7
+          temperature: 0.7,
+          max_tokens: 4096
         })
 
       refute Map.has_key?(body, "temperature")

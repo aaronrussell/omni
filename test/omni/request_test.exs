@@ -15,7 +15,7 @@ defmodule Omni.RequestTest do
 
     @impl true
     def handle_body(model, _context, opts) do
-      %{"model" => model.id, "max_tokens" => opts[:max_tokens] || 1024}
+      %{"model" => model.id, "max_tokens" => opts[:max_tokens]}
     end
 
     @impl true
@@ -69,7 +69,7 @@ defmodule Omni.RequestTest do
   end
 
   describe "validate/2" do
-    test "extracts config keys and returns unified opts map" do
+    test "three-tier merge and returns unified opts map" do
       model = make_model()
 
       {:ok, opts} =
@@ -113,6 +113,13 @@ defmodule Omni.RequestTest do
       assert opts.base_url == "https://custom.api.com"
     end
 
+    test "auth_header defaults from schema when provider omits it" do
+      model = make_model(AugmentingProvider)
+
+      {:ok, opts} = Request.validate(model, [])
+      assert opts.auth_header == "authorization"
+    end
+
     test "auth_header from provider config" do
       model = make_model()
 
@@ -143,6 +150,140 @@ defmodule Omni.RequestTest do
       assert opts[:thinking] == :high
       assert opts[:cache] == :short
     end
+
+    test "headers merge additively across all three tiers" do
+      model = make_model()
+      Application.put_env(:omni, TestProvider, headers: %{"x-app" => "from-app"})
+
+      {:ok, opts} = Request.validate(model, headers: %{"x-call" => "from-call"})
+
+      assert opts.headers["x-custom"] == "from-config"
+      assert opts.headers["x-app"] == "from-app"
+      assert opts.headers["x-call"] == "from-call"
+    after
+      Application.delete_env(:omni, TestProvider)
+    end
+
+    test "unknown keys rejected" do
+      model = make_model()
+
+      assert {:error, {:unknown_options, [:temperture]}} =
+               Request.validate(model, temperture: 0.7)
+    end
+
+    test "max_tokens optional (nil when not provided)" do
+      model = make_model()
+
+      {:ok, opts} = Request.validate(model, [])
+      assert opts[:max_tokens] == nil
+    end
+
+    test "temperature accepts integer" do
+      model = make_model()
+
+      {:ok, opts} = Request.validate(model, temperature: 0)
+      assert opts[:temperature] == 0
+    end
+
+    test "temperature accepts float" do
+      model = make_model()
+
+      {:ok, opts} = Request.validate(model, temperature: 0.5)
+      assert opts[:temperature] == 0.5
+    end
+
+    test "thinking accepts boolean true" do
+      model = make_model()
+
+      {:ok, opts} = Request.validate(model, thinking: true)
+      assert opts[:thinking] == true
+    end
+
+    test "thinking accepts boolean false" do
+      model = make_model()
+
+      {:ok, opts} = Request.validate(model, thinking: false)
+      assert opts[:thinking] == false
+    end
+
+    test "thinking accepts effort atom" do
+      model = make_model()
+
+      {:ok, opts} = Request.validate(model, thinking: :high)
+      assert opts[:thinking] == :high
+    end
+
+    test "thinking accepts keyword list" do
+      model = make_model()
+
+      {:ok, opts} = Request.validate(model, thinking: [effort: :high, budget: 10000])
+      assert opts[:thinking][:effort] == :high
+      assert opts[:thinking][:budget] == 10000
+    end
+
+    test "thinking rejects invalid value" do
+      model = make_model()
+
+      assert {:error, _} = Request.validate(model, thinking: "invalid")
+    end
+
+    test "cache accepts :short" do
+      model = make_model()
+
+      {:ok, opts} = Request.validate(model, cache: :short)
+      assert opts[:cache] == :short
+    end
+
+    test "cache accepts :long" do
+      model = make_model()
+
+      {:ok, opts} = Request.validate(model, cache: :long)
+      assert opts[:cache] == :long
+    end
+
+    test "cache rejects invalid value" do
+      model = make_model()
+
+      assert {:error, _} = Request.validate(model, cache: :invalid)
+    end
+
+    test "max_tokens rejects non-integer" do
+      model = make_model()
+
+      assert {:error, _} = Request.validate(model, max_tokens: "big")
+    end
+
+    test "dialect option_schema merge overrides universal schema" do
+      # Create a dialect that overrides max_tokens with a default
+      defmodule OverrideDialect do
+        @moduledoc false
+        @behaviour Omni.Dialect
+
+        @impl true
+        def option_schema, do: %{max_tokens: {:integer, {:default, 4096}}}
+
+        @impl true
+        def handle_path(_model, _opts), do: "/v1/override"
+
+        @impl true
+        def handle_body(_model, _context, _opts), do: %{}
+
+        @impl true
+        def handle_event(_), do: []
+      end
+
+      model =
+        Omni.Model.new(
+          id: "test-model",
+          name: "Test Model",
+          provider: TestProvider,
+          dialect: OverrideDialect,
+          max_output_tokens: 2048
+        )
+
+      {:ok, opts} = Request.validate(model, [])
+      assert opts[:max_tokens] == 4096
+    end
   end
 
   describe "build/3" do
@@ -162,21 +303,7 @@ defmodule Omni.RequestTest do
       assert req.options.json["model"] == "test-model"
     end
 
-    test "applies config headers" do
-      model = make_model()
-      context = Omni.Context.new("Hello")
-
-      {:ok, req} =
-        Request.build(model, context, %{
-          api_key: "sk-test",
-          base_url: "https://api.test.com",
-          auth_header: "authorization"
-        })
-
-      assert Req.Request.get_header(req, "x-custom") == ["from-config"]
-    end
-
-    test "applies call-site headers" do
+    test "applies merged headers" do
       model = make_model()
       context = Omni.Context.new("Hello")
 
@@ -185,9 +312,10 @@ defmodule Omni.RequestTest do
           api_key: "sk-test",
           base_url: "https://api.test.com",
           auth_header: "authorization",
-          headers: %{"x-extra" => "from-call"}
+          headers: %{"x-custom" => "from-config", "x-extra" => "from-call"}
         })
 
+      assert Req.Request.get_header(req, "x-custom") == ["from-config"]
       assert Req.Request.get_header(req, "x-extra") == ["from-call"]
     end
 
@@ -270,6 +398,35 @@ defmodule Omni.RequestTest do
       assert %Req.Request{} = req
       assert URI.to_string(req.url) == "https://api.test.com/v1/dummy"
       assert Req.Request.get_header(req, "authorization") == ["sk-test"]
+    end
+
+    test "default timeout applies as receive_timeout on Req request" do
+      model = make_model()
+      context = Omni.Context.new("Hello")
+
+      {:ok, req} =
+        Request.build(model, context, %{
+          api_key: "sk-test",
+          base_url: "https://api.test.com",
+          auth_header: "authorization"
+        })
+
+      assert req.options[:receive_timeout] == 300_000
+    end
+
+    test "custom timeout applies as receive_timeout on Req request" do
+      model = make_model()
+      context = Omni.Context.new("Hello")
+
+      {:ok, req} =
+        Request.build(model, context, %{
+          api_key: "sk-test",
+          base_url: "https://api.test.com",
+          auth_header: "authorization",
+          timeout: 60_000
+        })
+
+      assert req.options[:receive_timeout] == 60_000
     end
   end
 

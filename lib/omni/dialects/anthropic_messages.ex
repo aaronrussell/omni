@@ -11,12 +11,10 @@ defmodule Omni.Dialects.AnthropicMessages do
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Model}
 
-  @default_max_tokens 4096
-
   @image_media_types ~w(image/jpeg image/png image/gif image/webp)
 
   @impl true
-  def option_schema, do: %{}
+  def option_schema, do: %{max_tokens: {:integer, {:default, 4096}}}
 
   @impl true
   def handle_path(%Model{}, _opts), do: "/v1/messages"
@@ -29,7 +27,7 @@ defmodule Omni.Dialects.AnthropicMessages do
       %{
         "model" => model.id,
         "messages" => encode_messages(context.messages, cache),
-        "max_tokens" => opts[:max_tokens] || @default_max_tokens,
+        "max_tokens" => opts[:max_tokens],
         "stream" => true
       }
       |> maybe_put_system(context.system, cache)
