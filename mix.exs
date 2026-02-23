@@ -4,11 +4,16 @@ defmodule Omni.MixProject do
   def project do
     [
       app: :omni,
+      name: "Omni",
+      description: "One client for all LLMs. Universal Elixir chat completion API client.",
+      source_url: "https://github.com/aaronrussell/omni",
       version: "1.0.0",
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
-      deps: deps()
+      deps: deps(),
+      docs: docs(),
+      package: pkg()
     ]
   end
 
@@ -30,6 +35,34 @@ defmodule Omni.MixProject do
       {:peri, "~> 0.6.2"},
       {:plug, "~> 1.0", only: :test},
       {:req, "~> 0.5.17"}
+    ]
+  end
+
+  defp docs do
+    [
+      main: "Omni",
+      groups_for_modules: [
+        "Providers": ~r/^Omni\.Providers\..+$/,
+        "Dialects": ~r/^Omni\.Dialects\..+$/,
+        "Data structures": [
+          ~r/Omni\.Content\..+$/,
+          Omni.Context,
+          Omni.Message,
+          Omni.Response,
+          Omni.Usage,
+        ]
+      ]
+    ]
+  end
+
+  defp pkg do
+    [
+      name: "omni",
+      files: ~w(lib priv/models .formatter.exs mix.exs README.md LICENSE),
+      licenses: ["Apache-2.0"],
+      links: %{
+        "GitHub" => "https://github.com/aaronrussell/omni"
+      }
     ]
   end
 end
