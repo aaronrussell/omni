@@ -53,9 +53,9 @@ defmodule Omni.ProviderTest do
                "https://api.example.com/v1/chat"
     end
 
-    test "modify_body/2 passes through body unchanged" do
+    test "modify_body/3 passes through body unchanged" do
       body = %{"model" => "test", "messages" => []}
-      assert TestProvider.modify_body(body, %{}) == body
+      assert TestProvider.modify_body(body, %Omni.Context{}, %{}) == body
     end
 
     test "modify_events/2 passes through deltas unchanged" do

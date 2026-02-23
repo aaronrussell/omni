@@ -36,11 +36,11 @@ defmodule Omni.Providers.OpenRouterTest do
     end
   end
 
-  describe "modify_body/2" do
+  describe "modify_body/3" do
     test "converts reasoning_effort to reasoning object" do
       body = %{"model" => "test", "reasoning_effort" => "high"}
 
-      result = OpenRouter.modify_body(body, %{})
+      result = OpenRouter.modify_body(body, %Omni.Context{}, %{})
 
       assert result["reasoning"] == %{"effort" => "high"}
       refute Map.has_key?(result, "reasoning_effort")
@@ -49,7 +49,7 @@ defmodule Omni.Providers.OpenRouterTest do
     test "maps max to xhigh" do
       body = %{"model" => "test", "reasoning_effort" => "max"}
 
-      result = OpenRouter.modify_body(body, %{})
+      result = OpenRouter.modify_body(body, %Omni.Context{}, %{})
 
       assert result["reasoning"] == %{"effort" => "xhigh"}
     end
@@ -57,7 +57,7 @@ defmodule Omni.Providers.OpenRouterTest do
     test "passes through body without reasoning_effort" do
       body = %{"model" => "test", "messages" => []}
 
-      result = OpenRouter.modify_body(body, %{})
+      result = OpenRouter.modify_body(body, %Omni.Context{}, %{})
 
       assert result == body
     end
@@ -66,7 +66,7 @@ defmodule Omni.Providers.OpenRouterTest do
       for level <- ["low", "medium", "high"] do
         body = %{"model" => "test", "reasoning_effort" => level}
 
-        result = OpenRouter.modify_body(body, %{})
+        result = OpenRouter.modify_body(body, %Omni.Context{}, %{})
 
         assert result["reasoning"]["effort"] == level,
                "expected #{level} to pass through"

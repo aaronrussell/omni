@@ -50,7 +50,7 @@ defmodule Omni.Request do
       body =
         model
         |> model.dialect.handle_body(context, opts)
-        |> model.provider.modify_body(opts)
+        |> model.provider.modify_body(context, opts)
 
       req =
         [method: :post, url: url, json: body, receive_timeout: opts[:timeout], into: :self]

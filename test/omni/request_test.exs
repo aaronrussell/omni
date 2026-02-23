@@ -50,7 +50,7 @@ defmodule Omni.RequestTest do
     end
 
     @impl true
-    def modify_body(body, _opts), do: Map.put(body, "modified", true)
+    def modify_body(body, _context, _opts), do: Map.put(body, "modified", true)
 
     @impl true
     def modify_events(deltas, _raw_event) do

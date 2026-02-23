@@ -62,7 +62,7 @@ defmodule Omni.Provider do
               {:ok, Req.Request.t()} | {:error, term()}
 
   @doc "Modifies a dialect-built request body for this provider."
-  @callback modify_body(body :: map(), opts :: map()) :: map()
+  @callback modify_body(body :: map(), context :: Omni.Context.t(), opts :: map()) :: map()
 
   @doc "Post-dialect event modification. Receives parsed deltas and the raw SSE event."
   @callback modify_events(deltas :: [{atom(), map()}], raw_event :: map()) :: [{atom(), map()}]
@@ -202,7 +202,7 @@ defmodule Omni.Provider do
       end
 
       @impl Omni.Provider
-      def modify_body(body, _opts), do: body
+      def modify_body(body, _context, _opts), do: body
 
       @impl Omni.Provider
       def modify_events(deltas, _raw_event), do: deltas
@@ -210,7 +210,7 @@ defmodule Omni.Provider do
       defoverridable models: 0,
                      build_url: 2,
                      authenticate: 2,
-                     modify_body: 2,
+                     modify_body: 3,
                      modify_events: 2
     end
   end
