@@ -98,6 +98,72 @@ defmodule Integration.OpenRouterTest do
       texts = Enum.filter(resp.message.content, &match?(%Text{}, &1))
       assert length(texts) > 0
     end
+
+    test "accumulates reasoning_details in message private" do
+      stub_fixture(:int_openrouter_thinking_rd, @thinking_fixture)
+
+      assert {:ok, %Response{} = resp} =
+               Omni.generate_text(reasoning_model(), "How many R's are in strawberry?",
+                 api_key: "test-key",
+                 thinking: true,
+                 plug: {Req.Test, :int_openrouter_thinking_rd}
+               )
+
+      details = resp.message.private.reasoning_details
+      assert is_list(details) and length(details) > 0
+
+      types = Enum.map(details, & &1["type"])
+      assert "reasoning.summary" in types
+      assert "reasoning.encrypted" in types
+    end
+  end
+
+  describe "reasoning_details outbound" do
+    test "assistant message with reasoning_details in private encodes on wire" do
+      test_pid = self()
+
+      Req.Test.stub(:int_openrouter_outbound, fn conn ->
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        send(test_pid, {:captured_body, JSON.decode!(body)})
+
+        sse_body = File.read!(@text_fixture)
+
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, sse_body)
+      end)
+
+      reasoning_details = [
+        %{"type" => "reasoning.summary", "summary" => "thinking about it"},
+        %{"type" => "reasoning.encrypted", "data" => "encrypted_blob", "id" => "rs_123"}
+      ]
+
+      context =
+        Context.new([
+          Message.new(role: :user, content: "Hello"),
+          Message.new(
+            role: :assistant,
+            content: "Hi there",
+            private: %{reasoning_details: reasoning_details}
+          ),
+          Message.new(role: :user, content: "Follow up")
+        ])
+
+      assert {:ok, %Response{}} =
+               Omni.generate_text(model(), context,
+                 api_key: "test-key",
+                 plug: {Req.Test, :int_openrouter_outbound}
+               )
+
+      assert_received {:captured_body, captured}
+      messages = captured["messages"]
+
+      assistant_msg = Enum.find(messages, &(&1["role"] == "assistant"))
+      assert assistant_msg["reasoning_details"] == reasoning_details
+
+      user_msgs = Enum.filter(messages, &(&1["role"] == "user"))
+      assert Enum.all?(user_msgs, &(not Map.has_key?(&1, "reasoning_details")))
+    end
   end
 
   describe "stream_text/3 — text streaming" do

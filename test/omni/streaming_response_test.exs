@@ -123,6 +123,40 @@ defmodule Omni.StreamingResponseTest do
       {:done, _, resp} = List.last(result)
       assert resp.message.private.reasoning_details == "some data"
     end
+
+    test "list values in private are concatenated across multiple :message events" do
+      events = [
+        {:message,
+         %{
+           private: %{
+             reasoning_details: [%{"type" => "reasoning.summary", "summary" => "thinking"}]
+           }
+         }},
+        {:block_delta, %{type: :text, index: 0, delta: "Hi"}},
+        {:message,
+         %{private: %{reasoning_details: [%{"type" => "reasoning.encrypted", "data" => "blob"}]}}}
+      ]
+
+      result = collect_scripted(events)
+      {:done, _, resp} = List.last(result)
+
+      assert resp.message.private.reasoning_details == [
+               %{"type" => "reasoning.summary", "summary" => "thinking"},
+               %{"type" => "reasoning.encrypted", "data" => "blob"}
+             ]
+    end
+
+    test "non-list private values still overwrite" do
+      events = [
+        {:message, %{private: %{some_key: "first"}}},
+        {:block_delta, %{type: :text, index: 0, delta: "Hi"}},
+        {:message, %{private: %{some_key: "second"}}}
+      ]
+
+      result = collect_scripted(events)
+      {:done, _, resp} = List.last(result)
+      assert resp.message.private.some_key == "second"
+    end
   end
 
   describe "message merging" do

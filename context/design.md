@@ -391,7 +391,7 @@ The provider behaviour defines the following callbacks:
 | `models/0` | `[%Model{}]` | `[]` | Returns the provider's model list |
 | `build_url/2` | `String.t()` | Concatenation | Builds full URL from path and merged config map |
 | `authenticate/2` | `{:ok, Req.Request.t()} \| {:error, reason}` | API key header | Adds auth to a Req request |
-| `modify_body/2` | `map()` | Passthrough | Modifies the dialect-built request body for this provider |
+| `modify_body/3` | `map()` | Passthrough | Modifies the dialect-built request body (receives body, context, opts) |
 | `modify_events/2` | `[{atom(), map()}]` | Passthrough | Modifies dialect-parsed deltas (post-dialect, receives raw event for context) |
 
 **Which callbacks can fail:** Only `authenticate/2` returns an ok/error tuple, because authentication involves real external dependencies that can fail at runtime (missing environment variables, unreachable vaults, expired tokens). All other callbacks either return static data or perform deterministic transformations on already-validated inputs.
@@ -517,12 +517,12 @@ The opts map contains `base_url` (from three-tier merge), `api_key`, `auth_heade
 
 Some providers speak a standard dialect but with minor deviations -- an extra required field, a parameter that needs renaming, additional data in streaming events. Two optional callbacks handle this:
 
-- **`modify_body/2`** -- receives the dialect-built request body and the validated options map. The provider pulls out whatever it needs. Returns the modified body. Default is passthrough.
+- **`modify_body/3`** -- receives the dialect-built request body, the original `%Context{}`, and the validated options map. The context parameter enables provider-specific per-message transformations (e.g. OpenRouter encoding `reasoning_details` from `Message.private` onto wire-format assistant messages). Returns the modified body. Default is passthrough.
 - **`modify_events/2`** -- receives the dialect-parsed delta list and the original raw SSE event map. The provider can modify, remove, or add deltas. Returns the modified delta list. Default is passthrough.
 
 These are *modifications* of the dialect's standard output, not alternatives to it. The dialect does the real transformation; the provider makes small, targeted adjustments. Most providers don't need either callback.
 
-**`modify_events/2` runs post-dialect.** The dialect parses the raw SSE event first (`handle_event/1`), then the provider can augment the parsed deltas with provider-specific data. This mirrors the request side where the dialect builds first (`handle_body/3`), then the provider modifies (`modify_body/2`). The raw event is passed as the second argument so the provider can inspect it for data the dialect doesn't know about (e.g. OpenRouter's `reasoning_details`).
+**`modify_events/2` runs post-dialect.** The dialect parses the raw SSE event first (`handle_event/1`), then the provider can augment the parsed deltas with provider-specific data. This mirrors the request side where the dialect builds first (`handle_body/3`), then the provider modifies (`modify_body/3`). The raw event is passed as the second argument so the provider can inspect it for data the dialect doesn't know about (e.g. OpenRouter's `reasoning_details`).
 
 ### Orchestration lives in Omni.Request
 
@@ -534,7 +534,7 @@ The orchestration calls provider and dialect callbacks directly via the module r
 
 ```elixir
 body = model.dialect.handle_body(model, context, opts)
-body = model.provider.modify_body(body, opts)
+body = model.provider.modify_body(body, context, opts)
 path = model.dialect.handle_path(model, opts)
 url = model.provider.build_url(path, opts)
 ```
@@ -700,7 +700,7 @@ deltas = AnthropicMessages.handle_event(%{"type" => "content_block_delta", ...})
 assert deltas == [{:block_delta, %{type: :text, index: 0, delta: "Hello"}}]
 
 # Test a provider's modifications in isolation
-modified = OpenRouter.modify_body(body, opts)
+modified = OpenRouter.modify_body(body, context, opts)
 assert modified["reasoning"] == %{"effort" => "high"}
 
 # Test the full stack
@@ -1471,7 +1471,7 @@ def build(model, context, opts) do
     {timeout, opts} = Map.pop(opts, :timeout)
 
     body = model.dialect.handle_body(model, context, opts)
-    body = model.provider.modify_body(body, opts)
+    body = model.provider.modify_body(body, context, opts)
     path = model.dialect.handle_path(model, opts)
     url = model.provider.build_url(path, opts)
 
@@ -1512,7 +1512,7 @@ The key architectural points:
 
 - **`Request.build/3` calls `validate/2` internally.** `validate` pops config keys (`api_key`, `base_url`, `headers`) and framework keys (`plug`) from the keyword list, validates the remaining inference opts via Peri in strict mode, three-tier merges config values (call-site > app config > provider default), and returns a unified opts map with everything combined. All callbacks receive this single map.
 
-- **Unified opts map.** All callbacks (`handle_body`, `modify_body`, `build_url`, `authenticate`) receive the same map containing both config and inference options. Each reads the keys it needs and ignores the rest. This eliminates separate `split_request_config` and `merge_config` functions.
+- **Unified opts map.** All callbacks (`handle_body`, `modify_body`, `build_url`, `authenticate`) receive the same opts map containing both config and inference options. `modify_body` additionally receives the `%Context{}` for per-message transformations. Each reads the keys it needs and ignores the rest. This eliminates separate `split_request_config` and `merge_config` functions.
 
 - **`:timeout` with a generous default.** Defaults to 300,000ms (5 minutes). Maps to Req's `receive_timeout`. LLM APIs routinely exceed Req's default 15s, especially extended thinking models. Popped in `build` and applied to the Req request.
 
@@ -1539,7 +1539,7 @@ Omni.stream_text(model, context, opts)
 │     │     └── Return unified map: %{api_key: ..., base_url: ..., max_tokens: 4096, ...}
 │     ├── Pop plug and timeout from unified map
 │     ├── dialect.handle_body(model, context, opts) → body map
-│     ├── provider.modify_body(body, opts) → modified body
+│     ├── provider.modify_body(body, context, opts) → modified body
 │     ├── dialect.handle_path(model, opts) → path
 │     ├── provider.build_url(path, opts) → URL
 │     ├── Req.new(url, method: :post, json: body, into: :self, receive_timeout: timeout)
@@ -1671,7 +1671,7 @@ This needs further research to flesh out, but the architectural intent is a laye
 - **No automatic tool execution** -- `generate_text` and `stream_text` do not execute tools. They are pure request/response functions. `Omni.Tool.execute/2` is a convenience helper for dispatching tool uses to handlers.
 - **Caching as a TTL hint, not an on/off switch** -- `cache: :short | :long | nil` controls explicit caching directives. `nil` means no explicit directives (providers with implicit caching may still cache). `:short` and `:long` map to provider-specific TTL tiers (e.g. Anthropic's 5min/1hr breakpoints, OpenAI's retention parameter). Dialects without caching support silently ignore the option -- caching is an optimisation hint, not a semantic requirement.
 - **Provider as authenticated HTTP layer** -- the provider defines callbacks for URL building, authentication, and adaptation. Orchestration (composing dialect + provider) lives in `Omni.Request`, not on the Provider module. The Provider module defines callbacks; `Omni.Request` composes them.
-- **Dialect handles, provider modifies** -- the dialect produces the standard request body (`handle_body/3`), URL path (`handle_path/2`), and event parsing (`handle_event/1`). The provider optionally modifies these via `modify_body/2` and `modify_events/2`. The `handle_*` prefix signals mandatory dialect callbacks; `modify_*` signals optional provider adjustments.
+- **Dialect handles, provider modifies** -- the dialect produces the standard request body (`handle_body/3`), URL path (`handle_path/2`), and event parsing (`handle_event/1`). The provider optionally modifies these via `modify_body/3` and `modify_events/2`. The `handle_*` prefix signals mandatory dialect callbacks; `modify_*` signals optional provider adjustments.
 - **`modify_events/2` is post-dialect** -- the provider's `modify_events/2` runs after `dialect.handle_event/1`, receiving the parsed deltas and the raw event. This lets the provider augment deltas with provider-specific data (e.g. OpenRouter's `reasoning_details`). The pre-dialect `adapt_event/1` pattern was replaced because providers need to see parsed deltas, not raw JSON.
 - **Declarative option schemas, validation at the boundary** -- the dialect declares what options it accepts via `option_schema/0`. `Request.validate/2` merges this with the universal schema (defined on `Omni.Request`) and validates once via Peri in strict mode. Config keys are popped before validation and three-tier merged separately, then combined into a unified opts map. No provider option_schema (config overrides are universal). No validation inside callbacks.
 - **Dialect output is not validated at runtime** -- the request body a dialect produces is internal library code, not user input. If it's malformed, that's a bug caught by tests, not a runtime validation concern.
@@ -1688,7 +1688,7 @@ This needs further research to flesh out, but the architectural intent is a laye
 - **Provider `build_url/2` callback** -- providers implement `build_url/2` receiving the dialect-built path and the unified opts map. Default is `opts.base_url <> path`. Exists because some providers (Azure OpenAI) completely restructure the URL path based on deployment config.
 - **Lazy stream composition in Request.stream** -- `Request.stream/3` composes a lazy `Stream` pipeline: `resp.body` (async chunks) → `SSE.stream/1` (decode) → `dialect.handle_event/1` (parse) → `provider.modify_events/2` (augment). This keeps StreamingResponse generic (it just wraps a stream of delta tuples).
 - **StreamingResponse is provider/dialect-agnostic** -- `StreamingResponse` receives raw delta tuples and builds the consumer event pipeline at construction time. Its `Enumerable` implementation delegates directly to this pipeline. It holds no Req types, no provider references, and no dialect knowledge. Cancellation is via an opaque function; raw HTTP data is baked into the accumulator closure.
-- **Unified opts map** -- `Request.validate/2` pops config keys (`:api_key`, `:base_url`, `:headers`) and framework keys (`:plug`) before Peri validation, three-tier merges the config, then combines everything into a single unified map. All callbacks (`handle_body`, `modify_body`, `build_url`, `authenticate`) receive this same map and read the keys they need. `:raw` is popped in `stream_text` before reaching Request. Typos in any key category are caught by strict validation (misspelled config/framework keys aren't popped and hit the schema).
+- **Unified opts map** -- `Request.validate/2` pops config keys (`:api_key`, `:base_url`, `:headers`) and framework keys (`:plug`) before Peri validation, three-tier merges the config, then combines everything into a single unified map. All callbacks (`handle_body`, `modify_body`, `build_url`, `authenticate`) receive this opts map and read the keys they need. `modify_body/3` additionally receives the `%Context{}` for per-message transformations (e.g. encoding `reasoning_details` from `Message.private`). `:raw` is popped in `stream_text` before reaching Request. Typos in any key category are caught by strict validation (misspelled config/framework keys aren't popped and hit the schema).
 - **Three-tier config merge** -- provider config, application config overrides, and call-time request config are merged for `api_key`, `base_url`, and `headers`. Priority: call-time > app config > provider defaults. Headers are merged (not replaced) at each tier.
 - **Request building separated from execution** -- `Request.build/3` returns `{:ok, %Req.Request{}}` without executing. `Request.stream/3` calls `Req.request/1` to execute. This separation naturally provides both the request and response structs for `raw: true`, and enables unit testing of request construction without HTTP.
 - **`:timeout` with generous default** -- defaults to 300,000ms (5 minutes), mapped to Req's `receive_timeout`. Req's default of 15s is far too low for LLM APIs, especially extended thinking models. Defined in the universal schema on `Omni.Request` and applied in `build/3`.

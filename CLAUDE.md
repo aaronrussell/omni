@@ -44,7 +44,7 @@ mix models.get           # Fetch model data from models.dev into priv/models/
 
 - **Models are data, not modules**: `%Model{}` structs are loaded from `priv/models/*.json` at startup into `:persistent_term` (keyed per provider). Models carry a direct module reference to their provider; the dialect is accessed via `provider.dialect()`.
 
-- **Request building separated from execution**: `Request.build/3` takes Omni types (model, context, opts), validates options via Peri, and returns a `%Req.Request{}` via dialect + provider composition. `Request.stream/3` executes the request and returns a `StreamingResponse`. The dialect does heavy transformation (Omni types ↔ native JSON). The provider optionally modifies dialect output for service-specific quirks via `modify_body/2` (request) and `modify_events/2` (response).
+- **Request building separated from execution**: `Request.build/3` takes Omni types (model, context, opts), validates options via Peri, and returns a `%Req.Request{}` via dialect + provider composition. `Request.stream/3` executes the request and returns a `StreamingResponse`. The dialect does heavy transformation (Omni types ↔ native JSON). The provider optionally modifies dialect output for service-specific quirks via `modify_body/3` (request body, context, opts) and `modify_events/2` (response).
 
 - **Two message roles only**: `:user` and `:assistant`. No `:tool` role — tool results are `Content.ToolResult` blocks inside user messages. Role differences are expressed through content blocks, not message types.
 

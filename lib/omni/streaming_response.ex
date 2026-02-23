@@ -132,7 +132,7 @@ defmodule Omni.StreamingResponse do
       |> maybe_put(:model_id, data[:model])
       |> maybe_put(:stop_reason, data[:stop_reason])
       |> merge_map(:usage, data[:usage])
-      |> merge_map(:private, data[:private])
+      |> merge_private(data[:private])
 
     {[], acc}
   end
@@ -442,6 +442,17 @@ defmodule Omni.StreamingResponse do
 
   defp maybe_put(acc, _key, nil), do: acc
   defp maybe_put(acc, key, value), do: Map.put(acc, key, value)
+
+  defp merge_private(acc, nil), do: acc
+
+  defp merge_private(acc, private) do
+    Map.update!(acc, :private, fn existing ->
+      Map.merge(existing, private, fn
+        _key, v1, v2 when is_list(v1) and is_list(v2) -> v1 ++ v2
+        _key, _v1, v2 -> v2
+      end)
+    end)
+  end
 
   defp merge_map(acc, _key, nil), do: acc
   defp merge_map(acc, key, map), do: Map.update!(acc, key, &Map.merge(&1, map))
