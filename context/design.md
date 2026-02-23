@@ -1277,19 +1277,37 @@ StreamingResponse.new(deltas,
 )
 ```
 
-Consumers interact with it as a standard enumerable:
+Consumers interact with it through four key functions:
+
+- `on/3` -- register a side-effect handler for an event type (returns a new `StreamingResponse` with the handler in the pipeline)
+- `complete/1` -- consume the stream to the final `%Response{}`
+- `text_stream/1` -- return a stream of text delta binaries (when you only need text, no `Response`)
+- `cancel/1` -- cancel the underlying HTTP request
+
+`on/3` is pipeline-composable: it wraps the stream in a `Stream.each/2` that fires the callback for matching events. Nothing executes until a consumer (typically `complete/1`) drives the pipeline. Callbacks accept arity-1 (event map only) or arity-2 (event map + partial response).
 
 ```elixir
 {:ok, stream} = Omni.stream_text(model, context)
 
-# Use directly as an enum -- pattern match for what you need
-Enum.each(stream, fn
-  {:text_delta, %{delta: delta}, _partial} -> IO.write(delta)
-  _ -> :ok
-end)
+# Side effects during streaming + final response (most common pattern)
+{:ok, response} =
+  stream
+  |> Omni.StreamingResponse.on(:text_delta, fn %{delta: d} -> IO.write(d) end)
+  |> Omni.StreamingResponse.on(:thinking_delta, fn %{delta: d} -> IO.write(d) end)
+  |> Omni.StreamingResponse.complete()
 
-# Accumulate into a complete Response
-{:ok, stream} = Omni.stream_text(model, context)
+# LiveView: send chunks to the LiveView process
+{:ok, response} =
+  stream
+  |> Omni.StreamingResponse.on(:text_delta, fn %{delta: d}, _partial ->
+    send(self(), {:llm_chunk, d})
+  end)
+  |> Omni.StreamingResponse.complete()
+
+# Just get the text chunks (no Response needed)
+text = stream |> Omni.StreamingResponse.text_stream() |> Enum.join()
+
+# Just get the final response (no streaming side effects)
 {:ok, response} = Omni.StreamingResponse.complete(stream)
 
 # Cancel a stream
@@ -1391,26 +1409,30 @@ The `StreamingResponse` enumerable yields events as three-element tuples: `{even
 
 The `_end` events carry the completed value for that content block -- the full text string, parsed `ToolUse` struct, etc. Consumers who don't want to process deltas can listen only for `_end` events and get finished content blocks.
 
-**Partial response on every event.** The partial `%Response{}` is accumulated by the `StreamingResponse` as events arrive. Elixir's structural sharing means this is memory-efficient -- each update creates a new struct shell pointing to mostly the same underlying data. Consumers who don't need the partial response simply ignore it with an underscore in pattern matches:
+**Partial response on every event.** The partial `%Response{}` is accumulated by the `StreamingResponse` as events arrive. Elixir's structural sharing means this is memory-efficient -- each update creates a new struct shell pointing to mostly the same underlying data. The `on/3` API makes it easy to combine side effects with response collection:
 
 ```elixir
-# Just stream text to the console
-Enum.each(stream, fn
-  {:text_delta, %{delta: delta}, _} -> IO.write(delta)
-  _ -> :ok
-end)
+# Stream text to console + get final response
+{:ok, response} =
+  stream
+  |> StreamingResponse.on(:text_delta, fn %{delta: delta} -> IO.write(delta) end)
+  |> StreamingResponse.complete()
 
 # Build a UI showing the full response state as it streams
-Enum.each(stream, fn
-  {_type, _event, partial} -> update_ui(partial)
-end)
+{:ok, response} =
+  stream
+  |> StreamingResponse.on(:text_delta, fn _event, partial -> update_ui(partial) end)
+  |> StreamingResponse.complete()
 
-# Wait for tool uses to complete
-Enum.each(stream, fn
-  {:tool_use_end, %{tool_use: tool_use}, _} -> execute_tool(tool_use)
-  _ -> :ok
-end)
+# React to tool uses + stream text simultaneously
+{:ok, response} =
+  stream
+  |> StreamingResponse.on(:text_delta, fn %{delta: d} -> IO.write(d) end)
+  |> StreamingResponse.on(:tool_use_end, fn %{content: tool_use} -> log_tool(tool_use) end)
+  |> StreamingResponse.complete()
 ```
+
+Direct `Enum.each/2` iteration is still available for advanced cases where manual control over every event is needed.
 
 ### Error handling
 

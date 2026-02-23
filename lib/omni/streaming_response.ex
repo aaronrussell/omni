@@ -42,19 +42,22 @@ defmodule Omni.StreamingResponse do
           cancel: (-> :ok) | nil
         }
 
+  @typedoc "An event type atom emitted during enumeration."
+  @type event_type ::
+          :text_start
+          | :text_delta
+          | :text_end
+          | :thinking_start
+          | :thinking_delta
+          | :thinking_end
+          | :tool_use_start
+          | :tool_use_delta
+          | :tool_use_end
+          | :error
+          | :done
+
   @typedoc "A consumer event emitted during enumeration."
-  @type event ::
-          {:text_start, map(), Response.t()}
-          | {:text_delta, map(), Response.t()}
-          | {:text_end, map(), Response.t()}
-          | {:thinking_start, map(), Response.t()}
-          | {:thinking_delta, map(), Response.t()}
-          | {:thinking_end, map(), Response.t()}
-          | {:tool_use_start, map(), Response.t()}
-          | {:tool_use_delta, map(), Response.t()}
-          | {:tool_use_end, map(), Response.t()}
-          | {:error, map(), Response.t()}
-          | {:done, map(), Response.t()}
+  @type event :: {event_type(), map(), Response.t()}
 
   @doc """
   Creates a streaming response from raw delta events.
@@ -99,6 +102,47 @@ defmodule Omni.StreamingResponse do
   @spec cancel(t()) :: :ok
   def cancel(%__MODULE__{cancel: nil}), do: :ok
   def cancel(%__MODULE__{cancel: fun}), do: fun.()
+
+  @doc """
+  Registers a side-effect handler for events of the given type.
+
+  Returns a new `StreamingResponse` with the handler inserted into the stream
+  pipeline. The handler fires during consumption (when `complete/1` or another
+  consumer drives the stream) and its return value is discarded.
+
+  Accepts arity-1 callbacks receiving the event map, or arity-2 callbacks
+  receiving the event map and the partial response.
+
+  Multiple handlers can be chained and all will fire independently:
+
+      {:ok, response} =
+        sr
+        |> StreamingResponse.on(:text_delta, fn %{delta: d} -> IO.write(d) end)
+        |> StreamingResponse.on(:thinking_delta, fn %{delta: d} -> IO.write(d) end)
+        |> StreamingResponse.complete()
+  """
+  @spec on(t(), event_type(), (map() -> any()) | (map(), Response.t() -> any())) :: t()
+  def on(%__MODULE__{} = sr, event_type, callback)
+      when is_atom(event_type) and is_function(callback, 1) do
+    wrapped =
+      Stream.each(sr.stream, fn
+        {^event_type, event, _partial} -> callback.(event)
+        _ -> :ok
+      end)
+
+    %__MODULE__{sr | stream: wrapped}
+  end
+
+  def on(%__MODULE__{} = sr, event_type, callback)
+      when is_atom(event_type) and is_function(callback, 2) do
+    wrapped =
+      Stream.each(sr.stream, fn
+        {^event_type, event, partial} -> callback.(event, partial)
+        _ -> :ok
+      end)
+
+    %__MODULE__{sr | stream: wrapped}
+  end
 
   @doc "Returns a stream of text delta binaries."
   @spec text_stream(t()) :: Enumerable.t()

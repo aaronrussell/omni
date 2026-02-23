@@ -297,6 +297,164 @@ defmodule Omni.StreamingResponseTest do
     end
   end
 
+  describe "on/3" do
+    test "fires handler for matching event type" do
+      events = [
+        {:block_delta, %{type: :text, index: 0, delta: "Hello"}},
+        {:block_delta, %{type: :text, index: 0, delta: " world"}}
+      ]
+
+      sr = StreamingResponse.new(events)
+      test_pid = self()
+
+      {:ok, _response} =
+        sr
+        |> StreamingResponse.on(:text_delta, fn %{delta: d} ->
+          send(test_pid, {:chunk, d})
+        end)
+        |> StreamingResponse.complete()
+
+      assert_received {:chunk, "Hello"}
+      assert_received {:chunk, " world"}
+    end
+
+    test "does not fire for non-matching events" do
+      events = [
+        {:block_delta, %{type: :text, index: 0, delta: "Hello"}}
+      ]
+
+      sr = StreamingResponse.new(events)
+      test_pid = self()
+
+      {:ok, _response} =
+        sr
+        |> StreamingResponse.on(:thinking_delta, fn %{delta: d} ->
+          send(test_pid, {:thinking, d})
+        end)
+        |> StreamingResponse.complete()
+
+      refute_received {:thinking, _}
+    end
+
+    test "multiple handlers for different event types" do
+      events = [
+        {:block_start, %{type: :tool_use, index: 0, id: "c1", name: "search"}},
+        {:block_delta, %{type: :tool_use, index: 0, delta: ~s({"q":"elixir"})}},
+        {:block_delta, %{type: :text, index: 1, delta: "Result"}}
+      ]
+
+      sr = StreamingResponse.new(events)
+      test_pid = self()
+
+      {:ok, _response} =
+        sr
+        |> StreamingResponse.on(:text_delta, fn %{delta: d} ->
+          send(test_pid, {:text, d})
+        end)
+        |> StreamingResponse.on(:tool_use_start, fn %{name: n} ->
+          send(test_pid, {:tool, n})
+        end)
+        |> StreamingResponse.complete()
+
+      assert_received {:text, "Result"}
+      assert_received {:tool, "search"}
+    end
+
+    test "multiple handlers for the same event type both fire" do
+      events = [
+        {:block_delta, %{type: :text, index: 0, delta: "Hi"}}
+      ]
+
+      sr = StreamingResponse.new(events)
+      test_pid = self()
+
+      {:ok, _response} =
+        sr
+        |> StreamingResponse.on(:text_delta, fn _ -> send(test_pid, :first) end)
+        |> StreamingResponse.on(:text_delta, fn _ -> send(test_pid, :second) end)
+        |> StreamingResponse.complete()
+
+      assert_received :first
+      assert_received :second
+    end
+
+    test "arity-2 callback receives partial response" do
+      events = [
+        {:message, %{stop_reason: :stop}},
+        {:block_delta, %{type: :text, index: 0, delta: "Hello"}},
+        {:block_delta, %{type: :text, index: 0, delta: " world"}}
+      ]
+
+      sr = StreamingResponse.new(events)
+      test_pid = self()
+
+      {:ok, _response} =
+        sr
+        |> StreamingResponse.on(:text_delta, fn _event, partial ->
+          send(test_pid, {:partial, partial.message.content})
+        end)
+        |> StreamingResponse.complete()
+
+      assert_received {:partial, [%Text{text: "Hello"}]}
+      assert_received {:partial, [%Text{text: "Hello world"}]}
+    end
+
+    test "complete/1 still returns final response" do
+      events = [
+        {:message, %{stop_reason: :stop}},
+        {:block_delta, %{type: :text, index: 0, delta: "Hello"}}
+      ]
+
+      sr = StreamingResponse.new(events)
+
+      {:ok, response} =
+        sr
+        |> StreamingResponse.on(:text_delta, fn _ -> :noop end)
+        |> StreamingResponse.complete()
+
+      assert %Response{} = response
+      assert response.stop_reason == :stop
+      assert [%Text{text: "Hello"}] = response.message.content
+    end
+
+    test "handler on :done fires at stream end" do
+      events = [
+        {:block_delta, %{type: :text, index: 0, delta: "Hi"}}
+      ]
+
+      sr = StreamingResponse.new(events)
+      test_pid = self()
+
+      {:ok, _response} =
+        sr
+        |> StreamingResponse.on(:done, fn %{stop_reason: sr} ->
+          send(test_pid, {:done, sr})
+        end)
+        |> StreamingResponse.complete()
+
+      assert_received {:done, :stop}
+    end
+
+    test "handler on :error fires on stream error" do
+      events = [
+        {:block_delta, %{type: :text, index: 0, delta: "partial"}},
+        {:error, %{reason: "rate_limit"}}
+      ]
+
+      sr = StreamingResponse.new(events)
+      test_pid = self()
+
+      {:error, "rate_limit"} =
+        sr
+        |> StreamingResponse.on(:error, fn %{reason: r} ->
+          send(test_pid, {:error, r})
+        end)
+        |> StreamingResponse.complete()
+
+      assert_received {:error, "rate_limit"}
+    end
+  end
+
   describe "usage computation" do
     test "token counts with model pricing" do
       model =
