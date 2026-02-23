@@ -430,6 +430,173 @@ defmodule Omni.RequestTest do
     end
   end
 
+  describe "validate_context/2" do
+    test "text/* always passes even with text-only model" do
+      model = make_model() |> Map.put(:input_modalities, [:text])
+
+      context =
+        Omni.Context.new([
+          Omni.Message.new(
+            role: :user,
+            content: [
+              Omni.Content.Attachment.new(source: {:base64, "data"}, media_type: "text/plain")
+            ]
+          )
+        ])
+
+      assert :ok = Request.validate_context(model, context)
+    end
+
+    test "application/json treated as text, always passes" do
+      model = make_model() |> Map.put(:input_modalities, [:text])
+
+      context =
+        Omni.Context.new([
+          Omni.Message.new(
+            role: :user,
+            content: [
+              Omni.Content.Attachment.new(
+                source: {:base64, "data"},
+                media_type: "application/json"
+              )
+            ]
+          )
+        ])
+
+      assert :ok = Request.validate_context(model, context)
+    end
+
+    test "image/* passes with :image modality" do
+      model = make_model() |> Map.put(:input_modalities, [:text, :image])
+
+      context =
+        Omni.Context.new([
+          Omni.Message.new(
+            role: :user,
+            content: [
+              Omni.Content.Attachment.new(source: {:base64, "data"}, media_type: "image/png")
+            ]
+          )
+        ])
+
+      assert :ok = Request.validate_context(model, context)
+    end
+
+    test "image/* rejected without :image modality" do
+      model = make_model() |> Map.put(:input_modalities, [:text])
+
+      context =
+        Omni.Context.new([
+          Omni.Message.new(
+            role: :user,
+            content: [
+              Omni.Content.Attachment.new(source: {:base64, "data"}, media_type: "image/png")
+            ]
+          )
+        ])
+
+      assert {:error, {:unsupported_modality, :image}} =
+               Request.validate_context(model, context)
+    end
+
+    test "application/pdf passes with :pdf modality" do
+      model = make_model() |> Map.put(:input_modalities, [:text, :pdf])
+
+      context =
+        Omni.Context.new([
+          Omni.Message.new(
+            role: :user,
+            content: [
+              Omni.Content.Attachment.new(
+                source: {:base64, "data"},
+                media_type: "application/pdf"
+              )
+            ]
+          )
+        ])
+
+      assert :ok = Request.validate_context(model, context)
+    end
+
+    test "application/pdf rejected without :pdf modality" do
+      model = make_model() |> Map.put(:input_modalities, [:text])
+
+      context =
+        Omni.Context.new([
+          Omni.Message.new(
+            role: :user,
+            content: [
+              Omni.Content.Attachment.new(
+                source: {:base64, "data"},
+                media_type: "application/pdf"
+              )
+            ]
+          )
+        ])
+
+      assert {:error, {:unsupported_modality, :pdf}} =
+               Request.validate_context(model, context)
+    end
+
+    test "audio/* rejected (no model has :audio)" do
+      model = make_model() |> Map.put(:input_modalities, [:text, :image, :pdf])
+
+      context =
+        Omni.Context.new([
+          Omni.Message.new(
+            role: :user,
+            content: [
+              Omni.Content.Attachment.new(source: {:base64, "data"}, media_type: "audio/mp3")
+            ]
+          )
+        ])
+
+      assert {:error, {:unsupported_modality, :audio}} =
+               Request.validate_context(model, context)
+    end
+
+    test "unknown media type rejected" do
+      model = make_model() |> Map.put(:input_modalities, [:text, :image, :pdf])
+
+      context =
+        Omni.Context.new([
+          Omni.Message.new(
+            role: :user,
+            content: [
+              Omni.Content.Attachment.new(
+                source: {:base64, "data"},
+                media_type: "application/octet-stream"
+              )
+            ]
+          )
+        ])
+
+      assert {:error, {:unsupported_media_type, "application/octet-stream"}} =
+               Request.validate_context(model, context)
+    end
+
+    test "non-attachment content blocks ignored" do
+      model = make_model() |> Map.put(:input_modalities, [:text])
+
+      context =
+        Omni.Context.new([
+          Omni.Message.new(
+            role: :user,
+            content: [Omni.Content.Text.new("Hello"), Omni.Content.Text.new("World")]
+          )
+        ])
+
+      assert :ok = Request.validate_context(model, context)
+    end
+
+    test "empty context passes" do
+      model = make_model() |> Map.put(:input_modalities, [:text])
+      context = Omni.Context.new(messages: [])
+
+      assert :ok = Request.validate_context(model, context)
+    end
+  end
+
   describe "parse_event/2" do
     test "pipes through dialect handle_event" do
       model = make_model()

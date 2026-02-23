@@ -202,6 +202,14 @@ defmodule Omni.Dialects.OpenAIResponses do
     %{"type" => "input_image", "image_url" => url}
   end
 
+  defp encode_content(%Attachment{source: {:base64, data}, media_type: mt}) do
+    %{"type" => "input_file", "file_data" => "data:#{mt};base64,#{data}"}
+  end
+
+  defp encode_content(%Attachment{source: {:url, url}}) do
+    %{"type" => "input_file", "file_url" => url}
+  end
+
   # Tool encoding — flattened format (no "function" wrapper)
 
   defp maybe_put_tools(body, []), do: body

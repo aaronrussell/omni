@@ -292,6 +292,63 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       assert block["source"]["url"] == "https://example.com/doc.pdf"
     end
 
+    test "encodes text/plain attachment with base64 as document with decoded text source" do
+      plain_text = Base.encode64("Hello, world!")
+
+      msg =
+        Message.new(
+          role: :user,
+          content: [Attachment.new(source: {:base64, plain_text}, media_type: "text/plain")]
+        )
+
+      context = Context.new([msg])
+      body = AnthropicMessages.handle_body(@model, context, %{})
+
+      [%{"content" => [block]}] = body["messages"]
+      assert block["type"] == "document"
+      assert block["source"]["type"] == "text"
+      assert block["source"]["media_type"] == "text/plain"
+      assert block["source"]["data"] == "Hello, world!"
+    end
+
+    test "encodes text/plain attachment with URL as document with URL source" do
+      msg =
+        Message.new(
+          role: :user,
+          content: [
+            Attachment.new(
+              source: {:url, "https://example.com/file.txt"},
+              media_type: "text/plain"
+            )
+          ]
+        )
+
+      context = Context.new([msg])
+      body = AnthropicMessages.handle_body(@model, context, %{})
+
+      [%{"content" => [block]}] = body["messages"]
+      assert block["type"] == "document"
+      assert block["source"]["type"] == "url"
+      assert block["source"]["url"] == "https://example.com/file.txt"
+    end
+
+    test "encodes application/xml attachment with base64 as document (catch-all)" do
+      msg =
+        Message.new(
+          role: :user,
+          content: [Attachment.new(source: {:base64, "xml-data"}, media_type: "application/xml")]
+        )
+
+      context = Context.new([msg])
+      body = AnthropicMessages.handle_body(@model, context, %{})
+
+      [%{"content" => [block]}] = body["messages"]
+      assert block["type"] == "document"
+      assert block["source"]["type"] == "base64"
+      assert block["source"]["media_type"] == "application/xml"
+      assert block["source"]["data"] == "xml-data"
+    end
+
     test "all image media types encode as image" do
       for mt <- ~w(image/jpeg image/png image/gif image/webp) do
         msg =

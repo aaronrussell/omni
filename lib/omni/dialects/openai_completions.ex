@@ -215,6 +215,14 @@ defmodule Omni.Dialects.OpenAICompletions do
     %{"type" => "image_url", "image_url" => %{"url" => url}}
   end
 
+  defp encode_content(%Attachment{source: {:base64, data}, media_type: mt}) do
+    %{"type" => "file", "file" => %{"file_data" => "data:#{mt};base64,#{data}"}}
+  end
+
+  defp encode_content(%Attachment{source: {:url, url}}) do
+    %{"type" => "image_url", "image_url" => %{"url" => url}}
+  end
+
   # Tool call encoding (assistant messages)
 
   defp encode_tool_call(%ToolUse{id: id, name: name, input: input}, index) do

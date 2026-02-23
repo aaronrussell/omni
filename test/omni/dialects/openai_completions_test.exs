@@ -372,6 +372,63 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert block["image_url"]["url"] == "https://example.com/image.png"
     end
 
+    test "PDF base64 encodes as file with file_data data URL" do
+      msg =
+        Message.new(
+          role: :user,
+          content: [
+            Attachment.new(source: {:base64, "pdf-data"}, media_type: "application/pdf")
+          ]
+        )
+
+      context = Context.new([msg])
+      body = OpenAICompletions.handle_body(@model, context, %{})
+
+      [user_msg] = body["messages"]
+      [block] = user_msg["content"]
+      assert block["type"] == "file"
+      assert block["file"]["file_data"] == "data:application/pdf;base64,pdf-data"
+    end
+
+    test "PDF URL encodes as image_url with URL" do
+      msg =
+        Message.new(
+          role: :user,
+          content: [
+            Attachment.new(
+              source: {:url, "https://example.com/doc.pdf"},
+              media_type: "application/pdf"
+            )
+          ]
+        )
+
+      context = Context.new([msg])
+      body = OpenAICompletions.handle_body(@model, context, %{})
+
+      [user_msg] = body["messages"]
+      [block] = user_msg["content"]
+      assert block["type"] == "image_url"
+      assert block["image_url"]["url"] == "https://example.com/doc.pdf"
+    end
+
+    test "uncommon media type doesn't crash" do
+      msg =
+        Message.new(
+          role: :user,
+          content: [
+            Attachment.new(source: {:base64, "xml-data"}, media_type: "application/xml")
+          ]
+        )
+
+      context = Context.new([msg])
+      body = OpenAICompletions.handle_body(@model, context, %{})
+
+      [user_msg] = body["messages"]
+      [block] = user_msg["content"]
+      assert block["type"] == "file"
+      assert block["file"]["file_data"] == "data:application/xml;base64,xml-data"
+    end
+
     test "text and image encode as content array" do
       msg =
         Message.new(

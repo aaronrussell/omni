@@ -247,14 +247,27 @@ defmodule Omni.Dialects.AnthropicMessages do
     %{"type" => "image", "source" => %{"type" => "url", "url" => url}}
   end
 
-  defp encode_content(%Attachment{source: {:base64, data}, media_type: "application/pdf"}) do
+  defp encode_content(%Attachment{source: {:base64, data}, media_type: "text/plain"}) do
     %{
       "type" => "document",
-      "source" => %{"type" => "base64", "media_type" => "application/pdf", "data" => data}
+      "source" => %{
+        "type" => "text",
+        "media_type" => "text/plain",
+        "data" => Base.decode64!(data)
+      }
     }
   end
 
-  defp encode_content(%Attachment{source: {:url, url}, media_type: "application/pdf"}) do
+  defp encode_content(%Attachment{source: {:base64, data}, media_type: mt})
+       when mt not in @image_media_types do
+    %{
+      "type" => "document",
+      "source" => %{"type" => "base64", "media_type" => mt, "data" => data}
+    }
+  end
+
+  defp encode_content(%Attachment{source: {:url, url}, media_type: mt})
+       when mt not in @image_media_types do
     %{"type" => "document", "source" => %{"type" => "url", "url" => url}}
   end
 

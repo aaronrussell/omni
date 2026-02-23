@@ -8,13 +8,11 @@ The initial implementation (Phases 1–5b) is complete. See `context/design.md` 
 
 ## Open Questions
 
-1. **Plain text attachment source** — Should `Attachment.source` support `{:text, content}` in addition to `{:base64, data}` and `{:url, url}`? Wait to see if multiple providers support it.
+1. **StreamingResponse consumption patterns** — Can consumers process structured events (tool_use_start, thinking, etc.) AND simultaneously feed a text stream to the UI with the current single-enumerable API, or do we need tee/fork/broadcast?
 
-2. **StreamingResponse consumption patterns** — Can consumers process structured events (tool_use_start, thinking, etc.) AND simultaneously feed a text stream to the UI with the current single-enumerable API, or do we need tee/fork/broadcast?
+2. **OpenRouter `reasoning_details` round-trip** — The `modify_events/2` hook exists but OpenRouter still uses the default passthrough. Three gaps: (a) OpenRouter needs a `modify_events/2` override to extract `reasoning_details` from raw SSE events into `{:message, %{private: ...}}` deltas, (b) Completions `encode_message/1` ignores `Message.private` — needs to encode `reasoning_details` back into the wire format on assistant messages, (c) no integration tests for either direction (SSE fixtures already contain the data).
 
-3. **Attachment media type validation** — Dialects crash on unsupported media types (e.g. passing an audio file to a provider that only supports images/PDFs). Needs validation at the API boundary before reaching dialect code.
-
-4. **OpenRouter `reasoning_details` round-trip** — The `modify_events/2` hook exists but OpenRouter still uses the default passthrough. Three gaps: (a) OpenRouter needs a `modify_events/2` override to extract `reasoning_details` from raw SSE events into `{:message, %{private: ...}}` deltas, (b) Completions `encode_message/1` ignores `Message.private` — needs to encode `reasoning_details` back into the wire format on assistant messages, (c) no integration tests for either direction (SSE fixtures already contain the data).
+3. **Audio and video modalities** — models.dev has these columns but they are currently filtered out in `Model.new/1`. Needs investigation into encoding requirements and provider support before adding `:audio` and `:video` to `@supported_input_modalities`.
 
 ---
 

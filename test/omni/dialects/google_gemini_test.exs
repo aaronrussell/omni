@@ -247,6 +247,42 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert part["fileData"]["mimeType"] == "application/pdf"
     end
 
+    test "text/plain base64 attachment encodes as inlineData" do
+      msg =
+        Message.new(
+          role: :user,
+          content: [
+            Attachment.new(source: {:base64, "dGV4dA=="}, media_type: "text/plain")
+          ]
+        )
+
+      context = Context.new([msg])
+      body = GoogleGemini.handle_body(@model, context, %{})
+
+      [encoded] = body["contents"]
+      [part] = encoded["parts"]
+      assert part["inlineData"]["mimeType"] == "text/plain"
+      assert part["inlineData"]["data"] == "dGV4dA=="
+    end
+
+    test "uncommon media type (application/xml) encodes as inlineData without crash" do
+      msg =
+        Message.new(
+          role: :user,
+          content: [
+            Attachment.new(source: {:base64, "xml-data"}, media_type: "application/xml")
+          ]
+        )
+
+      context = Context.new([msg])
+      body = GoogleGemini.handle_body(@model, context, %{})
+
+      [encoded] = body["contents"]
+      [part] = encoded["parts"]
+      assert part["inlineData"]["mimeType"] == "application/xml"
+      assert part["inlineData"]["data"] == "xml-data"
+    end
+
     test "ToolUse encodes as functionCall" do
       msg =
         Message.new(

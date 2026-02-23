@@ -351,6 +351,63 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       assert image_part["type"] == "input_image"
     end
 
+    test "PDF base64 encodes as input_file with data URL" do
+      msg =
+        Message.new(
+          role: :user,
+          content: [
+            Attachment.new(source: {:base64, "pdf-data"}, media_type: "application/pdf")
+          ]
+        )
+
+      context = Context.new([msg])
+      body = OpenAIResponses.handle_body(@model, context, %{})
+
+      [user_msg] = body["input"]
+      [block] = user_msg["content"]
+      assert block["type"] == "input_file"
+      assert block["file_data"] == "data:application/pdf;base64,pdf-data"
+    end
+
+    test "PDF URL encodes as input_file with file_url" do
+      msg =
+        Message.new(
+          role: :user,
+          content: [
+            Attachment.new(
+              source: {:url, "https://example.com/doc.pdf"},
+              media_type: "application/pdf"
+            )
+          ]
+        )
+
+      context = Context.new([msg])
+      body = OpenAIResponses.handle_body(@model, context, %{})
+
+      [user_msg] = body["input"]
+      [block] = user_msg["content"]
+      assert block["type"] == "input_file"
+      assert block["file_url"] == "https://example.com/doc.pdf"
+    end
+
+    test "uncommon media type doesn't crash" do
+      msg =
+        Message.new(
+          role: :user,
+          content: [
+            Attachment.new(source: {:base64, "xml-data"}, media_type: "application/xml")
+          ]
+        )
+
+      context = Context.new([msg])
+      body = OpenAIResponses.handle_body(@model, context, %{})
+
+      [user_msg] = body["input"]
+      [block] = user_msg["content"]
+      assert block["type"] == "input_file"
+      assert block["file_data"] == "data:application/xml;base64,xml-data"
+    end
+
     test "streaming is always enabled" do
       context = Context.new("Hello")
       body = OpenAIResponses.handle_body(@model, context, %{})

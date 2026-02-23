@@ -7,6 +7,7 @@ defmodule Omni.Request do
   composing them into a complete request pipeline.
   """
 
+  alias Omni.Content.Attachment
   alias Omni.{Context, Model, SSE, StreamingResponse}
 
   @schema %{
@@ -39,7 +40,8 @@ defmodule Omni.Request do
   @spec build(Model.t(), Context.t(), keyword() | map()) ::
           {:ok, Req.Request.t()} | {:error, term()}
   def build(%Model{} = model, %Context{} = context, opts) do
-    with {:ok, opts} <- validate(model, opts) do
+    with {:ok, opts} <- validate(model, opts),
+         :ok <- validate_context(model, context) do
       url =
         model
         |> model.dialect.handle_path(opts)
@@ -108,6 +110,48 @@ defmodule Omni.Request do
     deltas = model.dialect.handle_event(raw_event)
     model.provider.modify_events(deltas, raw_event)
   end
+
+  @doc false
+  @spec validate_context(Model.t(), Context.t()) :: :ok | {:error, term()}
+  def validate_context(%Model{} = model, %Context{} = context) do
+    Enum.reduce_while(context.messages, :ok, fn msg, :ok ->
+      Enum.reduce_while(msg.content, :ok, fn
+        %Attachment{media_type: mt}, :ok ->
+          case check_modality(mt, model.input_modalities) do
+            :ok -> {:cont, :ok}
+            {:error, _} = err -> {:halt, err}
+          end
+
+        _block, :ok ->
+          {:cont, :ok}
+      end)
+      |> case do
+        :ok -> {:cont, :ok}
+        {:error, _} = err -> {:halt, err}
+      end
+    end)
+  end
+
+  defp check_modality("text/" <> _, _modalities), do: :ok
+  defp check_modality("application/json", _modalities), do: :ok
+
+  defp check_modality("image/" <> _, modalities) do
+    if :image in modalities, do: :ok, else: {:error, {:unsupported_modality, :image}}
+  end
+
+  defp check_modality("application/pdf", modalities) do
+    if :pdf in modalities, do: :ok, else: {:error, {:unsupported_modality, :pdf}}
+  end
+
+  defp check_modality("audio/" <> _, modalities) do
+    if :audio in modalities, do: :ok, else: {:error, {:unsupported_modality, :audio}}
+  end
+
+  defp check_modality("video/" <> _, modalities) do
+    if :video in modalities, do: :ok, else: {:error, {:unsupported_modality, :video}}
+  end
+
+  defp check_modality(mt, _modalities), do: {:error, {:unsupported_media_type, mt}}
 
   # -- Private helpers --
 
