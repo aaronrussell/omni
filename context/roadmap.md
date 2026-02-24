@@ -14,11 +14,7 @@ The initial implementation (Phases 1–5b) is complete. See `context/design.md` 
 
 ## Structured Output
 
-**Status:** Not yet designed. Capture here for future reference.
-
-Structured output would allow the model to return data conforming to a schema. Likely API shape: an `output:` option on `stream_text/3` / `generate_text/3` rather than separate `stream_object` / `generate_object` functions (same rationale as the tool loop — avoid function proliferation).
-
-This has a looping element: validate the generated output against the schema, and if invalid, feed the validation error back to the model and retry. Analogous to the tool loop but with a different trigger — schema validation failure instead of tool use. A `max_retries:` option (distinct from `max_steps:`) would govern this. Both loops use the same underlying append-to-context-and-retry machinery, and they may compose: a call with tools AND structured output could tool-loop several times, then validate the final output against the schema.
+**Status:** Implemented. The `:output` option on `stream_text/3` / `generate_text/3` sends a JSON Schema to the provider for constrained decoding. `Omni.Loop` validates the response (JSON decode + Peri validation) and retries up to 3 times on failure. Each dialect handles wire format independently — see CLAUDE.md conventions for details.
 
 ---
 
