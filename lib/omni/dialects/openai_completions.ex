@@ -34,6 +34,7 @@ defmodule Omni.Dialects.OpenAICompletions do
       |> maybe_put_tools(context.tools)
       |> maybe_put_cache(opts[:cache])
       |> maybe_put_thinking(model, opts[:thinking])
+      |> maybe_put_output(opts[:output])
 
     body
   end
@@ -65,6 +66,17 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   defp normalize_thinking(opts) when is_list(opts) do
     {:effort, Keyword.get(opts, :effort, :high), Keyword.get(opts, :budget)}
+  end
+
+  # Output schema
+
+  defp maybe_put_output(body, nil), do: body
+
+  defp maybe_put_output(body, schema) do
+    Map.put(body, "response_format", %{
+      "type" => "json_schema",
+      "json_schema" => %{"name" => "output", "strict" => true, "schema" => schema}
+    })
   end
 
   # Parse events — OpenAI sends homogeneous `chat.completion.chunk` objects

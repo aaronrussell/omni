@@ -878,4 +878,31 @@ defmodule Omni.Dialects.GoogleGeminiTest do
              ] = GoogleGemini.handle_event(event)
     end
   end
+
+  describe "handle_body/3 output" do
+    test "output schema sets responseMimeType and responseSchema in generationConfig" do
+      context = Context.new("Hello")
+      schema = %{type: "object", properties: %{city: %{type: "string"}}}
+      body = GoogleGemini.handle_body(@model, context, %{output: schema})
+
+      assert body["generationConfig"]["responseMimeType"] == "application/json"
+      assert body["generationConfig"]["responseSchema"] == schema
+    end
+
+    test "output schema does not inject additionalProperties" do
+      context = Context.new("Hello")
+      schema = %{type: "object", properties: %{city: %{type: "string"}}}
+      body = GoogleGemini.handle_body(@model, context, %{output: schema})
+
+      refute Map.has_key?(body["generationConfig"]["responseSchema"], :additionalProperties)
+    end
+
+    test "no output omits responseMimeType and responseSchema" do
+      context = Context.new("Hello")
+      body = GoogleGemini.handle_body(@model, context, %{})
+
+      refute Map.has_key?(body["generationConfig"], "responseMimeType")
+      refute Map.has_key?(body["generationConfig"], "responseSchema")
+    end
+  end
 end

@@ -34,8 +34,24 @@ defmodule Omni.Dialects.OpenAIResponses do
       |> maybe_put_tools(context.tools)
       |> maybe_put_cache(opts[:cache])
       |> maybe_put_thinking(model, opts[:thinking])
+      |> maybe_put_output(opts[:output])
 
     body
+  end
+
+  # Output schema
+
+  defp maybe_put_output(body, nil), do: body
+
+  defp maybe_put_output(body, schema) do
+    Map.put(body, "text", %{
+      "format" => %{
+        "type" => "json_schema",
+        "name" => "output",
+        "strict" => true,
+        "schema" => schema
+      }
+    })
   end
 
   # Parse events — OpenAI Responses sends named events with "type" field

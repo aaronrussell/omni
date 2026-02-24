@@ -14,7 +14,7 @@ defmodule Omni.Response do
   alias Omni.{Message, Model, Usage}
 
   @enforce_keys [:message, :model, :usage, :stop_reason]
-  defstruct [:message, :model, :usage, :stop_reason, :error, :raw, messages: []]
+  defstruct [:message, :model, :usage, :stop_reason, :error, :raw, :output, messages: []]
 
   @typedoc "A generation response envelope."
   @type t :: %__MODULE__{
@@ -24,6 +24,7 @@ defmodule Omni.Response do
           stop_reason: :stop | :length | :tool_use | :error,
           error: String.t() | nil,
           raw: [{Req.Request.t(), Req.Response.t()}] | nil,
+          output: map() | list() | nil,
           messages: [Message.t()]
         }
 

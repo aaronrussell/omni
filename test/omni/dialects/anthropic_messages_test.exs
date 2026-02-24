@@ -760,4 +760,57 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
                AnthropicMessages.handle_event(make_event.("tool_use"))
     end
   end
+
+  describe "handle_body/3 output" do
+    test "output schema sets output_config with json_schema format" do
+      context = Context.new("Hello")
+      schema = %{type: "object", properties: %{city: %{type: "string"}}}
+      body = AnthropicMessages.handle_body(@model, context, %{output: schema})
+
+      assert body["output_config"]["format"]["type"] == "json_schema"
+
+      wire_schema = body["output_config"]["format"]["schema"]
+      assert wire_schema[:additionalProperties] == false
+      assert wire_schema[:type] == "object"
+      assert wire_schema[:properties] == schema[:properties]
+    end
+
+    test "non-object output schema does not get additionalProperties" do
+      context = Context.new("Hello")
+      schema = %{type: "array", items: %{type: "string"}}
+      body = AnthropicMessages.handle_body(@model, context, %{output: schema})
+
+      wire_schema = body["output_config"]["format"]["schema"]
+      refute Map.has_key?(wire_schema, :additionalProperties)
+    end
+
+    test "output schema merges with thinking output_config" do
+      adaptive_model =
+        Model.new(
+          id: "claude-sonnet-4.6-20260214",
+          name: "Claude Sonnet 4.6",
+          provider: Omni.Providers.Anthropic,
+          dialect: AnthropicMessages,
+          max_output_tokens: 8192,
+          reasoning: true
+        )
+
+      context = Context.new("Hello")
+      schema = %{type: "object", properties: %{city: %{type: "string"}}}
+
+      body =
+        AnthropicMessages.handle_body(adaptive_model, context, %{thinking: :high, output: schema})
+
+      # Both effort and format should be present
+      assert body["output_config"]["effort"] == "high"
+      assert body["output_config"]["format"]["type"] == "json_schema"
+    end
+
+    test "no output omits output_config format" do
+      context = Context.new("Hello")
+      body = AnthropicMessages.handle_body(@model, context, %{})
+
+      refute Map.has_key?(body, "output_config")
+    end
+  end
 end

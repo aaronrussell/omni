@@ -109,6 +109,52 @@ defmodule Omni.SchemaTest do
     end
   end
 
+  describe "format_errors/1" do
+    test "formats a leaf error with path" do
+      error = %Peri.Error{path: [:city], key: :city, message: "is required", errors: nil}
+      result = Schema.format_errors([error])
+
+      assert result == "- city: is required"
+    end
+
+    test "formats multiple errors" do
+      errors = [
+        %Peri.Error{path: [:city], key: :city, message: "is required", errors: nil},
+        %Peri.Error{
+          path: [:temperature],
+          key: :temperature,
+          message: "expected number",
+          errors: nil
+        }
+      ]
+
+      result = Schema.format_errors(errors)
+      assert result =~ "city: is required"
+      assert result =~ "temperature: expected number"
+    end
+
+    test "flattens nested errors" do
+      nested = %Peri.Error{path: [:zip], key: :zip, message: "is required", errors: nil}
+
+      parent = %Peri.Error{
+        path: [:address],
+        key: :address,
+        message: nil,
+        errors: [nested]
+      }
+
+      result = Schema.format_errors([parent])
+      assert result =~ "zip: is required"
+    end
+
+    test "handles error with key only (no path)" do
+      error = %Peri.Error{path: nil, key: :name, message: "is required", errors: nil}
+      result = Schema.format_errors([error])
+
+      assert result == "- name: is required"
+    end
+  end
+
   describe "to_peri/1" do
     test "converts string type" do
       assert Schema.to_peri(Schema.string()) == :string

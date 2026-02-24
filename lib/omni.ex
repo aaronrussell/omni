@@ -21,6 +21,7 @@ defmodule Omni do
     * `:plug` — a Req test plug for stubbing HTTP responses
     * `:raw` — when `true`, attaches raw `{%Req.Request{}, %Req.Response{}}` tuples to the response (one per round)
     * `:max_steps` — maximum number of request rounds (default `:infinity`). Pass `1` for manual tool handling.
+    * `:output` — a JSON Schema map for structured output. When set, the schema is sent to the provider for constrained decoding, and the response text is validated and decoded into `response.output`. Retries automatically on validation failure (up to 3 times).
 
   All other options are passed through to `Request.build/3`.
   """

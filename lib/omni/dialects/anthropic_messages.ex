@@ -35,6 +35,7 @@ defmodule Omni.Dialects.AnthropicMessages do
       |> maybe_put("metadata", opts[:metadata])
       |> maybe_put_tools(context.tools, cache)
       |> maybe_put_thinking(model, opts[:thinking])
+      |> maybe_put_output(opts[:output])
 
     body
   end
@@ -182,6 +183,22 @@ defmodule Omni.Dialects.AnthropicMessages do
   defp normalize_thinking(opts) when is_list(opts) do
     {:effort, Keyword.get(opts, :effort, :high), Keyword.get(opts, :budget)}
   end
+
+  # Output schema
+
+  defp maybe_put_output(body, nil), do: body
+
+  defp maybe_put_output(body, schema) do
+    existing = Map.get(body, "output_config", %{})
+    format = %{"type" => "json_schema", "schema" => maybe_put_strict(schema)}
+    Map.put(body, "output_config", Map.put(existing, "format", format))
+  end
+
+  defp maybe_put_strict(%{type: "object"} = schema) do
+    Map.put(schema, :additionalProperties, false)
+  end
+
+  defp maybe_put_strict(schema), do: schema
 
   # System encoding
 

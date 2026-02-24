@@ -27,7 +27,8 @@ defmodule Omni.Request do
     thinking:
       {:either,
        {{:enum, [true, false, :none, :low, :medium, :high, :max]},
-        {:schema, %{effort: {:enum, [:low, :medium, :high, :max]}, budget: :integer}}}}
+        {:schema, %{effort: {:enum, [:low, :medium, :high, :max]}, budget: :integer}}}},
+    output: :map
   }
 
   @doc """

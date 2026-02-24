@@ -70,6 +70,40 @@ defmodule Omni.Schema do
     Map.new(opts) |> Map.merge(%{type: "string", enum: values})
   end
 
+  @doc false
+  @spec format_errors(term()) :: String.t()
+  def format_errors(errors) when is_list(errors) do
+    errors
+    |> flatten_errors([])
+    |> Enum.map_join("\n", fn {path, message} ->
+      "- #{Enum.join(path, ".")}: #{message}"
+    end)
+  end
+
+  def format_errors(%{__struct__: _} = error), do: format_errors([error])
+
+  defp flatten_errors([], acc), do: Enum.reverse(acc)
+
+  defp flatten_errors([%{errors: nested} = _error | rest], acc)
+       when is_list(nested) and nested != [] do
+    flatten_errors(rest, Enum.reverse(flatten_errors(nested, [])) ++ acc)
+  end
+
+  defp flatten_errors([%{path: path, key: key, message: message} | rest], acc) do
+    path_parts =
+      case {path, key} do
+        {nil, nil} -> []
+        {nil, key} -> [to_string(key)]
+        {path, _} -> Enum.map(path, &to_string/1)
+      end
+
+    flatten_errors(rest, [{path_parts, message} | acc])
+  end
+
+  defp flatten_errors([other | rest], acc) do
+    flatten_errors(rest, [{[], inspect(other)} | acc])
+  end
+
   @doc """
   Converts a JSON Schema map to a Peri validation schema.
 

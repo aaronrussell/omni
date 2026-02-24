@@ -735,4 +735,25 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert [] == OpenAICompletions.handle_event(%{"type" => "something_else"})
     end
   end
+
+  describe "handle_body/3 output" do
+    test "output schema sets response_format with json_schema" do
+      context = Context.new("Hello")
+      schema = %{type: "object", properties: %{city: %{type: "string"}}}
+      body = OpenAICompletions.handle_body(@model, context, %{output: schema})
+
+      json_schema = body["response_format"]["json_schema"]
+      assert body["response_format"]["type"] == "json_schema"
+      assert json_schema["name"] == "output"
+      assert json_schema["strict"] == true
+      assert json_schema["schema"] == schema
+    end
+
+    test "no output omits response_format" do
+      context = Context.new("Hello")
+      body = OpenAICompletions.handle_body(@model, context, %{})
+
+      refute Map.has_key?(body, "response_format")
+    end
+  end
 end

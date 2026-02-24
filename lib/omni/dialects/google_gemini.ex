@@ -47,6 +47,7 @@ defmodule Omni.Dialects.GoogleGemini do
       |> maybe_put_system(context.system)
       |> maybe_put_tools(context.tools)
       |> maybe_put_thinking(model, opts[:thinking])
+      |> maybe_put_output(opts[:output])
 
     body
   end
@@ -81,6 +82,18 @@ defmodule Omni.Dialects.GoogleGemini do
 
   defp normalize_thinking(opts) when is_list(opts) do
     {:effort, Keyword.get(opts, :effort, :high), Keyword.get(opts, :budget)}
+  end
+
+  # Output schema
+
+  defp maybe_put_output(body, nil), do: body
+
+  defp maybe_put_output(body, schema) do
+    Map.update!(body, "generationConfig", fn config ->
+      config
+      |> Map.put("responseMimeType", "application/json")
+      |> Map.put("responseSchema", schema)
+    end)
   end
 
   # Parse events — Google sends `GenerateContentResponse` objects.

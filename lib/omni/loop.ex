@@ -10,8 +10,10 @@ defmodule Omni.Loop do
   output validation retries using the same machinery.
   """
 
-  alias Omni.{Context, Message, Model, Request, Response, StreamingResponse, Tool, Usage}
+  alias Omni.{Context, Message, Model, Request, Response, Schema, StreamingResponse, Tool, Usage}
   alias Omni.Content.{Text, ToolResult, ToolUse}
+
+  @max_output_retries 3
 
   @doc """
   Builds and executes a streaming request with automatic tool looping.
@@ -36,7 +38,10 @@ defmodule Omni.Loop do
       tool_map: build_tool_map(context.tools),
       messages: [],
       raws: [],
-      usage: %Usage{}
+      usage: %Usage{},
+      output_schema: opts[:output],
+      output_peri: if(opts[:output], do: Schema.to_peri(opts[:output])),
+      output_retries: 0
     }
 
     with {:ok, sr} <- step(state) do
@@ -109,11 +114,16 @@ defmodule Omni.Loop do
         raws: state.raws ++ (response.raw || [])
     }
 
-    if should_loop?(tool_uses, response, state) do
-      do_loop(tool_uses, response, state)
-    else
-      final_response = build_final_response(state, response)
-      [{:done, %{stop_reason: final_response.stop_reason}, final_response}]
+    cond do
+      should_loop?(tool_uses, response, state) ->
+        do_loop(tool_uses, response, state)
+
+      state.output_schema != nil ->
+        handle_output_validation(response, state)
+
+      true ->
+        final_response = build_final_response(state, response)
+        [{:done, %{stop_reason: final_response.stop_reason}, final_response}]
     end
   end
 
@@ -143,6 +153,76 @@ defmodule Omni.Loop do
       {:error, reason} ->
         error_response = build_error_response(state, reason)
         Stream.concat(tool_result_events, [{:error, %{reason: reason}, error_response}])
+    end
+  end
+
+  # -- Output validation --
+
+  defp handle_output_validation(response, state) do
+    text =
+      response.message.content
+      |> Enum.filter(&match?(%Text{}, &1))
+      |> Enum.map_join("", & &1.text)
+
+    case JSON.decode(text) do
+      {:ok, decoded} ->
+        case Peri.validate(state.output_peri, decoded) do
+          {:ok, validated} ->
+            final_response = %{build_final_response(state, response) | output: validated}
+            [{:done, %{stop_reason: final_response.stop_reason}, final_response}]
+
+          {:error, errors} ->
+            retry_output(response, state, :validation, errors)
+        end
+
+      {:error, _} ->
+        retry_output(response, state, :decode, nil)
+    end
+  end
+
+  defp retry_output(response, state, _kind, _errors)
+       when state.output_retries >= @max_output_retries do
+    final_response = build_final_response(state, response)
+    [{:done, %{stop_reason: final_response.stop_reason}, final_response}]
+  end
+
+  defp retry_output(%{stop_reason: :length} = response, state, _kind, _errors) do
+    final_response = build_final_response(state, response)
+    [{:done, %{stop_reason: final_response.stop_reason}, final_response}]
+  end
+
+  defp retry_output(response, state, kind, errors) do
+    error_text =
+      case kind do
+        :decode ->
+          "Your response was not valid JSON. Please respond with only valid JSON matching the required schema."
+
+        :validation ->
+          "Your JSON response did not match the required schema. Validation errors:\n" <>
+            Schema.format_errors(errors)
+      end
+
+    user_message = Message.new(role: :user, content: error_text)
+
+    state = %{
+      state
+      | messages: state.messages ++ [user_message],
+        context: %{
+          state.context
+          | messages: state.context.messages ++ [response.message, user_message]
+        },
+        step_num: state.step_num + 1,
+        output_retries: state.output_retries + 1
+    }
+
+    case step(state) do
+      {:ok, next_sr} ->
+        Process.put(state.cancel_ref, next_sr.cancel)
+        loop_stream(next_sr, state)
+
+      {:error, reason} ->
+        error_response = build_error_response(state, reason)
+        [{:error, %{reason: reason}, error_response}]
     end
   end
 
