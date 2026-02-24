@@ -42,14 +42,14 @@ defmodule Omni.MixProject do
     [
       main: "Omni",
       groups_for_modules: [
-        "Providers": ~r/^Omni\.Providers\..+$/,
-        "Dialects": ~r/^Omni\.Dialects\..+$/,
+        Providers: ~r/^Omni\.Providers\..+$/,
+        Dialects: ~r/^Omni\.Dialects\..+$/,
         "Data structures": [
           ~r/Omni\.Content\..+$/,
           Omni.Context,
           Omni.Message,
           Omni.Response,
-          Omni.Usage,
+          Omni.Usage
         ]
       ]
     ]
