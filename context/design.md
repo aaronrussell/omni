@@ -1630,15 +1630,9 @@ lib/omni/
 
 ## Future Considerations
 
-### Automated tool calling
-
-`generate_text` and `stream_text` are single request/response primitives. If the model's response contains tool use blocks, it is the caller's responsibility to execute the tools, update the context with the results, and make another request. This is deliberate -- single-request functions are predictable in cost, latency, and side effects.
-
-A future addition will provide separate functions that loop over the single-request primitives, automatically executing tools and continuing the conversation until the model produces a final response (or a step limit is reached). These will be distinct functions, not options on the existing ones, because a function that sometimes makes one request and sometimes makes ten has fundamentally different semantics. The naming and exact API shape are topics for future design work.
-
 ### Agents
 
-Beyond automated tool calling, there is a third level of interaction: agents. An agent builds on the tool calling loop but adds goal-orientation, step-level hooks (logging, budget enforcement, human approval gates), error recovery policies, and structured observability of the execution trace. The key distinction is that a tool loop is reactive machinery (continue if there are tool use blocks, stop if there aren't), while an agent makes decisions about how to pursue a goal.
+`Omni.Loop` provides automated tool calling integrated into `stream_text/3` and `generate_text/3`. Beyond this reactive machinery (continue if there are tool use blocks, stop if there aren't), there is another level of interaction: agents. An agent builds on the tool calling loop but adds goal-orientation, step-level hooks (logging, budget enforcement, human approval gates), error recovery policies, and structured observability of the execution trace.
 
 This needs further research to flesh out, but the architectural intent is a layered design: single-request primitives at the base, a tool calling loop built on top, and agent capabilities built on top of the loop. Each layer composes over the one below it.
 

@@ -125,6 +125,10 @@ defmodule Omni.Dialects.GoogleGemini do
 
   defp extract_content(_), do: []
 
+  # Google sends function calls either as multiple parts in one event or as
+  # separate events with one part each. In both cases every block_start needs
+  # a globally unique index so StreamingResponse doesn't merge them into a
+  # single block. A monotonic unique integer guarantees uniqueness across events.
   defp parse_part(%{
          "functionCall" => %{"name" => name, "args" => args},
          "thoughtSignature" => sig
@@ -133,7 +137,7 @@ defmodule Omni.Dialects.GoogleGemini do
       {:block_start,
        %{
          type: :tool_use,
-         index: 0,
+         index: System.unique_integer([:positive, :monotonic]),
          id: "google_fc_#{System.unique_integer([:positive])}",
          name: name,
          input: args,
@@ -147,7 +151,7 @@ defmodule Omni.Dialects.GoogleGemini do
       {:block_start,
        %{
          type: :tool_use,
-         index: 0,
+         index: System.unique_integer([:positive, :monotonic]),
          id: "google_fc_#{System.unique_integer([:positive])}",
          name: name,
          input: args

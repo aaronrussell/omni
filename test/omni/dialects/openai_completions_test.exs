@@ -661,6 +661,51 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert [{:message, _}, {:block_start, _}] = OpenAICompletions.handle_event(event)
     end
 
+    test "parallel tool call start uses tool_call index not choice index" do
+      event = %{
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{
+              "role" => "assistant",
+              "tool_calls" => [
+                %{
+                  "index" => 1,
+                  "id" => "call_second",
+                  "type" => "function",
+                  "function" => %{"name" => "get_time", "arguments" => ""}
+                }
+              ]
+            }
+          }
+        ],
+        "model" => "gpt-4.1-nano"
+      }
+
+      assert [
+               {:message, %{model: "gpt-4.1-nano"}},
+               {:block_start, %{type: :tool_use, index: 1, id: "call_second", name: "get_time"}}
+             ] = OpenAICompletions.handle_event(event)
+    end
+
+    test "parallel tool call delta uses tool_call index not choice index" do
+      event = %{
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{
+              "tool_calls" => [
+                %{"index" => 1, "function" => %{"arguments" => "{\"city\""}}
+              ]
+            }
+          }
+        ]
+      }
+
+      assert [{:block_delta, %{type: :tool_use, index: 1, delta: "{\"city\""}}] =
+               OpenAICompletions.handle_event(event)
+    end
+
     test "empty delta returns empty list" do
       event = %{
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => nil}]

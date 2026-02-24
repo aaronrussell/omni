@@ -578,7 +578,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert result.type == :tool_use
       assert result.name == "get_weather"
       assert result.input == %{"city" => "London"}
-      assert result.index == 0
+      assert is_integer(result.index) and result.index > 0
       assert is_binary(result.id)
       assert String.starts_with?(result.id, "google_fc_")
     end
@@ -787,6 +787,51 @@ defmodule Omni.Dialects.GoogleGeminiTest do
 
       assert [{:block_start, %{type: :tool_use, name: "search", signature: "sig_fc1"}}] =
                GoogleGemini.handle_event(event)
+    end
+
+    test "multiple function calls in one event emit unique indices" do
+      event = %{
+        "candidates" => [
+          %{
+            "content" => %{
+              "parts" => [
+                %{
+                  "functionCall" => %{"name" => "get_weather", "args" => %{"city" => "London"}},
+                  "thoughtSignature" => "sig_fc1"
+                },
+                %{
+                  "functionCall" => %{"name" => "get_time", "args" => %{"city" => "London"}},
+                  "thoughtSignature" => "sig_fc2"
+                }
+              ],
+              "role" => "model"
+            },
+            "finishReason" => "STOP",
+            "index" => 0
+          }
+        ]
+      }
+
+      assert [
+               {:message, %{stop_reason: :stop}},
+               {:block_start, first},
+               {:block_start, second}
+             ] = GoogleGemini.handle_event(event)
+
+      assert first.type == :tool_use
+      assert is_integer(first.index)
+      assert first.name == "get_weather"
+      assert first.signature == "sig_fc1"
+
+      assert second.type == :tool_use
+      assert is_integer(second.index)
+      assert second.name == "get_time"
+      assert second.signature == "sig_fc2"
+
+      # Indices must be unique (monotonic integers)
+      assert first.index != second.index
+      # IDs must be unique
+      assert first.id != second.id
     end
 
     test "thought and text parts in same event emit both types" do

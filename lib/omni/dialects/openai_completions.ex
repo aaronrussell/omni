@@ -78,9 +78,7 @@ defmodule Omni.Dialects.OpenAICompletions do
     [{:message, %{stop_reason: normalize_stop_reason(reason)}}]
   end
 
-  def handle_event(
-        %{"choices" => [%{"delta" => %{"tool_calls" => [tool_call | _]}} = choice]} = event
-      )
+  def handle_event(%{"choices" => [%{"delta" => %{"tool_calls" => [tool_call | _]}}]} = event)
       when is_map_key(tool_call, "id") do
     message =
       case event do
@@ -93,19 +91,19 @@ defmodule Omni.Dialects.OpenAICompletions do
         {:block_start,
          %{
            type: :tool_use,
-           index: choice["index"] || 0,
+           index: tool_call["index"] || 0,
            id: tool_call["id"],
            name: tool_call["function"]["name"]
          }}
       ]
   end
 
-  def handle_event(%{"choices" => [%{"delta" => %{"tool_calls" => [tool_call | _]}} = choice]}) do
+  def handle_event(%{"choices" => [%{"delta" => %{"tool_calls" => [tool_call | _]}}]}) do
     [
       {:block_delta,
        %{
          type: :tool_use,
-         index: choice["index"] || 0,
+         index: tool_call["index"] || 0,
          delta: tool_call["function"]["arguments"]
        }}
     ]
