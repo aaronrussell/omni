@@ -183,7 +183,7 @@ defmodule Integration.ErrorTest do
           plug: {Req.Test, :err_raw}
         )
 
-      assert {:ok, %Response{raw: {%Req.Request{}, %Req.Response{}}}} =
+      assert {:ok, %Response{raw: [{%Req.Request{}, %Req.Response{}}]}} =
                StreamingResponse.complete(sr)
     end
   end

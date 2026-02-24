@@ -23,6 +23,8 @@ defmodule Omni.StreamingResponse do
       {:tool_use_delta, %{index: 1, delta: "{\\"city\\":"}, %Response{}}
       {:tool_use_end,   %{index: 1, content: %ToolUse{}}, %Response{}}
 
+      {:tool_result, %{name: "weather", tool_use_id: "call_1", output: "72°F", is_error: false}, %Response{}}
+
       {:error, %{reason: term()}, %Response{}}
       {:done,  %{stop_reason: :stop}, %Response{}}
 
@@ -53,6 +55,7 @@ defmodule Omni.StreamingResponse do
           | :tool_use_start
           | :tool_use_delta
           | :tool_use_end
+          | :tool_result
           | :error
           | :done
 
@@ -245,7 +248,8 @@ defmodule Omni.StreamingResponse do
     stop_reason = infer_stop_reason(acc)
     acc = %{acc | stop_reason: stop_reason}
     response = build_response(acc, true)
-    response = if acc.raw, do: %{response | raw: acc.raw}, else: response
+    response = %{response | messages: [response.message]}
+    response = if acc.raw, do: %{response | raw: [acc.raw]}, else: response
     {:done, %{stop_reason: stop_reason}, response}
   end
 

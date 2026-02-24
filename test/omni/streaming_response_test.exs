@@ -272,7 +272,7 @@ defmodule Omni.StreamingResponseTest do
 
       sr = StreamingResponse.new(events, raw: {fake_req, fake_resp})
 
-      assert {:ok, %Response{raw: {%Req.Request{}, %Req.Response{}}}} =
+      assert {:ok, %Response{raw: [{%Req.Request{}, %Req.Response{}}]}} =
                StreamingResponse.complete(sr)
     end
 
