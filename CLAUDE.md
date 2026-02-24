@@ -48,6 +48,8 @@ mix models.get           # Fetch model data from models.dev into priv/models/
 
 - **Two message roles only**: `:user` and `:assistant`. No `:tool` role — tool results are `Content.ToolResult` blocks inside user messages. Role differences are expressed through content blocks, not message types.
 
+- **Recursive stream loop**: `Omni.Loop` handles tool auto-execution via recursive `Stream.concat`. `stream_text/3` always delegates to `Loop.stream/5`. Each step's SR stream is wrapped to intercept `:done` (captured in process dictionary, suppressed from consumer). A lazy continuation thunk checks the captured response, executes tools if needed, emits synthetic `:tool_result` events, and either recursively builds the next step's stream or emits the final `:done` with aggregated `messages`/`usage`/`raw`. Single lazy pipeline — all SR infrastructure (`on/3`, `complete/1`, `text_stream/1`, `cancel/1`) works unchanged. `all_executable?/2` breaks the loop when any tool has a `nil` handler (schema-only), returning the response to the user for manual handling. Hallucinated tool names produce error `ToolResult`s sent back to the model. `:max_steps` option (default `:infinity`) caps rounds; `max_steps: 1` opts out of auto-looping.
+
 - **Single validation pass**: `Request.validate/2` merges the universal `@schema` (on `Omni.Request`) with `dialect.option_schema()`, does a three-tier config merge (provider config ← app config ← call-site opts), rejects unknown keys, and validates via Peri — all in one pass before any callbacks run. Config keys use `:any` type; inference keys are strictly typed. `:timeout` defaults to 300,000ms and maps to Req's `receive_timeout`.
 
 ### Module layout (target structure)
@@ -67,6 +69,7 @@ lib/omni/
 ├── content/{text,thinking,attachment,tool_use,tool_result}.ex
 ├── sse.ex                          # Shared SSE parser
 ├── request.ex                      # Request orchestration (build, stream, validate, parse_event)
+├── loop.ex                         # Recursive stream loop (tool auto-execution)
 ├── provider.ex                     # Provider behaviour + shared utilities
 ├── providers/{anthropic,openai,...}.ex
 ├── dialect.ex                      # Dialect behaviour

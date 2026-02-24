@@ -3,7 +3,7 @@ defmodule Omni do
   Elixir library for interacting with LLM APIs across multiple providers.
   """
 
-  alias Omni.{Context, Model, Request, Response, StreamingResponse}
+  alias Omni.{Context, Loop, Model, Response, StreamingResponse}
 
   @doc """
   Streams a text generation request, returning a `%StreamingResponse{}`.
@@ -11,11 +11,16 @@ defmodule Omni do
   The model can be a `%Model{}` struct or a `{provider_id, model_id}` tuple.
   The context can be a string, list of messages, or `%Context{}` struct.
 
+  When tools with handlers are present in the context, automatically executes
+  tool uses and loops until the model stops calling tools. Between rounds,
+  synthetic `:tool_result` events are emitted for observability.
+
   ## Options
 
     * `:api_key` — API key for the provider
     * `:plug` — a Req test plug for stubbing HTTP responses
-    * `:raw` — when `true`, attaches the raw `{%Req.Request{}, %Req.Response{}}` to the response
+    * `:raw` — when `true`, attaches raw `{%Req.Request{}, %Req.Response{}}` tuples to the response (one per round)
+    * `:max_steps` — maximum number of request rounds (default `:infinity`). Pass `1` for manual tool handling.
 
   All other options are passed through to `Request.build/3`.
   """
@@ -32,10 +37,9 @@ defmodule Omni do
   def stream_text(%Model{} = model, context, opts) do
     context = Context.new(context)
     {raw, opts} = Keyword.pop(opts, :raw, false)
+    {max_steps, opts} = Keyword.pop(opts, :max_steps, :infinity)
 
-    with {:ok, req} <- Request.build(model, context, opts) do
-      Request.stream(req, model, raw: raw)
-    end
+    Loop.stream(model, context, opts, raw, max_steps)
   end
 
   @doc """

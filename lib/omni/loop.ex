@@ -1,0 +1,264 @@
+defmodule Omni.Loop do
+  @moduledoc """
+  General-purpose request loop for LLM interactions.
+
+  Handles tool auto-execution with recursive stream concatenation. When the
+  model produces tool use blocks, the loop executes tools, feeds results back,
+  and streams the next step — all within a single lazy pipeline.
+
+  Currently supports tool calling loops; designed to later support structured
+  output validation retries using the same machinery.
+  """
+
+  alias Omni.{Context, Message, Model, Request, Response, StreamingResponse, Tool, Usage}
+  alias Omni.Content.{Text, ToolResult, ToolUse}
+
+  @doc """
+  Builds and executes a streaming request with automatic tool looping.
+
+  Always executes at least one request. After each step, checks whether to
+  loop based on tool use blocks in the response. The result is a single
+  `StreamingResponse` whose stream lazily concatenates all steps.
+  """
+  @spec stream(Model.t(), Context.t(), keyword(), boolean(), pos_integer() | :infinity) ::
+          {:ok, StreamingResponse.t()} | {:error, term()}
+  def stream(model, context, opts, raw?, max_steps) do
+    cancel_ref = make_ref()
+
+    state = %{
+      model: model,
+      context: context,
+      opts: opts,
+      raw?: raw?,
+      max_steps: max_steps,
+      step_num: 1,
+      cancel_ref: cancel_ref,
+      tool_map: build_tool_map(context.tools),
+      messages: [],
+      raws: [],
+      usage: %Usage{}
+    }
+
+    with {:ok, sr} <- step(state) do
+      Process.put(cancel_ref, sr.cancel)
+
+      stream = loop_stream(sr, state)
+
+      cancel = fn ->
+        case Process.get(cancel_ref) do
+          nil -> :ok
+          fun when is_function(fun) -> fun.()
+          _ -> :ok
+        end
+      end
+
+      {:ok, %StreamingResponse{stream: stream, cancel: cancel}}
+    end
+  end
+
+  # -- Step execution --
+
+  defp step(%{model: model, context: context, opts: opts, raw?: raw?}) do
+    with {:ok, req} <- Request.build(model, context, opts) do
+      Request.stream(req, model, raw: raw?)
+    end
+  end
+
+  # -- Stream pipeline --
+
+  defp loop_stream(sr, state) do
+    done_key = make_ref()
+
+    # Pass through all events except :done, which we capture
+    step_events =
+      Stream.flat_map(sr.stream, fn
+        {:done, _data, response} ->
+          Process.put(done_key, response)
+          []
+
+        event ->
+          [event]
+      end)
+
+    # Lazy continuation — evaluates after step_events is exhausted
+    continuation =
+      Stream.flat_map([:_], fn :_ ->
+        case Process.delete(done_key) do
+          nil ->
+            # Error occurred mid-stream; :error event already passed through
+            []
+
+          response ->
+            handle_step_result(response, state)
+        end
+      end)
+
+    Stream.concat(step_events, continuation)
+  end
+
+  # -- Step result handling --
+
+  defp handle_step_result(response, state) do
+    tool_uses = extract_tool_uses(response.message.content)
+
+    # Accumulate this step's data
+    state = %{
+      state
+      | messages: state.messages ++ [response.message],
+        usage: Usage.add(state.usage, response.usage),
+        raws: state.raws ++ (response.raw || [])
+    }
+
+    if should_loop?(tool_uses, response, state) do
+      do_loop(tool_uses, response, state)
+    else
+      final_response = build_final_response(state, response)
+      [{:done, %{stop_reason: final_response.stop_reason}, final_response}]
+    end
+  end
+
+  defp do_loop(tool_uses, response, state) do
+    # Execute tools and build result blocks
+    tool_results = execute_tools(tool_uses, state.tool_map)
+    tool_result_events = build_tool_result_events(tool_results, response)
+
+    # Build user message with tool results, update context
+    user_message = Message.new(role: :user, content: tool_results)
+
+    state = %{
+      state
+      | messages: state.messages ++ [user_message],
+        context: %{
+          state.context
+          | messages: state.context.messages ++ [response.message, user_message]
+        },
+        step_num: state.step_num + 1
+    }
+
+    case step(state) do
+      {:ok, next_sr} ->
+        Process.put(state.cancel_ref, next_sr.cancel)
+        Stream.concat(tool_result_events, loop_stream(next_sr, state))
+
+      {:error, reason} ->
+        error_response = build_error_response(state, reason)
+        Stream.concat(tool_result_events, [{:error, %{reason: reason}, error_response}])
+    end
+  end
+
+  # -- Loop control --
+
+  defp should_loop?([], _response, _state), do: false
+
+  defp should_loop?(tool_uses, response, state) do
+    response.stop_reason == :tool_use and
+      step_within_limit?(state) and
+      all_executable?(tool_uses, state.tool_map)
+  end
+
+  defp step_within_limit?(%{max_steps: :infinity}), do: true
+  defp step_within_limit?(%{step_num: n, max_steps: max}), do: n < max
+
+  defp all_executable?(tool_uses, tool_map) do
+    Enum.all?(tool_uses, fn tool_use ->
+      case Map.get(tool_map, tool_use.name) do
+        # Hallucinated name — not a reason to break, error result sent to model
+        nil -> true
+        # Schema-only tool (no handler) — break, user handles manually
+        %Tool{handler: nil} -> false
+        # Has handler — executable
+        %Tool{} -> true
+      end
+    end)
+  end
+
+  # -- Tool execution --
+
+  defp execute_tools(tool_uses, tool_map) do
+    Enum.map(tool_uses, fn tool_use ->
+      case Map.get(tool_map, tool_use.name) do
+        nil ->
+          ToolResult.new(
+            tool_use_id: tool_use.id,
+            name: tool_use.name,
+            content: "Tool not found: #{tool_use.name}",
+            is_error: true
+          )
+
+        %Tool{} = tool ->
+          case Tool.execute(tool, tool_use.input) do
+            {:ok, result} ->
+              ToolResult.new(
+                tool_use_id: tool_use.id,
+                name: tool_use.name,
+                content: format_result(result)
+              )
+
+            {:error, error} ->
+              ToolResult.new(
+                tool_use_id: tool_use.id,
+                name: tool_use.name,
+                content: format_result(error),
+                is_error: true
+              )
+          end
+      end
+    end)
+  end
+
+  defp format_result(value) when is_binary(value), do: value
+  defp format_result(value), do: inspect(value)
+
+  # -- Event building --
+
+  defp build_tool_result_events(tool_results, response) do
+    Enum.map(tool_results, fn tr ->
+      {:tool_result,
+       %{
+         name: tr.name,
+         tool_use_id: tr.tool_use_id,
+         output: tool_result_text(tr),
+         is_error: tr.is_error
+       }, response}
+    end)
+  end
+
+  defp tool_result_text(%ToolResult{content: [%Text{text: text}]}), do: text
+  defp tool_result_text(%ToolResult{content: []}), do: ""
+
+  defp tool_result_text(%ToolResult{content: blocks}) when is_list(blocks) do
+    Enum.map_join(blocks, "\n", fn %Text{text: text} -> text end)
+  end
+
+  # -- Response building --
+
+  defp build_final_response(state, last_step_response) do
+    %{
+      last_step_response
+      | messages: state.messages,
+        usage: state.usage,
+        raw: if(state.raw?, do: state.raws, else: nil)
+    }
+  end
+
+  defp build_error_response(state, reason) do
+    Response.new(
+      message: Message.new(role: :assistant, content: []),
+      model: state.model,
+      usage: state.usage,
+      stop_reason: :error,
+      error: reason,
+      messages: state.messages
+    )
+  end
+
+  # -- Helpers --
+
+  defp extract_tool_uses(content) do
+    Enum.filter(content, &match?(%ToolUse{}, &1))
+  end
+
+  defp build_tool_map(tools) do
+    Map.new(tools, fn tool -> {tool.name, tool} end)
+  end
+end
