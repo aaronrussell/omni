@@ -1,6 +1,6 @@
 # Omni Agent Design
 
-**Status:** Phase 1 implemented -- Phase 2 next
+**Status:** Phase 3 implemented (all phases complete)
 **Last updated:** February 2026
 
 ---
@@ -195,7 +195,9 @@ defmodule Omni.Agent.State do
     # Internal (framework-managed)
     listener: nil,                     # pid — event recipient
     step_task: nil,                    # {pid, ref} | nil — current step process
-    executor_ref: nil                  # current Executor Task ref
+    executor_task: nil,                # {pid, ref} | nil — current executor process
+    rejected_results: [],              # [ToolResult.t()] — stashed rejected tool results during decision phase
+    tool_timeout: 5_000               # timeout — per-agent tool execution timeout
   ]
 end
 ```
@@ -536,27 +538,19 @@ Each tool gets its own outcome regardless of what happened to other tools. A tim
 
 ### Parallel tool execution utility
 
-A shared function for parallel tool execution, usable by both the agent and `Omni.Loop`:
+`Omni.Tool.Runner` provides shared parallel tool execution, used by both the agent's `Executor` and `Omni.Loop`:
 
 ```elixir
-# Could live in Omni.Tool or a utility module
-def execute_many(tool_uses, tool_map, timeout \\ 5_000) do
-  tool_uses
-  |> Enum.map(fn tool_use ->
-    Task.async(fn -> {tool_use, execute_one(tool_use, tool_map)} end)
-  end)
-  |> Task.yield_many(timeout)
-  |> Enum.map(fn
-    {task, {:ok, result}} -> result
-    {task, {:exit, reason}} -> {:error, reason}
-    {task, nil} -> Task.shutdown(task); {:error, :timeout}
-  end)
-end
+# Omni.Tool.Runner
+@spec run([ToolUse.t()], %{String.t() => Tool.t()}, timeout()) :: [ToolResult.t()]
+def run(tool_uses, tool_map, timeout \\ 5_000)
 ```
 
-The agent passes its `:tool_timeout` value (default 5 seconds). Error and timeout results become error `ToolResult`s — the model sees the failure and can adapt.
+Takes a list of `ToolUse` content blocks and a map of tool names to `Tool` structs. Returns `[ToolResult.t()]` in the same order as the input `tool_uses`. Each tool runs in a separate `Task.async`, collected via `Task.yield_many/2`. Handles: missing tools (hallucinated names → error results), tool exceptions (→ error results), timeouts (→ shutdown + error results).
 
-`Omni.Loop` can adopt this to replace its current sequential `Enum.map` in `execute_tools/2`, giving all `stream_text`/`generate_text` callers parallel tool execution for free.
+This is a content-block-level orchestration layer on top of the low-level `Tool.execute/2` primitive. `Tool.execute/2` takes a tool struct and a raw input map; `Tool.Runner.run/3` takes `ToolUse` blocks and resolves tools by name.
+
+The agent passes its `:tool_timeout` value (default 5 seconds). `Omni.Loop` also uses `Tool.Runner.run/3`, giving all `stream_text`/`generate_text` callers parallel tool execution.
 
 ### Tool call decision flow
 
@@ -566,9 +560,9 @@ In practice, schema-only tools in agents are almost exclusively completion signa
 
 When all tools have handlers, the GenServer processes them in two phases:
 
-1. **Decision phase** (synchronous, in GenServer): iterate tool uses, invoke `handle_tool_call` for each. Collect decisions (`:execute`, `{:reject, reason}`, or `:pause`). If any tool pauses, the GenServer pauses immediately -- all tools wait. On resume, continue collecting decisions. Rejected tools get error `ToolResult`s without execution.
+1. **Decision phase** (synchronous, in GenServer): iterate tool uses, invoke `handle_tool_call` for each. Collect decisions (`:execute` or `{:reject, reason}`). Rejected tools get error `ToolResult`s immediately without execution. Note: `{:pause, state}` is designed but not yet implemented (Phase 3).
 
-2. **Execution phase** (async, in executor Task): all approved tools execute in parallel. Results sent back to GenServer. GenServer invokes `handle_tool_result` for each.
+2. **Execution phase** (async, in executor Task): approved tools execute in parallel via `Tool.Runner.run/3`. Results sent back to GenServer. GenServer merges with rejected results (reordered to match original tool_use order), then invokes `handle_tool_result` for each.
 
 Per-tool decisions produce per-tool outcomes. Rejecting tool C does not affect tools A and B -- they execute normally, and C gets an error result. The model receives all results in a single user message and adapts.
 
@@ -617,12 +611,12 @@ Use cases: approval gates, logging, rate limiting, input modification.
 
 When `{:pause, state}` is returned, the agent enters paused state and sends `{:agent, pid, :pause, tool_use}` to the listener. The caller inspects the tool call and resumes with `Agent.resume(agent, :approve)` or `Agent.resume(agent, {:reject, reason})`.
 
-### handle_tool_result/3
+### handle_tool_result/2
 
-Called after a tool executes, during the result phase. Receives the tool use struct, the result, and agent state. Called sequentially for each result after all approved tools have executed in parallel.
+Called after a tool executes, during the result phase. Receives the `%ToolResult{}` and agent state. Called sequentially for each result after all approved tools have executed in parallel. The `ToolResult` carries `tool_use_id` and `name` for identifying which tool produced it.
 
 ```elixir
-def handle_tool_result(tool_use, result, state) do
+def handle_tool_result(result, state) do
   {:ok, result, state}             # pass through
   {:ok, modified_result, state}    # modify before sending to model
 end
@@ -981,12 +975,17 @@ lib/omni/
 ├── agent/
 │   ├── state.ex                # %State{} struct (@moduledoc false)
 │   ├── server.ex               # Internal GenServer: handle_call, handle_info, state machine,
-│   │                            # step spawning, event forwarding (@moduledoc false)
-│   └── step.ex                  # Step process: streams LLM request, forwards events via
-│                                # tagged ref (@moduledoc false)
+│   │                            # step spawning, tool decision/execution, event forwarding (@moduledoc false)
+│   ├── step.ex                  # Step process: streams LLM request, forwards events via
+│   │                            # tagged ref (@moduledoc false)
+│   └── executor.ex              # Executor process: spawns Tool.Runner.run in a linked Task,
+│                                # sends results back via tagged ref (@moduledoc false)
+├── tool.ex                      # Tool struct, behaviour, use macro, execute/2
+├── tool/
+│   └── runner.ex                # Parallel tool execution: ToolUse blocks → ToolResult blocks
 ```
 
-`agent.ex` is what users interact with — `use Omni.Agent`, callback definitions, and public API functions (thin `GenServer.call` wrappers). `agent/server.ex` is the internal GenServer — state transitions, task management, event routing. `agent/step.ex` encapsulates the streaming execution logic — it uses `Task.start_link/1` to spawn a linked process that consumes a `StreamingResponse` and sends ref-tagged messages back to the GenServer. This separates interface from implementation; the server and step modules are not part of the public API.
+`agent.ex` is what users interact with — `use Omni.Agent`, callback definitions, and public API functions (thin `GenServer.call` wrappers). `agent/server.ex` is the internal GenServer — state transitions, task management, tool decision/execution phases, event routing. `agent/step.ex` encapsulates the streaming execution logic — it uses `Task.start_link/1` to spawn a linked process that consumes a `StreamingResponse` and sends ref-tagged messages back to the GenServer. `agent/executor.ex` is a thin Task wrapper that calls `Tool.Runner.run/3` and sends results back via a tagged ref. This separates interface from implementation; the server, step, and executor modules are not part of the public API.
 
 ---
 

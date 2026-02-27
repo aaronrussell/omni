@@ -72,17 +72,45 @@ defmodule Omni.Agent.Server do
     {:reply, :ok, state}
   end
 
-  def handle_call({:prompt, _content, _opts}, _from, %{status: :running} = state) do
-    {:reply, {:error, :running}, state}
+  def handle_call({:prompt, content, _opts}, _from, %{status: status} = state)
+      when status in [:running, :paused] do
+    {:reply, :ok, %{state | next_prompt: content}}
+  end
+
+  def handle_call({:resume, decision}, _from, %{status: :paused} = state) do
+    %{tool_use: tool_use, remaining: remaining, approved: approved, tool_map: tool_map} =
+      state.paused_decision
+
+    state = %{state | status: :running, paused_decision: nil}
+
+    {approved, state} =
+      case decision do
+        :approve ->
+          {[tool_use | approved], state}
+
+        {:reject, reason} ->
+          result =
+            ToolResult.new(
+              tool_use_id: tool_use.id,
+              name: tool_use.name,
+              content: "Tool rejected: #{inspect(reason)}",
+              is_error: true
+            )
+
+          {approved, %{state | rejected_results: state.rejected_results ++ [result]}}
+      end
+
+    state = process_next_tool_decision(remaining, approved, tool_map, state)
+    {:reply, :ok, state}
+  end
+
+  def handle_call({:resume, _decision}, _from, state) do
+    {:reply, {:error, :not_paused}, state}
   end
 
   def handle_call({:add_tools, tools}, _from, %{status: :idle} = state) do
     context = %{state.context | tools: state.context.tools ++ tools}
     {:reply, :ok, %{state | context: context}}
-  end
-
-  def handle_call({:add_tools, _tools}, _from, %{status: :running} = state) do
-    {:reply, {:error, :running}, state}
   end
 
   def handle_call({:remove_tools, names}, _from, %{status: :idle} = state) do
@@ -92,11 +120,7 @@ defmodule Omni.Agent.Server do
     {:reply, :ok, %{state | context: context}}
   end
 
-  def handle_call({:remove_tools, _names}, _from, %{status: :running} = state) do
-    {:reply, {:error, :running}, state}
-  end
-
-  def handle_call(:cancel, _from, %{status: :running} = state) do
+  def handle_call(:cancel, _from, %{status: status} = state) when status in [:running, :paused] do
     state = do_cancel(state)
     {:reply, :ok, state}
   end
@@ -115,15 +139,16 @@ defmodule Omni.Agent.Server do
     {:reply, :ok, state}
   end
 
-  def handle_call(:clear, _from, %{status: :running} = state) do
-    {:reply, {:error, :running}, state}
-  end
-
   def handle_call({:listen, pid}, _from, %{status: :idle} = state) do
     {:reply, :ok, %{state | listener: pid}}
   end
 
-  def handle_call({:listen, _pid}, _from, %{status: :running} = state) do
+  # Catch-all for mutating ops while running or paused
+  def handle_call({op, _}, _from, state) when op in [:add_tools, :remove_tools, :listen] do
+    {:reply, {:error, :running}, state}
+  end
+
+  def handle_call(:clear, _from, state) do
     {:reply, {:error, :running}, state}
   end
 
@@ -147,16 +172,33 @@ defmodule Omni.Agent.Server do
   end
 
   def handle_info({ref, {:error, reason}}, %{step_task: {_, ref}} = state) do
-    state = reset_round(state)
-    notify(state, :error, reason)
-    {:noreply, state}
+    state = %{state | step_task: nil}
+
+    case call_handle_error(state.module, reason, state) do
+      {:retry, new_state} ->
+        {:noreply, spawn_step(new_state)}
+
+      {:stop, new_state} ->
+        new_state = reset_round(new_state)
+        notify(new_state, :error, reason)
+        {:noreply, new_state}
+    end
   end
 
   def handle_info({:EXIT, pid, reason}, %{step_task: {pid, _}} = state)
       when reason not in [:normal, :killed] do
-    state = reset_round(state)
-    notify(state, :error, {:step_crashed, reason})
-    {:noreply, state}
+    error = {:step_crashed, reason}
+    state = %{state | step_task: nil}
+
+    case call_handle_error(state.module, error, state) do
+      {:retry, new_state} ->
+        {:noreply, spawn_step(new_state)}
+
+      {:stop, new_state} ->
+        new_state = reset_round(new_state)
+        notify(new_state, :error, error)
+        {:noreply, new_state}
+    end
   end
 
   # -- Info (executor messages) --
@@ -207,7 +249,14 @@ defmodule Omni.Agent.Server do
   defp handle_step_complete(response, state) do
     pending = state.pending_messages ++ [response.message]
     usage = Usage.add(state.usage, response.usage)
-    state = %{state | pending_messages: pending, usage: usage, step_task: nil}
+
+    state = %{
+      state
+      | pending_messages: pending,
+        usage: usage,
+        step_task: nil,
+        last_response: response
+    }
 
     tool_uses = extract_tool_uses(response.message.content)
 
@@ -222,37 +271,50 @@ defmodule Omni.Agent.Server do
 
   defp handle_tool_decision_phase(tool_uses, state) do
     tool_map = build_tool_map(state.context.tools)
+    process_next_tool_decision(tool_uses, [], tool_map, state)
+  end
 
-    {approved, rejected, state} =
-      Enum.reduce(tool_uses, {[], [], state}, fn tool_use, {app, rej, st} ->
-        case call_handle_tool_call(st.module, tool_use, st) do
-          {:execute, new_state} ->
-            {[tool_use | app], rej, new_state}
-
-          {:reject, reason, new_state} ->
-            result =
-              ToolResult.new(
-                tool_use_id: tool_use.id,
-                name: tool_use.name,
-                content: "Tool rejected: #{inspect(reason)}",
-                is_error: true
-              )
-
-            {app, [result | rej], new_state}
-        end
-      end)
-
+  defp process_next_tool_decision([], approved, tool_map, state) do
     approved = Enum.reverse(approved)
-    rejected = Enum.reverse(rejected)
 
     if approved == [] do
-      handle_tools_executed(rejected, state)
+      handle_tools_executed([], state)
     else
-      spawn_executor(approved, rejected, tool_map, state)
+      spawn_executor(approved, tool_map, state)
     end
   end
 
-  defp spawn_executor(approved_uses, rejected_results, tool_map, state) do
+  defp process_next_tool_decision([tool_use | rest], approved, tool_map, state) do
+    case call_handle_tool_call(state.module, tool_use, state) do
+      {:execute, new_state} ->
+        process_next_tool_decision(rest, [tool_use | approved], tool_map, new_state)
+
+      {:reject, reason, new_state} ->
+        result =
+          ToolResult.new(
+            tool_use_id: tool_use.id,
+            name: tool_use.name,
+            content: "Tool rejected: #{inspect(reason)}",
+            is_error: true
+          )
+
+        new_state = %{new_state | rejected_results: new_state.rejected_results ++ [result]}
+        process_next_tool_decision(rest, approved, tool_map, new_state)
+
+      {:pause, new_state} ->
+        paused = %{
+          tool_use: tool_use,
+          remaining: rest,
+          approved: approved,
+          tool_map: tool_map
+        }
+
+        %{new_state | status: :paused, paused_decision: paused}
+        |> tap(&notify(&1, :pause, tool_use))
+    end
+  end
+
+  defp spawn_executor(approved_uses, tool_map, state) do
     ref = make_ref()
 
     {:ok, pid} =
@@ -264,7 +326,7 @@ defmodule Omni.Agent.Server do
         state.tool_timeout
       )
 
-    %{state | executor_task: {pid, ref}, rejected_results: rejected_results}
+    %{state | executor_task: {pid, ref}}
   end
 
   # -- Tool execution results --
@@ -293,29 +355,69 @@ defmodule Omni.Agent.Server do
     user_message = Message.new(role: :user, content: final_results)
     state = %{state | pending_messages: state.pending_messages ++ [user_message]}
 
-    spawn_step(state)
+    if max_steps_reached?(state) do
+      finalize_turn(state.last_response, state)
+    else
+      spawn_step(state)
+    end
   end
 
   # -- Finalize turn --
 
   defp finalize_turn(response, state) do
     case call_handle_stop(state.module, response, state) do
-      {:stop, new_state} ->
-        context = %{state.context | messages: state.context.messages ++ state.pending_messages}
+      {:continue, prompt, new_state} ->
+        cond do
+          max_steps_reached?(new_state) ->
+            commit_and_done(response, new_state)
 
-        %{
-          new_state
-          | context: context,
-            status: :idle,
-            step: 0,
-            step_task: nil,
-            executor_task: nil,
-            rejected_results: [],
-            pending_messages: [],
-            prompt_opts: []
-        }
-        |> tap(&notify(&1, :done, response))
+          new_state.next_prompt != nil ->
+            content = new_state.next_prompt
+            new_state = %{new_state | next_prompt: nil}
+            continue_turn(content, response, new_state)
+
+          true ->
+            continue_turn(prompt, response, new_state)
+        end
+
+      {:stop, new_state} ->
+        cond do
+          new_state.next_prompt != nil and not max_steps_reached?(new_state) ->
+            content = new_state.next_prompt
+            new_state = %{new_state | next_prompt: nil}
+            continue_turn(content, response, new_state)
+
+          true ->
+            commit_and_done(response, new_state)
+        end
     end
+  end
+
+  defp continue_turn(prompt, response, state) do
+    notify(state, :turn, response)
+    user_message = Message.new(role: :user, content: prompt)
+    state = %{state | pending_messages: state.pending_messages ++ [user_message]}
+    spawn_step(state)
+  end
+
+  defp commit_and_done(response, state) do
+    context = %{state.context | messages: state.context.messages ++ state.pending_messages}
+
+    %{
+      state
+      | context: context,
+        status: :idle,
+        step: 0,
+        step_task: nil,
+        executor_task: nil,
+        rejected_results: [],
+        pending_messages: [],
+        next_prompt: nil,
+        prompt_opts: [],
+        last_response: nil,
+        paused_decision: nil
+    }
+    |> tap(&notify(&1, :done, response))
   end
 
   # -- Cancel --
@@ -343,8 +445,16 @@ defmodule Omni.Agent.Server do
         executor_task: nil,
         rejected_results: [],
         pending_messages: [],
-        prompt_opts: []
+        next_prompt: nil,
+        prompt_opts: [],
+        last_response: nil,
+        paused_decision: nil
     }
+  end
+
+  defp max_steps_reached?(state) do
+    max = Keyword.get(state.prompt_opts, :max_steps, :infinity)
+    max != :infinity and state.step >= max
   end
 
   defp extract_tool_uses(content) do
@@ -387,6 +497,9 @@ defmodule Omni.Agent.Server do
 
   defp call_handle_tool_result(module, result, state),
     do: module.handle_tool_result(result, state)
+
+  defp call_handle_error(nil, _error, state), do: {:stop, state}
+  defp call_handle_error(module, error, state), do: module.handle_error(error, state)
 
   defp call_terminate(nil, _reason, _state), do: :ok
   defp call_terminate(module, reason, state), do: module.terminate(reason, state)

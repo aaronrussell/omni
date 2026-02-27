@@ -2,7 +2,7 @@ defmodule Integration.AgentTest do
   use ExUnit.Case, async: true
 
   alias Omni.{Agent, Context, Response, Usage}
-  alias Omni.Content.{Text, ToolResult}
+  alias Omni.Content.{Text, ToolResult, ToolUse}
 
   @text_fixture "test/support/fixtures/sse/anthropic_text.sse"
   @tool_use_fixture "test/support/fixtures/sse/anthropic_tool_use.sse"
@@ -64,6 +64,55 @@ defmodule Integration.AgentTest do
     end
   end
 
+  defmodule ContinueAgent do
+    use Omni.Agent
+
+    @impl Omni.Agent
+    def init(_opts), do: {:ok, %{turn_count: 0}}
+
+    @impl Omni.Agent
+    def handle_stop(_response, state) do
+      count = state.assigns.turn_count + 1
+      state = %{state | assigns: %{state.assigns | turn_count: count}}
+
+      if count < 3 do
+        {:continue, "Continue.", state}
+      else
+        {:stop, state}
+      end
+    end
+  end
+
+  defmodule ErrorRetryAgent do
+    use Omni.Agent
+
+    @impl Omni.Agent
+    def init(_opts), do: {:ok, %{retries: 0}}
+
+    @impl Omni.Agent
+    def handle_error(_error, state) do
+      retries = state.assigns.retries
+
+      if retries < 1 do
+        state = %{state | assigns: %{state.assigns | retries: retries + 1}}
+        {:retry, state}
+      else
+        {:stop, state}
+      end
+    end
+  end
+
+  defmodule PauseAgent do
+    use Omni.Agent
+
+    @impl Omni.Agent
+    def handle_tool_call(%{name: "get_weather"} = _tool_use, state) do
+      {:pause, state}
+    end
+
+    def handle_tool_call(_tool_use, state), do: {:execute, state}
+  end
+
   # -- Helpers --
 
   defp stub_fixture(stub_name, fixture_path) do
@@ -87,6 +136,30 @@ defmodule Integration.AgentTest do
       conn
       |> Plug.Conn.put_resp_content_type("text/event-stream")
       |> Plug.Conn.send_resp(200, body)
+    end)
+  end
+
+  defp stub_error(stub_name) do
+    Req.Test.stub(stub_name, fn conn ->
+      Plug.Conn.send_resp(conn, 500, "Internal Server Error")
+    end)
+  end
+
+  defp stub_error_then_success(stub_name, fixture_path) do
+    {:ok, counter} = Elixir.Agent.start_link(fn -> 0 end)
+
+    Req.Test.stub(stub_name, fn conn ->
+      call_num = Elixir.Agent.get_and_update(counter, fn n -> {n, n + 1} end)
+
+      if call_num == 0 do
+        Plug.Conn.send_resp(conn, 500, "Internal Server Error")
+      else
+        body = File.read!(fixture_path)
+
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, body)
+      end
     end)
   end
 
@@ -164,6 +237,9 @@ defmodule Integration.AgentTest do
 
       {:agent, ^agent_pid, :cancelled, nil} ->
         Enum.reverse([{:cancelled, nil} | acc])
+
+      {:agent, ^agent_pid, :pause, tool_use} ->
+        Enum.reverse([{:pause, tool_use} | acc])
 
       {:agent, ^agent_pid, type, data} ->
         collect_events_loop(agent_pid, [{type, data} | acc], timeout)
@@ -386,12 +462,12 @@ defmodule Integration.AgentTest do
     end
   end
 
-  describe "prompt while running" do
-    test "returns {:error, :running}" do
+  describe "prompt while running (steering)" do
+    test "stages prompt and returns :ok" do
       stub_name = unique_stub_name()
 
       Req.Test.stub(stub_name, fn conn ->
-        Process.sleep(2000)
+        Process.sleep(200)
         body = File.read!(@text_fixture)
 
         conn
@@ -407,7 +483,7 @@ defmodule Integration.AgentTest do
 
       :ok = Agent.prompt(agent, "Hello!")
       Process.sleep(50)
-      assert {:error, :running} = Agent.prompt(agent, "Again!")
+      assert :ok = Agent.prompt(agent, "Follow up!")
       Agent.cancel(agent)
       _events = collect_events(agent, 2000)
     end
@@ -774,6 +850,437 @@ defmodule Integration.AgentTest do
 
       assigns = Agent.get_assigns(agent)
       assert assigns.tool_calls == ["get_weather"]
+    end
+  end
+
+  # -- Phase 3: handle_error --
+
+  describe "handle_error" do
+    test "default handle_error stops with :error event on step failure" do
+      stub_name = unique_stub_name()
+      stub_error(stub_name)
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      events = collect_events(agent)
+
+      assert {:error, _reason} = List.last(events)
+      assert Agent.get_status(agent) == :idle
+    end
+
+    test "custom {:retry, state} retries and succeeds on second attempt" do
+      stub_name = unique_stub_name()
+      stub_error_then_success(stub_name, @text_fixture)
+
+      {:ok, agent} =
+        ErrorRetryAgent.start_link(
+          model: model(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      events = collect_events(agent)
+
+      assert {:done, %Response{stop_reason: :stop}} = List.last(events)
+      assert Agent.get_assigns(agent).retries == 1
+    end
+
+    test "retry exhaustion still emits :error" do
+      stub_name = unique_stub_name()
+      stub_error(stub_name)
+
+      {:ok, agent} =
+        ErrorRetryAgent.start_link(
+          model: model(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      events = collect_events(agent)
+
+      # After retrying once and failing again, should emit :error
+      assert {:error, _reason} = List.last(events)
+      assert Agent.get_status(agent) == :idle
+      assert Agent.get_assigns(agent).retries == 1
+    end
+  end
+
+  # -- Phase 3: Continuation --
+
+  describe "continuation" do
+    test "{:continue, prompt, state} loops for 3 turns" do
+      stub_name = unique_stub_name()
+      # 3 turns = 3 LLM requests
+      stub_sequence(stub_name, [@text_fixture, @text_fixture, @text_fixture])
+
+      {:ok, agent} =
+        ContinueAgent.start_link(
+          model: model(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Start")
+      events = collect_events(agent)
+
+      # Should have exactly 2 :turn events and 1 :done event
+      turn_events = for {:turn, _data} <- events, do: :ok
+      done_events = for {:done, _data} <- events, do: :ok
+      assert length(turn_events) == 2
+      assert length(done_events) == 1
+
+      assert {:done, %Response{}} = List.last(events)
+      assert Agent.get_assigns(agent).turn_count == 3
+    end
+
+    test "context accumulates all messages across turns" do
+      stub_name = unique_stub_name()
+      stub_sequence(stub_name, [@text_fixture, @text_fixture, @text_fixture])
+
+      {:ok, agent} =
+        ContinueAgent.start_link(
+          model: model(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Start")
+      _events = collect_events(agent)
+
+      context = Agent.get_context(agent)
+      # Initial user + assistant, then 2 more (user continue + assistant) per extra turn
+      # = 2 + 2 + 2 = 6 messages
+      assert length(context.messages) == 6
+    end
+
+    test "usage accumulates across continuation turns" do
+      stub_name = unique_stub_name()
+      stub_sequence(stub_name, [@text_fixture, @text_fixture, @text_fixture])
+
+      {:ok, agent} =
+        ContinueAgent.start_link(
+          model: model(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Start")
+      _events = collect_events(agent)
+
+      usage = Agent.get_usage(agent)
+      # Should be 3x a single request's usage
+      assert usage.total_tokens > 0
+    end
+  end
+
+  # -- Phase 3: max_steps --
+
+  describe "max_steps" do
+    test "limits steps even though ContinueAgent wants to continue" do
+      stub_name = unique_stub_name()
+      # ContinueAgent would want 3 turns, but max_steps: 2 caps it
+      stub_sequence(stub_name, [@text_fixture, @text_fixture, @text_fixture])
+
+      {:ok, agent} =
+        ContinueAgent.start_link(
+          model: model(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Start", max_steps: 2)
+      events = collect_events(agent)
+
+      # Should stop after 2 steps
+      assert {:done, %Response{}} = List.last(events)
+      # Only 1 :turn event (step 1 completes, continues, step 2 completes, forced stop)
+      turn_events = for {:turn, _data} <- events, do: :ok
+      assert length(turn_events) == 1
+    end
+
+    test "max_steps hit mid-tool-loop forces stop" do
+      stub_name = unique_stub_name()
+      # Step 1: tool_use, execute tool, step 2: tool_use again, but max_steps reached
+      stub_sequence(stub_name, [@tool_use_fixture, @tool_use_fixture])
+
+      {:ok, agent} =
+        start_agent_with_module(CustomStop,
+          stub_name: stub_name,
+          tools: [tool_with_handler()],
+          fixtures: [@tool_use_fixture, @tool_use_fixture]
+        )
+
+      :ok = Agent.prompt(agent, "Use tool twice", max_steps: 2)
+      events = collect_events(agent)
+
+      # Should stop with :done (max_steps hit after tool results processed)
+      assert {:done, %Response{stop_reason: :tool_use}} = List.last(events)
+      assert Agent.get_status(agent) == :idle
+
+      # Context should be committed (includes tool result messages)
+      context = Agent.get_context(agent)
+      assert length(context.messages) > 0
+    end
+  end
+
+  # -- Phase 3: Steering --
+
+  describe "steering" do
+    test "prompt while running returns :ok (not {:error, :running})" do
+      stub_name = unique_stub_name()
+
+      Req.Test.stub(stub_name, fn conn ->
+        Process.sleep(200)
+        body = File.read!(@text_fixture)
+
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, body)
+      end)
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      Process.sleep(50)
+      assert :ok = Agent.prompt(agent, "Follow up!")
+      Agent.cancel(agent)
+      _events = collect_events(agent, 2000)
+    end
+
+    test "staged prompt overrides {:stop} at turn boundary" do
+      stub_name = unique_stub_name()
+      {:ok, counter} = Elixir.Agent.start_link(fn -> 0 end)
+
+      Req.Test.stub(stub_name, fn conn ->
+        call_num = Elixir.Agent.get_and_update(counter, fn n -> {n, n + 1} end)
+        # First call is slow so we can stage a prompt while running
+        if call_num == 0, do: Process.sleep(200)
+
+        body = File.read!(@text_fixture)
+
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, body)
+      end)
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      Process.sleep(50)
+      :ok = Agent.prompt(agent, "Follow up!")
+
+      events = collect_events(agent)
+
+      # Should have a :turn event (first turn) followed by :done (second turn from steering)
+      turn_events = for {:turn, _data} <- events, do: :ok
+      assert length(turn_events) == 1
+      assert {:done, %Response{}} = List.last(events)
+    end
+
+    test "last-one-wins: second staged prompt replaces first" do
+      stub_name = unique_stub_name()
+
+      Req.Test.stub(stub_name, fn conn ->
+        Process.sleep(300)
+        body = File.read!(@text_fixture)
+
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, body)
+      end)
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      Process.sleep(50)
+      :ok = Agent.prompt(agent, "First follow-up")
+      :ok = Agent.prompt(agent, "Second follow-up")
+
+      # The second prompt should win — agent will continue after first turn
+      events = collect_events(agent)
+      turn_events = for {:turn, _data} <- events, do: :ok
+      assert length(turn_events) == 1
+      assert {:done, %Response{}} = List.last(events)
+
+      # Context should have messages from two turns
+      context = Agent.get_context(agent)
+      # First user + assistant + second user + assistant = 4
+      assert length(context.messages) == 4
+    end
+
+    test "prompt while paused stages content for next turn" do
+      stub_name = unique_stub_name()
+      stub_sequence(stub_name, [@tool_use_fixture, @text_fixture, @text_fixture])
+
+      {:ok, agent} =
+        PauseAgent.start_link(
+          model: model(),
+          tools: [tool_with_handler()],
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Use the tool")
+      events = collect_events(agent)
+      assert {:pause, %ToolUse{}} = List.last(events)
+
+      # Stage a prompt while paused
+      assert :ok = Agent.prompt(agent, "Follow up after tools")
+
+      :ok = Agent.resume(agent, :approve)
+      events = collect_events(agent)
+
+      # Should have :turn (tool loop completed) then :done (staged prompt turn)
+      turn_events = for {:turn, _data} <- events, do: :ok
+      assert length(turn_events) == 1
+      assert {:done, %Response{}} = List.last(events)
+    end
+  end
+
+  # -- Phase 3: Pause/Resume --
+
+  describe "pause/resume" do
+    test "{:pause, state} from handle_tool_call pauses agent" do
+      stub_name = unique_stub_name()
+      stub_fixture(stub_name, @tool_use_fixture)
+
+      {:ok, agent} =
+        PauseAgent.start_link(
+          model: model(),
+          tools: [tool_with_handler()],
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Use the tool")
+      events = collect_events(agent)
+
+      # Should end with :pause and a ToolUse
+      assert {:pause, %ToolUse{name: "get_weather"}} = List.last(events)
+      assert Agent.get_status(agent) == :paused
+
+      # Clean up
+      stub_fixture(stub_name, @text_fixture)
+      Agent.resume(agent, :approve)
+      _events = collect_events(agent)
+    end
+
+    test "resume(:approve) executes tool and continues to :done" do
+      stub_name = unique_stub_name()
+      stub_sequence(stub_name, [@tool_use_fixture, @text_fixture])
+
+      {:ok, agent} =
+        PauseAgent.start_link(
+          model: model(),
+          tools: [tool_with_handler()],
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Use the tool")
+      events = collect_events(agent)
+      assert {:pause, %ToolUse{}} = List.last(events)
+
+      :ok = Agent.resume(agent, :approve)
+      events = collect_events(agent)
+
+      # Should have tool_result and then :done
+      tool_results = for {:tool_result, _data} <- events, do: :ok
+      assert length(tool_results) > 0
+      assert {:done, %Response{stop_reason: :stop}} = List.last(events)
+    end
+
+    test "resume({:reject, reason}) produces error ToolResult and continues" do
+      stub_name = unique_stub_name()
+      stub_sequence(stub_name, [@tool_use_fixture, @text_fixture])
+
+      {:ok, agent} =
+        PauseAgent.start_link(
+          model: model(),
+          tools: [tool_with_handler()],
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Use the tool")
+      events = collect_events(agent)
+      assert {:pause, %ToolUse{}} = List.last(events)
+
+      :ok = Agent.resume(agent, {:reject, "not safe"})
+      events = collect_events(agent)
+
+      # Should have tool_result with is_error and then :done
+      tool_result_events = for {:tool_result, data} <- events, do: data
+      assert length(tool_result_events) > 0
+      assert Enum.any?(tool_result_events, & &1.is_error)
+      assert {:done, %Response{stop_reason: :stop}} = List.last(events)
+    end
+
+    test "resume when not paused returns {:error, :not_paused}" do
+      {:ok, agent} = start_agent()
+      assert {:error, :not_paused} = Agent.resume(agent, :approve)
+    end
+
+    test "cancel while paused resets state" do
+      stub_name = unique_stub_name()
+      stub_fixture(stub_name, @tool_use_fixture)
+
+      {:ok, agent} =
+        PauseAgent.start_link(
+          model: model(),
+          tools: [tool_with_handler()],
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Use the tool")
+      events = collect_events(agent)
+      assert {:pause, %ToolUse{}} = List.last(events)
+
+      :ok = Agent.cancel(agent)
+      events = collect_events(agent, 2000)
+      assert {:cancelled, nil} = List.last(events)
+      assert Agent.get_status(agent) == :idle
+      assert Agent.get_context(agent).messages == []
+    end
+
+    test "multiple tools: pause on first, approve, remaining processed normally" do
+      # This test uses a module that only pauses on "get_weather" but auto-approves others
+      # The fixture has one tool_use (get_weather) so after approval it should proceed normally
+      stub_name = unique_stub_name()
+      stub_sequence(stub_name, [@tool_use_fixture, @text_fixture])
+
+      {:ok, agent} =
+        PauseAgent.start_link(
+          model: model(),
+          tools: [tool_with_handler()],
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Use the tool")
+      events = collect_events(agent)
+      assert {:pause, %ToolUse{name: "get_weather"}} = List.last(events)
+
+      :ok = Agent.resume(agent, :approve)
+      events = collect_events(agent)
+
+      assert {:done, %Response{stop_reason: :stop}} = List.last(events)
     end
   end
 end

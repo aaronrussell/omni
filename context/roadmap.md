@@ -20,7 +20,7 @@ The initial implementation (Phases 1–5b) is complete. See `context/design.md` 
 
 ## Agent
 
-**Status:** Phase 1 implemented. See `context/agent.md` for the full design document.
+**Status:** All phases implemented. See `context/agent.md` for the full design document.
 
 `Omni.Agent` — a GenServer-based building block for stateful, long-running LLM interactions. Manages its own conversation context, communicates with callers via async process messages, and provides lifecycle callbacks for controlling continuation, tool execution, error handling, and human-in-the-loop flows. The agent bypasses `Omni.Loop`'s tool execution (calling `stream_text` with `max_steps: 1`) and manages its own loop with 6 lifecycle callbacks: `init`, `handle_tool_call`, `handle_tool_result`, `handle_stop`, `handle_error`, `terminate`.
 
@@ -59,13 +59,18 @@ The foundation. A single-turn chatbot agent.
 
 ### Phase 2: Tool execution
 
+**Status:** Implemented.
+
 Adds the decision phase, parallel tool execution, and schema-only tool detection. Still single-turn — `handle_stop` always returns `{:stop, state}`.
 
+**Modules:**
+- `Omni.Tool.Runner` — shared parallel tool execution utility (`run/3`), used by both Agent and Loop
+- `Omni.Agent.Executor` — thin Task wrapper that calls `Tool.Runner.run/3` and sends results via tagged ref
+
 **Scope:**
-- Executor Task + Tool Tasks (parallel execution)
-- `execute_many/3` shared utility (usable by both Agent and eventually Loop)
+- Executor Task + Tool Tasks (parallel execution via `Tool.Runner.run/3`)
 - Decision phase: `handle_tool_call/2` — `:execute`, `{:reject, reason}`, per tool
-- Result phase: `handle_tool_result/3` — pass through or modify
+- Result phase: `handle_tool_result/2` — pass through or modify
 - `:tool_result` events to listener
 - Schema-only tool detection: skip decision phase, go straight to `handle_stop` with `stop_reason: :tool_use`
 - Tool management: `add_tools/2`, `remove_tools/2` (idle only)
@@ -73,9 +78,16 @@ Adds the decision phase, parallel tool execution, and schema-only tool detection
 
 **Not in scope:** `{:pause, state}` from `handle_tool_call`, continuation, steering.
 
-**Testable:** agent with tools, model calls tools, decisions collected, tools execute in parallel, results sent back as events, next step fires with tool results in context. Rejected tools produce error results. Schema-only tools reach `handle_stop` with `stop_reason: :tool_use`. Timed-out tools produce error results. Tool management while idle works, while running returns error.
+**Changes from design:**
+- `execute_many/3` became `Omni.Tool.Runner.run/3` — a separate module rather than a function on `Omni.Tool`. This keeps `Tool` as a low-level primitive (`new/1`, `execute/2`) while `Tool.Runner` handles content-block-level orchestration (ToolUse → ToolResult). Both Agent and Loop use it.
+- `handle_tool_result` is arity 2, not 3. The `ToolResult` struct already carries `tool_use_id` and `name`, making the separate `ToolUse` argument redundant.
+- `executor_ref` on State became `executor_task: {pid, ref} | nil` — mirrors `step_task` pattern, tracks both pid and ref together.
+- State also carries `rejected_results: [ToolResult.t()]` for stashing rejected tool results during the decision phase (merged with executor results when execution completes).
+- `Omni.Loop` was updated to use `Tool.Runner.run/3`, replacing its inline sequential tool execution with parallel execution.
 
 ### Phase 3: Continuation + pause/resume + steering
+
+**Status:** Implemented.
 
 The outer loop. Turns the single-turn agent into a full autonomous agent.
 
@@ -87,9 +99,11 @@ The outer loop. Turns the single-turn agent into a full autonomous agent.
 - `max_steps` enforcement (from `opts`, ephemeral per-prompt override via `prompt_opts`)
 - `:turn` events at intermediate turn boundaries
 
-**Testable:** autonomous agent looping through multiple turns via `{:continue, ...}`. Pause on tool call, resume with approve/reject. Steer running agent with queued prompt (overrides `handle_stop` decision). `max_steps` stops runaway loops. `:turn` events fire at intermediate boundaries, `:done` at the end. `handle_error` with `{:retry, state}` retries failed steps.
-
-Target: v1.
+**Changes from design:**
+- The `pending_prompt` field stores content only (not opts) — inference parameters from the original prompt round stay active.
+- `handle_call` catch-all for mutating ops (add_tools, remove_tools, listen, clear) uses a single pattern matching clause that covers both `:running` and `:paused` statuses, returning `{:error, :running}` for backward compatibility.
+- `cancel` now accepts both `:running` and `:paused` statuses via guard clause.
+- `process_next_tool_decision` is recursive (not `Enum.reduce`) to support interruption via `{:pause, state}`.
 
 ---
 
@@ -104,6 +118,5 @@ Target: v1.
 
 ## Future Work
 
-- **Parallel tool execution in Omni.Loop** — `Omni.Loop.execute_tools/2` currently runs tools sequentially via `Enum.map`. A shared `execute_many/3` utility (using `Task.async` + `Task.yield_many`) is being built for `Omni.Agent` and can be adopted by Loop to give all `stream_text`/`generate_text` callers parallel tool execution for free. The utility handles per-tool timeouts and graceful failure. Follow-up after agent implementation.
 - **Additional providers** — Groq, Together, Fireworks, Bedrock, Azure, Vertex AI. Each is a small module once the infrastructure exists.
 - **Audio and video modalities** — models.dev has these columns but they are currently filtered out in `Model.new/1`. Needs investigation into encoding requirements and provider support before adding `:audio` and `:video` to `@supported_input_modalities`.
