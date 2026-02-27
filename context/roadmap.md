@@ -20,7 +20,7 @@ The initial implementation (Phases 1–5b) is complete. See `context/design.md` 
 
 ## Agent
 
-**Status:** Design complete — ready for implementation. See `context/agent.md` for the full design document.
+**Status:** Phase 1 implemented. See `context/agent.md` for the full design document.
 
 `Omni.Agent` — a GenServer-based building block for stateful, long-running LLM interactions. Manages its own conversation context, communicates with callers via async process messages, and provides lifecycle callbacks for controlling continuation, tool execution, error handling, and human-in-the-loop flows. The agent bypasses `Omni.Loop`'s tool execution (calling `stream_text` with `max_steps: 1`) and manages its own loop with 6 lifecycle callbacks: `init`, `handle_tool_call`, `handle_tool_result`, `handle_stop`, `handle_error`, `terminate`.
 
@@ -28,16 +28,19 @@ Implementation is split into three phases. Each phase produces a testable, stric
 
 ### Phase 1: State + GenServer skeleton + basic prompt/response cycle
 
+**Status:** Implemented.
+
 The foundation. A single-turn chatbot agent.
 
 **Modules:**
 - `Omni.Agent.State` — struct definition
 - `Omni.Agent` — behaviour, `use` macro, callback defaults, public API (`GenServer.call` wrappers)
-- `Omni.Agent.Server` — GenServer init, state machine, Step Task spawning, event forwarding
+- `Omni.Agent.Server` — GenServer init, state machine, step spawning, event forwarding
+- `Omni.Agent.Step` — step process (streams LLM request, forwards events via tagged ref)
 
 **Scope:**
 - Single-turn only: prompt in → stream events → `:done`
-- Step Task: calls `stream_text(max_steps: 1)`, enumerates SR, forwards events to GenServer via tagged ref
+- Step process: calls `stream_text(max_steps: 1)`, enumerates SR, forwards events to GenServer via tagged ref
 - Event forwarding to listener (SR pass-through events + agent-level `:done`, `:error`, `:cancelled`)
 - Listener management: auto-set from first `prompt/3`, explicit `listen/2`
 - Context management: lazy commit on completion, rollback on cancel
@@ -47,7 +50,12 @@ The foundation. A single-turn chatbot agent.
 
 **Not in scope:** tool execution, continuation, pause/resume, prompt queuing (steering).
 
-**Testable:** start agent, send prompt, receive streaming events and `:done` with correct `%Response{}`. Cancel mid-stream and verify rollback. Clear and re-prompt. Verify usage accumulates. Custom `init/1` and `handle_stop/2`. Named agents via GenServer opts.
+**Changes from design:**
+- Step execution extracted into `Omni.Agent.Step` module (design had it inline in Server). Uses `Task.start_link/1` instead of `spawn_link` for automatic `$callers` propagation, which is needed for process-ownership registries (Req.Test, Mox) to work across the process chain.
+- State struct uses `step_task: {pid, ref} | nil` instead of separate `step_ref` and `step_pid` fields — they are always set and cleared together.
+- State struct includes `module` field to store the callback module (or nil for headless agents), enabling callback dispatch without closure capture.
+- GenServer propagates `$callers` from `start_link` caller through init, since GenServer doesn't do this automatically (unlike Task). Required so the Step process's `$callers` chain reaches the originating process.
+- GenServer traps exits (`Process.flag(:trap_exit, true)`) to handle step process termination on cancel without crashing.
 
 ### Phase 2: Tool execution
 

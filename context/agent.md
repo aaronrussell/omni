@@ -1,6 +1,6 @@
 # Omni Agent Design
 
-**Status:** Design complete -- ready for implementation
+**Status:** Phase 1 implemented -- Phase 2 next
 **Last updated:** February 2026
 
 ---
@@ -176,25 +176,26 @@ defmodule Omni.Agent.State do
 
   defstruct [
     # Core identity
-    :model,                          # %Model{}
-    :context,                        # %Context{} — committed context
-    :opts,                           # keyword — agent-level default inference opts (includes max_steps)
+    :module,                          # module() | nil — callback module
+    :model,                           # %Model{}
+    :context,                         # %Context{} — committed context
+    :opts,                            # keyword — agent-level default inference opts (includes max_steps)
 
     # Session state (lifetime of the agent process)
-    status: :idle,                   # :idle | :running | :paused
-    usage: %Usage{},                 # cumulative across all prompt rounds
-    assigns: %{},                    # user-defined state
+    status: :idle,                    # :idle | :running | :paused
+    usage: %Usage{},                  # cumulative across all prompt rounds
+    assigns: %{},                     # user-defined state
 
     # Prompt round state (reset per prompt/3 call)
-    step: 0,                         # current step counter (see "Steps and turns")
-    pending_messages: [],             # in-progress message accumulator
-    pending_prompt: nil,              # staged prompt (steering)
-    prompt_opts: [],                  # per-round merged opts (opts ← prompt opts)
+    step: 0,                          # current step counter (see "Steps and turns")
+    pending_messages: [],              # in-progress message accumulator
+    pending_prompt: nil,               # staged prompt (steering)
+    prompt_opts: [],                   # per-round merged opts (opts ← prompt opts)
 
     # Internal (framework-managed)
-    listener: nil,                    # pid — event recipient
-    step_ref: nil,                    # current Step Task ref
-    executor_ref: nil                 # current Executor Task ref
+    listener: nil,                     # pid — event recipient
+    step_task: nil,                    # {pid, ref} | nil — current step process
+    executor_ref: nil                  # current Executor Task ref
   ]
 end
 ```
@@ -513,9 +514,9 @@ The same reasoning applies to tool execution -- tools may involve HTTP calls or 
 
 ### Fault tolerance
 
-All tasks use `Task.async` (linked to the GenServer) but are designed never to crash — task bodies are wrapped in try/rescue and always send a result message to the GenServer. No `Task.Supervisor` needed.
+All tasks are linked to the GenServer but designed never to crash — task bodies are wrapped in try/rescue and always send a result message. The GenServer traps exits as defense-in-depth. No `Task.Supervisor` needed.
 
-**Step Task** — wraps its body in try/rescue. On success, sends `{ref, {:complete, response}}`. On exception, sends `{ref, {:error, reason}}`. The GenServer routes errors to `handle_error` as normal. A bug in dialect parsing or an unexpected network error becomes a handled error, not a process crash.
+**Step process** — uses `Task.start_link/1` (not `Task.async`, since it sends multiple messages rather than a single result). Wraps its body in try/rescue. On success, sends `{ref, {:complete, response}}`. On exception, sends `{ref, {:error, reason}}`. The GenServer routes errors to `handle_error` as normal. A bug in dialect parsing or an unexpected network error becomes a handled error, not a process crash.
 
 **Executor Task** — uses `Task.yield_many/2` instead of `Task.await_many/2` to collect tool results. This handles per-tool timeouts and crashes gracefully without raising:
 
@@ -937,11 +938,11 @@ The following questions were explored during design and are now resolved. Kept h
 
 - **Terminology**: A "prompt round" is a single `prompt/3` through to `:done`. A "session" is the lifetime of the agent process (many prompt rounds). `Agent.clear/1` resets the session (context messages + usage) without killing the process.
 
-- **Step Task internal messaging**: Tagged ref pattern (`{step_ref, {:event, type, map}}`, `{step_ref, {:complete, response}}`, `{step_ref, {:error, reason}}`). GenServer matches on stored ref in `handle_info`. Implementation detail, not part of the public event API.
+- **Step internal messaging**: Tagged ref pattern (`{ref, {:event, type, map}}`, `{ref, {:complete, response}}`, `{ref, {:error, reason}}`). GenServer matches on the ref from `step_task: {pid, ref}` in `handle_info`. Implementation detail, not part of the public event API.
 
 - **Tool execution timeouts**: Single `:tool_timeout` option (default 5 seconds) applies uniformly to all Tool Tasks. No per-tool configuration — KISS. On timeout, the tool task is killed and an error `ToolResult` is sent to the model.
 
-- **Task supervision**: No `Task.Supervisor` needed. All tasks use `Task.async` (linked) but are designed never to crash — task bodies wrapped in try/rescue, always send a result message. Step Task catches exceptions and sends `{ref, {:error, reason}}`. Executor uses `Task.yield_many/2` for per-tool graceful timeout/crash handling. `Tool.execute/2`'s existing rescue block means Tool Tasks virtually never crash. Defense-in-depth at every layer.
+- **Task supervision**: No `Task.Supervisor` needed. All tasks are linked but designed never to crash — task bodies wrapped in try/rescue, always send a result message. The GenServer traps exits as defense-in-depth. Step process uses `Task.start_link/1` (multiple messages, not async/await) and catches exceptions, sending `{ref, {:error, reason}}`. Executor uses `Task.yield_many/2` for per-tool graceful timeout/crash handling. `Tool.execute/2`'s existing rescue block means Tool Tasks virtually never crash.
 
 - **Superseded prompts**: When `prompt/3` is called while the agent is running, the prompt is staged until the next turn boundary. Calling again replaces the staged prompt (last-one-wins). No notification on replacement — the caller is assumed to be the same entity updating its intent.
 
@@ -979,11 +980,13 @@ lib/omni/
 ├── agent.ex                    # Public module: behaviour, use macro, callback defaults, API
 ├── agent/
 │   ├── state.ex                # %State{} struct (@moduledoc false)
-│   └── server.ex               # Internal GenServer: handle_call, handle_info, state machine,
-│                                # step/executor spawning, event forwarding (@moduledoc false)
+│   ├── server.ex               # Internal GenServer: handle_call, handle_info, state machine,
+│   │                            # step spawning, event forwarding (@moduledoc false)
+│   └── step.ex                  # Step process: streams LLM request, forwards events via
+│                                # tagged ref (@moduledoc false)
 ```
 
-`agent.ex` is what users interact with — `use Omni.Agent`, callback definitions, and public API functions (thin `GenServer.call` wrappers). `agent/server.ex` is the internal implementation — state transitions, task management, event routing. This separates interface from implementation; the server module is not part of the public API.
+`agent.ex` is what users interact with — `use Omni.Agent`, callback definitions, and public API functions (thin `GenServer.call` wrappers). `agent/server.ex` is the internal GenServer — state transitions, task management, event routing. `agent/step.ex` encapsulates the streaming execution logic — it uses `Task.start_link/1` to spawn a linked process that consumes a `StreamingResponse` and sends ref-tagged messages back to the GenServer. This separates interface from implementation; the server and step modules are not part of the public API.
 
 ---
 
@@ -995,7 +998,7 @@ lib/omni/
 | Async messages as primary API | Solid | The right primitive for long-lived processes |
 | Process architecture (3 Task layers) | Solid | Step Task, Executor Task, Tool Tasks. GenServer never blocks. |
 | Event format | Solid | 4-tuple `{:agent, pid, type, data}`. SR events forwarded sans Response. Agent-level events use natural types. |
-| Streaming via Step Task | Solid | Step Task consumes SR, forwards events via tagged ref to GenServer |
+| Streaming via Step process | Solid | Step process consumes SR, forwards events via tagged ref to GenServer |
 | Agent owns tool execution (not Loop) | Solid | `max_steps: 1` for streaming only; agent loops itself |
 | Parallel tool execution | Solid | Shared utility, all decisions first then batch execute |
 | Fault tolerance | Solid | try/rescue in task bodies, `Task.yield_many` for tools, no Task.Supervisor needed |
@@ -1007,7 +1010,7 @@ lib/omni/
 | Pause/resume | Solid | Tool approval only. `resume/2` with `:approve` / `{:reject, reason}` |
 | Context management | Solid | Lazy updates, atomic commit on completion, clean cancel rollback |
 | Listener management | Solid | Auto-set from first `prompt/3` caller, explicit `listen/2`, idle-only changes |
-| Module layout | Solid | `agent.ex` (public interface) + `agent/server.ex` (internal GenServer) |
+| Module layout | Solid | `agent.ex` (public interface) + `agent/server.ex` (GenServer) + `agent/step.ex` (step process) |
 | Completion tool pattern | Solid | Uses existing schema-only tool mechanism |
 | Agent state | Solid | `%State{}` struct, cumulative usage, no stored responses/raw. `max_steps` in opts. |
 | Steps and turns | Solid | Single `max_steps` (cumulative per prompt round, ephemeral override). Turns are implicit. |
