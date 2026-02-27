@@ -142,15 +142,13 @@ defmodule Omni.ModelTest do
     end
   end
 
-  describe "supported_input_modalities/0" do
+  describe "supported_modalities/1" do
     test "returns the supported input modalities" do
-      assert Model.supported_input_modalities() == [:text, :image, :pdf]
+      assert Model.supported_modalities(:input) == [:text, :image, :pdf]
     end
-  end
 
-  describe "supported_output_modalities/0" do
     test "returns the supported output modalities" do
-      assert Model.supported_output_modalities() == [:text]
+      assert Model.supported_modalities(:output) == [:text]
     end
   end
 end

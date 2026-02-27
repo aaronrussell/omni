@@ -8,8 +8,10 @@ defmodule Omni.Model do
   the struct self-contained for callback dispatch.
   """
 
-  @supported_input_modalities [:text, :image, :pdf]
-  @supported_output_modalities [:text]
+  @supported_modalities %{
+    input: [:text, :image, :pdf],
+    output: [:text]
+  }
 
   @enforce_keys [:id, :name, :provider, :dialect]
   defstruct [
@@ -45,13 +47,11 @@ defmodule Omni.Model do
           cache_write_cost: number()
         }
 
-  @doc "Returns the list of input modalities Omni supports."
-  @spec supported_input_modalities() :: [atom()]
-  def supported_input_modalities, do: @supported_input_modalities
-
-  @doc "Returns the list of output modalities Omni supports."
-  @spec supported_output_modalities() :: [atom()]
-  def supported_output_modalities, do: @supported_output_modalities
+  @doc false
+  @spec supported_modalities(:input | :output) :: [atom()]
+  def supported_modalities(type) when type in [:input, :output] do
+    Map.get(@supported_modalities, type)
+  end
 
   @doc """
   Looks up a model by provider ID and model ID from `:persistent_term`.
@@ -88,9 +88,9 @@ defmodule Omni.Model do
 
     %{
       model
-      | input_modalities: filter_modalities(model.input_modalities, @supported_input_modalities),
+      | input_modalities: filter_modalities(model.input_modalities, supported_modalities(:input)),
         output_modalities:
-          filter_modalities(model.output_modalities, @supported_output_modalities)
+          filter_modalities(model.output_modalities, supported_modalities(:output))
     }
   end
 
