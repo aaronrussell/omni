@@ -1,6 +1,6 @@
 # Omni Agent Design
 
-**Status:** Phase 3 implemented (all phases complete)
+**Status:** Implemented
 **Last updated:** February 2026
 
 ---
@@ -29,8 +29,6 @@ The core idea: an agent is a process that holds a model, a context (system promp
 ---
 
 ## Relationship to existing architecture
-
-**Confidence: solid (resolved)**
 
 Omni already has two key pieces:
 
@@ -66,8 +64,6 @@ The agent does **not** use `Omni.Loop` for tool execution. It calls `stream_text
 ---
 
 ## Agent definition
-
-**Confidence: solid (resolved)**
 
 ### Starting an agent
 
@@ -164,8 +160,6 @@ MyAgent.start_link(
 
 ## Agent state
 
-**Confidence: solid (resolved)**
-
 The agent maintains its state in an `%Omni.Agent.State{}` struct, defined in a dedicated internal module (`lib/omni/agent/state.ex`, `@moduledoc false`). User-defined state lives in an `assigns` field, similar to a Phoenix LiveView socket.
 
 ```elixir
@@ -189,7 +183,7 @@ defmodule Omni.Agent.State do
     # Prompt round state (reset per prompt/3 call)
     step: 0,                          # current step counter (see "Steps and turns")
     pending_messages: [],              # in-progress message accumulator
-    pending_prompt: nil,               # staged prompt (steering)
+    next_prompt: nil,                   # staged prompt (steering)
     prompt_opts: [],                   # per-round merged opts (opts ← prompt opts)
 
     # Internal (framework-managed)
@@ -206,7 +200,7 @@ The state has three logical tiers:
 
 - **Core identity** — `model`, `context`, and `opts` are set at `start_link` and persist for the agent's lifetime. `context` is the committed conversation history; `opts` holds agent-level inference defaults (`:temperature`, `:max_tokens`, `:max_steps`, etc.).
 - **Session state** — `status`, `usage`, and `assigns` persist across prompt rounds. `usage` accumulates token counts and costs from every LLM request the agent makes. `assigns` is the user's domain state.
-- **Prompt round state** — `step`, `pending_messages`, `pending_prompt`, and `prompt_opts` are scoped to a single `prompt/3` call. Reset when each round completes or is cancelled.
+- **Prompt round state** — `step`, `pending_messages`, `next_prompt`, and `prompt_opts` are scoped to a single `prompt/3` call. Reset when each round completes or is cancelled.
 
 All callbacks receive the full `%State{}` struct. Users can read any field (context, model, step count, etc.) but primarily read and write `assigns`. The framework manages the other fields.
 
@@ -232,8 +226,6 @@ Per-round usage is not tracked separately on the state. The `:turn` and `:done` 
 ---
 
 ## Public API
-
-**Confidence: solid (resolved)**
 
 The agent communicates with callers via process messages. This is the natural Elixir pattern for long-lived processes and works well with GenServers, LiveViews, and Phoenix Channels.
 
@@ -284,11 +276,8 @@ Agent.remove_tools(agent, tool_names)              # → :ok | {:error, :running
   max_tokens: 100
 )
 
-# Steering -- prompt while running stages for next turn boundary
+# Steering -- prompt while running or paused stages for next turn boundary
 :ok = Agent.prompt(agent, "Focus on X instead")
-
-# Only errors when paused (waiting for tool approval)
-{:error, :paused} = Agent.prompt(agent, "not now")
 ```
 
 `prompt/2,3` is a `GenServer.call`. The `content` argument accepts a string (wrapped in a `Text` block) or a list of content blocks (for attachments, or `ToolResult` blocks for manual tool execution — see "Schema-only tools and manual execution"). The agent constructs the user `Message` internally. Options: `:max_steps` overrides the agent's step limit for this prompt round only (see "Steps and turns"). Everything else is passed through to `stream_text` as per-prompt inference overrides.
@@ -298,8 +287,7 @@ If no listener has been set (via `Agent.listen/2`), the first `prompt/3` call au
 Behaviour depends on agent status:
 
 - **Idle**: starts working immediately. Events arrive as process messages to the listener.
-- **Running**: the prompt is staged as a pending prompt. At the next turn boundary, the pending prompt overrides `handle_stop`'s decision (see "Prompt queuing"). Calling `prompt/3` again while running replaces the staged prompt — last-one-wins. The caller is assumed to be the same entity updating its intent.
-- **Paused**: returns `{:error, :paused}` — the agent needs a tool approval decision, not a new prompt.
+- **Running or Paused**: the prompt is staged as a pending prompt. At the next turn boundary, the pending prompt overrides `handle_stop`'s decision (see "Prompt queuing"). Calling `prompt/3` again replaces the staged prompt — last-one-wins. The caller is assumed to be the same entity updating its intent.
 
 ### resume/2
 
@@ -457,8 +445,6 @@ end
 
 ## Process architecture
 
-**Confidence: solid (resolved)**
-
 The agent GenServer never blocks on IO. All blocking work (LLM requests, tool execution) is delegated to spawned Tasks. This keeps the GenServer responsive for cancel, state inspection, and resume calls at all times.
 
 ### Three Task layers
@@ -560,7 +546,7 @@ In practice, schema-only tools in agents are almost exclusively completion signa
 
 When all tools have handlers, the GenServer processes them in two phases:
 
-1. **Decision phase** (synchronous, in GenServer): iterate tool uses, invoke `handle_tool_call` for each. Collect decisions (`:execute` or `{:reject, reason}`). Rejected tools get error `ToolResult`s immediately without execution. Note: `{:pause, state}` is designed but not yet implemented (Phase 3).
+1. **Decision phase** (synchronous, in GenServer): iterate tool uses, invoke `handle_tool_call` for each. Collect decisions (`:execute`, `{:reject, reason}`, or `{:pause}`). Rejected tools get error `ToolResult`s immediately without execution. When `{:pause, state}` is returned, the decision loop is interrupted — the agent saves its position and waits for `Agent.resume/2` before continuing with remaining tools.
 
 2. **Execution phase** (async, in executor Task): approved tools execute in parallel via `Tool.Runner.run/3`. Results sent back to GenServer. GenServer merges with rejected results (reordered to match original tool_use order), then invokes `handle_tool_result` for each.
 
@@ -569,8 +555,6 @@ Per-tool decisions produce per-tool outcomes. Rejecting tool C does not affect t
 ---
 
 ## Lifecycle callbacks
-
-**Confidence: solid (resolved)**
 
 All callbacks are optional with `defoverridable` defaults. Users implement only the callbacks they need. Defaults are trivial (e.g., `{:stop, state}`) so catch-all clauses are easy to write inline — no `super()` needed.
 
@@ -683,8 +667,6 @@ Called from `Omni.Agent`'s GenServer `terminate/2`, which delegates to the user'
 ---
 
 ## Autonomous agents and the completion signal
-
-**Confidence: solid (resolved)**
 
 The difference between a chatbot (single turn per prompt) and an autonomous agent (works until done) is entirely in the callbacks. The framework doesn't distinguish between these modes.
 
@@ -819,8 +801,6 @@ The `state.step` counter is visible to all callbacks, so users can make decision
 
 ## Pause and resume
 
-**Confidence: solid (resolved)**
-
 Pause exists for exactly one purpose: **tool call approval**. Only `handle_tool_call` can return `{:pause, state}`. No other callback pauses.
 
 When `handle_tool_call` returns `{:pause, state}`:
@@ -828,7 +808,7 @@ When `handle_tool_call` returns `{:pause, state}`:
 - The agent's status becomes `:paused`
 - The agent sends `{:agent, pid, :pause, tool_use}` to the listener
 - The agent waits for `Agent.resume/2`
-- `prompt/3` returns `{:error, :paused}` (the agent needs a tool decision, not a new prompt)
+- `prompt/3` stages the content as a pending prompt (same as when running)
 
 ```elixir
 Agent.resume(agent, :approve)              # approve the tool, continue processing
@@ -846,8 +826,6 @@ Other callbacks do not need pause:
 ---
 
 ## Prompt queuing (steering)
-
-**Confidence: solid (resolved)**
 
 When the agent is running (autonomously looping), the caller can steer it by sending a new prompt:
 
@@ -870,8 +848,6 @@ This replaces the need for a separate `Agent.pause/1` function. External interve
 ---
 
 ## Context management
-
-**Confidence: solid (resolved)**
 
 ### Lazy context updates
 
@@ -898,9 +874,9 @@ Cancel works at any point during the loop — mid-stream, mid-tool-execution, mi
 
 ---
 
-## Resolved design questions
+## Design decisions
 
-The following questions were explored during design and are now resolved. Kept here for context on why decisions were made.
+Context on why specific decisions were made.
 
 - **Listener management**: Listener starts as `nil`. First `prompt/3` caller auto-becomes listener if none set. `Agent.listen/2` explicitly sets/changes the listener (idle only). No per-prompt `:notify` option — listener is a persistent agent-level setting, not a per-prompt concern. Single listener, no PubSub. Dead listener is silently ignored (Erlang semantics). See "Listener" section.
 
@@ -987,31 +963,3 @@ lib/omni/
 
 `agent.ex` is what users interact with — `use Omni.Agent`, callback definitions, and public API functions (thin `GenServer.call` wrappers). `agent/server.ex` is the internal GenServer — state transitions, task management, tool decision/execution phases, event routing. `agent/step.ex` encapsulates the streaming execution logic — it uses `Task.start_link/1` to spawn a linked process that consumes a `StreamingResponse` and sends ref-tagged messages back to the GenServer. `agent/executor.ex` is a thin Task wrapper that calls `Tool.Runner.run/3` and sends results back via a tagged ref. This separates interface from implementation; the server, step, and executor modules are not part of the public API.
 
----
-
-## Summary of confidence levels
-
-| Area | Confidence | Notes |
-|------|-----------|-------|
-| Agent as GenServer | Solid | Natural Elixir pattern, composes well |
-| Async messages as primary API | Solid | The right primitive for long-lived processes |
-| Process architecture (3 Task layers) | Solid | Step Task, Executor Task, Tool Tasks. GenServer never blocks. |
-| Event format | Solid | 4-tuple `{:agent, pid, type, data}`. SR events forwarded sans Response. Agent-level events use natural types. |
-| Streaming via Step process | Solid | Step process consumes SR, forwards events via tagged ref to GenServer |
-| Agent owns tool execution (not Loop) | Solid | `max_steps: 1` for streaming only; agent loops itself |
-| Parallel tool execution | Solid | Shared utility, all decisions first then batch execute |
-| Fault tolerance | Solid | try/rescue in task bodies, `Task.yield_many` for tools, no Task.Supervisor needed |
-| Agent definition / start_link | Solid | No-module and custom-module variants. Config through start_link. |
-| Callback set (6 callbacks) | Solid | init, handle_tool_call, handle_tool_result, handle_stop, handle_error, terminate |
-| Callback signatures | Solid | `defoverridable`, no `super()` needed, `{:pause}` only on handle_tool_call |
-| Public API | Solid | prompt, resume, cancel, clear, getters (incl. usage), tool management |
-| Prompt queuing (steering) | Solid | Pending prompt overrides handle_stop at next loop boundary |
-| Pause/resume | Solid | Tool approval only. `resume/2` with `:approve` / `{:reject, reason}` |
-| Context management | Solid | Lazy updates, atomic commit on completion, clean cancel rollback |
-| Listener management | Solid | Auto-set from first `prompt/3` caller, explicit `listen/2`, idle-only changes |
-| Module layout | Solid | `agent.ex` (public interface) + `agent/server.ex` (GenServer) + `agent/step.ex` (step process) |
-| Completion tool pattern | Solid | Uses existing schema-only tool mechanism |
-| Agent state | Solid | `%State{}` struct, cumulative usage, no stored responses/raw. `max_steps` in opts. |
-| Steps and turns | Solid | Single `max_steps` (cumulative per prompt round, ephemeral override). Turns are implicit. |
-| Turn boundary events | Solid | `:turn` for intermediate, `:done` for final. No `:turn_start`. |
-| Terminology | Solid | "Prompt round" = single prompt/3 to :done. "Session" = agent process lifetime. |
