@@ -16,7 +16,10 @@ defmodule Omni.Agent.State do
           pending_prompt: nil,
           prompt_opts: keyword(),
           listener: pid() | nil,
-          step_task: {pid(), reference()} | nil
+          step_task: {pid(), reference()} | nil,
+          executor_task: {pid(), reference()} | nil,
+          rejected_results: [Omni.Content.ToolResult.t()],
+          tool_timeout: timeout()
         }
 
   defstruct [
@@ -32,6 +35,9 @@ defmodule Omni.Agent.State do
     pending_prompt: nil,
     prompt_opts: [],
     listener: nil,
-    step_task: nil
+    step_task: nil,
+    executor_task: nil,
+    rejected_results: [],
+    tool_timeout: 5_000
   ]
 end

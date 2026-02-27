@@ -2,9 +2,10 @@ defmodule Integration.AgentTest do
   use ExUnit.Case, async: true
 
   alias Omni.{Agent, Context, Response, Usage}
-  alias Omni.Content.Text
+  alias Omni.Content.{Text, ToolResult}
 
   @text_fixture "test/support/fixtures/sse/anthropic_text.sse"
+  @tool_use_fixture "test/support/fixtures/sse/anthropic_tool_use.sse"
 
   # -- Test modules --
 
@@ -31,6 +32,38 @@ defmodule Integration.AgentTest do
     end
   end
 
+  defmodule RejectTool do
+    use Omni.Agent
+
+    @impl Omni.Agent
+    def handle_tool_call(%{name: "get_weather"} = _tool_use, state) do
+      {:reject, "not allowed", state}
+    end
+
+    def handle_tool_call(_tool_use, state), do: {:execute, state}
+  end
+
+  defmodule ModifyResult do
+    use Omni.Agent
+
+    @impl Omni.Agent
+    def handle_tool_result(result, state) do
+      modified = %{result | content: [Omni.Content.Text.new("modified output")]}
+      {:ok, modified, state}
+    end
+  end
+
+  defmodule TrackToolCalls do
+    use Omni.Agent
+
+    @impl Omni.Agent
+    def handle_tool_call(tool_use, state) do
+      calls = Map.get(state.assigns, :tool_calls, [])
+      state = %{state | assigns: Map.put(state.assigns, :tool_calls, calls ++ [tool_use.name])}
+      {:execute, state}
+    end
+  end
+
   # -- Helpers --
 
   defp stub_fixture(stub_name, fixture_path) do
@@ -43,6 +76,37 @@ defmodule Integration.AgentTest do
     end)
   end
 
+  defp stub_sequence(stub_name, fixtures) do
+    {:ok, counter} = Elixir.Agent.start_link(fn -> 0 end)
+
+    Req.Test.stub(stub_name, fn conn ->
+      call_num = Elixir.Agent.get_and_update(counter, fn n -> {n, n + 1} end)
+      fixture = Enum.at(fixtures, call_num, List.last(fixtures))
+      body = File.read!(fixture)
+
+      conn
+      |> Plug.Conn.put_resp_content_type("text/event-stream")
+      |> Plug.Conn.send_resp(200, body)
+    end)
+  end
+
+  defp tool_with_handler do
+    Omni.tool(
+      name: "get_weather",
+      description: "Gets the weather",
+      input_schema: %{type: "object", properties: %{location: %{type: "string"}}},
+      handler: fn _input -> "72F and sunny" end
+    )
+  end
+
+  defp tool_without_handler do
+    Omni.tool(
+      name: "get_weather",
+      description: "Gets the weather",
+      input_schema: %{type: "object", properties: %{location: %{type: "string"}}}
+    )
+  end
+
   defp model do
     {:ok, model} = Omni.get_model(:anthropic, "claude-haiku-4-5")
     model
@@ -50,15 +114,36 @@ defmodule Integration.AgentTest do
 
   defp start_agent(opts \\ []) do
     stub_name = opts[:stub_name] || unique_stub_name()
-    stub_fixture(stub_name, opts[:fixture] || @text_fixture)
+
+    case opts[:fixtures] do
+      nil -> stub_fixture(stub_name, opts[:fixture] || @text_fixture)
+      fixtures -> stub_sequence(stub_name, fixtures)
+    end
 
     agent_opts =
       Keyword.merge(
         [model: model(), opts: [api_key: "test-key", plug: {Req.Test, stub_name}]],
-        Keyword.drop(opts, [:stub_name, :fixture])
+        Keyword.drop(opts, [:stub_name, :fixture, :fixtures])
       )
 
     Agent.start_link(agent_opts)
+  end
+
+  defp start_agent_with_module(module, opts) do
+    stub_name = opts[:stub_name] || unique_stub_name()
+
+    case opts[:fixtures] do
+      nil -> stub_fixture(stub_name, opts[:fixture] || @text_fixture)
+      fixtures -> stub_sequence(stub_name, fixtures)
+    end
+
+    module_opts =
+      Keyword.merge(
+        [model: model(), opts: [api_key: "test-key", plug: {Req.Test, stub_name}]],
+        Keyword.drop(opts, [:stub_name, :fixture, :fixtures])
+      )
+
+    module.start_link(module_opts)
   end
 
   defp unique_stub_name do
@@ -433,6 +518,262 @@ defmodule Integration.AgentTest do
         )
 
       assert Agent.get_context(agent).system == "You are a helpful assistant."
+    end
+  end
+
+  # -- Tool execution tests (Phase 2) --
+
+  describe "tool use auto-loop" do
+    test "executes tool and loops back to get final text response" do
+      {:ok, agent} =
+        start_agent(
+          tools: [tool_with_handler()],
+          fixtures: [@tool_use_fixture, @text_fixture]
+        )
+
+      :ok = Agent.prompt(agent, "What's the weather in London?")
+      events = collect_events(agent)
+
+      # Should have tool_result events
+      tool_results = for {:tool_result, _data} <- events, do: :ok
+      assert length(tool_results) > 0
+
+      # Should end with :done and a text response
+      assert {:done, %Response{stop_reason: :stop} = resp} = List.last(events)
+      assert [%Text{}] = resp.message.content
+
+      # Context should have all messages: user, assistant(tool_use), user(tool_results), assistant(text)
+      context = Agent.get_context(agent)
+      assert length(context.messages) >= 4
+    end
+  end
+
+  describe "schema-only tool" do
+    test "does not loop, fires handle_stop with tool_use stop reason" do
+      {:ok, agent} =
+        start_agent_with_module(CustomStop,
+          tools: [tool_without_handler()],
+          fixture: @tool_use_fixture
+        )
+
+      :ok = Agent.prompt(agent, "What's the weather?")
+      events = collect_events(agent)
+
+      # No tool_result events
+      tool_results = for {:tool_result, _data} <- events, do: :ok
+      assert tool_results == []
+
+      # Should end with :done and tool_use stop reason
+      assert {:done, %Response{stop_reason: :tool_use}} = List.last(events)
+      assert Agent.get_assigns(agent).last_stop_reason == :tool_use
+    end
+  end
+
+  describe "handle_tool_call reject" do
+    test "rejected tool produces error result, loop continues" do
+      {:ok, agent} =
+        start_agent_with_module(RejectTool,
+          tools: [tool_with_handler()],
+          fixtures: [@tool_use_fixture, @text_fixture]
+        )
+
+      :ok = Agent.prompt(agent, "What's the weather?")
+      events = collect_events(agent)
+
+      # Tool result event should have is_error: true
+      tool_result_events = for {:tool_result, data} <- events, do: data
+      assert length(tool_result_events) > 0
+      assert Enum.any?(tool_result_events, & &1.is_error)
+
+      # Loop continues to final text response
+      assert {:done, %Response{stop_reason: :stop}} = List.last(events)
+    end
+  end
+
+  describe "handle_tool_result modifies result" do
+    test "modified result is used in the loop" do
+      {:ok, agent} =
+        start_agent_with_module(ModifyResult,
+          tools: [tool_with_handler()],
+          fixtures: [@tool_use_fixture, @text_fixture]
+        )
+
+      :ok = Agent.prompt(agent, "What's the weather?")
+      events = collect_events(agent)
+
+      assert {:done, %Response{}} = List.last(events)
+
+      # The tool result user message should contain modified content
+      context = Agent.get_context(agent)
+
+      tool_result_msgs =
+        Enum.filter(context.messages, fn msg ->
+          msg.role == :user and Enum.any?(msg.content, &match?(%ToolResult{}, &1))
+        end)
+
+      assert length(tool_result_msgs) == 1
+      [tr_msg] = tool_result_msgs
+      [%ToolResult{} = tr] = tr_msg.content
+      assert [%Text{text: "modified output"}] = tr.content
+    end
+  end
+
+  describe "tool_result events emitted" do
+    test "agent emits :tool_result events with expected data" do
+      {:ok, agent} =
+        start_agent(
+          tools: [tool_with_handler()],
+          fixtures: [@tool_use_fixture, @text_fixture]
+        )
+
+      :ok = Agent.prompt(agent, "What's the weather?")
+      events = collect_events(agent)
+
+      tool_result_events = for {:tool_result, data} <- events, do: data
+      assert length(tool_result_events) == 1
+      [tr] = tool_result_events
+      assert tr.name == "get_weather"
+      assert tr.is_error == false
+    end
+  end
+
+  describe "add_tools/remove_tools" do
+    test "adds and removes tools when idle" do
+      {:ok, agent} = start_agent()
+
+      assert Agent.get_context(agent).tools == []
+
+      tool = tool_with_handler()
+      :ok = Agent.add_tools(agent, [tool])
+      assert length(Agent.get_context(agent).tools) == 1
+      assert hd(Agent.get_context(agent).tools).name == "get_weather"
+
+      :ok = Agent.remove_tools(agent, ["get_weather"])
+      assert Agent.get_context(agent).tools == []
+    end
+
+    test "returns {:error, :running} when agent is running" do
+      stub_name = unique_stub_name()
+
+      Req.Test.stub(stub_name, fn conn ->
+        Process.sleep(2000)
+        body = File.read!(@text_fixture)
+
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, body)
+      end)
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      Process.sleep(50)
+      assert {:error, :running} = Agent.add_tools(agent, [tool_with_handler()])
+      assert {:error, :running} = Agent.remove_tools(agent, ["get_weather"])
+      Agent.cancel(agent)
+      _events = collect_events(agent, 2000)
+    end
+  end
+
+  describe "cancel during tool execution" do
+    test "cancels and rolls back context" do
+      slow_tool =
+        Omni.tool(
+          name: "get_weather",
+          description: "Gets the weather",
+          input_schema: %{type: "object", properties: %{location: %{type: "string"}}},
+          handler: fn _input ->
+            Process.sleep(5000)
+            "result"
+          end
+        )
+
+      {:ok, agent} =
+        start_agent(
+          tools: [slow_tool],
+          fixture: @tool_use_fixture
+        )
+
+      :ok = Agent.prompt(agent, "What's the weather?")
+      # Wait for step to complete and executor to start
+      Process.sleep(200)
+      :ok = Agent.cancel(agent)
+
+      events = collect_events(agent, 2000)
+      assert {:cancelled, nil} = List.last(events)
+      assert Agent.get_status(agent) == :idle
+      assert Agent.get_context(agent).messages == []
+    end
+  end
+
+  describe "tool timeout" do
+    test "timed out tool produces error result, loop continues" do
+      slow_tool =
+        Omni.tool(
+          name: "get_weather",
+          description: "Gets the weather",
+          input_schema: %{type: "object", properties: %{location: %{type: "string"}}},
+          handler: fn _input ->
+            Process.sleep(5000)
+            "result"
+          end
+        )
+
+      {:ok, agent} =
+        start_agent(
+          tools: [slow_tool],
+          tool_timeout: 100,
+          fixtures: [@tool_use_fixture, @text_fixture]
+        )
+
+      :ok = Agent.prompt(agent, "What's the weather?")
+      events = collect_events(agent)
+
+      # Tool result event should have is_error: true (timeout)
+      tool_result_events = for {:tool_result, data} <- events, do: data
+      assert length(tool_result_events) > 0
+      assert Enum.any?(tool_result_events, & &1.is_error)
+
+      # Loop continues to final response
+      assert {:done, %Response{}} = List.last(events)
+    end
+  end
+
+  describe "usage accumulates across tool loop steps" do
+    test "usage from both LLM requests is summed" do
+      {:ok, agent} =
+        start_agent(
+          tools: [tool_with_handler()],
+          fixtures: [@tool_use_fixture, @text_fixture]
+        )
+
+      :ok = Agent.prompt(agent, "What's the weather?")
+      _events = collect_events(agent)
+
+      usage = Agent.get_usage(agent)
+      assert usage.total_tokens > 0
+      assert usage.input_tokens > 0
+      assert usage.output_tokens > 0
+    end
+  end
+
+  describe "handle_tool_call modifies assigns" do
+    test "callback can store info in assigns" do
+      {:ok, agent} =
+        start_agent_with_module(TrackToolCalls,
+          tools: [tool_with_handler()],
+          fixtures: [@tool_use_fixture, @text_fixture]
+        )
+
+      :ok = Agent.prompt(agent, "What's the weather?")
+      _events = collect_events(agent)
+
+      assigns = Agent.get_assigns(agent)
+      assert assigns.tool_calls == ["get_weather"]
     end
   end
 end

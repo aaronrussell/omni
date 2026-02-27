@@ -3,8 +3,9 @@ defmodule Omni.Agent.Server do
 
   use GenServer
 
-  alias Omni.{Context, Message, Model, Response, Usage}
+  alias Omni.{Context, Message, Model, Response, Tool, Usage}
   alias Omni.Agent.State
+  alias Omni.Content.{ToolResult, ToolUse}
 
   def start_link(init_arg, gs_opts) do
     # Capture $callers so the chain reaches back to whoever started the agent.
@@ -36,7 +37,8 @@ defmodule Omni.Agent.Server do
         context: context,
         opts: Keyword.get(opts, :opts, []),
         assigns: assigns,
-        listener: opts[:listener]
+        listener: opts[:listener],
+        tool_timeout: Keyword.get(opts, :tool_timeout, 5_000)
       }
 
       {:ok, state}
@@ -71,6 +73,26 @@ defmodule Omni.Agent.Server do
   end
 
   def handle_call({:prompt, _content, _opts}, _from, %{status: :running} = state) do
+    {:reply, {:error, :running}, state}
+  end
+
+  def handle_call({:add_tools, tools}, _from, %{status: :idle} = state) do
+    context = %{state.context | tools: state.context.tools ++ tools}
+    {:reply, :ok, %{state | context: context}}
+  end
+
+  def handle_call({:add_tools, _tools}, _from, %{status: :running} = state) do
+    {:reply, {:error, :running}, state}
+  end
+
+  def handle_call({:remove_tools, names}, _from, %{status: :idle} = state) do
+    name_set = MapSet.new(names)
+    tools = Enum.reject(state.context.tools, &MapSet.member?(name_set, &1.name))
+    context = %{state.context | tools: tools}
+    {:reply, :ok, %{state | context: context}}
+  end
+
+  def handle_call({:remove_tools, _names}, _from, %{status: :running} = state) do
     {:reply, {:error, :running}, state}
   end
 
@@ -137,6 +159,26 @@ defmodule Omni.Agent.Server do
     {:noreply, state}
   end
 
+  # -- Info (executor messages) --
+
+  def handle_info({ref, {:tools_executed, results}}, %{executor_task: {_, ref}} = state) do
+    state = handle_tools_executed(results, state)
+    {:noreply, state}
+  end
+
+  def handle_info({ref, {:executor_error, reason}}, %{executor_task: {_, ref}} = state) do
+    state = reset_round(state)
+    notify(state, :error, {:executor_error, reason})
+    {:noreply, state}
+  end
+
+  def handle_info({:EXIT, pid, reason}, %{executor_task: {pid, _}} = state)
+      when reason not in [:normal, :killed] do
+    state = reset_round(state)
+    notify(state, :error, {:executor_crashed, reason})
+    {:noreply, state}
+  end
+
   def handle_info(_msg, state) do
     {:noreply, state}
   end
@@ -165,12 +207,101 @@ defmodule Omni.Agent.Server do
   defp handle_step_complete(response, state) do
     pending = state.pending_messages ++ [response.message]
     usage = Usage.add(state.usage, response.usage)
+    state = %{state | pending_messages: pending, usage: usage, step_task: nil}
 
-    state = %{state | pending_messages: pending, usage: usage}
+    tool_uses = extract_tool_uses(response.message.content)
 
+    if tool_uses != [] and all_executable?(tool_uses, state.context.tools) do
+      handle_tool_decision_phase(tool_uses, state)
+    else
+      finalize_turn(response, state)
+    end
+  end
+
+  # -- Tool decision phase --
+
+  defp handle_tool_decision_phase(tool_uses, state) do
+    tool_map = build_tool_map(state.context.tools)
+
+    {approved, rejected, state} =
+      Enum.reduce(tool_uses, {[], [], state}, fn tool_use, {app, rej, st} ->
+        case call_handle_tool_call(st.module, tool_use, st) do
+          {:execute, new_state} ->
+            {[tool_use | app], rej, new_state}
+
+          {:reject, reason, new_state} ->
+            result =
+              ToolResult.new(
+                tool_use_id: tool_use.id,
+                name: tool_use.name,
+                content: "Tool rejected: #{inspect(reason)}",
+                is_error: true
+              )
+
+            {app, [result | rej], new_state}
+        end
+      end)
+
+    approved = Enum.reverse(approved)
+    rejected = Enum.reverse(rejected)
+
+    if approved == [] do
+      handle_tools_executed(rejected, state)
+    else
+      spawn_executor(approved, rejected, tool_map, state)
+    end
+  end
+
+  defp spawn_executor(approved_uses, rejected_results, tool_map, state) do
+    ref = make_ref()
+
+    {:ok, pid} =
+      Omni.Agent.Executor.start_link(
+        self(),
+        ref,
+        approved_uses,
+        tool_map,
+        state.tool_timeout
+      )
+
+    %{state | executor_task: {pid, ref}, rejected_results: rejected_results}
+  end
+
+  # -- Tool execution results --
+
+  defp handle_tools_executed(executed_results, state) do
+    # Merge rejected + executed results
+    all_results = state.rejected_results ++ executed_results
+    state = %{state | executor_task: nil, rejected_results: []}
+
+    # Call handle_tool_result for each and notify listener
+    {final_results, state} =
+      Enum.map_reduce(all_results, state, fn result, st ->
+        case call_handle_tool_result(st.module, result, st) do
+          {:ok, final_result, new_state} ->
+            notify(new_state, :tool_result, %{
+              name: final_result.name,
+              tool_use_id: final_result.tool_use_id,
+              is_error: final_result.is_error
+            })
+
+            {final_result, new_state}
+        end
+      end)
+
+    # Build user message with all tool results, append to pending
+    user_message = Message.new(role: :user, content: final_results)
+    state = %{state | pending_messages: state.pending_messages ++ [user_message]}
+
+    spawn_step(state)
+  end
+
+  # -- Finalize turn --
+
+  defp finalize_turn(response, state) do
     case call_handle_stop(state.module, response, state) do
       {:stop, new_state} ->
-        context = %{state.context | messages: state.context.messages ++ pending}
+        context = %{state.context | messages: state.context.messages ++ state.pending_messages}
 
         %{
           new_state
@@ -178,6 +309,8 @@ defmodule Omni.Agent.Server do
             status: :idle,
             step: 0,
             step_task: nil,
+            executor_task: nil,
+            rejected_results: [],
             pending_messages: [],
             prompt_opts: []
         }
@@ -188,13 +321,16 @@ defmodule Omni.Agent.Server do
   # -- Cancel --
 
   defp do_cancel(state) do
-    {pid, _ref} = state.step_task
-    Process.exit(pid, :kill)
+    kill_task(state.step_task)
+    kill_task(state.executor_task)
 
     state
     |> reset_round()
     |> tap(&notify(&1, :cancelled, nil))
   end
+
+  defp kill_task(nil), do: :ok
+  defp kill_task({pid, _ref}), do: Process.exit(pid, :kill)
 
   # -- Helpers --
 
@@ -204,9 +340,31 @@ defmodule Omni.Agent.Server do
       | status: :idle,
         step: 0,
         step_task: nil,
+        executor_task: nil,
+        rejected_results: [],
         pending_messages: [],
         prompt_opts: []
     }
+  end
+
+  defp extract_tool_uses(content) do
+    Enum.filter(content, &match?(%ToolUse{}, &1))
+  end
+
+  defp all_executable?(tool_uses, tools) do
+    tool_map = build_tool_map(tools)
+
+    Enum.all?(tool_uses, fn tool_use ->
+      case Map.get(tool_map, tool_use.name) do
+        nil -> true
+        %Tool{handler: nil} -> false
+        %Tool{} -> true
+      end
+    end)
+  end
+
+  defp build_tool_map(tools) do
+    Map.new(tools, fn tool -> {tool.name, tool} end)
   end
 
   defp notify(%{listener: nil}, _type, _data), do: :ok
@@ -219,6 +377,16 @@ defmodule Omni.Agent.Server do
 
   defp call_handle_stop(nil, _response, state), do: {:stop, state}
   defp call_handle_stop(module, response, state), do: module.handle_stop(response, state)
+
+  defp call_handle_tool_call(nil, _tool_use, state), do: {:execute, state}
+
+  defp call_handle_tool_call(module, tool_use, state),
+    do: module.handle_tool_call(tool_use, state)
+
+  defp call_handle_tool_result(nil, result, state), do: {:ok, result, state}
+
+  defp call_handle_tool_result(module, result, state),
+    do: module.handle_tool_result(result, state)
 
   defp call_terminate(nil, _reason, _state), do: :ok
   defp call_terminate(module, reason, state), do: module.terminate(reason, state)

@@ -129,7 +129,7 @@ defmodule Omni.Loop do
 
   defp do_loop(tool_uses, response, state) do
     # Execute tools and build result blocks
-    tool_results = execute_tools(tool_uses, state.tool_map)
+    tool_results = Tool.Runner.run(tool_uses, state.tool_map)
     tool_result_events = build_tool_result_events(tool_results, response)
 
     # Build user message with tool results, update context
@@ -251,43 +251,6 @@ defmodule Omni.Loop do
       end
     end)
   end
-
-  # -- Tool execution --
-
-  defp execute_tools(tool_uses, tool_map) do
-    Enum.map(tool_uses, fn tool_use ->
-      case Map.get(tool_map, tool_use.name) do
-        nil ->
-          ToolResult.new(
-            tool_use_id: tool_use.id,
-            name: tool_use.name,
-            content: "Tool not found: #{tool_use.name}",
-            is_error: true
-          )
-
-        %Tool{} = tool ->
-          case Tool.execute(tool, tool_use.input) do
-            {:ok, result} ->
-              ToolResult.new(
-                tool_use_id: tool_use.id,
-                name: tool_use.name,
-                content: format_result(result)
-              )
-
-            {:error, error} ->
-              ToolResult.new(
-                tool_use_id: tool_use.id,
-                name: tool_use.name,
-                content: format_result(error),
-                is_error: true
-              )
-          end
-      end
-    end)
-  end
-
-  defp format_result(value) when is_binary(value), do: value
-  defp format_result(value), do: inspect(value)
 
   # -- Event building --
 

@@ -40,6 +40,7 @@ defmodule Omni.Agent do
   """
 
   alias Omni.Agent.State
+  alias Omni.Content.{ToolResult, ToolUse}
   alias Omni.Response
 
   @doc "Called when the agent starts. Returns initial assigns."
@@ -47,6 +48,14 @@ defmodule Omni.Agent do
 
   @doc "Called when a step completes with a stop reason."
   @callback handle_stop(response :: Response.t(), state :: State.t()) :: {:stop, State.t()}
+
+  @doc "Called for each tool use block to decide whether to execute or reject."
+  @callback handle_tool_call(tool_use :: ToolUse.t(), state :: State.t()) ::
+              {:execute, State.t()} | {:reject, term(), State.t()}
+
+  @doc "Called after each tool execution with the result, allowing modification."
+  @callback handle_tool_result(result :: ToolResult.t(), state :: State.t()) ::
+              {:ok, ToolResult.t(), State.t()}
 
   @doc "Called when the GenServer terminates."
   @callback terminate(reason :: term(), state :: State.t()) :: term()
@@ -64,6 +73,12 @@ defmodule Omni.Agent do
       def handle_stop(_response, state), do: {:stop, state}
 
       @impl Omni.Agent
+      def handle_tool_call(_tool_use, state), do: {:execute, state}
+
+      @impl Omni.Agent
+      def handle_tool_result(result, state), do: {:ok, result, state}
+
+      @impl Omni.Agent
       def terminate(_reason, _state), do: :ok
 
       @doc "Starts and links an agent process with this callback module."
@@ -71,7 +86,12 @@ defmodule Omni.Agent do
         Omni.Agent.start_link(__MODULE__, opts)
       end
 
-      defoverridable init: 1, handle_stop: 2, terminate: 2, start_link: 1
+      defoverridable init: 1,
+                     handle_stop: 2,
+                     handle_tool_call: 2,
+                     handle_tool_result: 2,
+                     terminate: 2,
+                     start_link: 1
     end
   end
 
@@ -98,6 +118,18 @@ defmodule Omni.Agent do
   @spec cancel(GenServer.server()) :: :ok | {:error, :idle}
   def cancel(agent) do
     GenServer.call(agent, :cancel)
+  end
+
+  @doc "Adds tools to the agent's context. Returns `:ok` or `{:error, :running}`."
+  @spec add_tools(GenServer.server(), [Omni.Tool.t()]) :: :ok | {:error, :running}
+  def add_tools(agent, tools) do
+    GenServer.call(agent, {:add_tools, tools})
+  end
+
+  @doc "Removes tools by name from the agent's context. Returns `:ok` or `{:error, :running}`."
+  @spec remove_tools(GenServer.server(), [String.t()]) :: :ok | {:error, :running}
+  def remove_tools(agent, tool_names) do
+    GenServer.call(agent, {:remove_tools, tool_names})
   end
 
   @doc "Clears conversation history and resets usage. Returns `:ok` or `{:error, :running}`."
