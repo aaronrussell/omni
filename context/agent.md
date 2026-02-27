@@ -160,51 +160,71 @@ MyAgent.start_link(
 
 ## Agent state
 
-The agent maintains its state in an `%Omni.Agent.State{}` struct, defined in a dedicated internal module (`lib/omni/agent/state.ex`, `@moduledoc false`). User-defined state lives in an `assigns` field, similar to a Phoenix LiveView socket.
+Agent state is split into two structs: a public `%Omni.Agent.State{}` passed to all callbacks, and an internal `%Omni.Agent.Server{}` struct that wraps it alongside GenServer machinery. Callback implementors only see the public struct.
+
+### Public state (`Omni.Agent.State`)
+
+The public state is a documented, 7-field struct. User-defined state lives in `assigns`, similar to a Phoenix LiveView socket.
 
 ```elixir
 defmodule Omni.Agent.State do
-  @moduledoc false
-
-  alias Omni.{Context, Model, Usage}
+  @moduledoc "The public state passed to `Omni.Agent` callbacks."
 
   defstruct [
-    # Core identity
-    :module,                          # module() | nil — callback module
-    :model,                           # %Model{}
-    :context,                         # %Context{} — committed context
-    :opts,                            # keyword — agent-level default inference opts (includes max_steps)
-
-    # Session state (lifetime of the agent process)
+    :model,                           # %Model{} — the agent's model
+    :context,                         # %Context{} — committed conversation history
+    :opts,                            # keyword — agent-level default inference opts
     status: :idle,                    # :idle | :running | :paused
     usage: %Usage{},                  # cumulative across all prompt rounds
     assigns: %{},                     # user-defined state
-
-    # Prompt round state (reset per prompt/3 call)
-    step: 0,                          # current step counter (see "Steps and turns")
-    pending_messages: [],              # in-progress message accumulator
-    next_prompt: nil,                   # staged prompt (steering)
-    prompt_opts: [],                   # per-round merged opts (opts ← prompt opts)
-
-    # Internal (framework-managed)
-    listener: nil,                     # pid — event recipient
-    step_task: nil,                    # {pid, ref} | nil — current step process
-    executor_task: nil,                # {pid, ref} | nil — current executor process
-    rejected_results: [],              # [ToolResult.t()] — stashed rejected tool results during decision phase
-    tool_timeout: 5_000               # timeout — per-agent tool execution timeout
+    step: 0                           # current step counter within the active round
   ]
 end
 ```
 
-The state has three logical tiers:
+The fields have two logical tiers:
 
 - **Core identity** — `model`, `context`, and `opts` are set at `start_link` and persist for the agent's lifetime. `context` is the committed conversation history; `opts` holds agent-level inference defaults (`:temperature`, `:max_tokens`, `:max_steps`, etc.).
-- **Session state** — `status`, `usage`, and `assigns` persist across prompt rounds. `usage` accumulates token counts and costs from every LLM request the agent makes. `assigns` is the user's domain state.
-- **Prompt round state** — `step`, `pending_messages`, `next_prompt`, and `prompt_opts` are scoped to a single `prompt/3` call. Reset when each round completes or is cancelled.
+- **Session state** — `status`, `usage`, `assigns`, and `step` change during operation. `usage` accumulates token counts and costs from every LLM request. `assigns` is the user's domain state. `step` resets per prompt round.
 
-All callbacks receive the full `%State{}` struct. Users can read any field (context, model, step count, etc.) but primarily read and write `assigns`. The framework manages the other fields.
+All callbacks receive this public `%State{}` struct. Users can read any field (context, model, step count, etc.) but primarily read and write `assigns`. The framework manages the other fields.
 
-Note: `context` reflects the committed state — it only includes messages from completed prompt rounds. In-progress messages are tracked in `pending_messages` and are not visible in `context` until the round completes. See "Context management" section.
+Note: `context` reflects the committed state — it only includes messages from completed prompt rounds. In-progress messages are tracked internally and are not visible in `context` until the round completes. See "Context management" section.
+
+### Internal server state (`Omni.Agent.Server`)
+
+The server struct wraps the public state and adds all internal machinery. It is never passed to callbacks.
+
+```elixir
+defstruct [
+  # Public state (passed to callbacks)
+  :state,                             # %State{} — the public struct
+
+  # Configuration (set at init, stable across rounds)
+  :module,                            # module() | nil — callback module
+  :listener,                          # pid | nil — event recipient
+  :tool_timeout,                      # timeout — per-agent tool execution timeout
+
+  # Round lifecycle (reset per prompt round)
+  pending_messages: [],               # in-progress message accumulator
+  prompt_opts: [],                    # per-round merged opts
+  next_prompt: nil,                   # staged prompt (steering)
+  last_response: nil,                 # most recent Response from a step
+
+  # Process tracking
+  step_task: nil,                     # {pid, ref} | nil — current step process
+  executor_task: nil,                 # {pid, ref} | nil — current executor process
+
+  # Tool decision phase (set when decisions begin, cleared by reset_round)
+  tool_map: nil,                      # name → Tool lookup
+  approved_uses: [],                  # already-approved tool uses (reversed)
+  remaining_uses: [],                 # tool uses not yet presented to handle_tool_call
+  rejected_results: [],               # stashed rejected tool results
+  paused_use: nil                     # the tool_use awaiting a human decision
+]
+```
+
+The `paused_decision` map from the previous design has been flattened — `tool_map`, `approved_uses`, `remaining_uses`, and `paused_use` are top-level server fields. `rejected_results` was already on the old state and remains alongside the other decision-phase fields.
 
 ### Usage accumulation
 

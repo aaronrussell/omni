@@ -1,11 +1,58 @@
 defmodule Omni.Agent.Server do
   @moduledoc false
 
+  # Lifecycle: round > turn > step
+  #
+  #   prompt/3 ──► ROUND START
+  #   │
+  #   ├─ Turn 1
+  #   │   ├─ Step 1: spawn_step ──► LLM request ──► handle_step_complete
+  #   │   │   └─ tool_use? ──► handle_tool_decision_phase ──► spawn_executor
+  #   │   ├─ Step 2: spawn_step ──► LLM request ──► handle_step_complete
+  #   │   │   └─ tool_use? ──► ...repeat...
+  #   │   └─ Step N: no tool_use ──► finalize_turn ──► handle_stop
+  #   │       └─ {:continue, prompt} ──► :turn event
+  #   │
+  #   ├─ Turn 2 (same structure)
+  #   │   └─ ...
+  #   │
+  #   └─ Final turn: handle_stop returns {:stop, _}
+  #       └─ commit_and_done ──► :done event ──► ROUND END
+
   use GenServer
 
   alias Omni.{Context, Message, Model, Response, Tool, Usage}
   alias Omni.Agent.State
   alias Omni.Content.{ToolResult, ToolUse}
+
+  @type t :: %__MODULE__{}
+
+  defstruct [
+    # Public state (passed to callbacks)
+    :state,
+
+    # Configuration (set at init, stable across rounds)
+    :module,
+    :listener,
+    :tool_timeout,
+
+    # Round lifecycle (set when a prompt starts, cleared by reset_round)
+    pending_messages: [],
+    prompt_opts: [],
+    next_prompt: nil,
+    last_response: nil,
+
+    # Process tracking
+    step_task: nil,
+    executor_task: nil,
+
+    # Tool decision phase (set when tool decisions begin, cleared by reset_round)
+    tool_map: nil,
+    approved_uses: [],
+    remaining_uses: [],
+    rejected_results: [],
+    paused_use: nil
+  ]
 
   def start_link(init_arg, gs_opts) do
     # Capture $callers so the chain reaches back to whoever started the agent.
@@ -31,17 +78,21 @@ defmodule Omni.Agent.Server do
           tools: opts[:tools] || []
         )
 
-      state = %State{
-        module: module,
+      agent_state = %State{
         model: model,
         context: context,
         opts: Keyword.get(opts, :opts, []),
-        assigns: assigns,
+        assigns: assigns
+      }
+
+      server = %__MODULE__{
+        state: agent_state,
+        module: module,
         listener: opts[:listener],
         tool_timeout: Keyword.get(opts, :tool_timeout, 5_000)
       }
 
-      {:ok, state}
+      {:ok, server}
     else
       {:error, reason} -> {:stop, reason}
     end
@@ -54,39 +105,44 @@ defmodule Omni.Agent.Server do
   # -- Calls --
 
   @impl GenServer
-  def handle_call({:prompt, content, opts}, {from_pid, _}, %{status: :idle} = state) do
-    state = if state.listener == nil, do: %{state | listener: from_pid}, else: state
+  def handle_call(
+        {:prompt, content, opts},
+        {from_pid, _},
+        %__MODULE__{state: %{status: :idle}} = server
+      ) do
+    server = if server.listener == nil, do: %{server | listener: from_pid}, else: server
 
     user_message = Message.new(role: :user, content: content)
-    prompt_opts = Keyword.merge(state.opts, opts)
+    prompt_opts = Keyword.merge(server.state.opts, opts)
 
-    state = %{
-      state
-      | status: :running,
-        step: 0,
+    server = %{
+      server
+      | state: %{server.state | status: :running, step: 0},
         pending_messages: [user_message],
         prompt_opts: prompt_opts
     }
 
-    state = spawn_step(state)
-    {:reply, :ok, state}
+    server = spawn_step(server)
+    {:reply, :ok, server}
   end
 
-  def handle_call({:prompt, content, _opts}, _from, %{status: status} = state)
+  def handle_call(
+        {:prompt, content, _opts},
+        _from,
+        %__MODULE__{state: %{status: status}} = server
+      )
       when status in [:running, :paused] do
-    {:reply, :ok, %{state | next_prompt: content}}
+    {:reply, :ok, %{server | next_prompt: content}}
   end
 
-  def handle_call({:resume, decision}, _from, %{status: :paused} = state) do
-    %{tool_use: tool_use, remaining: remaining, approved: approved, tool_map: tool_map} =
-      state.paused_decision
+  def handle_call({:resume, decision}, _from, %__MODULE__{state: %{status: :paused}} = server) do
+    tool_use = server.paused_use
+    server = %{server | state: %{server.state | status: :running}, paused_use: nil}
 
-    state = %{state | status: :running, paused_decision: nil}
-
-    {approved, state} =
+    server =
       case decision do
         :approve ->
-          {[tool_use | approved], state}
+          %{server | approved_uses: [tool_use | server.approved_uses]}
 
         {:reject, reason} ->
           result =
@@ -97,197 +153,208 @@ defmodule Omni.Agent.Server do
               is_error: true
             )
 
-          {approved, %{state | rejected_results: state.rejected_results ++ [result]}}
+          %{server | rejected_results: server.rejected_results ++ [result]}
       end
 
-    state = process_next_tool_decision(remaining, approved, tool_map, state)
-    {:reply, :ok, state}
+    server = process_next_tool_decision(server)
+    {:reply, :ok, server}
   end
 
-  def handle_call({:resume, _decision}, _from, state) do
-    {:reply, {:error, :not_paused}, state}
+  def handle_call({:resume, _decision}, _from, server) do
+    {:reply, {:error, :not_paused}, server}
   end
 
-  def handle_call({:add_tools, tools}, _from, %{status: :idle} = state) do
-    context = %{state.context | tools: state.context.tools ++ tools}
-    {:reply, :ok, %{state | context: context}}
+  def handle_call({:add_tools, tools}, _from, %__MODULE__{state: %{status: :idle}} = server) do
+    context = %{server.state.context | tools: server.state.context.tools ++ tools}
+    {:reply, :ok, %{server | state: %{server.state | context: context}}}
   end
 
-  def handle_call({:remove_tools, names}, _from, %{status: :idle} = state) do
+  def handle_call({:remove_tools, names}, _from, %__MODULE__{state: %{status: :idle}} = server) do
     name_set = MapSet.new(names)
-    tools = Enum.reject(state.context.tools, &MapSet.member?(name_set, &1.name))
-    context = %{state.context | tools: tools}
-    {:reply, :ok, %{state | context: context}}
+    tools = Enum.reject(server.state.context.tools, &MapSet.member?(name_set, &1.name))
+    context = %{server.state.context | tools: tools}
+    {:reply, :ok, %{server | state: %{server.state | context: context}}}
   end
 
-  def handle_call(:cancel, _from, %{status: status} = state) when status in [:running, :paused] do
-    state = do_cancel(state)
-    {:reply, :ok, state}
+  def handle_call(:cancel, _from, %__MODULE__{state: %{status: status}} = server)
+      when status in [:running, :paused] do
+    server = do_cancel(server)
+    {:reply, :ok, server}
   end
 
-  def handle_call(:cancel, _from, %{status: :idle} = state) do
-    {:reply, {:error, :idle}, state}
+  def handle_call(:cancel, _from, %__MODULE__{state: %{status: :idle}} = server) do
+    {:reply, {:error, :idle}, server}
   end
 
-  def handle_call(:clear, _from, %{status: :idle} = state) do
-    state = %{
-      state
-      | context: %{state.context | messages: []},
+  def handle_call(:clear, _from, %__MODULE__{state: %{status: :idle}} = server) do
+    new_state = %{
+      server.state
+      | context: %{server.state.context | messages: []},
         usage: %Usage{}
     }
 
-    {:reply, :ok, state}
+    {:reply, :ok, %{server | state: new_state}}
   end
 
-  def handle_call({:listen, pid}, _from, %{status: :idle} = state) do
-    {:reply, :ok, %{state | listener: pid}}
+  def handle_call({:listen, pid}, _from, %__MODULE__{state: %{status: :idle}} = server) do
+    {:reply, :ok, %{server | listener: pid}}
   end
 
   # Catch-all for mutating ops while running or paused
-  def handle_call({op, _}, _from, state) when op in [:add_tools, :remove_tools, :listen] do
-    {:reply, {:error, :running}, state}
+  def handle_call({op, _}, _from, server) when op in [:add_tools, :remove_tools, :listen] do
+    {:reply, {:error, :running}, server}
   end
 
-  def handle_call(:clear, _from, state) do
-    {:reply, {:error, :running}, state}
+  def handle_call(:clear, _from, server) do
+    {:reply, {:error, :running}, server}
   end
 
-  def handle_call(:get_model, _from, state), do: {:reply, state.model, state}
-  def handle_call(:get_context, _from, state), do: {:reply, state.context, state}
-  def handle_call(:get_status, _from, state), do: {:reply, state.status, state}
-  def handle_call(:get_assigns, _from, state), do: {:reply, state.assigns, state}
-  def handle_call(:get_usage, _from, state), do: {:reply, state.usage, state}
+  def handle_call(:get_model, _from, server), do: {:reply, server.state.model, server}
+  def handle_call(:get_context, _from, server), do: {:reply, server.state.context, server}
+  def handle_call(:get_status, _from, server), do: {:reply, server.state.status, server}
+  def handle_call(:get_assigns, _from, server), do: {:reply, server.state.assigns, server}
+  def handle_call(:get_usage, _from, server), do: {:reply, server.state.usage, server}
 
   # -- Info (step messages) --
 
   @impl GenServer
-  def handle_info({ref, {:event, type, event_map}}, %{step_task: {_, ref}} = state) do
-    notify(state, type, event_map)
-    {:noreply, state}
+  def handle_info({ref, {:event, type, event_map}}, %{step_task: {_, ref}} = server) do
+    notify(server, type, event_map)
+    {:noreply, server}
   end
 
-  def handle_info({ref, {:complete, %Response{} = response}}, %{step_task: {_, ref}} = state) do
-    state = handle_step_complete(response, state)
-    {:noreply, state}
+  def handle_info({ref, {:complete, %Response{} = response}}, %{step_task: {_, ref}} = server) do
+    server = handle_step_complete(response, server)
+    {:noreply, server}
   end
 
-  def handle_info({ref, {:error, reason}}, %{step_task: {_, ref}} = state) do
-    state = %{state | step_task: nil}
+  def handle_info({ref, {:error, reason}}, %{step_task: {_, ref}} = server) do
+    server = %{server | step_task: nil}
 
-    case call_handle_error(state.module, reason, state) do
+    case call_handle_error(server.module, reason, server.state) do
       {:retry, new_state} ->
-        {:noreply, spawn_step(new_state)}
+        {:noreply, spawn_step(%{server | state: new_state})}
 
       {:stop, new_state} ->
-        new_state = reset_round(new_state)
-        notify(new_state, :error, reason)
-        {:noreply, new_state}
+        server = reset_round(%{server | state: new_state})
+        notify(server, :error, reason)
+        {:noreply, server}
     end
   end
 
-  def handle_info({:EXIT, pid, reason}, %{step_task: {pid, _}} = state)
+  def handle_info({:EXIT, pid, reason}, %{step_task: {pid, _}} = server)
       when reason not in [:normal, :killed] do
     error = {:step_crashed, reason}
-    state = %{state | step_task: nil}
+    server = %{server | step_task: nil}
 
-    case call_handle_error(state.module, error, state) do
+    case call_handle_error(server.module, error, server.state) do
       {:retry, new_state} ->
-        {:noreply, spawn_step(new_state)}
+        {:noreply, spawn_step(%{server | state: new_state})}
 
       {:stop, new_state} ->
-        new_state = reset_round(new_state)
-        notify(new_state, :error, error)
-        {:noreply, new_state}
+        server = reset_round(%{server | state: new_state})
+        notify(server, :error, error)
+        {:noreply, server}
     end
   end
 
   # -- Info (executor messages) --
 
-  def handle_info({ref, {:tools_executed, results}}, %{executor_task: {_, ref}} = state) do
-    state = handle_tools_executed(results, state)
-    {:noreply, state}
+  def handle_info({ref, {:tools_executed, results}}, %{executor_task: {_, ref}} = server) do
+    server = handle_tools_executed(results, server)
+    {:noreply, server}
   end
 
-  def handle_info({ref, {:executor_error, reason}}, %{executor_task: {_, ref}} = state) do
-    state = reset_round(state)
-    notify(state, :error, {:executor_error, reason})
-    {:noreply, state}
+  def handle_info({ref, {:executor_error, reason}}, %{executor_task: {_, ref}} = server) do
+    server = reset_round(server)
+    notify(server, :error, {:executor_error, reason})
+    {:noreply, server}
   end
 
-  def handle_info({:EXIT, pid, reason}, %{executor_task: {pid, _}} = state)
+  def handle_info({:EXIT, pid, reason}, %{executor_task: {pid, _}} = server)
       when reason not in [:normal, :killed] do
-    state = reset_round(state)
-    notify(state, :error, {:executor_crashed, reason})
-    {:noreply, state}
+    server = reset_round(server)
+    notify(server, :error, {:executor_crashed, reason})
+    {:noreply, server}
   end
 
-  def handle_info(_msg, state) do
-    {:noreply, state}
+  def handle_info(_msg, server) do
+    {:noreply, server}
   end
 
   # -- Terminate --
 
   @impl GenServer
-  def terminate(reason, state) do
-    call_terminate(state.module, reason, state)
+  def terminate(reason, server) do
+    call_terminate(server.module, reason, server.state)
   end
 
   # -- Step execution --
 
-  defp spawn_step(state) do
-    full_context = %{state.context | messages: state.context.messages ++ state.pending_messages}
-    opts = Keyword.merge(state.prompt_opts, max_steps: 1)
+  defp spawn_step(server) do
+    full_context = %{
+      server.state.context
+      | messages: server.state.context.messages ++ server.pending_messages
+    }
+
+    opts = Keyword.merge(server.prompt_opts, max_steps: 1)
     ref = make_ref()
 
-    {:ok, pid} = Omni.Agent.Step.start_link(self(), ref, state.model, full_context, opts)
+    {:ok, pid} = Omni.Agent.Step.start_link(self(), ref, server.state.model, full_context, opts)
 
-    %{state | step_task: {pid, ref}, step: state.step + 1}
+    step = server.state.step + 1
+    %{server | step_task: {pid, ref}, state: %{server.state | step: step}}
   end
 
   # -- Step completion --
 
-  defp handle_step_complete(response, state) do
-    pending = state.pending_messages ++ [response.message]
-    usage = Usage.add(state.usage, response.usage)
+  defp handle_step_complete(response, server) do
+    pending = server.pending_messages ++ [response.message]
+    usage = Usage.add(server.state.usage, response.usage)
 
-    state = %{
-      state
+    server = %{
+      server
       | pending_messages: pending,
-        usage: usage,
         step_task: nil,
-        last_response: response
+        last_response: response,
+        state: %{server.state | usage: usage}
     }
 
     tool_uses = extract_tool_uses(response.message.content)
 
-    if tool_uses != [] and all_executable?(tool_uses, state.context.tools) do
-      handle_tool_decision_phase(tool_uses, state)
+    if tool_uses != [] and all_executable?(tool_uses, server.state.context.tools) do
+      handle_tool_decision_phase(tool_uses, server)
     else
-      finalize_turn(response, state)
+      finalize_turn(response, server)
     end
   end
 
   # -- Tool decision phase --
 
-  defp handle_tool_decision_phase(tool_uses, state) do
-    tool_map = build_tool_map(state.context.tools)
-    process_next_tool_decision(tool_uses, [], tool_map, state)
+  defp handle_tool_decision_phase(tool_uses, server) do
+    tool_map = build_tool_map(server.state.context.tools)
+
+    %{server | tool_map: tool_map, remaining_uses: tool_uses, approved_uses: []}
+    |> process_next_tool_decision()
   end
 
-  defp process_next_tool_decision([], approved, tool_map, state) do
-    approved = Enum.reverse(approved)
+  defp process_next_tool_decision(%{remaining_uses: []} = server) do
+    approved = Enum.reverse(server.approved_uses)
 
     if approved == [] do
-      handle_tools_executed([], state)
+      handle_tools_executed([], server)
     else
-      spawn_executor(approved, tool_map, state)
+      spawn_executor(approved, server)
     end
   end
 
-  defp process_next_tool_decision([tool_use | rest], approved, tool_map, state) do
-    case call_handle_tool_call(state.module, tool_use, state) do
+  defp process_next_tool_decision(%{remaining_uses: [tool_use | rest]} = server) do
+    server = %{server | remaining_uses: rest}
+
+    case call_handle_tool_call(server.module, tool_use, server.state) do
       {:execute, new_state} ->
-        process_next_tool_decision(rest, [tool_use | approved], tool_map, new_state)
+        %{server | state: new_state, approved_uses: [tool_use | server.approved_uses]}
+        |> process_next_tool_decision()
 
       {:reject, reason, new_state} ->
         result =
@@ -298,23 +365,16 @@ defmodule Omni.Agent.Server do
             is_error: true
           )
 
-        new_state = %{new_state | rejected_results: new_state.rejected_results ++ [result]}
-        process_next_tool_decision(rest, approved, tool_map, new_state)
+        %{server | state: new_state, rejected_results: server.rejected_results ++ [result]}
+        |> process_next_tool_decision()
 
       {:pause, new_state} ->
-        paused = %{
-          tool_use: tool_use,
-          remaining: rest,
-          approved: approved,
-          tool_map: tool_map
-        }
-
-        %{new_state | status: :paused, paused_decision: paused}
+        %{server | state: %{new_state | status: :paused}, paused_use: tool_use}
         |> tap(&notify(&1, :pause, tool_use))
     end
   end
 
-  defp spawn_executor(approved_uses, tool_map, state) do
+  defp spawn_executor(approved_uses, server) do
     ref = make_ref()
 
     {:ok, pid} =
@@ -322,92 +382,99 @@ defmodule Omni.Agent.Server do
         self(),
         ref,
         approved_uses,
-        tool_map,
-        state.tool_timeout
+        server.tool_map,
+        server.tool_timeout
       )
 
-    %{state | executor_task: {pid, ref}}
+    %{server | executor_task: {pid, ref}}
   end
 
   # -- Tool execution results --
 
-  defp handle_tools_executed(executed_results, state) do
+  defp handle_tools_executed(executed_results, server) do
     # Merge rejected + executed results
-    all_results = state.rejected_results ++ executed_results
-    state = %{state | executor_task: nil, rejected_results: []}
+    all_results = server.rejected_results ++ executed_results
+    server = %{server | executor_task: nil, rejected_results: []}
 
     # Call handle_tool_result for each and notify listener
-    {final_results, state} =
-      Enum.map_reduce(all_results, state, fn result, st ->
-        case call_handle_tool_result(st.module, result, st) do
+    {final_results, server} =
+      Enum.map_reduce(all_results, server, fn result, srv ->
+        case call_handle_tool_result(srv.module, result, srv.state) do
           {:ok, final_result, new_state} ->
-            notify(new_state, :tool_result, %{
+            srv = %{srv | state: new_state}
+
+            notify(srv, :tool_result, %{
               name: final_result.name,
               tool_use_id: final_result.tool_use_id,
               is_error: final_result.is_error
             })
 
-            {final_result, new_state}
+            {final_result, srv}
         end
       end)
 
     # Build user message with all tool results, append to pending
     user_message = Message.new(role: :user, content: final_results)
-    state = %{state | pending_messages: state.pending_messages ++ [user_message]}
+    server = %{server | pending_messages: server.pending_messages ++ [user_message]}
 
-    if max_steps_reached?(state) do
-      finalize_turn(state.last_response, state)
+    if max_steps_reached?(server) do
+      finalize_turn(server.last_response, server)
     else
-      spawn_step(state)
+      spawn_step(server)
     end
   end
 
   # -- Finalize turn --
 
-  defp finalize_turn(response, state) do
-    case call_handle_stop(state.module, response, state) do
+  defp finalize_turn(response, server) do
+    case call_handle_stop(server.module, response, server.state) do
       {:continue, prompt, new_state} ->
-        cond do
-          max_steps_reached?(new_state) ->
-            commit_and_done(response, new_state)
+        server = %{server | state: new_state}
 
-          new_state.next_prompt != nil ->
-            content = new_state.next_prompt
-            new_state = %{new_state | next_prompt: nil}
-            continue_turn(content, response, new_state)
+        cond do
+          max_steps_reached?(server) ->
+            commit_and_done(response, server)
+
+          server.next_prompt != nil ->
+            content = server.next_prompt
+            server = %{server | next_prompt: nil}
+            continue_turn(content, response, server)
 
           true ->
-            continue_turn(prompt, response, new_state)
+            continue_turn(prompt, response, server)
         end
 
       {:stop, new_state} ->
+        server = %{server | state: new_state}
+
         cond do
-          new_state.next_prompt != nil and not max_steps_reached?(new_state) ->
-            content = new_state.next_prompt
-            new_state = %{new_state | next_prompt: nil}
-            continue_turn(content, response, new_state)
+          server.next_prompt != nil and not max_steps_reached?(server) ->
+            content = server.next_prompt
+            server = %{server | next_prompt: nil}
+            continue_turn(content, response, server)
 
           true ->
-            commit_and_done(response, new_state)
+            commit_and_done(response, server)
         end
     end
   end
 
-  defp continue_turn(prompt, response, state) do
-    notify(state, :turn, response)
+  defp continue_turn(prompt, response, server) do
+    notify(server, :turn, response)
     user_message = Message.new(role: :user, content: prompt)
-    state = %{state | pending_messages: state.pending_messages ++ [user_message]}
-    spawn_step(state)
+    server = %{server | pending_messages: server.pending_messages ++ [user_message]}
+    spawn_step(server)
   end
 
-  defp commit_and_done(response, state) do
-    context = %{state.context | messages: state.context.messages ++ state.pending_messages}
+  defp commit_and_done(response, server) do
+    context = %{
+      server.state.context
+      | messages: server.state.context.messages ++ server.pending_messages
+    }
 
-    %{
-      state
-      | context: context,
-        status: :idle,
-        step: 0,
+    server = %{
+      server
+      | state: %{server.state | context: context, status: :idle, step: 0},
         step_task: nil,
         executor_task: nil,
         rejected_results: [],
@@ -415,18 +482,23 @@ defmodule Omni.Agent.Server do
         next_prompt: nil,
         prompt_opts: [],
         last_response: nil,
-        paused_decision: nil
+        tool_map: nil,
+        approved_uses: [],
+        remaining_uses: [],
+        paused_use: nil
     }
-    |> tap(&notify(&1, :done, response))
+
+    notify(server, :done, response)
+    server
   end
 
   # -- Cancel --
 
-  defp do_cancel(state) do
-    kill_task(state.step_task)
-    kill_task(state.executor_task)
+  defp do_cancel(server) do
+    kill_task(server.step_task)
+    kill_task(server.executor_task)
 
-    state
+    server
     |> reset_round()
     |> tap(&notify(&1, :cancelled, nil))
   end
@@ -436,11 +508,10 @@ defmodule Omni.Agent.Server do
 
   # -- Helpers --
 
-  defp reset_round(state) do
+  defp reset_round(server) do
     %{
-      state
-      | status: :idle,
-        step: 0,
+      server
+      | state: %{server.state | status: :idle, step: 0},
         step_task: nil,
         executor_task: nil,
         rejected_results: [],
@@ -448,13 +519,16 @@ defmodule Omni.Agent.Server do
         next_prompt: nil,
         prompt_opts: [],
         last_response: nil,
-        paused_decision: nil
+        tool_map: nil,
+        approved_uses: [],
+        remaining_uses: [],
+        paused_use: nil
     }
   end
 
-  defp max_steps_reached?(state) do
-    max = Keyword.get(state.prompt_opts, :max_steps, :infinity)
-    max != :infinity and state.step >= max
+  defp max_steps_reached?(server) do
+    max = Keyword.get(server.prompt_opts, :max_steps, :infinity)
+    max != :infinity and server.state.step >= max
   end
 
   defp extract_tool_uses(content) do
