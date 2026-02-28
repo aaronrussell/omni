@@ -119,6 +119,7 @@ Tests are organized in four layers, none of which require API keys except live t
 - Document options when a function accepts them (keyword lists, maps with known keys).
 - Only add examples for important top-level API functions or where behaviour is non-obvious.
 - Private functions (`defp`) do not need `@doc` annotations.
+- Tone: practical over theoretical, concise, example-driven for key APIs. Lead with what you do, not what things are. No hedging ("Returns a response" not "This function is used to return a response").
 
 ## Context Documents
 

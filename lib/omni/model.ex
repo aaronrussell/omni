@@ -30,6 +30,15 @@ defmodule Omni.Model do
     cache_write_cost: 0
   ]
 
+  @typedoc """
+  A model reference as `{provider_id, model_id}`.
+
+  The provider ID is an atom identifying a loaded provider (e.g. `:anthropic`,
+  `:openai`, `:google`). The model ID is the provider's string identifier
+  for the model (e.g. `"claude-sonnet-4-5-20250514"`).
+  """
+  @type ref :: {atom(), String.t()}
+
   @typedoc "An LLM model descriptor."
   @type t :: %__MODULE__{
           id: String.t(),
