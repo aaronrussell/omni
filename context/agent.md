@@ -894,54 +894,6 @@ Cancel works at any point during the loop — mid-stream, mid-tool-execution, mi
 
 ---
 
-## Design decisions
-
-Context on why specific decisions were made.
-
-- **Listener management**: Listener starts as `nil`. First `prompt/3` caller auto-becomes listener if none set. `Agent.listen/2` explicitly sets/changes the listener (idle only). No per-prompt `:notify` option — listener is a persistent agent-level setting, not a per-prompt concern. Single listener, no PubSub. Dead listener is silently ignored (Erlang semantics). See "Listener" section.
-
-- **Inner loop integration**: Agent does not use `Omni.Loop` for tool execution. Uses `max_steps: 1` for streaming only. See "Relationship to existing architecture" and "Process architecture" sections.
-
-- **defoverridable vs @optional_callbacks**: `defoverridable`. Defaults are trivial, no `super()` needed. See "Lifecycle callbacks" section.
-
-- **Streaming events**: Step Task consumes `StreamingResponse`, forwards events to GenServer. See "Process architecture" section.
-
-- **Schema-only tools**: If any tool use in the response is schema-only (no handler), the entire response skips the decision/execution phase and goes straight to `handle_stop` with `stop_reason: :tool_use`. This matches `Omni.Loop`'s `all_executable?` gate — the model expects results for all tool uses, so partial execution isn't an option. `handle_tool_call` only fires when all tools have handlers. In practice, schema-only tools in agents are almost exclusively completion signals (like `task_complete`). Manual execution is handled via `{:continue, [ToolResult...], state}` in `handle_stop` or asynchronously via `prompt/3` with `ToolResult` blocks. See "Schema-only tools and manual execution" section.
-
-- **What "result" means**: No custom result variant. `{:done, response}` always carries the `%Response{}`. User data goes in `assigns`.
-
-- **Pause/resume scope**: Pause only exists for tool call approval (`handle_tool_call`). Other callbacks don't need pause — stop + re-prompt covers their use cases. See "Pause and resume" section.
-
-- **Cancel semantics**: Lazy context updates enable clean rollback. Cancel at any point discards in-progress messages. See "Context management" section.
-
-- **External steering**: Prompt queuing replaces the need for an external pause function. See "Prompt queuing" section.
-
-- **Steps vs turns / loop limits**: A single `max_steps` option (cumulative per prompt round, default `:infinity`) replaces the earlier `max_turns` concept. Steps count LLM requests; turns are implicit (the boundary where `handle_stop` fires). One limit catches both failure modes (runaway tool loops and runaway continuation). External control (`cancel/1`, steering via `prompt/3`) and user-defined turn tracking in assigns cover turn-level policies. See "Steps and turns" section.
-
-- **No `before_turn` callback**: Every use case for `before_turn` (context modification, urgency injection, logging) is already covered by `init/1` (initial setup) and `handle_stop/2` (state modification before returning `{:continue, prompt, state}`). Removing it tightens the callback surface to 6 without losing capability.
-
-- **Event format**: All events use the 4-tuple `{:agent, pid, event_type, event_data}`. SR streaming events are forwarded with the partial `%Response{}` stripped — the listener doesn't need accumulating state on every delta. The 4th element uses whatever type is natural: maps for SR events, structs for agent-level events (`:done`, `:turn`, `:pause`, `:tool_result`), `nil` for `:cancelled`, bare term for `:error`. See "Event format" section.
-
-- **Turn boundary events**: `:turn` fires after intermediate turns (agent continuing), `:done` fires after the final turn (round complete). No `:turn_start` event — the listener infers a new turn from events resuming after `:turn`. The last turn gets `:done`, not `:turn`. Simple chatbots never see `:turn`.
-
-- **Agent state struct**: `%Omni.Agent.State{}` in a dedicated internal module (`agent/state.ex`, `@moduledoc false`). All state — user-visible and framework internals — lives on one struct for simplicity. Cumulative `%Usage{}` on the state, no stored responses or raw data. `max_steps` lives in `opts` (not top-level) so per-prompt overrides are ephemeral. See "Agent state" section.
-
-- **Terminology**: A "prompt round" is a single `prompt/3` through to `:done`. A "session" is the lifetime of the agent process (many prompt rounds). `Agent.clear/1` resets the session (context messages + usage) without killing the process.
-
-- **Step internal messaging**: Tagged ref pattern (`{ref, {:event, type, map}}`, `{ref, {:complete, response}}`, `{ref, {:error, reason}}`). GenServer matches on the ref from `step_task: {pid, ref}` in `handle_info`. Implementation detail, not part of the public event API.
-
-- **Tool execution timeouts**: Single `:tool_timeout` option (default 5 seconds) applies uniformly to all Tool Tasks. No per-tool configuration — KISS. On timeout, the tool task is killed and an error `ToolResult` is sent to the model.
-
-- **Task supervision**: No `Task.Supervisor` needed. All tasks are linked but designed never to crash — task bodies wrapped in try/rescue, always send a result message. The GenServer traps exits as defense-in-depth. Step process uses `Task.start_link/1` (multiple messages, not async/await) and catches exceptions, sending `{ref, {:error, reason}}`. Executor uses `Task.yield_many/2` for per-tool graceful timeout/crash handling. `Tool.execute/2`'s existing rescue block means Tool Tasks virtually never crash.
-
-- **Superseded prompts**: When `prompt/3` is called while the agent is running, the prompt is staged until the next turn boundary. Calling again replaces the staged prompt (last-one-wins). No notification on replacement — the caller is assumed to be the same entity updating its intent.
-
-- **Tool management while running**: `add_tools/2` and `remove_tools/2` only work when the agent is `:idle`. Returns `{:error, :running}` otherwise. Avoids race conditions with in-progress tool execution.
-
-- **Inference opts merge order**: Agent defaults (`:opts` in `start_link`) ← per-prompt opts (passed through `prompt/3`). Simple two-tier merge, no callback involvement.
-
----
-
 ## What users build on top
 
 The agent provides mechanism; users provide policy:

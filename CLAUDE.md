@@ -12,7 +12,7 @@ Omni is an Elixir library for interacting with LLM APIs across multiple provider
 
 The relationship: ~4-5 dialects, ~20-30 providers (each speaking one dialect), hundreds of models (each belonging to one provider). All requests are streaming-first; `generate_text` is built on top of `stream_text`.
 
-See `context/design.md` for the full design document and `context/roadmap.md` for the phased implementation plan.
+See the [Context Documents](#context-documents) section for when and how to use the detailed design docs.
 
 ## Build & Development Commands
 
@@ -96,7 +96,7 @@ lib/omni/
 - `Tool.execute/2` validates and casts input via Peri before calling the handler. Peri maps string-keyed LLM input back to the key types in the schema, so handlers use `input.city` (atom access) when the schema uses atom keys. Direct handler calls bypass validation/casting.
 - Supported modalities are defined on `Omni.Model` (source of truth). Input: `:text`, `:image`, `:pdf`. Output: `:text`. The `Model.new/1` constructor filters modalities to the supported set (normalization). The mix task also filters and rejects models that lack text input.
 - Structured output (`:output` option) wire format is dialect-specific: Anthropic uses `output_config.format` with `json_schema` and adds `additionalProperties: false` for object schemas; OpenAI Completions uses `response_format` with `strict: true`; OpenAI Responses uses `text.format` with `strict: true`; Google Gemini uses `generationConfig.responseMimeType` + `responseSchema` (no `additionalProperties` — Google doesn't support it). Each dialect applies its own strictness mechanism rather than a shared pre-processing step.
-- `doc/` is ExDoc output (gitignored). `context/` contains project design documents for LLM context.
+- `doc/` is ExDoc output (gitignored). `context/` contains detailed design documents (see [Context Documents](#context-documents)).
 
 ## Testing
 
@@ -119,3 +119,12 @@ Tests are organized in four layers, none of which require API keys except live t
 - Document options when a function accepts them (keyword lists, maps with known keys).
 - Only add examples for important top-level API functions or where behaviour is non-obvious.
 - Private functions (`defp`) do not need `@doc` annotations.
+
+## Context Documents
+
+The `context/` directory contains detailed design documents. This CLAUDE.md provides sufficient context for most tasks — consult the design docs when working in depth on a specific subsystem.
+
+- **`context/design.md`** — Full architecture reference covering: top-level API, models and data loading, providers (behaviour, callbacks, config, auth), dialects (behaviour, callbacks, option validation), messages and content blocks, streaming pipeline (SSE, deltas, StreamingResponse), tools (struct, schema, modules, execution), and request flow.
+- **`context/agent.md`** — Agent system: GenServer architecture, public API, lifecycle callbacks (`init`, `handle_tool_call`, `handle_tool_result`, `handle_stop`, `handle_error`, `terminate`), process model (Step/Executor/Tool Tasks), pause/resume, prompt queuing/steering, context management, and the completion tool pattern.
+- **`context/roadmap.md`** — Pre-v1 checklist and future work.
+- **`context/provider-apis.md`** — Provider API documentation URLs (fetch on demand when working on a specific provider/dialect).
