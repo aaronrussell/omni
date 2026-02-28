@@ -1,11 +1,19 @@
 defmodule Omni.Request do
-  @moduledoc """
-  Request orchestration for LLM API calls.
-
-  Handles validation, request building, streaming execution, and event parsing.
-  Separates orchestration logic from the Provider behaviour and Dialect behaviour,
-  composing them into a complete request pipeline.
-  """
+  # Request orchestration for LLM API calls.
+  #
+  # Handles validation, request building, streaming execution, and event parsing.
+  # Separates orchestration logic from the Provider behaviour and Dialect behaviour,
+  # composing them into a complete request pipeline.
+  #
+  # Public API:
+  #   - build/3 — validates opts, builds a %Req.Request{} via dialect + provider
+  #   - stream/2 — executes a built request, returns a %StreamingResponse{}
+  #
+  # Internal (public but undocumented):
+  #   - validate/2 — three-tier config merge + Peri validation
+  #   - parse_event/2 — dialect handle_event + provider modify_events
+  #   - validate_context/2 — checks attachment media types against model modalities
+  @moduledoc false
 
   alias Omni.Content.Attachment
   alias Omni.{Context, Model, SSE, StreamingResponse}

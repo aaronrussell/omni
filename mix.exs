@@ -42,15 +42,24 @@ defmodule Omni.MixProject do
     [
       main: "Omni",
       groups_for_modules: [
-        Providers: ~r/^Omni\.Providers\..+$/,
-        Dialects: ~r/^Omni\.Dialects\..+$/,
-        "Data structures": [
+        Agents: ~r/^Omni\.Agent/,
+        Data: [
           ~r/Omni\.Content\..+$/,
           Omni.Context,
           Omni.Message,
           Omni.Response,
           Omni.Usage
-        ]
+        ],
+        Providers: ~r/^Omni\.Provider/,
+        Dialects: ~r/^Omni\.Dialect/,
+      ],
+      groups_for_functions: [
+        "Text Generation": &(&1[:group] == :generation),
+        Models: &(&1[:group] == :models),
+        Constructors: &(&1[:group] == :constructors),
+        Lifecycle: &(&1[:group] == :lifecycle),
+        Configuration: &(&1[:group] == :configuration),
+        Introspection: &(&1[:group] == :introspection)
       ]
     ]
   end

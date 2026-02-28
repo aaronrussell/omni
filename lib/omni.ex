@@ -5,6 +5,7 @@ defmodule Omni do
 
   alias Omni.{Context, Loop, Model, Response, StreamingResponse}
 
+  @doc group: :generation
   @doc """
   Streams a text generation request, returning a `%StreamingResponse{}`.
 
@@ -43,6 +44,7 @@ defmodule Omni do
     Loop.stream(model, context, opts, raw, max_steps)
   end
 
+  @doc group: :generation
   @doc """
   Generates text by consuming a streaming response to completion.
 
@@ -59,18 +61,23 @@ defmodule Omni do
 
   # -- Delegates --
 
+  @doc group: :models
   @doc "Looks up a model by provider ID and model ID from `:persistent_term`."
   defdelegate get_model(provider_id, model_id), to: Omni.Model, as: :get
 
+  @doc group: :models
   @doc "Returns all models for a provider, or an error if the provider is unknown."
   defdelegate list_models(provider_id), to: Omni.Model, as: :list
 
+  @doc group: :constructors
   @doc "Creates a new `%Omni.Tool{}` from a keyword list or map."
   defdelegate tool(attrs), to: Omni.Tool, as: :new
 
+  @doc group: :constructors
   @doc "Creates a new `%Omni.Context{}` from a string, list of messages, keyword list, or map."
   defdelegate context(input), to: Omni.Context, as: :new
 
+  @doc group: :constructors
   @doc "Creates a new `%Omni.Message{}` from a string, keyword list, or map."
   defdelegate message(input), to: Omni.Message, as: :new
 end

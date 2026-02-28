@@ -1,14 +1,21 @@
 defmodule Omni.Loop do
-  @moduledoc """
-  General-purpose request loop for LLM interactions.
-
-  Handles tool auto-execution with recursive stream concatenation. When the
-  model produces tool use blocks, the loop executes tools, feeds results back,
-  and streams the next step — all within a single lazy pipeline.
-
-  Currently supports tool calling loops; designed to later support structured
-  output validation retries using the same machinery.
-  """
+  # Recursive request loop for LLM interactions.
+  #
+  # Handles two kinds of multi-step loops within a single lazy stream pipeline:
+  #
+  # 1. Tool auto-execution — when the model produces tool use blocks, executes
+  #    tools via Tool.Runner, feeds results back, and streams the next step.
+  #    Controlled by :max_steps option. Breaks when a tool has no handler
+  #    (schema-only) or a hallucinated tool name produces an error result.
+  #
+  # 2. Structured output validation — when :output schema is set, validates the
+  #    final response text (JSON decode + Peri validation) and retries up to
+  #    @max_output_retries times on failure. Skips retry on :length stop reason.
+  #
+  # Both use recursive Stream.concat — each step's StreamingResponse is consumed,
+  # its :done event captured (via process dictionary), and a lazy continuation
+  # thunk decides whether to loop or emit the final :done.
+  @moduledoc false
 
   alias Omni.{Context, Message, Model, Request, Response, Schema, StreamingResponse, Tool, Usage}
   alias Omni.Content.{Text, ToolResult, ToolUse}

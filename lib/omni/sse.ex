@@ -1,15 +1,16 @@
 defmodule Omni.SSE do
-  @moduledoc """
-  Parses a stream of binary chunks into decoded SSE event maps.
-
-  Accepts any enumerable yielding binary chunks (typically a `Req.Response.Async`)
-  and returns a lazy `Stream` yielding decoded JSON maps — one per SSE `data:` event.
-
-  Follows the [SSE specification](https://html.spec.whatwg.org/multipage/server-sent-events.html):
-  comment lines (`:`) are ignored, `event:` / `id:` / `retry:` fields are discarded,
-  multiple `data:` lines within one event are joined with `"\\n"`, and a `data: [DONE]`
-  sentinel halts the stream.
-  """
+  # Parses a stream of binary chunks into decoded SSE event maps.
+  #
+  # Accepts any enumerable yielding binary chunks (typically a `Req.Response.Async`)
+  # and returns a lazy `Stream` yielding decoded JSON maps — one per SSE `data:` event.
+  #
+  # Follows the SSE specification:
+  # https://html.spec.whatwg.org/multipage/server-sent-events.html
+  #
+  # Comment lines (`:`) are ignored, `event:` / `id:` / `retry:` fields are discarded,
+  # multiple `data:` lines within one event are joined with "\n", and a `data: [DONE]`
+  # sentinel halts the stream.
+  @moduledoc false
 
   @doc """
   Transforms an enumerable of binary chunks into a stream of decoded JSON maps.

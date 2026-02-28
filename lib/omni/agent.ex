@@ -115,12 +115,14 @@ defmodule Omni.Agent do
     end
   end
 
+  @doc group: :lifecycle
   @doc "Starts and links an agent process without a callback module."
   @spec start_link(keyword()) :: GenServer.on_start()
   def start_link(opts) when is_list(opts) do
     start_link(nil, opts)
   end
 
+  @doc group: :lifecycle
   @doc "Starts and links an agent process with the given callback module."
   @spec start_link(module() | nil, keyword()) :: GenServer.on_start()
   def start_link(module, opts) do
@@ -128,6 +130,7 @@ defmodule Omni.Agent do
     Omni.Agent.Server.start_link({module, opts}, gs_opts)
   end
 
+  @doc group: :lifecycle
   @doc """
   Sends a prompt to the agent.
 
@@ -141,6 +144,7 @@ defmodule Omni.Agent do
     GenServer.call(agent, {:prompt, content, opts})
   end
 
+  @doc group: :lifecycle
   @doc """
   Resumes a paused agent with a tool decision.
 
@@ -153,52 +157,62 @@ defmodule Omni.Agent do
     GenServer.call(agent, {:resume, decision})
   end
 
+  @doc group: :lifecycle
   @doc "Cancels the current generation. Returns `:ok` or `{:error, :idle}`."
   @spec cancel(GenServer.server()) :: :ok | {:error, :idle}
   def cancel(agent) do
     GenServer.call(agent, :cancel)
   end
 
+  @doc group: :configuration
   @doc "Adds tools to the agent's context. Returns `:ok` or `{:error, :running}`."
   @spec add_tools(GenServer.server(), [Omni.Tool.t()]) :: :ok | {:error, :running}
   def add_tools(agent, tools) do
     GenServer.call(agent, {:add_tools, tools})
   end
 
+  @doc group: :configuration
   @doc "Removes tools by name from the agent's context. Returns `:ok` or `{:error, :running}`."
   @spec remove_tools(GenServer.server(), [String.t()]) :: :ok | {:error, :running}
   def remove_tools(agent, tool_names) do
     GenServer.call(agent, {:remove_tools, tool_names})
   end
 
+  @doc group: :configuration
   @doc "Clears conversation history and resets usage. Returns `:ok` or `{:error, :running}`."
   @spec clear(GenServer.server()) :: :ok | {:error, :running}
   def clear(agent) do
     GenServer.call(agent, :clear)
   end
 
+  @doc group: :configuration
   @doc "Sets the listener process for agent events. Returns `:ok` or `{:error, :running}`."
   @spec listen(GenServer.server(), pid()) :: :ok | {:error, :running}
   def listen(agent, pid) do
     GenServer.call(agent, {:listen, pid})
   end
 
+  @doc group: :introspection
   @doc "Returns the agent's model."
   @spec get_model(GenServer.server()) :: Omni.Model.t()
   def get_model(agent), do: GenServer.call(agent, :get_model)
 
+  @doc group: :introspection
   @doc "Returns the agent's conversation context."
   @spec get_context(GenServer.server()) :: Omni.Context.t()
   def get_context(agent), do: GenServer.call(agent, :get_context)
 
+  @doc group: :introspection
   @doc "Returns the agent's current status."
   @spec get_status(GenServer.server()) :: :idle | :running | :paused
   def get_status(agent), do: GenServer.call(agent, :get_status)
 
+  @doc group: :introspection
   @doc "Returns the agent's assigns map."
   @spec get_assigns(GenServer.server()) :: map()
   def get_assigns(agent), do: GenServer.call(agent, :get_assigns)
 
+  @doc group: :introspection
   @doc "Returns the agent's accumulated usage."
   @spec get_usage(GenServer.server()) :: Omni.Usage.t()
   def get_usage(agent), do: GenServer.call(agent, :get_usage)
