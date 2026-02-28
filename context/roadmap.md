@@ -24,8 +24,8 @@ Module-only documentation for now (no extra pages/guides). The `Omni` moduledoc 
 - Request, SSE, Loop hidden from docs (`@moduledoc false` with code comments retained)
 - Tone: practical, concise, example-driven for key APIs
 
-**Completed:** `Omni`, `StreamingResponse`
-**Remaining:** `Tool`, `Agent`, `Schema`, `Provider`, `Dialect`, data structs, provider/dialect modules
+**Completed:** `Omni`, `StreamingResponse`, `Tool`, `Tool.Runner`, `Agent`, `Agent.State`
+**Remaining:** `Schema`, `Provider`, `Dialect`, data structs, provider/dialect modules
 
 ---
 
