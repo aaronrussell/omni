@@ -53,7 +53,7 @@ defmodule Omni.MixProject do
         Providers: ~r/^Omni\.Provider/,
         Dialects: ~r/^Omni\.Dialect/,
       ],
-      groups_for_functions: [
+      groups_for_docs: [
         "Text Generation": &(&1[:group] == :generation),
         Models: &(&1[:group] == :models),
         Constructors: &(&1[:group] == :constructors),

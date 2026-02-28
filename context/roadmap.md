@@ -10,7 +10,22 @@ The initial implementation (Phases 1–5b) is complete. See `context/design.md` 
 
 - **Code review** — Full pass over all modules for consistency, naming, edge cases, and dead code.
 - **Test review** — Audit test coverage, identify gaps, ensure integration tests cover all providers and edge cases.
-- **Documentation review** — Review all `@moduledoc`, `@doc`, and `@typedoc` annotations. Ensure top-level API functions have examples. Check ExDoc output.
+- **Documentation review** — In progress. See below.
+
+---
+
+## Documentation
+
+Module-only documentation for now (no extra pages/guides). The `Omni` moduledoc serves as the landing page with setup, examples, and pointers to key modules.
+
+**Structure decisions:**
+- Module groups: ungrouped top-level (Omni, Model, Tool, Schema, StreamingResponse, Tool.Runner), Agents, Data, Providers, Dialects
+- Function groups on `Omni` (Text Generation, Models, Constructors) and `Omni.Agent` (Lifecycle, Configuration, Introspection)
+- Request, SSE, Loop hidden from docs (`@moduledoc false` with code comments retained)
+- Tone: practical, concise, example-driven for key APIs
+
+**Completed:** `Omni`, `StreamingResponse`
+**Remaining:** `Tool`, `Agent`, `Schema`, `Provider`, `Dialect`, data structs, provider/dialect modules
 
 ---
 

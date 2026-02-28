@@ -1,14 +1,24 @@
 defmodule Omni.Tool.Runner do
   @moduledoc """
-  Runs tool use blocks against a map of available tools.
+  Executes tool use blocks in parallel and returns tool result blocks.
 
-  Takes `ToolUse` content blocks from an assistant message, executes the
-  corresponding tools in parallel, and returns `ToolResult` content blocks
-  ready to be placed in a user message. Handles hallucinated tool names,
-  execution errors, and timeouts.
+  Takes `ToolUse` content blocks from an assistant message, runs the
+  corresponding tools concurrently, and returns `ToolResult` content blocks
+  ready to be placed in a user message.
 
-  This is the bridge between content blocks and `Tool.execute/2` — used by
-  both `Omni.Loop` and `Omni.Agent.Executor`.
+  Omni's generation loop and agent use this internally, but it's also useful
+  when you handle tool execution yourself — for example, with schema-only
+  tools where the loop breaks and hands `ToolUse` blocks back to you:
+
+      # Schema-only tool — loop breaks, response contains ToolUse blocks
+      tool_uses = Enum.filter(response.message.content, &match?(%ToolUse{}, &1))
+
+      # Build a tool map and execute
+      tool_map = %{"search" => search_tool, "fetch" => fetch_tool}
+      results = Tool.Runner.run(tool_uses, tool_map)
+
+      # Place results in the next user message
+      message = Omni.message(role: :user, content: results)
   """
 
   alias Omni.Tool
@@ -17,9 +27,13 @@ defmodule Omni.Tool.Runner do
   @doc """
   Executes tool uses in parallel, returning results in input order.
 
-  Each tool use is looked up by name in the `tool_map`. Missing tools
-  (hallucinated names) produce error results. Tools that raise or exceed
-  the timeout also produce error results.
+  `tool_map` is a `%{name => %Tool{}}` map keyed by tool name strings. Each
+  tool use is looked up by name — missing tools (hallucinated names), tools
+  that raise, and tools that exceed the timeout all produce error results
+  with `is_error: true`. Every input `ToolUse` produces exactly one output
+  `ToolResult`, always in the same order.
+
+  The default timeout is 5000ms per tool.
   """
   @spec run([ToolUse.t()], %{String.t() => Tool.t()}, timeout()) :: [ToolResult.t()]
   def run(tool_uses, tool_map, timeout \\ 5_000) do
