@@ -1,15 +1,46 @@
 defmodule Omni.StreamingResponse do
   @moduledoc """
-  A streaming response that wraps a lazy event stream and accumulates a partial
-  `%Response{}` as events arrive.
+  A streaming LLM response that yields events as they arrive from the provider.
 
-  Implements `Enumerable`, yielding three-element tuples of the form
-  `{event_type, event_map, partial_response}` where the response is rebuilt
-  after every event to reflect the current state of the stream.
+  Returned by `Omni.stream_text/3`. The three most common consumption patterns:
 
-  ## Consumer events
+  ## Stream to UI and get the final response
 
-  Content block lifecycle events use per-type atoms:
+      {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-4-5-20250514"}, "Hello!")
+
+      {:ok, response} =
+        stream
+        |> StreamingResponse.on(:text_delta, fn %{delta: d} -> IO.write(d) end)
+        |> StreamingResponse.complete()
+
+  ## Just the text chunks
+
+      {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-4-5-20250514"}, "Hello!")
+
+      stream
+      |> StreamingResponse.text_stream()
+      |> Enum.each(&IO.write/1)
+
+  ## Full event control
+
+  `StreamingResponse` implements `Enumerable`, yielding `{event_type, event_map,
+  partial_response}` tuples. The partial response is rebuilt after every event to
+  reflect the current state of the stream:
+
+      {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-4-5-20250514"}, "Hello!")
+
+      for {type, data, _partial} <- stream do
+        case type do
+          :text_delta -> IO.write(data.delta)
+          :tool_use_start -> IO.puts("Calling tool: \#{data.name}")
+          :done -> IO.puts("\\nDone! Stop reason: \#{data.stop_reason}")
+          _ -> :ok
+        end
+      end
+
+  ## Event types
+
+  Content block lifecycle events follow a `start` → `delta` → `end` pattern:
 
       {:text_start,     %{index: 0}, %Response{}}
       {:text_delta,     %{index: 0, delta: "Hello"}, %Response{}}
@@ -23,14 +54,14 @@ defmodule Omni.StreamingResponse do
       {:tool_use_delta, %{index: 1, delta: "{\\"city\\":"}, %Response{}}
       {:tool_use_end,   %{index: 1, content: %ToolUse{}}, %Response{}}
 
+  Tool results are emitted between rounds when tools are auto-executed:
+
       {:tool_result, %{name: "weather", tool_use_id: "call_1", output: "72°F", is_error: false}, %Response{}}
 
-      {:error, %{reason: term()}, %Response{}}
-      {:done,  %{stop_reason: :stop}, %Response{}}
+  Terminal events — every stream ends with exactly one of these:
 
-  The `:done` event is only emitted on successful completion. When an error
-  occurs mid-stream, the `:error` event is the terminal event — no `:done`
-  follows.
+      {:done,  %{stop_reason: :stop}, %Response{}}
+      {:error, reason, %Response{}}
   """
 
   alias Omni.{Message, Model, Response, Usage}
@@ -60,18 +91,9 @@ defmodule Omni.StreamingResponse do
           | :done
 
   @typedoc "A consumer event emitted during enumeration."
-  @type event :: {event_type(), map(), Response.t()}
+  @type event :: {event_type(), map() | term(), Response.t()}
 
-  @doc """
-  Creates a streaming response from raw delta events.
-
-  Builds the full consumer event pipeline at construction time. The `deltas`
-  argument is any enumerable of dialect delta tuples. Options:
-
-    * `:model` — `%Model{}` used for usage cost computation and response metadata
-    * `:cancel` — zero-arity function to cancel the underlying HTTP request
-    * `:raw` — `{%Req.Request{}, %Req.Response{}}` tuple attached to the final response
-  """
+  @doc false
   @spec new(Enumerable.t(), keyword()) :: t()
   def new(deltas, opts \\ []) do
     model = opts[:model]
@@ -89,12 +111,18 @@ defmodule Omni.StreamingResponse do
     %__MODULE__{stream: stream, cancel: opts[:cancel]}
   end
 
-  @doc "Consumes the stream and returns the final response."
+  @doc """
+  Consumes the entire stream and returns the final `%Response{}`.
+
+  This drives the stream to completion, triggering any handlers registered
+  with `on/3` along the way. Returns `{:ok, response}` on success or
+  `{:error, reason}` if the stream terminated with an error.
+  """
   @spec complete(t()) :: {:ok, Response.t()} | {:error, term()}
   def complete(%__MODULE__{} = sr) do
     case Enum.at(sr, -1) do
       {:done, _, response} -> {:ok, response}
-      {:error, %{reason: reason}, _} -> {:error, reason}
+      {:error, reason, _} -> {:error, reason}
       {_, _, %{error: nil} = response} -> {:ok, response}
       {_, _, %{error: reason}} -> {:error, reason}
       nil -> {:error, :empty_stream}
@@ -109,20 +137,25 @@ defmodule Omni.StreamingResponse do
   @doc """
   Registers a side-effect handler for events of the given type.
 
-  Returns a new `StreamingResponse` with the handler inserted into the stream
-  pipeline. The handler fires during consumption (when `complete/1` or another
-  consumer drives the stream) and its return value is discarded.
+  Returns a new `StreamingResponse` with the handler inserted into the pipeline.
+  Handlers fire during consumption (when `complete/1` or any `Enum` function
+  drives the stream) and their return values are discarded.
 
-  Accepts arity-1 callbacks receiving the event map, or arity-2 callbacks
-  receiving the event map and the partial response.
-
-  Multiple handlers can be chained and all will fire independently:
+  Multiple handlers can be chained — all fire independently:
 
       {:ok, response} =
-        sr
+        stream
         |> StreamingResponse.on(:text_delta, fn %{delta: d} -> IO.write(d) end)
         |> StreamingResponse.on(:thinking_delta, fn %{delta: d} -> IO.write(d) end)
+        |> StreamingResponse.on(:done, fn %{stop_reason: r} -> IO.puts("\\nStop: \#{r}") end)
         |> StreamingResponse.complete()
+
+  Use an arity-2 callback to access the partial response (e.g. for progress
+  tracking based on accumulated token usage):
+
+      StreamingResponse.on(stream, :text_delta, fn _event, partial ->
+        send(self(), {:tokens, partial.usage.output_tokens})
+      end)
   """
   @spec on(t(), event_type(), (map() -> any()) | (map(), Response.t() -> any())) :: t()
   def on(%__MODULE__{} = sr, event_type, callback)
@@ -147,7 +180,16 @@ defmodule Omni.StreamingResponse do
     %__MODULE__{sr | stream: wrapped}
   end
 
-  @doc "Returns a stream of text delta binaries."
+  @doc """
+  Returns a stream of text delta binaries.
+
+  Filters the event stream to only `:text_delta` events and extracts the
+  delta string from each. Useful when you only need the text content:
+
+      stream
+      |> StreamingResponse.text_stream()
+      |> Enum.into("")
+  """
   @spec text_stream(t()) :: Enumerable.t()
   def text_stream(%__MODULE__{} = sr) do
     sr
@@ -219,7 +261,7 @@ defmodule Omni.StreamingResponse do
 
   defp process_delta({:error, data}, acc) do
     acc = %{acc | error: data.reason}
-    event = {:error, %{reason: data.reason}, build_response(acc, false)}
+    event = {:error, data.reason, build_response(acc, false)}
     {[event], acc}
   end
 

@@ -159,7 +159,7 @@ defmodule Omni.Loop do
 
       {:error, reason} ->
         error_response = build_error_response(state, reason)
-        Stream.concat(tool_result_events, [{:error, %{reason: reason}, error_response}])
+        Stream.concat(tool_result_events, [{:error, reason, error_response}])
     end
   end
 
@@ -229,7 +229,7 @@ defmodule Omni.Loop do
 
       {:error, reason} ->
         error_response = build_error_response(state, reason)
-        [{:error, %{reason: reason}, error_response}]
+        [{:error, reason, error_response}]
     end
   end
 

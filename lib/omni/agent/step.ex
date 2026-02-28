@@ -28,7 +28,7 @@ defmodule Omni.Agent.Step do
               {:done, _map, response}, _acc ->
                 response
 
-              {:error, %{reason: reason}, _response}, _acc ->
+              {:error, reason, _response}, _acc ->
                 throw({:stream_error, reason})
 
               {type, event_map, _partial_response}, _acc ->

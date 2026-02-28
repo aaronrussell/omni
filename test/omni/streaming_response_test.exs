@@ -446,8 +446,8 @@ defmodule Omni.StreamingResponseTest do
 
       {:error, "rate_limit"} =
         sr
-        |> StreamingResponse.on(:error, fn %{reason: r} ->
-          send(test_pid, {:error, r})
+        |> StreamingResponse.on(:error, fn reason ->
+          send(test_pid, {:error, reason})
         end)
         |> StreamingResponse.complete()
 
