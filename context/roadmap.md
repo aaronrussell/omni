@@ -20,7 +20,7 @@ Module-only documentation for now (no extra pages/guides). The `Omni` moduledoc 
 
 **Structure decisions:**
 - Module groups: ungrouped top-level (Omni, Model, Tool, Schema, StreamingResponse, Tool.Runner), Agents, Data, Providers, Dialects
-- Function groups on `Omni` (Text Generation, Models, Constructors) and `Omni.Agent` (Lifecycle, Configuration, Introspection)
+- Function groups on `Omni` (Text Generation, Models, Context). `Omni.Agent` is ungrouped
 - Request, SSE, Loop hidden from docs (`@moduledoc false` with code comments retained)
 - Tone: practical, concise, example-driven for key APIs
 

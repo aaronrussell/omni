@@ -209,11 +209,10 @@ defmodule Omni.Agent.Server do
     {:reply, {:error, :running}, server}
   end
 
-  def handle_call(:get_model, _from, server), do: {:reply, server.state.model, server}
-  def handle_call(:get_context, _from, server), do: {:reply, server.state.context, server}
-  def handle_call(:get_status, _from, server), do: {:reply, server.state.status, server}
-  def handle_call(:get_assigns, _from, server), do: {:reply, server.state.assigns, server}
-  def handle_call(:get_usage, _from, server), do: {:reply, server.state.usage, server}
+  def handle_call(:get_state, _from, server), do: {:reply, server.state, server}
+
+  def handle_call({:get_state, key}, _from, server),
+    do: {:reply, Map.get(server.state, key), server}
 
   # -- Info (step messages) --
 

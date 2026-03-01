@@ -172,7 +172,9 @@ defmodule Omni.ModelTest do
 
     test "replaces a model with the same ID", %{provider_id: provider_id} do
       original = Model.new(id: "model-x", name: "Original", provider: P, dialect: D)
-      updated = Model.new(id: "model-x", name: "Updated", provider: P, dialect: D, context_size: 100_000)
+
+      updated =
+        Model.new(id: "model-x", name: "Updated", provider: P, dialect: D, context_size: 100_000)
 
       Model.put(provider_id, original)
       Model.put(provider_id, updated)

@@ -266,11 +266,9 @@ Agent.clear(agent)                                 # reset context + usage (idle
 Agent.listen(agent, pid)                           # → :ok | {:error, :running}
 
 # Inspection
-Agent.get_model(agent)                             # → %Model{}
-Agent.get_context(agent)                           # → %Context{}
-Agent.get_status(agent)                            # → :idle | :running | :paused
-Agent.get_assigns(agent)                           # → %{}
-Agent.get_usage(agent)                             # → %Usage{}
+Agent.get_state(agent)                             # → %State{}
+Agent.get_state(agent, :model)                     # → %Model{}
+Agent.get_state(agent, :status)                    # → :idle | :running | :paused
 
 # Tool management (idle only)
 Agent.add_tools(agent, tools)                      # → :ok | {:error, :running}

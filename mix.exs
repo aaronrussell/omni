@@ -51,15 +51,12 @@ defmodule Omni.MixProject do
           Omni.Usage
         ],
         Providers: ~r/^Omni\.Provider/,
-        Dialects: ~r/^Omni\.Dialect/,
+        Dialects: ~r/^Omni\.Dialect/
       ],
       groups_for_docs: [
         "Text Generation": &(&1[:group] == :generation),
         Models: &(&1[:group] == :models),
-        Constructors: &(&1[:group] == :constructors),
-        Lifecycle: &(&1[:group] == :lifecycle),
-        Configuration: &(&1[:group] == :configuration),
-        Introspection: &(&1[:group] == :introspection)
+        Context: &(&1[:group] == :context)
       ]
     ]
   end

@@ -318,8 +318,8 @@ defmodule Integration.AgentTest do
 
       events = collect_events(agent, 2000)
       assert {:cancelled, nil} = List.last(events)
-      assert Agent.get_status(agent) == :idle
-      assert Agent.get_context(agent).messages == []
+      assert Agent.get_state(agent, :status) == :idle
+      assert Agent.get_state(agent, :context).messages == []
     end
 
     test "cancel while idle returns error" do
@@ -335,13 +335,13 @@ defmodule Integration.AgentTest do
       _events = collect_events(agent)
 
       # Context should have messages after prompt completes
-      assert length(Agent.get_context(agent).messages) > 0
-      assert Agent.get_usage(agent).total_tokens > 0
+      assert length(Agent.get_state(agent, :context).messages) > 0
+      assert Agent.get_state(agent, :usage).total_tokens > 0
 
       :ok = Agent.clear(agent)
 
-      assert Agent.get_context(agent).messages == []
-      assert Agent.get_usage(agent) == %Usage{}
+      assert Agent.get_state(agent, :context).messages == []
+      assert Agent.get_state(agent, :usage) == %Usage{}
     end
 
     test "clear while running returns error" do
@@ -376,7 +376,7 @@ defmodule Integration.AgentTest do
 
       :ok = Agent.prompt(agent, "First message")
       _events = collect_events(agent)
-      usage1 = Agent.get_usage(agent)
+      usage1 = Agent.get_state(agent, :usage)
       assert usage1.total_tokens > 0
 
       # Need a new stub for the second request
@@ -391,13 +391,13 @@ defmodule Integration.AgentTest do
 
       :ok = Agent.prompt(agent2, "First")
       _events = collect_events(agent2)
-      first_usage = Agent.get_usage(agent2)
+      first_usage = Agent.get_state(agent2, :usage)
 
       # Stub a new fixture for the second call
       stub_fixture(stub_name, @text_fixture)
       :ok = Agent.prompt(agent2, "Second")
       _events = collect_events(agent2)
-      total_usage = Agent.get_usage(agent2)
+      total_usage = Agent.get_state(agent2, :usage)
 
       assert total_usage.total_tokens == first_usage.total_tokens * 2
     end
@@ -415,7 +415,7 @@ defmodule Integration.AgentTest do
           opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
         )
 
-      assert Agent.get_assigns(agent) == %{name: "test-bot"}
+      assert Agent.get_state(agent, :assigns) == %{name: "test-bot"}
     end
 
     test "init with default name" do
@@ -428,7 +428,7 @@ defmodule Integration.AgentTest do
           opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
         )
 
-      assert Agent.get_assigns(agent) == %{name: "default"}
+      assert Agent.get_state(agent, :assigns) == %{name: "default"}
     end
   end
 
@@ -446,7 +446,7 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "Hello!")
       _events = collect_events(agent)
 
-      assert Agent.get_assigns(agent).last_stop_reason == :stop
+      assert Agent.get_state(agent, :assigns).last_stop_reason == :stop
     end
   end
 
@@ -503,35 +503,33 @@ defmodule Integration.AgentTest do
           opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
         )
 
-      assert Agent.get_status(name) == :idle
-      assert %Omni.Model{} = Agent.get_model(name)
+      assert Agent.get_state(name, :status) == :idle
+      assert %Omni.Model{} = Agent.get_state(name, :model)
     end
   end
 
-  describe "getters" do
-    test "get_model returns the model" do
+  describe "get_state" do
+    test "returns the full state struct" do
       {:ok, agent} = start_agent()
-      assert %Omni.Model{id: "claude-haiku-4-5"} = Agent.get_model(agent)
+      state = Agent.get_state(agent)
+      assert %Omni.Agent.State{} = state
+      assert %Omni.Model{id: "claude-haiku-4-5"} = state.model
+      assert state.status == :idle
+      assert state.assigns == %{}
     end
 
-    test "get_context returns the context" do
+    test "returns individual fields by key" do
       {:ok, agent} = start_agent()
-      assert %Context{messages: [], tools: []} = Agent.get_context(agent)
+      assert %Omni.Model{id: "claude-haiku-4-5"} = Agent.get_state(agent, :model)
+      assert %Context{messages: [], tools: []} = Agent.get_state(agent, :context)
+      assert Agent.get_state(agent, :status) == :idle
+      assert Agent.get_state(agent, :assigns) == %{}
+      assert Agent.get_state(agent, :usage) == %Usage{}
     end
 
-    test "get_status returns :idle initially" do
+    test "returns nil for unknown keys" do
       {:ok, agent} = start_agent()
-      assert Agent.get_status(agent) == :idle
-    end
-
-    test "get_assigns returns empty map by default" do
-      {:ok, agent} = start_agent()
-      assert Agent.get_assigns(agent) == %{}
-    end
-
-    test "get_usage returns zero usage initially" do
-      {:ok, agent} = start_agent()
-      assert Agent.get_usage(agent) == %Usage{}
+      assert Agent.get_state(agent, :nonexistent) == nil
     end
   end
 
@@ -547,7 +545,7 @@ defmodule Integration.AgentTest do
         )
 
       assert is_pid(agent)
-      assert Agent.get_assigns(agent) == %{name: "default"}
+      assert Agent.get_state(agent, :assigns) == %{name: "default"}
     end
   end
 
@@ -558,7 +556,7 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "First message")
       _events = collect_events(agent)
 
-      context = Agent.get_context(agent)
+      context = Agent.get_state(agent, :context)
       assert length(context.messages) == 2
 
       stub_name = unique_stub_name()
@@ -572,12 +570,12 @@ defmodule Integration.AgentTest do
 
       :ok = Agent.prompt(agent2, "First")
       _events = collect_events(agent2)
-      assert length(Agent.get_context(agent2).messages) == 2
+      assert length(Agent.get_state(agent2, :context).messages) == 2
 
       stub_fixture(stub_name, @text_fixture)
       :ok = Agent.prompt(agent2, "Second")
       _events = collect_events(agent2)
-      assert length(Agent.get_context(agent2).messages) == 4
+      assert length(Agent.get_state(agent2, :context).messages) == 4
     end
   end
 
@@ -593,7 +591,7 @@ defmodule Integration.AgentTest do
           opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
         )
 
-      assert Agent.get_context(agent).system == "You are a helpful assistant."
+      assert Agent.get_state(agent, :context).system == "You are a helpful assistant."
     end
   end
 
@@ -619,7 +617,7 @@ defmodule Integration.AgentTest do
       assert [%Text{}] = resp.message.content
 
       # Context should have all messages: user, assistant(tool_use), user(tool_results), assistant(text)
-      context = Agent.get_context(agent)
+      context = Agent.get_state(agent, :context)
       assert length(context.messages) >= 4
     end
   end
@@ -641,7 +639,7 @@ defmodule Integration.AgentTest do
 
       # Should end with :done and tool_use stop reason
       assert {:done, %Response{stop_reason: :tool_use}} = List.last(events)
-      assert Agent.get_assigns(agent).last_stop_reason == :tool_use
+      assert Agent.get_state(agent, :assigns).last_stop_reason == :tool_use
     end
   end
 
@@ -680,7 +678,7 @@ defmodule Integration.AgentTest do
       assert {:done, %Response{}} = List.last(events)
 
       # The tool result user message should contain modified content
-      context = Agent.get_context(agent)
+      context = Agent.get_state(agent, :context)
 
       tool_result_msgs =
         Enum.filter(context.messages, fn msg ->
@@ -717,15 +715,15 @@ defmodule Integration.AgentTest do
     test "adds and removes tools when idle" do
       {:ok, agent} = start_agent()
 
-      assert Agent.get_context(agent).tools == []
+      assert Agent.get_state(agent, :context).tools == []
 
       tool = tool_with_handler()
       :ok = Agent.add_tools(agent, [tool])
-      assert length(Agent.get_context(agent).tools) == 1
-      assert hd(Agent.get_context(agent).tools).name == "get_weather"
+      assert length(Agent.get_state(agent, :context).tools) == 1
+      assert hd(Agent.get_state(agent, :context).tools).name == "get_weather"
 
       :ok = Agent.remove_tools(agent, ["get_weather"])
-      assert Agent.get_context(agent).tools == []
+      assert Agent.get_state(agent, :context).tools == []
     end
 
     test "returns {:error, :running} when agent is running" do
@@ -781,8 +779,8 @@ defmodule Integration.AgentTest do
 
       events = collect_events(agent, 2000)
       assert {:cancelled, nil} = List.last(events)
-      assert Agent.get_status(agent) == :idle
-      assert Agent.get_context(agent).messages == []
+      assert Agent.get_state(agent, :status) == :idle
+      assert Agent.get_state(agent, :context).messages == []
     end
   end
 
@@ -830,7 +828,7 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "What's the weather?")
       _events = collect_events(agent)
 
-      usage = Agent.get_usage(agent)
+      usage = Agent.get_state(agent, :usage)
       assert usage.total_tokens > 0
       assert usage.input_tokens > 0
       assert usage.output_tokens > 0
@@ -848,7 +846,7 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "What's the weather?")
       _events = collect_events(agent)
 
-      assigns = Agent.get_assigns(agent)
+      assigns = Agent.get_state(agent, :assigns)
       assert assigns.tool_calls == ["get_weather"]
     end
   end
@@ -870,7 +868,7 @@ defmodule Integration.AgentTest do
       events = collect_events(agent)
 
       assert {:error, _reason} = List.last(events)
-      assert Agent.get_status(agent) == :idle
+      assert Agent.get_state(agent, :status) == :idle
     end
 
     test "custom {:retry, state} retries and succeeds on second attempt" do
@@ -887,7 +885,7 @@ defmodule Integration.AgentTest do
       events = collect_events(agent)
 
       assert {:done, %Response{stop_reason: :stop}} = List.last(events)
-      assert Agent.get_assigns(agent).retries == 1
+      assert Agent.get_state(agent, :assigns).retries == 1
     end
 
     test "retry exhaustion still emits :error" do
@@ -905,8 +903,8 @@ defmodule Integration.AgentTest do
 
       # After retrying once and failing again, should emit :error
       assert {:error, _reason} = List.last(events)
-      assert Agent.get_status(agent) == :idle
-      assert Agent.get_assigns(agent).retries == 1
+      assert Agent.get_state(agent, :status) == :idle
+      assert Agent.get_state(agent, :assigns).retries == 1
     end
   end
 
@@ -934,7 +932,7 @@ defmodule Integration.AgentTest do
       assert length(done_events) == 1
 
       assert {:done, %Response{}} = List.last(events)
-      assert Agent.get_assigns(agent).turn_count == 3
+      assert Agent.get_state(agent, :assigns).turn_count == 3
     end
 
     test "context accumulates all messages across turns" do
@@ -950,7 +948,7 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "Start")
       _events = collect_events(agent)
 
-      context = Agent.get_context(agent)
+      context = Agent.get_state(agent, :context)
       # Initial user + assistant, then 2 more (user continue + assistant) per extra turn
       # = 2 + 2 + 2 = 6 messages
       assert length(context.messages) == 6
@@ -969,7 +967,7 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "Start")
       _events = collect_events(agent)
 
-      usage = Agent.get_usage(agent)
+      usage = Agent.get_state(agent, :usage)
       # Should be 3x a single request's usage
       assert usage.total_tokens > 0
     end
@@ -1016,10 +1014,10 @@ defmodule Integration.AgentTest do
 
       # Should stop with :done (max_steps hit after tool results processed)
       assert {:done, %Response{stop_reason: :tool_use}} = List.last(events)
-      assert Agent.get_status(agent) == :idle
+      assert Agent.get_state(agent, :status) == :idle
 
       # Context should be committed (includes tool result messages)
-      context = Agent.get_context(agent)
+      context = Agent.get_state(agent, :context)
       assert length(context.messages) > 0
     end
   end
@@ -1118,7 +1116,7 @@ defmodule Integration.AgentTest do
       assert {:done, %Response{}} = List.last(events)
 
       # Context should have messages from two turns
-      context = Agent.get_context(agent)
+      context = Agent.get_state(agent, :context)
       # First user + assistant + second user + assistant = 4
       assert length(context.messages) == 4
     end
@@ -1172,7 +1170,7 @@ defmodule Integration.AgentTest do
 
       # Should end with :pause and a ToolUse
       assert {:pause, %ToolUse{name: "get_weather"}} = List.last(events)
-      assert Agent.get_status(agent) == :paused
+      assert Agent.get_state(agent, :status) == :paused
 
       # Clean up
       stub_fixture(stub_name, @text_fixture)
@@ -1255,8 +1253,8 @@ defmodule Integration.AgentTest do
       :ok = Agent.cancel(agent)
       events = collect_events(agent, 2000)
       assert {:cancelled, nil} = List.last(events)
-      assert Agent.get_status(agent) == :idle
-      assert Agent.get_context(agent).messages == []
+      assert Agent.get_state(agent, :status) == :idle
+      assert Agent.get_state(agent, :context).messages == []
     end
 
     test "multiple tools: pause on first, approve, remaining processed normally" do

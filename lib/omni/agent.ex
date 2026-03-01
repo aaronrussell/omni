@@ -402,7 +402,6 @@ defmodule Omni.Agent do
     end
   end
 
-  @doc group: :lifecycle
   @doc """
   Starts and links an agent process without a callback module.
 
@@ -415,7 +414,6 @@ defmodule Omni.Agent do
     start_link(nil, opts)
   end
 
-  @doc group: :lifecycle
   @doc """
   Starts and links an agent process with the given callback module.
 
@@ -428,7 +426,6 @@ defmodule Omni.Agent do
     Omni.Agent.Server.start_link({module, opts}, gs_opts)
   end
 
-  @doc group: :lifecycle
   @doc """
   Sends a prompt to the agent.
 
@@ -447,7 +444,6 @@ defmodule Omni.Agent do
     GenServer.call(agent, {:prompt, content, opts})
   end
 
-  @doc group: :lifecycle
   @doc """
   Resumes a paused agent with a tool decision.
 
@@ -465,7 +461,6 @@ defmodule Omni.Agent do
     GenServer.call(agent, {:resume, decision})
   end
 
-  @doc group: :lifecycle
   @doc """
   Cancels the current prompt round.
 
@@ -480,7 +475,6 @@ defmodule Omni.Agent do
     GenServer.call(agent, :cancel)
   end
 
-  @doc group: :configuration
   @doc """
   Adds tools to the agent's context.
 
@@ -492,7 +486,6 @@ defmodule Omni.Agent do
     GenServer.call(agent, {:add_tools, tools})
   end
 
-  @doc group: :configuration
   @doc """
   Removes tools by name from the agent's context.
 
@@ -504,7 +497,6 @@ defmodule Omni.Agent do
     GenServer.call(agent, {:remove_tools, tool_names})
   end
 
-  @doc group: :configuration
   @doc """
   Clears conversation history and resets usage for a fresh conversation.
 
@@ -517,7 +509,6 @@ defmodule Omni.Agent do
     GenServer.call(agent, :clear)
   end
 
-  @doc group: :configuration
   @doc """
   Sets the listener process for agent events.
 
@@ -529,33 +520,19 @@ defmodule Omni.Agent do
     GenServer.call(agent, {:listen, pid})
   end
 
-  @doc group: :introspection
-  @doc "Returns the agent's `%Model{}` struct."
-  @spec get_model(GenServer.server()) :: Omni.Model.t()
-  def get_model(agent), do: GenServer.call(agent, :get_model)
-
-  @doc group: :introspection
   @doc """
-  Returns the agent's conversation context.
+  Returns the agent's `%State{}` struct or a single field from it.
 
-  This is the committed context — in-progress messages from the current prompt
-  round are not included until the round completes.
+  With no key, returns the full `%State{}`. With a key, returns the value of
+  that field (or `nil` for unknown keys).
+
+      Agent.get_state(agent)          #=> %State{model: ..., context: ..., ...}
+      Agent.get_state(agent, :usage)  #=> %Usage{}
+      Agent.get_state(agent, :status) #=> :idle
   """
-  @spec get_context(GenServer.server()) :: Omni.Context.t()
-  def get_context(agent), do: GenServer.call(agent, :get_context)
+  @spec get_state(GenServer.server()) :: State.t()
+  def get_state(agent), do: GenServer.call(agent, :get_state)
 
-  @doc group: :introspection
-  @doc "Returns the agent's current status: `:idle`, `:running`, or `:paused`."
-  @spec get_status(GenServer.server()) :: :idle | :running | :paused
-  def get_status(agent), do: GenServer.call(agent, :get_status)
-
-  @doc group: :introspection
-  @doc "Returns the agent's assigns map (user-defined state from callbacks)."
-  @spec get_assigns(GenServer.server()) :: map()
-  def get_assigns(agent), do: GenServer.call(agent, :get_assigns)
-
-  @doc group: :introspection
-  @doc "Returns the agent's accumulated `%Usage{}` across all prompt rounds."
-  @spec get_usage(GenServer.server()) :: Omni.Usage.t()
-  def get_usage(agent), do: GenServer.call(agent, :get_usage)
+  @spec get_state(GenServer.server(), atom()) :: term()
+  def get_state(agent, key) when is_atom(key), do: GenServer.call(agent, {:get_state, key})
 end

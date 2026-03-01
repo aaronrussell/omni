@@ -253,7 +253,7 @@ defmodule Omni do
   @spec list_models(atom()) :: {:ok, [Model.t()]} | {:error, term()}
   defdelegate list_models(provider_id), to: Omni.Model, as: :list
 
-  @doc group: :constructors
+  @doc group: :context
   @doc """
   Creates a `%Tool{}` struct from a keyword list or map.
 
@@ -270,7 +270,7 @@ defmodule Omni do
   @spec tool(Enumerable.t()) :: Omni.Tool.t()
   defdelegate tool(attrs), to: Omni.Tool, as: :new
 
-  @doc group: :constructors
+  @doc group: :context
   @doc """
   Creates a `%Context{}` from a string, list of messages, keyword list, or map.
 
@@ -284,7 +284,7 @@ defmodule Omni do
   @spec context(String.t() | [Omni.Message.t()] | Context.t() | Enumerable.t()) :: Context.t()
   defdelegate context(input), to: Omni.Context, as: :new
 
-  @doc group: :constructors
+  @doc group: :context
   @doc """
   Creates a `%Message{}` from a string, keyword list, or map.
 

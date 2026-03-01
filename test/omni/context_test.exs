@@ -84,25 +84,28 @@ defmodule Omni.ContextTest do
     test "extracts messages from a response" do
       ctx = Context.new("Use the tool")
 
-      assistant_msg = Message.new(
-        role: :assistant,
-        content: [ToolUse.new(id: "1", name: "search", input: %{})]
-      )
+      assistant_msg =
+        Message.new(
+          role: :assistant,
+          content: [ToolUse.new(id: "1", name: "search", input: %{})]
+        )
 
-      tool_msg = Message.new(
-        role: :user,
-        content: [ToolResult.new(tool_use_id: "1", name: "search", content: "result")]
-      )
+      tool_msg =
+        Message.new(
+          role: :user,
+          content: [ToolResult.new(tool_use_id: "1", name: "search", content: "result")]
+        )
 
       final_msg = Message.new(role: :assistant, content: "Here's what I found")
 
-      response = Response.new(
-        message: final_msg,
-        model: nil,
-        usage: Usage.new([]),
-        stop_reason: :stop,
-        messages: [assistant_msg, tool_msg, final_msg]
-      )
+      response =
+        Response.new(
+          message: final_msg,
+          model: nil,
+          usage: Usage.new([]),
+          stop_reason: :stop,
+          messages: [assistant_msg, tool_msg, final_msg]
+        )
 
       ctx = Context.push(ctx, response)
 
