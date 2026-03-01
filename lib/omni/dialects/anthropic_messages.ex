@@ -115,7 +115,7 @@ defmodule Omni.Dialects.AnthropicMessages do
   end
 
   def handle_event(%{"type" => "error", "error" => %{"message" => message}}) do
-    [{:error, %{reason: message}}]
+    [{:error, message}]
   end
 
   def handle_event(%{"type" => "message_delta", "delta" => delta} = event) do

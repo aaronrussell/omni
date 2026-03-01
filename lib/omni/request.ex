@@ -114,7 +114,7 @@ defmodule Omni.Request do
   end
 
   @doc false
-  @spec parse_event(Model.t(), map()) :: [{atom(), map()}]
+  @spec parse_event(Model.t(), map()) :: [{atom(), map() | term()}]
   def parse_event(%Model{} = model, raw_event) do
     deltas = model.dialect.handle_event(raw_event)
     model.provider.modify_events(deltas, raw_event)

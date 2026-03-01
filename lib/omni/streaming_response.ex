@@ -259,9 +259,9 @@ defmodule Omni.StreamingResponse do
     {synth_events ++ delta_events, acc}
   end
 
-  defp process_delta({:error, data}, acc) do
-    acc = %{acc | error: data.reason}
-    event = {:error, data.reason, build_response(acc, false)}
+  defp process_delta({:error, reason}, acc) do
+    acc = %{acc | error: reason}
+    event = {:error, reason, build_response(acc, false)}
     {[event], acc}
   end
 

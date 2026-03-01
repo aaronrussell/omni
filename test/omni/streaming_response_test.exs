@@ -181,7 +181,7 @@ defmodule Omni.StreamingResponseTest do
     test "error event emits :error and sets response.error" do
       events = [
         {:block_delta, %{type: :text, index: 0, delta: "partial"}},
-        {:error, %{reason: "rate_limit"}}
+        {:error, "rate_limit"}
       ]
 
       result = collect_scripted(events)
@@ -193,7 +193,7 @@ defmodule Omni.StreamingResponseTest do
     test "error event is terminal — no :done follows" do
       events = [
         {:block_delta, %{type: :text, index: 0, delta: "partial"}},
-        {:error, %{reason: "rate_limit"}}
+        {:error, "rate_limit"}
       ]
 
       result = collect_scripted(events)
@@ -208,7 +208,7 @@ defmodule Omni.StreamingResponseTest do
 
     test "complete/1 returns {:error, reason} on error" do
       events = [
-        {:error, %{reason: "overloaded"}}
+        {:error, "overloaded"}
       ]
 
       sr = StreamingResponse.new(events)
@@ -438,7 +438,7 @@ defmodule Omni.StreamingResponseTest do
     test "handler on :error fires on stream error" do
       events = [
         {:block_delta, %{type: :text, index: 0, delta: "partial"}},
-        {:error, %{reason: "rate_limit"}}
+        {:error, "rate_limit"}
       ]
 
       sr = StreamingResponse.new(events)

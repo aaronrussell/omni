@@ -7,36 +7,158 @@ defmodule Omni.Provider do
   layer: it knows *where* to send requests and *how* to authenticate them, but
   not *what* the request body should contain (that's the dialect's job).
 
+  Omni separates providers from dialects because the mapping is many-to-one.
+  There are ~4–5 wire formats but ~20–30 services. Groq, Together, Fireworks,
+  and OpenRouter all speak the OpenAI Chat Completions format — their request
+  bodies and streaming events are identical. Only endpoint, authentication, and
+  the occasional quirk differ. A provider captures those differences; a dialect
+  (see `Omni.Dialect`) handles the wire format shared across many providers.
+
   ## Defining a provider
 
-  Use `use Omni.Provider` with a required `:dialect` option:
+  Use `use Omni.Provider` with a required `:dialect` option. The only required
+  callback is `config/0` — everything else has a sensible default:
 
-      defmodule Omni.Providers.Anthropic do
-        use Omni.Provider, dialect: Omni.Dialects.AnthropicMessages
+      defmodule MyApp.Providers.Acme do
+        use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
 
         @impl true
         def config do
           %{
-            base_url: "https://api.anthropic.com",
-            auth_header: "x-api-key",
-            api_key: {:system, "ANTHROPIC_API_KEY"}
+            base_url: "https://api.acme.ai",
+            api_key: {:system, "ACME_API_KEY"}
           }
         end
 
         @impl true
         def models do
-          Omni.Provider.load_models(__MODULE__, "priv/models/anthropic.json")
+          [
+            Omni.Model.new(
+              id: "acme-7b",
+              name: "Acme 7B",
+              provider: __MODULE__,
+              dialect: dialect(),
+              context_size: 128_000,
+              max_output_tokens: 4096
+            )
+          ]
         end
       end
 
-  The macro generates a `dialect/0` accessor and sensible defaults for all
-  optional callbacks. Override only what your provider needs.
+  The `use` macro generates a `dialect/0` accessor from the provided module and
+  default implementations for all optional callbacks. Override only what your
+  provider needs — most providers are just `config/0` and `models/0`.
 
-  ## Shared functions
+  ## The request pipeline
 
-  - `load/1` — loads providers' models into `:persistent_term` on demand
-  - `load_models/2` — reads a JSON data file and builds `%Model{}` structs
-  - `resolve_auth/1` — resolves API key values (literal, env var, MFA)
+  Understanding the request pipeline clarifies when each callback runs and why.
+  Internally, Omni orchestrates the flow by calling dialect and provider
+  callbacks via the module references on the `%Model{}` struct:
+
+      # 1. Dialect builds the request body from Omni types
+      body = dialect.handle_body(model, context, opts)
+
+      # 2. Provider adjusts the body for service-specific quirks
+      body = provider.modify_body(body, context, opts)
+
+      # 3. Dialect determines the URL path for this API
+      path = dialect.handle_path(model, opts)
+
+      # 4. Provider builds the full URL (base_url + path)
+      url = provider.build_url(path, opts)
+
+      # 5. Provider adds authentication to the request
+      {:ok, req} = provider.authenticate(req, opts)
+
+  On the response side, streaming events flow through a similar pipeline:
+
+      # 1. Dialect parses raw SSE JSON into normalized delta tuples
+      deltas = dialect.handle_event(raw_event)
+
+      # 2. Provider adjusts deltas for service-specific data
+      deltas = provider.modify_events(deltas, raw_event)
+
+  The dialect does the heavy lifting (full type translation); the provider makes
+  small, targeted adjustments. Most providers don't override `modify_body/3` or
+  `modify_events/2` at all.
+
+  ## Callbacks
+
+  | Callback | Required? | Default |
+  |---|---|---|
+  | `config/0` | yes | — |
+  | `models/0` | no | `[]` |
+  | `build_url/2` | no | `opts.base_url <> path` |
+  | `authenticate/2` | no | resolves `opts.api_key`, sets header |
+  | `modify_body/3` | no | passthrough |
+  | `modify_events/2` | no | passthrough |
+
+  ## Authentication
+
+  The default `authenticate/2` resolves `opts.api_key` via `resolve_auth/1` and
+  sets it as the value of the `opts.auth_header` header (defaulting to
+  `"authorization"`). This covers the majority of providers. Override
+  `authenticate/2` for schemes that need a `Bearer` prefix, request signing, or
+  token refresh:
+
+      # Bearer token (OpenAI-style)
+      @impl true
+      def authenticate(req, opts) do
+        with {:ok, key} <- Omni.Provider.resolve_auth(opts.api_key) do
+          {:ok, Req.Request.put_header(req, "authorization", "Bearer \#{key}")}
+        end
+      end
+
+  API keys are resolved in priority order:
+
+  1. **Call-site opts** — `:api_key` passed directly to `generate_text/3` or
+     `stream_text/3`
+  2. **Application config** — `config :omni, MyProvider, api_key: ...`
+  3. **Provider default** — the `:api_key` value from `config/0`
+
+  All three tiers accept the same value types — see `resolve_auth/1`.
+
+  ## Config keys
+
+  `config/0` returns a map with the following keys:
+
+    * `:base_url` (required) — the service's base URL
+    * `:api_key` — default API key (see `resolve_auth/1` for accepted formats)
+    * `:auth_header` — header name for the API key (default `"authorization"`)
+    * `:headers` — additional headers to include on every request (map)
+
+  These values serve as defaults. Users can override `:base_url`, `:api_key`,
+  and `:headers` at the application config level or at the call site.
+
+  ## Choosing a dialect
+
+  Pick the dialect that matches your provider's wire format:
+
+    * `Omni.Dialects.OpenAICompletions` — OpenAI Chat Completions format, used
+      by the majority of providers (Groq, Together, Fireworks, DeepSeek, etc.)
+    * `Omni.Dialects.OpenAIResponses` — OpenAI's newer Responses API format
+    * `Omni.Dialects.AnthropicMessages` — Anthropic Messages format
+    * `Omni.Dialects.GoogleGemini` — Google Gemini format
+
+  If your provider speaks a format not listed here, you'll need to implement a
+  new dialect — see `Omni.Dialect` for the behaviour specification.
+
+  ## Registering a provider
+
+  Providers are loaded at startup from application config. Built-in providers
+  use shorthand atoms; custom providers use `{id, module}` tuples:
+
+      config :omni, :providers, [
+        :anthropic,
+        :openai,
+        acme: MyApp.Providers.Acme
+      ]
+
+  To load a provider at runtime without restarting:
+
+      Omni.Provider.load(acme: MyApp.Providers.Acme)
+
+  The provider's models are then available via `Omni.get_model(:acme, "acme-7b")`.
   """
 
   alias Omni.Model
@@ -48,24 +170,119 @@ defmodule Omni.Provider do
     openrouter: Omni.Providers.OpenRouter
   }
 
-  @doc "Returns the provider's base configuration map."
+  @doc """
+  Returns the provider's base configuration map.
+
+  This is the only required callback. The map should include `:base_url` and
+  typically `:api_key`. Optional keys are `:auth_header` (defaults to
+  `"authorization"`) and `:headers` (additional headers as a map).
+
+      @impl true
+      def config do
+        %{
+          base_url: "https://api.acme.ai",
+          auth_header: "x-api-key",
+          api_key: {:system, "ACME_API_KEY"},
+          headers: %{"x-api-version" => "2024-01-01"}
+        }
+      end
+
+  These values serve as defaults — users can override `:base_url`, `:api_key`,
+  and `:headers` via application config or call-site options.
+  """
   @callback config() :: map()
 
-  @doc "Returns the provider's list of model structs."
+  @doc """
+  Returns the provider's list of model structs.
+
+  Each model must have `:provider` set to this module and `:dialect` set to
+  `dialect()`. Built-in providers use `load_models/2` to read from a JSON data
+  file; custom providers can return models from any source:
+
+      @impl true
+      def models do
+        [
+          Omni.Model.new(
+            id: "acme-7b",
+            name: "Acme 7B",
+            provider: __MODULE__,
+            dialect: dialect(),
+            context_size: 128_000,
+            max_output_tokens: 4096
+          )
+        ]
+      end
+
+  Default: `[]` (no models).
+  """
   @callback models() :: [Model.t()]
 
-  @doc "Builds the full request URL from a path and unified opts map."
+  @doc """
+  Builds the full request URL from a dialect-provided path and the merged
+  options map.
+
+  The `opts` map contains `:base_url` (from the three-tier config merge) plus
+  all validated inference options. The `path` comes from the dialect's
+  `c:Omni.Dialect.handle_path/2` callback (e.g. `"/v1/chat/completions"`).
+
+  Default: `opts.base_url <> path`.
+
+  Override when URL structure deviates from simple concatenation — for example,
+  Azure OpenAI reorganizes the path around deployment names and API versions.
+  """
   @callback build_url(path :: String.t(), opts :: map()) :: String.t()
 
-  @doc "Adds authentication to a Req request."
+  @doc """
+  Adds authentication to a `%Req.Request{}`.
+
+  Receives the built request and the merged options map (which includes
+  `:api_key` and `:auth_header` from the three-tier config merge). Returns
+  `{:ok, req}` with authentication applied, or `{:error, reason}` if the
+  key cannot be resolved.
+
+  This is the only callback that returns an ok/error tuple, because
+  authentication depends on external state (environment variables, vaults,
+  token endpoints) that can fail at runtime.
+
+  Default: resolves `opts.api_key` via `resolve_auth/1` and sets it as the
+  `opts.auth_header` header value. Override for Bearer token prefixes,
+  request signing (e.g. AWS SigV4), or token refresh flows.
+  """
   @callback authenticate(req :: Req.Request.t(), opts :: map()) ::
               {:ok, Req.Request.t()} | {:error, term()}
 
-  @doc "Modifies a dialect-built request body for this provider."
+  @doc """
+  Adjusts the dialect-built request body for this provider's quirks.
+
+  Called after `c:Omni.Dialect.handle_body/3` with the body map it produced,
+  the original `%Context{}`, and the validated options. The context is
+  available for per-message transformations (e.g. encoding round-trip data
+  from `Message.private` onto wire-format messages). Returns the modified body.
+
+  Default: passthrough (returns body unchanged). Override when the provider
+  speaks a standard dialect but needs small adjustments — an extra field, a
+  renamed parameter, a restructured sub-object. For example, OpenRouter
+  remaps `reasoning_effort` into its own `reasoning` object.
+  """
   @callback modify_body(body :: map(), context :: Omni.Context.t(), opts :: map()) :: map()
 
-  @doc "Post-dialect event modification. Receives parsed deltas and the raw SSE event."
-  @callback modify_events(deltas :: [{atom(), map()}], raw_event :: map()) :: [{atom(), map()}]
+  @doc """
+  Adjusts dialect-parsed delta tuples for this provider's quirks.
+
+  Called after `c:Omni.Dialect.handle_event/1` with the list of delta tuples
+  it produced and the original raw SSE event map. The raw event is passed so
+  the provider can inspect fields the dialect doesn't know about. Returns the
+  modified delta list — you can modify, remove, or append deltas.
+
+  See `Omni.Dialect` for the delta tuple types and their expected map shapes.
+
+  Default: passthrough (returns deltas unchanged). Override when the provider
+  embeds extra data in streaming events that the shared dialect doesn't parse.
+  For example, OpenRouter extracts `reasoning_details` from the raw event and
+  appends a `:message` delta carrying private data.
+  """
+  @callback modify_events(deltas :: [{atom(), map() | term()}], raw_event :: map()) ::
+              [{atom(), map() | term()}]
 
   @doc """
   Resolves an API key value to a literal string.
