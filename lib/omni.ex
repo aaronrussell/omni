@@ -232,6 +232,18 @@ defmodule Omni do
 
   @doc group: :models
   @doc """
+  Registers a model for lookup by `get_model/2` and `list_models/1`.
+
+  See `Omni.Model.put/2` for details.
+
+      model = Omni.Model.new(...)
+      Omni.put_model(:openai, model)
+  """
+  @spec put_model(atom(), Model.t()) :: :ok
+  defdelegate put_model(provider_id, model), to: Omni.Model, as: :put
+
+  @doc group: :models
+  @doc """
   Lists all models for a provider.
 
       {:ok, models} = Omni.list_models(:anthropic)

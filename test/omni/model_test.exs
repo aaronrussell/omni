@@ -142,6 +142,55 @@ defmodule Omni.ModelTest do
     end
   end
 
+  describe "put/2" do
+    setup do
+      provider_id = :"test_put_#{System.unique_integer([:positive])}"
+
+      on_exit(fn ->
+        :persistent_term.erase({Omni, provider_id})
+      end)
+
+      %{provider_id: provider_id}
+    end
+
+    test "registers a model retrievable via get/2", %{provider_id: provider_id} do
+      model = Model.new(id: "custom-1", name: "Custom 1", provider: P, dialect: D)
+      assert :ok = Model.put(provider_id, model)
+      assert {:ok, ^model} = Model.get(provider_id, "custom-1")
+    end
+
+    test "merges with existing models without clobbering", %{provider_id: provider_id} do
+      model_a = Model.new(id: "model-a", name: "A", provider: P, dialect: D)
+      model_b = Model.new(id: "model-b", name: "B", provider: P, dialect: D)
+
+      Model.put(provider_id, model_a)
+      Model.put(provider_id, model_b)
+
+      assert {:ok, ^model_a} = Model.get(provider_id, "model-a")
+      assert {:ok, ^model_b} = Model.get(provider_id, "model-b")
+    end
+
+    test "replaces a model with the same ID", %{provider_id: provider_id} do
+      original = Model.new(id: "model-x", name: "Original", provider: P, dialect: D)
+      updated = Model.new(id: "model-x", name: "Updated", provider: P, dialect: D, context_size: 100_000)
+
+      Model.put(provider_id, original)
+      Model.put(provider_id, updated)
+
+      assert {:ok, result} = Model.get(provider_id, "model-x")
+      assert result.name == "Updated"
+      assert result.context_size == 100_000
+    end
+
+    test "appears in list/1 results", %{provider_id: provider_id} do
+      model = Model.new(id: "listed-model", name: "Listed", provider: P, dialect: D)
+      Model.put(provider_id, model)
+
+      assert {:ok, models} = Model.list(provider_id)
+      assert model in models
+    end
+  end
+
   describe "supported_modalities/1" do
     test "returns the supported input modalities" do
       assert Model.supported_modalities(:input) == [:text, :image, :pdf]
