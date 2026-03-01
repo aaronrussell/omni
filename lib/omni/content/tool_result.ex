@@ -5,9 +5,6 @@ defmodule Omni.Content.ToolResult do
   Appears in user messages to provide the result of a preceding
   `Omni.Content.ToolUse`. The `tool_use_id` links back to the originating
   tool use block. Content is restricted to `Text` and `Thinking` blocks.
-
-  String content is automatically normalized to a single `Text` block, and
-  `nil` content is normalized to an empty list.
   """
 
   alias Omni.Content.{Text, Thinking}
@@ -18,7 +15,7 @@ defmodule Omni.Content.ToolResult do
   @typedoc "Allowed content types within a tool result."
   @type content :: Text.t() | Thinking.t()
 
-  @typedoc "A tool result content block."
+  @typedoc "Output of a tool invocation, linked to its originating `ToolUse` by ID."
   @type t :: %__MODULE__{
           tool_use_id: String.t(),
           name: String.t(),

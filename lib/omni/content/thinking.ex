@@ -10,7 +10,7 @@ defmodule Omni.Content.Thinking do
 
   defstruct [:text, :signature, :redacted_data]
 
-  @typedoc "A thinking content block. `text` is `nil` when redacted or hidden."
+  @typedoc "Chain-of-thought reasoning. `text` is `nil` when the content is redacted."
   @type t :: %__MODULE__{
           text: String.t() | nil,
           signature: String.t() | nil,

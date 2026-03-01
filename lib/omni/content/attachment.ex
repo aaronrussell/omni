@@ -13,7 +13,7 @@ defmodule Omni.Content.Attachment do
   @typedoc "An attachment source — inline base64 data or a remote URL."
   @type source :: {:base64, binary()} | {:url, String.t()}
 
-  @typedoc "An attachment content block."
+  @typedoc "Binary content with a source, media type, and optional description."
   @type t :: %__MODULE__{
           source: source(),
           media_type: String.t(),

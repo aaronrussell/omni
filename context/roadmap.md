@@ -24,8 +24,8 @@ Module-only documentation for now (no extra pages/guides). The `Omni` moduledoc 
 - Request, SSE, Loop hidden from docs (`@moduledoc false` with code comments retained)
 - Tone: practical, concise, example-driven for key APIs
 
-**Completed:** `Omni`, `StreamingResponse`, `Tool`, `Tool.Runner`, `Agent`, `Agent.State`
-**Remaining:** `Schema`, `Provider`, `Dialect`, data structs, provider/dialect modules
+**Completed:** `Omni`, `StreamingResponse`, `Tool`, `Tool.Runner`, `Agent`, `Agent.State`, `Model`, `Context`, `Message`, `Response`, `Usage`, `Content.Text`, `Content.Thinking`, `Content.Attachment`, `Content.ToolUse`, `Content.ToolResult`
+**Remaining:** `Schema`, `Provider`, `Dialect`, provider/dialect modules
 
 ---
 
@@ -41,3 +41,4 @@ Module-only documentation for now (no extra pages/guides). The `Omni` moduledoc 
 
 - **Additional providers** — Groq, Together, Fireworks, Bedrock, Azure, Vertex AI. Each is a small module once the infrastructure exists.
 - **Audio and video modalities** — models.dev has these columns but they are currently filtered out in `Model.new/1`. Needs investigation into encoding requirements and provider support before adding `:audio` and `:video` to `@supported_modalities[:input]`.
+- **Schema snake_case key normalization** — `Omni.Schema` builder functions accept raw keyword opts and merge them as-is into the schema map. JSON Schema uses camelCase keywords (`minLength`, `maxLength`, `minItems`, etc.) which is un-idiomatic in Elixir. Add a `normalize_key/1` step in each builder that converts a known set of snake_case atoms to their camelCase equivalents (e.g. `:min_length` → `:minLength`, `:max_length` → `:maxLength`, `:min_items` → `:minItems`, `:additional_properties` → `:additionalProperties`). Unknown keys pass through unconverted, making typos visible in the output. Update `to_peri/1` to match on the camelCase keys accordingly.

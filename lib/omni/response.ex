@@ -2,13 +2,26 @@ defmodule Omni.Response do
   @moduledoc """
   The result of a text generation request.
 
-  Wraps an assistant `%Message{}` with generation metadata. The response is an
-  envelope — the message itself can be extracted and appended directly to a
-  conversation context.
+  Returned by `Omni.generate_text/3` and `Omni.StreamingResponse.complete/1`.
+  Wraps the assistant's message with generation metadata — extract
+  `response.message` to continue a multi-turn conversation.
 
-  The `messages` field contains all messages from the generation — for a
-  single-step call this is `[response.message]`, for a multi-step tool loop
-  it includes assistant and tool-result user messages from every step.
+  ## Struct fields
+
+    * `:model` — the `%Model{}` that handled the request
+    * `:message` — the assistant's response message
+    * `:messages` — all messages from the generation. Single-step calls produce
+      `[response.message]`; multi-step tool loops include assistant and
+      tool-result messages from every round
+    * `:output` — validated, decoded map when the `:output` option was set
+    * `:stop_reason` — why generation ended: `:stop` (natural completion),
+      `:length` (token limit reached), `:tool_use` (model invoked a tool),
+      or `:error`
+    * `:usage` — token counts and costs (see `Omni.Usage`)
+    * `:error` — error description when `stop_reason` is `:error`, otherwise `nil`
+    * `:raw` — list of `{%Req.Request{}, %Req.Response{}}` tuples when `:raw`
+      was set (one per generation round)
+
   """
 
   alias Omni.{Message, Model, Usage}

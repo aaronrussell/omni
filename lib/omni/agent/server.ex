@@ -292,10 +292,7 @@ defmodule Omni.Agent.Server do
   # -- Step execution --
 
   defp spawn_step(server) do
-    full_context = %{
-      server.state.context
-      | messages: server.state.context.messages ++ server.pending_messages
-    }
+    full_context = Context.push(server.state.context, server.pending_messages)
 
     opts = Keyword.merge(server.prompt_opts, max_steps: 1)
     ref = make_ref()
@@ -467,10 +464,7 @@ defmodule Omni.Agent.Server do
   end
 
   defp commit_and_done(response, server) do
-    context = %{
-      server.state.context
-      | messages: server.state.context.messages ++ server.pending_messages
-    }
+    context = Context.push(server.state.context, server.pending_messages)
 
     server = %{
       server

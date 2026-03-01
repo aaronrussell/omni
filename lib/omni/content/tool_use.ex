@@ -10,7 +10,7 @@ defmodule Omni.Content.ToolUse do
   @enforce_keys [:id, :name, :input]
   defstruct [:id, :name, :input, :signature]
 
-  @typedoc "A tool use content block."
+  @typedoc "The model's request to invoke a named tool with given input."
   @type t :: %__MODULE__{
           id: String.t(),
           name: String.t(),

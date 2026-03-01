@@ -2,8 +2,8 @@ defmodule Omni.ContextTest do
   use ExUnit.Case, async: true
 
   alias Omni.Context
-  alias Omni.Content.Text
-  alias Omni.Message
+  alias Omni.Content.{Text, ToolResult, ToolUse}
+  alias Omni.{Message, Response, Usage}
 
   describe "new/1" do
     test "creates from keyword list" do
@@ -52,6 +52,71 @@ defmodule Omni.ContextTest do
       assert_raise KeyError, fn ->
         Context.new(system: "Hi", bogus: true)
       end
+    end
+  end
+
+  describe "push/2" do
+    test "appends a single message" do
+      ctx = Context.new("Hello")
+      reply = Message.new(role: :assistant, content: "Hi there")
+
+      ctx = Context.push(ctx, reply)
+
+      assert length(ctx.messages) == 2
+      assert Enum.at(ctx.messages, 1).role == :assistant
+    end
+
+    test "appends a list of messages" do
+      ctx = Context.new("Hello")
+
+      messages = [
+        Message.new(role: :assistant, content: "Hi"),
+        Message.new(role: :user, content: "How are you?")
+      ]
+
+      ctx = Context.push(ctx, messages)
+
+      assert length(ctx.messages) == 3
+      assert Enum.at(ctx.messages, 1).role == :assistant
+      assert Enum.at(ctx.messages, 2).role == :user
+    end
+
+    test "extracts messages from a response" do
+      ctx = Context.new("Use the tool")
+
+      assistant_msg = Message.new(
+        role: :assistant,
+        content: [ToolUse.new(id: "1", name: "search", input: %{})]
+      )
+
+      tool_msg = Message.new(
+        role: :user,
+        content: [ToolResult.new(tool_use_id: "1", name: "search", content: "result")]
+      )
+
+      final_msg = Message.new(role: :assistant, content: "Here's what I found")
+
+      response = Response.new(
+        message: final_msg,
+        model: nil,
+        usage: Usage.new([]),
+        stop_reason: :stop,
+        messages: [assistant_msg, tool_msg, final_msg]
+      )
+
+      ctx = Context.push(ctx, response)
+
+      assert length(ctx.messages) == 4
+      assert [_user, ^assistant_msg, ^tool_msg, ^final_msg] = ctx.messages
+    end
+
+    test "preserves existing context fields" do
+      ctx = Context.new(system: "Be helpful", messages: [Message.new("Hi")])
+      ctx = Context.push(ctx, Message.new(role: :assistant, content: "Hello"))
+
+      assert ctx.system == "Be helpful"
+      assert ctx.tools == []
+      assert length(ctx.messages) == 2
     end
   end
 end

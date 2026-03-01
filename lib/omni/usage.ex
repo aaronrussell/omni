@@ -2,9 +2,20 @@ defmodule Omni.Usage do
   @moduledoc """
   Token counts and computed costs for a generation request.
 
-  Costs are derived by multiplying token counts against the pricing data on the
-  `%Model{}` struct. Use `add/2` and `sum/1` for accumulation across multiple
-  requests.
+  Costs are computed from token counts and the pricing data on the `%Model{}`
+  struct. Available on every `%Response{}` via `response.usage`.
+
+  ## Struct fields
+
+    * `:input_tokens`, `:output_tokens` — request and generated token counts
+    * `:cache_read_tokens`, `:cache_write_tokens` — prompt caching token counts
+    * `:total_tokens` — sum of all token counts
+    * `:input_cost`, `:output_cost`, `:cache_read_cost`, `:cache_write_cost` —
+      per-category costs derived from model pricing
+    * `:total_cost` — sum of all cost fields
+
+  All fields default to `0`. Use `add/2` and `sum/1` to accumulate across
+  multiple requests.
   """
 
   defstruct input_tokens: 0,

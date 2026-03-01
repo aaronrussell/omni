@@ -9,7 +9,7 @@ defmodule Omni.Content.Text do
   @enforce_keys [:text]
   defstruct [:text, :signature]
 
-  @typedoc "A text content block."
+  @typedoc "Text content with an optional integrity signature."
   @type t :: %__MODULE__{
           text: String.t(),
           signature: String.t() | nil

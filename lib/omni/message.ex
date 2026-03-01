@@ -6,8 +6,7 @@ defmodule Omni.Message do
   blocks. There is no `:tool` role — tool results are `Content.ToolResult`
   blocks inside user messages.
 
-  A UTC timestamp is automatically assigned at construction time unless one
-  is explicitly provided (including explicit `nil`).
+  A UTC timestamp is assigned at construction unless explicitly set.
   """
 
   alias Omni.Content.{Text, Thinking, Attachment, ToolUse, ToolResult}
