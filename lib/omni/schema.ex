@@ -1,15 +1,14 @@
 defmodule Omni.Schema do
   @moduledoc """
-  Functions for building JSON Schema maps.
+  Builders and validation for JSON Schema maps.
 
-  Each function returns a plain map following JSON Schema conventions. Property
+  Each builder returns a plain map following JSON Schema conventions. Property
   keys are preserved as-is — use atoms for idiomatic Elixir, and JSON
-  serialisation will handle stringification when sending over the wire.
+  serialisation handles stringification on the wire.
 
-  When a tool is executed via `Omni.Tool.execute/2`, the schema is converted to
-  a Peri validation schema and input is validated automatically. Peri maps
-  string-keyed LLM input back to the key types used in the schema, so handlers
-  receive atom keys if the schema was defined with atoms.
+  Option keywords accept snake_case and are normalized to camelCase JSON Schema
+  keywords automatically (e.g. `min_length:` becomes `minLength`). Keys without
+  a known mapping pass through unchanged.
 
   ## Example
 
@@ -30,44 +29,75 @@ defmodule Omni.Schema do
   @doc "Builds a JSON Schema object with the given properties."
   @spec object(map(), keyword()) :: map()
   def object(properties, opts \\ []) do
-    Map.new(opts)
+    normalize_opts(opts)
     |> Map.merge(%{type: "object", properties: properties})
   end
 
   @doc "Builds a JSON Schema string type."
   @spec string(keyword()) :: map()
   def string(opts \\ []) do
-    Map.new(opts) |> Map.merge(%{type: "string"})
+    normalize_opts(opts) |> Map.merge(%{type: "string"})
   end
 
   @doc "Builds a JSON Schema number type."
   @spec number(keyword()) :: map()
   def number(opts \\ []) do
-    Map.new(opts) |> Map.merge(%{type: "number"})
+    normalize_opts(opts) |> Map.merge(%{type: "number"})
   end
 
   @doc "Builds a JSON Schema integer type."
   @spec integer(keyword()) :: map()
   def integer(opts \\ []) do
-    Map.new(opts) |> Map.merge(%{type: "integer"})
+    normalize_opts(opts) |> Map.merge(%{type: "integer"})
   end
 
   @doc "Builds a JSON Schema boolean type."
   @spec boolean(keyword()) :: map()
   def boolean(opts \\ []) do
-    Map.new(opts) |> Map.merge(%{type: "boolean"})
+    normalize_opts(opts) |> Map.merge(%{type: "boolean"})
   end
 
   @doc "Builds a JSON Schema array type with the given items schema."
   @spec array(map(), keyword()) :: map()
   def array(items, opts \\ []) do
-    Map.new(opts) |> Map.merge(%{type: "array", items: items})
+    normalize_opts(opts) |> Map.merge(%{type: "array", items: items})
   end
 
   @doc "Builds a JSON Schema string type constrained to the given values."
   @spec enum(list(String.t()), keyword()) :: map()
   def enum(values, opts \\ []) do
-    Map.new(opts) |> Map.merge(%{type: "string", enum: values})
+    normalize_opts(opts) |> Map.merge(%{type: "string", enum: values})
+  end
+
+  @doc "Builds a JSON Schema `anyOf` — valid when at least one subschema matches."
+  @spec any_of(list(map()), keyword()) :: map()
+  def any_of(schemas, opts \\ []) when is_list(schemas) do
+    normalize_opts(opts) |> Map.merge(%{anyOf: schemas})
+  end
+
+  @doc """
+  Merges additional options into an existing schema map.
+
+      Schema.string() |> Schema.update(min_length: 1, max_length: 100)
+  """
+  @spec update(map(), keyword()) :: map()
+  def update(schema, opts) do
+    Map.merge(schema, normalize_opts(opts))
+  end
+
+  @doc """
+  Validates input against a schema.
+
+  Enforces types, required fields, string constraints (`minLength`, `maxLength`,
+  `pattern`), numeric constraints (`minimum`, `maximum`, `exclusiveMinimum`,
+  `exclusiveMaximum`), and `anyOf` unions. Array item types are validated, but
+  array-level constraints (`minItems`, `maxItems`, `uniqueItems`) and
+  `multipleOf` are not — these are still sent to the LLM in the schema but
+  skipped during local validation.
+  """
+  @spec validate(map(), term()) :: {:ok, term()} | {:error, term()}
+  def validate(schema, input) do
+    Peri.validate(to_peri(schema), input)
   end
 
   @doc false
@@ -104,15 +134,7 @@ defmodule Omni.Schema do
     flatten_errors(rest, [{[], inspect(other)} | acc])
   end
 
-  @doc """
-  Converts a JSON Schema map to a Peri validation schema.
-
-  Used internally by `Omni.Tool.execute/2` to validate LLM-provided input
-  against a tool's schema before calling its handler. Property keys are
-  preserved as-is — Peri handles mapping string-keyed input to atom keys.
-  """
-  @spec to_peri(map()) :: term()
-  def to_peri(%{type: "object", properties: props} = schema) do
+  defp to_peri(%{type: "object", properties: props} = schema) do
     required = MapSet.new(Map.get(schema, :required, []))
 
     Map.new(props, fn {key, value_schema} ->
@@ -122,10 +144,75 @@ defmodule Omni.Schema do
     end)
   end
 
-  def to_peri(%{type: "string", enum: values}), do: {:enum, values}
-  def to_peri(%{type: "string"}), do: :string
-  def to_peri(%{type: "number"}), do: {:either, {:integer, :float}}
-  def to_peri(%{type: "integer"}), do: :integer
-  def to_peri(%{type: "boolean"}), do: :boolean
-  def to_peri(%{type: "array", items: items}), do: {:list, to_peri(items)}
+  defp to_peri(%{type: "string", enum: values}), do: {:enum, values}
+
+  defp to_peri(%{type: "string"} = schema) do
+    constrain(:string, string_constraints(schema))
+  end
+
+  defp to_peri(%{type: "number"} = schema) do
+    case numeric_constraints(schema) do
+      [] -> {:either, {:integer, :float}}
+      constraints -> {:either, {{:integer, constraints}, {:float, constraints}}}
+    end
+  end
+
+  defp to_peri(%{type: "integer"} = schema) do
+    constrain(:integer, numeric_constraints(schema))
+  end
+
+  defp to_peri(%{type: "boolean"}), do: :boolean
+  defp to_peri(%{type: "array", items: items}), do: {:list, to_peri(items)}
+  defp to_peri(%{anyOf: schemas}), do: {:oneof, Enum.map(schemas, &to_peri/1)}
+
+  # -- Peri constraint extraction --
+
+  defp constrain(type, []), do: type
+  defp constrain(type, [single]), do: {type, single}
+  defp constrain(type, constraints), do: {type, constraints}
+
+  defp string_constraints(schema) do
+    []
+    |> maybe_add(:min, schema[:minLength])
+    |> maybe_add(:max, schema[:maxLength])
+    |> maybe_add_pattern(schema[:pattern])
+  end
+
+  defp numeric_constraints(schema) do
+    []
+    |> maybe_add(:gte, schema[:minimum])
+    |> maybe_add(:lte, schema[:maximum])
+    |> maybe_add(:gt, schema[:exclusiveMinimum])
+    |> maybe_add(:lt, schema[:exclusiveMaximum])
+  end
+
+  defp maybe_add(constraints, _key, nil), do: constraints
+  defp maybe_add(constraints, key, value), do: [{key, value} | constraints]
+
+  defp maybe_add_pattern(constraints, nil), do: constraints
+  defp maybe_add_pattern(constraints, pattern), do: [{:regex, Regex.compile!(pattern)} | constraints]
+
+  # -- Key normalization --
+
+  @key_map %{
+    min_length: :minLength,
+    max_length: :maxLength,
+    min_items: :minItems,
+    max_items: :maxItems,
+    unique_items: :uniqueItems,
+    multiple_of: :multipleOf,
+    exclusive_minimum: :exclusiveMinimum,
+    exclusive_maximum: :exclusiveMaximum,
+    additional_properties: :additionalProperties,
+    min_properties: :minProperties,
+    max_properties: :maxProperties,
+    pattern_properties: :patternProperties
+  }
+
+  defp normalize_opts(opts) do
+    Map.new(opts, fn {k, v} -> {normalize_key(k), v} end)
+  end
+
+  defp normalize_key(key) when is_atom(key), do: Map.get(@key_map, key, key)
+  defp normalize_key(key), do: key
 end

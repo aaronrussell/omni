@@ -12,7 +12,7 @@ defmodule Omni.SchemaTest do
       result = Schema.string(description: "A city name", min_length: 1)
       assert result.type == "string"
       assert result.description == "A city name"
-      assert result.min_length == 1
+      assert result.minLength == 1
     end
   end
 
@@ -65,7 +65,7 @@ defmodule Omni.SchemaTest do
       result = Schema.array(Schema.integer(), min_items: 1)
       assert result.type == "array"
       assert result.items == %{type: "integer"}
-      assert result.min_items == 1
+      assert result.minItems == 1
     end
   end
 
@@ -106,6 +106,230 @@ defmodule Omni.SchemaTest do
 
       assert result.properties.tags == %{type: "array", items: %{type: "string"}}
       assert result.properties.status == %{type: "string", enum: ["active", "inactive"]}
+    end
+  end
+
+  describe "any_of/2" do
+    test "builds anyOf schema" do
+      result = Schema.any_of([Schema.string(), Schema.integer()])
+      assert result == %{anyOf: [%{type: "string"}, %{type: "integer"}]}
+    end
+
+    test "merges opts" do
+      result = Schema.any_of([Schema.string(), Schema.integer()], description: "A value")
+      assert result.description == "A value"
+      assert result.anyOf == [%{type: "string"}, %{type: "integer"}]
+    end
+  end
+
+  describe "key normalization" do
+    test "normalizes snake_case to camelCase in string opts" do
+      result = Schema.string(min_length: 1, max_length: 100)
+      assert result == %{type: "string", minLength: 1, maxLength: 100}
+    end
+
+    test "normalizes snake_case to camelCase in array opts" do
+      result = Schema.array(Schema.string(), min_items: 1, unique_items: true)
+      assert result == %{type: "array", items: %{type: "string"}, minItems: 1, uniqueItems: true}
+    end
+
+    test "normalizes snake_case to camelCase in object opts" do
+      result = Schema.object(%{}, additional_properties: false)
+      assert result == %{type: "object", properties: %{}, additionalProperties: false}
+    end
+
+    test "normalizes snake_case to camelCase in number opts" do
+      result = Schema.number(multiple_of: 0.5, exclusive_minimum: 0, exclusive_maximum: 100)
+
+      assert result == %{
+               type: "number",
+               multipleOf: 0.5,
+               exclusiveMinimum: 0,
+               exclusiveMaximum: 100
+             }
+    end
+
+    test "passes unknown atom keys through unchanged" do
+      result = Schema.string(description: "test", foo: "bar")
+      assert result == %{type: "string", description: "test", foo: "bar"}
+    end
+
+    test "already-camelCase keys pass through unchanged" do
+      result = Schema.string(minLength: 1)
+      assert result == %{type: "string", minLength: 1}
+    end
+  end
+
+  describe "update/2" do
+    test "merges normalized opts into schema" do
+      result = Schema.string() |> Schema.update(min_length: 1, max_length: 100)
+      assert result == %{type: "string", minLength: 1, maxLength: 100}
+    end
+
+    test "overwrites existing keys" do
+      result = Schema.string(description: "old") |> Schema.update(description: "new")
+      assert result == %{type: "string", description: "new"}
+    end
+
+    test "passes unknown keys through" do
+      result = Schema.integer() |> Schema.update(foo: "bar")
+      assert result == %{type: "integer", foo: "bar"}
+    end
+  end
+
+  describe "validate/2" do
+    test "validates string input" do
+      assert {:ok, "hello"} = Schema.validate(Schema.string(), "hello")
+    end
+
+    test "rejects invalid string input" do
+      assert {:error, _} = Schema.validate(Schema.string(), 123)
+    end
+
+    test "validates integer input" do
+      assert {:ok, 42} = Schema.validate(Schema.integer(), 42)
+    end
+
+    test "validates number input as integer" do
+      assert {:ok, 42} = Schema.validate(Schema.number(), 42)
+    end
+
+    test "validates number input as float" do
+      assert {:ok, 3.14} = Schema.validate(Schema.number(), 3.14)
+    end
+
+    test "validates boolean input" do
+      assert {:ok, true} = Schema.validate(Schema.boolean(), true)
+    end
+
+    test "validates enum input" do
+      schema = Schema.enum(["a", "b", "c"])
+      assert {:ok, "a"} = Schema.validate(schema, "a")
+      assert {:error, _} = Schema.validate(schema, "z")
+    end
+
+    test "validates array input" do
+      schema = Schema.array(Schema.string())
+      assert {:ok, ["a", "b"]} = Schema.validate(schema, ["a", "b"])
+      assert {:error, _} = Schema.validate(schema, [1, 2])
+    end
+
+    test "validates object with required fields" do
+      schema = Schema.object(%{city: Schema.string()}, required: [:city])
+      assert {:ok, %{city: "Paris"}} = Schema.validate(schema, %{"city" => "Paris"})
+      assert {:error, _} = Schema.validate(schema, %{})
+    end
+
+    test "validates nested objects" do
+      schema =
+        Schema.object(%{
+          address: Schema.object(%{zip: Schema.string()}, required: [:zip])
+        })
+
+      input = %{"address" => %{"zip" => "12345"}}
+      assert {:ok, %{address: %{zip: "12345"}}} = Schema.validate(schema, input)
+    end
+
+    test "enforces string minLength" do
+      schema = Schema.string(min_length: 3)
+      assert {:ok, "abc"} = Schema.validate(schema, "abc")
+      assert {:error, _} = Schema.validate(schema, "ab")
+    end
+
+    test "enforces string maxLength" do
+      schema = Schema.string(max_length: 5)
+      assert {:ok, "hello"} = Schema.validate(schema, "hello")
+      assert {:error, _} = Schema.validate(schema, "toolong")
+    end
+
+    test "enforces string pattern" do
+      schema = Schema.string(pattern: "^\\d+$")
+      assert {:ok, "123"} = Schema.validate(schema, "123")
+      assert {:error, _} = Schema.validate(schema, "abc")
+    end
+
+    test "enforces combined string constraints" do
+      schema = Schema.string(min_length: 2, max_length: 5)
+      assert {:ok, "abc"} = Schema.validate(schema, "abc")
+      assert {:error, _} = Schema.validate(schema, "a")
+      assert {:error, _} = Schema.validate(schema, "toolong")
+    end
+
+    test "enforces integer minimum and maximum" do
+      schema = Schema.integer(minimum: 1, maximum: 10)
+      assert {:ok, 5} = Schema.validate(schema, 5)
+      assert {:ok, 1} = Schema.validate(schema, 1)
+      assert {:ok, 10} = Schema.validate(schema, 10)
+      assert {:error, _} = Schema.validate(schema, 0)
+      assert {:error, _} = Schema.validate(schema, 11)
+    end
+
+    test "enforces integer exclusiveMinimum and exclusiveMaximum" do
+      schema = Schema.integer(exclusive_minimum: 0, exclusive_maximum: 10)
+      assert {:ok, 1} = Schema.validate(schema, 1)
+      assert {:error, _} = Schema.validate(schema, 0)
+      assert {:error, _} = Schema.validate(schema, 10)
+    end
+
+    test "enforces number minimum as integer" do
+      schema = Schema.number(minimum: 0)
+      assert {:ok, 0} = Schema.validate(schema, 0)
+      assert {:ok, 5} = Schema.validate(schema, 5)
+      assert {:error, _} = Schema.validate(schema, -1)
+    end
+
+    test "enforces number minimum as float" do
+      schema = Schema.number(minimum: 0)
+      assert {:ok, val} = Schema.validate(schema, 0.0)
+      assert val == 0.0
+      assert {:ok, 1.5} = Schema.validate(schema, 1.5)
+      assert {:error, _} = Schema.validate(schema, -0.1)
+    end
+
+    test "enforces constraints on object properties" do
+      schema =
+        Schema.object(
+          %{name: Schema.string(min_length: 1), age: Schema.integer(minimum: 0)},
+          required: [:name, :age]
+        )
+
+      assert {:ok, %{name: "A", age: 0}} = Schema.validate(schema, %{"name" => "A", "age" => 0})
+      assert {:error, _} = Schema.validate(schema, %{"name" => "", "age" => 0})
+      assert {:error, _} = Schema.validate(schema, %{"name" => "A", "age" => -1})
+    end
+
+    test "validates any_of accepting matching types" do
+      schema = Schema.any_of([Schema.string(), Schema.integer()])
+      assert {:ok, "hello"} = Schema.validate(schema, "hello")
+      assert {:ok, 42} = Schema.validate(schema, 42)
+      assert {:error, _} = Schema.validate(schema, true)
+    end
+
+    test "validates any_of in object properties" do
+      schema =
+        Schema.object(
+          %{value: Schema.any_of([Schema.string(), Schema.integer()])},
+          required: [:value]
+        )
+
+      assert {:ok, %{value: "text"}} = Schema.validate(schema, %{"value" => "text"})
+      assert {:ok, %{value: 5}} = Schema.validate(schema, %{"value" => 5})
+      assert {:error, _} = Schema.validate(schema, %{"value" => [1, 2]})
+    end
+
+    test "validates mixed required and optional fields" do
+      schema =
+        Schema.object(
+          %{
+            name: Schema.string(),
+            age: Schema.integer(),
+            tags: Schema.array(Schema.string())
+          },
+          required: [:name]
+        )
+
+      assert {:ok, %{name: "Ada"}} = Schema.validate(schema, %{"name" => "Ada"})
+      assert {:error, _} = Schema.validate(schema, %{"age" => 30})
     end
   end
 
@@ -152,72 +376,6 @@ defmodule Omni.SchemaTest do
       result = Schema.format_errors([error])
 
       assert result == "- name: is required"
-    end
-  end
-
-  describe "to_peri/1" do
-    test "converts string type" do
-      assert Schema.to_peri(Schema.string()) == :string
-    end
-
-    test "converts integer type" do
-      assert Schema.to_peri(Schema.integer()) == :integer
-    end
-
-    test "converts number type to either integer or float" do
-      assert Schema.to_peri(Schema.number()) == {:either, {:integer, :float}}
-    end
-
-    test "converts boolean type" do
-      assert Schema.to_peri(Schema.boolean()) == :boolean
-    end
-
-    test "converts enum to Peri enum" do
-      assert Schema.to_peri(Schema.enum(["a", "b"])) == {:enum, ["a", "b"]}
-    end
-
-    test "converts array to Peri list" do
-      assert Schema.to_peri(Schema.array(Schema.string())) == {:list, :string}
-    end
-
-    test "converts object with atom keys" do
-      peri = Schema.to_peri(Schema.object(%{name: Schema.string()}))
-      assert peri == %{name: :string}
-    end
-
-    test "converts object with string keys" do
-      peri = Schema.to_peri(Schema.object(%{"name" => Schema.string()}))
-      assert peri == %{"name" => :string}
-    end
-
-    test "marks required fields" do
-      peri = Schema.to_peri(Schema.object(%{city: Schema.string()}, required: [:city]))
-      assert peri == %{city: {:required, :string}}
-    end
-
-    test "handles nested objects" do
-      schema =
-        Schema.object(%{
-          address: Schema.object(%{zip: Schema.string()}, required: [:zip])
-        })
-
-      peri = Schema.to_peri(schema)
-      assert peri == %{address: %{zip: {:required, :string}}}
-    end
-
-    test "handles mixed required and optional fields" do
-      schema =
-        Schema.object(
-          %{
-            name: Schema.string(),
-            age: Schema.integer(),
-            tags: Schema.array(Schema.string())
-          },
-          required: [:name]
-        )
-
-      peri = Schema.to_peri(schema)
-      assert peri == %{name: {:required, :string}, age: :integer, tags: {:list, :string}}
     end
   end
 end

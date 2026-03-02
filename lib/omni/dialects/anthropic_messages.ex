@@ -194,7 +194,7 @@ defmodule Omni.Dialects.AnthropicMessages do
   end
 
   defp maybe_put_strict(%{type: "object"} = schema) do
-    Map.put(schema, :additionalProperties, false)
+    Omni.Schema.update(schema, additional_properties: false)
   end
 
   defp maybe_put_strict(schema), do: schema

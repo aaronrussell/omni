@@ -47,7 +47,6 @@ defmodule Omni.Loop do
       raws: [],
       usage: %Usage{},
       output_schema: opts[:output],
-      output_peri: if(opts[:output], do: Schema.to_peri(opts[:output])),
       output_retries: 0
     }
 
@@ -173,7 +172,7 @@ defmodule Omni.Loop do
 
     case JSON.decode(text) do
       {:ok, decoded} ->
-        case Peri.validate(state.output_peri, decoded) do
+        case Schema.validate(state.output_schema, decoded) do
           {:ok, validated} ->
             final_response = %{build_final_response(state, response) | output: validated}
             [{:done, %{stop_reason: final_response.stop_reason}, final_response}]

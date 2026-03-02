@@ -100,7 +100,7 @@ defmodule Omni.Tool do
   3. Returns a `%Tool{}` struct with a handler closure bound to the init state
 
   When the model invokes the tool, `execute/2` validates the LLM's
-  string-keyed input against the schema (via `Omni.Schema.to_peri/1`), casts
+  string-keyed input against the schema (via `Omni.Schema.validate/2`), casts
   keys to match the schema's key types, then calls the handler. Direct handler
   calls (`tool.handler.(input)`) bypass this validation.
   """
@@ -157,7 +157,7 @@ defmodule Omni.Tool do
   defp validate_input(nil, input), do: {:ok, input}
 
   defp validate_input(schema, input) do
-    Peri.validate(Omni.Schema.to_peri(schema), input)
+    Omni.Schema.validate(schema, input)
   end
 
   @doc """
