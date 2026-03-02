@@ -190,7 +190,9 @@ defmodule Omni.Schema do
   defp maybe_add(constraints, key, value), do: [{key, value} | constraints]
 
   defp maybe_add_pattern(constraints, nil), do: constraints
-  defp maybe_add_pattern(constraints, pattern), do: [{:regex, Regex.compile!(pattern)} | constraints]
+
+  defp maybe_add_pattern(constraints, pattern),
+    do: [{:regex, Regex.compile!(pattern)} | constraints]
 
   # -- Key normalization --
 
