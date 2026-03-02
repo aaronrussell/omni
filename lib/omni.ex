@@ -1,6 +1,10 @@
 defmodule Omni do
   @moduledoc """
-  Unified Elixir client for LLM APIs across multiple providers.
+  ![Omni](https://raw.githubusercontent.com/aaronrussell/omni/main/media/poster.png)
+
+  ![License](https://img.shields.io/github/license/aaronrussell/omni?color=informational)
+
+  Universal Elixir client for LLM APIs. Text generation, tool use, and agents.
 
   Omni provides a single API for text generation that works with Anthropic,
   OpenAI, Google Gemini, and OpenRouter. All requests are streaming-first —

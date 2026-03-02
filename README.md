@@ -1,7 +1,13 @@
 # Omni
 
-Unified Elixir client for LLM APIs.
-Text generation, tool use, and agents - across every provider.
+![Omni](https://raw.githubusercontent.com/aaronrussell/omni/main/media/poster.png)
+
+![Hex.pm](https://img.shields.io/hexpm/v/omni?color=informational)
+![License](https://img.shields.io/github/license/aaronrussell/omni?color=informational)
+![Build Status](https://img.shields.io/github/actions/workflow/status/aaronrussell/omni/elixir.yml?branch=main)
+
+Universal Elixir client for LLM APIs.
+Text generation, tool use, and agents.
 
 ## Features
 
