@@ -292,6 +292,7 @@ defmodule Omni.Agent do
     * `:stop` — the model finished naturally
     * `:tool_use` — the model called a schema-only tool (completion signal)
     * `:length` — output was truncated (hit max output tokens)
+    * `:refusal` — the model declined due to content or safety policy
 
   Return `{:stop, state}` to end the prompt round (listener receives `:done`),
   or `{:continue, content, state}` to append a user message and start another

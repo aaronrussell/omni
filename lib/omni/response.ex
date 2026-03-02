@@ -16,7 +16,7 @@ defmodule Omni.Response do
     * `:output` — validated, decoded map when the `:output` option was set
     * `:stop_reason` — why generation ended: `:stop` (natural completion),
       `:length` (token limit reached), `:tool_use` (model invoked a tool),
-      or `:error`
+      `:refusal` (declined due to content or safety policy), or `:error`
     * `:usage` — token counts and costs (see `Omni.Usage`)
     * `:error` — error description when `stop_reason` is `:error`, otherwise `nil`
     * `:raw` — list of `{%Req.Request{}, %Req.Response{}}` tuples when `:raw`
@@ -34,12 +34,15 @@ defmodule Omni.Response do
           message: Message.t(),
           model: Model.t(),
           usage: Usage.t(),
-          stop_reason: :stop | :length | :tool_use | :error,
+          stop_reason: stop_reason(),
           error: String.t() | nil,
           raw: [{Req.Request.t(), Req.Response.t()}] | nil,
           output: map() | list() | nil,
           messages: [Message.t()]
         }
+
+  @typedoc "Why generation ended."
+  @type stop_reason :: :stop | :length | :tool_use | :refusal | :error
 
   @doc "Creates a new response struct from a keyword list or map."
   @spec new(Enumerable.t()) :: t()

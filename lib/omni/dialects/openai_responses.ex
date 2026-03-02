@@ -257,6 +257,7 @@ defmodule Omni.Dialects.OpenAIResponses do
   end
 
   defp infer_stop_reason(%{"status" => "incomplete"}), do: :length
+  defp infer_stop_reason(%{"status" => "failed"}), do: :error
   defp infer_stop_reason(_), do: :stop
 
   # Usage normalization

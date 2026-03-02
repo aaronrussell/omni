@@ -284,7 +284,12 @@ defmodule Omni.Dialects.GoogleGemini do
 
   defp normalize_stop_reason("STOP"), do: :stop
   defp normalize_stop_reason("MAX_TOKENS"), do: :length
-  defp normalize_stop_reason("SAFETY"), do: :content_filter
-  defp normalize_stop_reason("RECITATION"), do: :content_filter
-  defp normalize_stop_reason(other), do: other
+  defp normalize_stop_reason("SAFETY"), do: :refusal
+  defp normalize_stop_reason("RECITATION"), do: :refusal
+  defp normalize_stop_reason("LANGUAGE"), do: :refusal
+  defp normalize_stop_reason("BLOCKLIST"), do: :refusal
+  defp normalize_stop_reason("PROHIBITED_CONTENT"), do: :refusal
+  defp normalize_stop_reason("SPII"), do: :refusal
+  defp normalize_stop_reason("IMAGE_SAFETY"), do: :refusal
+  defp normalize_stop_reason(_), do: :stop
 end

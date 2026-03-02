@@ -577,7 +577,23 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "content_filter"}]
       }
 
-      assert [{:message, %{stop_reason: :content_filter}}] = OpenAICompletions.handle_event(event)
+      assert [{:message, %{stop_reason: :refusal}}] = OpenAICompletions.handle_event(event)
+    end
+
+    test "message with function_call" do
+      event = %{
+        "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "function_call"}]
+      }
+
+      assert [{:message, %{stop_reason: :tool_use}}] = OpenAICompletions.handle_event(event)
+    end
+
+    test "unknown finish_reason maps to :stop" do
+      event = %{
+        "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "unknown_reason"}]
+      }
+
+      assert [{:message, %{stop_reason: :stop}}] = OpenAICompletions.handle_event(event)
     end
 
     test "message with usage from final chunk" do

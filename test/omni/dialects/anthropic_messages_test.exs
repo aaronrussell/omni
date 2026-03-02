@@ -758,6 +758,18 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
       assert [{:message, %{stop_reason: :tool_use}}] =
                AnthropicMessages.handle_event(make_event.("tool_use"))
+
+      assert [{:message, %{stop_reason: :length}}] =
+               AnthropicMessages.handle_event(make_event.("pause_turn"))
+
+      assert [{:message, %{stop_reason: :refusal}}] =
+               AnthropicMessages.handle_event(make_event.("refusal"))
+
+      assert [{:message, %{stop_reason: :length}}] =
+               AnthropicMessages.handle_event(make_event.("model_context_window_exceeded"))
+
+      assert [{:message, %{stop_reason: :stop}}] =
+               AnthropicMessages.handle_event(make_event.("unknown_reason"))
     end
   end
 

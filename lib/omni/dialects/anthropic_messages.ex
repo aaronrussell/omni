@@ -328,5 +328,8 @@ defmodule Omni.Dialects.AnthropicMessages do
   defp normalize_stop_reason("stop_sequence"), do: :stop
   defp normalize_stop_reason("max_tokens"), do: :length
   defp normalize_stop_reason("tool_use"), do: :tool_use
-  defp normalize_stop_reason(other), do: other
+  defp normalize_stop_reason("pause_turn"), do: :length
+  defp normalize_stop_reason("refusal"), do: :refusal
+  defp normalize_stop_reason("model_context_window_exceeded"), do: :length
+  defp normalize_stop_reason(_), do: :stop
 end

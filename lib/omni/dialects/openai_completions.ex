@@ -299,6 +299,7 @@ defmodule Omni.Dialects.OpenAICompletions do
   defp normalize_stop_reason("stop"), do: :stop
   defp normalize_stop_reason("length"), do: :length
   defp normalize_stop_reason("tool_calls"), do: :tool_use
-  defp normalize_stop_reason("content_filter"), do: :content_filter
-  defp normalize_stop_reason(other), do: other
+  defp normalize_stop_reason("content_filter"), do: :refusal
+  defp normalize_stop_reason("function_call"), do: :tool_use
+  defp normalize_stop_reason(_), do: :stop
 end
