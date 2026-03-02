@@ -5,7 +5,7 @@ defmodule Omni.MixProject do
     [
       app: :omni,
       name: "Omni",
-      description: "One client for all LLMs. Universal Elixir chat completion API client.",
+      description: "Unified Elixir client for LLM APIs. Text generation, tool use, and agents - across every provider.",
       source_url: "https://github.com/aaronrussell/omni",
       version: "1.0.0",
       elixir: "~> 1.18",

@@ -1,7 +1,20 @@
 defmodule Omni.Providers.Anthropic do
   @moduledoc """
   Provider for the Anthropic API, using the `Omni.Dialects.AnthropicMessages`
-  dialect. Adds the required `anthropic-version` header to every request.
+  dialect.
+
+  Loaded by default. Reads the API key from the `ANTHROPIC_API_KEY` environment
+  variable — no configuration is needed if the variable is set.
+
+  ## Configuration
+
+  Override the default API key or base URL via application config:
+
+      config :omni, Omni.Providers.Anthropic,
+        api_key: {:system, "MY_ANTHROPIC_KEY"}
+
+  Any key from the provider's `config/0` can be overridden: `:api_key`,
+  `:base_url`, `:headers`. See `Omni.Provider` for details.
   """
 
   use Omni.Provider, dialect: Omni.Dialects.AnthropicMessages

@@ -12,18 +12,29 @@ defmodule Omni do
 
       {:omni, "~> 1.0"}
 
-  Configure your provider API keys:
+  Each built-in provider reads its API key from a standard environment variable
+  by default — if your keys are set, no configuration is needed:
+
+  | Provider | Environment variable |
+  | --- | --- |
+  | Anthropic | `ANTHROPIC_API_KEY` |
+  | OpenAI | `OPENAI_API_KEY` |
+  | Google | `GEMINI_API_KEY` |
+  | OpenRouter | `OPENROUTER_API_KEY` |
+
+  To override a key — for example, to use a different variable name or load
+  from a vault at runtime — use per-provider application config:
 
       # config/runtime.exs
-      config :omni, Omni.Providers.Anthropic, api_key: System.get_env("ANTHROPIC_API_KEY")
-      config :omni, Omni.Providers.OpenAI, api_key: System.get_env("OPENAI_API_KEY")
+      config :omni, Omni.Providers.Anthropic, api_key: {:system, "MY_ANTHROPIC_KEY"}
+      config :omni, Omni.Providers.OpenAI, api_key: {MyApp.Secrets, :fetch, ["openai"]}
+
+  You can also pass `:api_key` directly to `generate_text/3` or `stream_text/3`.
 
   Anthropic, OpenAI, and Google are loaded by default. To add others or limit
   what loads at startup:
 
       config :omni, :providers, [:anthropic, :openai, :openrouter]
-
-  You can also pass `:api_key` directly to `generate_text/3` or `stream_text/3`.
 
   ## Generating text
 
