@@ -1,9 +1,8 @@
 defmodule Omni.Dialects.OpenAIResponses do
   @moduledoc """
-  Dialect for the OpenAI Responses API.
+  Dialect implementation for the OpenAI Responses wire format.
 
-  Translates Omni types to the OpenAI Responses wire format and parses
-  streaming SSE events into normalized delta tuples.
+  See `Omni.Dialect` for the behaviour specification and delta types.
   """
 
   @behaviour Omni.Dialect

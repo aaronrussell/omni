@@ -1,8 +1,7 @@
 defmodule Omni.Providers.OpenAI do
   @moduledoc """
-  Provider for the OpenAI Responses API.
-
-  Authenticates via the `Authorization: Bearer <key>` header.
+  Provider for the OpenAI API, using the `Omni.Dialects.OpenAIResponses`
+  dialect.
   """
 
   use Omni.Provider, dialect: Omni.Dialects.OpenAIResponses

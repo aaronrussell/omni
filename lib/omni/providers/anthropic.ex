@@ -1,9 +1,7 @@
 defmodule Omni.Providers.Anthropic do
   @moduledoc """
-  Provider for the Anthropic Messages API.
-
-  Authenticates via the `x-api-key` header and includes the required
-  `anthropic-version` header on every request.
+  Provider for the Anthropic API, using the `Omni.Dialects.AnthropicMessages`
+  dialect. Adds the required `anthropic-version` header to every request.
   """
 
   use Omni.Provider, dialect: Omni.Dialects.AnthropicMessages

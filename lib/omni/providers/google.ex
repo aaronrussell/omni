@@ -1,8 +1,7 @@
 defmodule Omni.Providers.Google do
   @moduledoc """
-  Provider for the Google Gemini API.
-
-  Authenticates via the `x-goog-api-key` header (no Bearer prefix).
+  Provider for the Google Gemini API, using the `Omni.Dialects.GoogleGemini`
+  dialect.
   """
 
   use Omni.Provider, dialect: Omni.Dialects.GoogleGemini

@@ -1,27 +1,14 @@
 defmodule Omni.Dialects.GoogleGemini do
   @moduledoc """
-  Dialect for the Google Gemini API.
+  Dialect implementation for the Google Gemini wire format.
 
-  Translates Omni types to the Google Gemini wire format and parses
-  streaming SSE events into normalized delta tuples.
+  See `Omni.Dialect` for the behaviour specification and delta types.
 
-  ## Structural differences from other dialects
+  ## Notable differences
 
-  - The model ID is embedded in the URL path (no `"model"` key in body)
-  - Streaming is triggered by the endpoint + `?alt=sse` (no `"stream"` key)
-  - Assistant role maps to `"model"` (not `"assistant"`)
-  - System prompt uses `"systemInstruction"` with a `"parts"` array
-  - Options go in `"generationConfig"` wrapper
-  - Tools use `"functionDeclarations"` wrapper
-  - Function calls are sent complete (not streamed as JSON fragments)
-
-  ## Known limitations
-
-  - No `:tool_use_delta` events — Google sends function call args complete
-    (as a map), not as streamed JSON fragments. The `:block_start` for
-    tool_use carries the full input directly.
-  - Cache option is a no-op (Google uses server-side caching, incompatible
-    model)
+  - Model ID is embedded in the URL path, not the request body
+  - No `:tool_use_delta` events — Gemini sends function call arguments
+    complete rather than as streamed JSON fragments
   """
 
   @behaviour Omni.Dialect

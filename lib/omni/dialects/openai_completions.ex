@@ -1,9 +1,8 @@
 defmodule Omni.Dialects.OpenAICompletions do
   @moduledoc """
-  Dialect for the OpenAI Chat Completions API.
+  Dialect implementation for the OpenAI Chat Completions wire format.
 
-  Translates Omni types to the OpenAI Chat Completions wire format and parses
-  streaming SSE events into normalized delta tuples.
+  See `Omni.Dialect` for the behaviour specification and delta types.
   """
 
   @behaviour Omni.Dialect

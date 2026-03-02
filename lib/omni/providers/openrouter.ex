@@ -1,10 +1,9 @@
 defmodule Omni.Providers.OpenRouter do
   @moduledoc """
-  Provider for the OpenRouter API.
-
-  OpenRouter is a meta-provider that routes requests to many LLM backends
-  using the OpenAI Chat Completions wire format. Authenticates via the
-  `Authorization: Bearer <key>` header.
+  Provider for the OpenRouter API, using the `Omni.Dialects.OpenAICompletions`
+  dialect. Overrides `c:Omni.Provider.modify_body/3` and
+  `c:Omni.Provider.modify_events/2` to handle OpenRouter's `reasoning_details`
+  format.
   """
 
   alias Omni.Context

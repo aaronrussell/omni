@@ -1,9 +1,8 @@
 defmodule Omni.Dialects.AnthropicMessages do
   @moduledoc """
-  Dialect for the Anthropic Messages API.
+  Dialect implementation for the Anthropic Messages wire format.
 
-  Translates Omni types to the Anthropic Messages wire format and parses
-  streaming SSE events into normalized delta tuples.
+  See `Omni.Dialect` for the behaviour specification and delta types.
   """
 
   @behaviour Omni.Dialect
