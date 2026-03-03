@@ -16,7 +16,7 @@ defmodule Omni.Request do
   @moduledoc false
 
   alias Omni.Content.Attachment
-  alias Omni.{Context, Model, SSE, StreamingResponse}
+  alias Omni.{Context, Model, NDJSON, SSE, StreamingResponse}
 
   @schema %{
     # Config (type-loose — validated by infrastructure, not user input)
@@ -25,6 +25,7 @@ defmodule Omni.Request do
     auth_header: {:string, {:default, "authorization"}},
     headers: {:any, {:default, %{}}},
     plug: :any,
+    models: :any,
 
     # Inference (type-strict)
     max_tokens: :integer,
@@ -83,9 +84,11 @@ defmodule Omni.Request do
     raw? = opts[:raw] || false
 
     with {:ok, resp} <- Req.request(req), :ok <- check_status(resp) do
+      parser = select_parser(resp)
+
       deltas =
         resp.body
-        |> SSE.stream()
+        |> parser.stream()
         |> Stream.flat_map(&parse_event(model, &1))
 
       cancel = fn -> Req.cancel_async_response(resp) end
@@ -163,6 +166,16 @@ defmodule Omni.Request do
   defp check_modality(mt, _modalities), do: {:error, {:unsupported_media_type, mt}}
 
   # -- Private helpers --
+
+  defp select_parser(%Req.Response{headers: headers}) do
+    content_type = headers["content-type"] || []
+
+    if Enum.any?(content_type, &String.contains?(&1, "ndjson")) do
+      NDJSON
+    else
+      SSE
+    end
+  end
 
   defp check_unknown_keys(data, schema) do
     unknown = Map.keys(data) -- Map.keys(schema)

@@ -1,0 +1,2 @@
+{"model":"qwen3.5:4b","created_at":"2026-03-03T13:20:42.68074Z","message":{"role":"assistant","content":"","tool_calls":[{"id":"call_8i6jv226","function":{"index":0,"name":"get_weather","arguments":{"city":"London"}}}]},"done":false}
+{"model":"qwen3.5:4b","created_at":"2026-03-03T13:20:42.717247Z","message":{"role":"assistant","content":""},"done":true,"done_reason":"stop","total_duration":1487087708,"load_duration":137827667,"prompt_eval_count":173,"prompt_eval_duration":603909209,"eval_count":21,"eval_duration":711038335}

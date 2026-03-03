@@ -1,0 +1,522 @@
+[
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 163840,
+    "id": "cogito-2.1:671b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32000,
+    "name": "cogito-2.1:671b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 163840,
+    "id": "deepseek-v3.1:671b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 163840,
+    "name": "deepseek-v3.1:671b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 163840,
+    "id": "deepseek-v3.2",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "deepseek-v3.2",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "devstral-2:123b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262144,
+    "name": "devstral-2:123b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "devstral-small-2:24b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 262144,
+    "name": "devstral-small-2:24b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "id": "gemini-3-flash-preview",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "gemini-3-flash-preview",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "id": "gemini-3-pro-preview",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 64000,
+    "name": "gemini-3-pro-preview",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 202752,
+    "id": "glm-4.6",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "glm-4.6",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 202752,
+    "id": "glm-4.7",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "glm-4.7",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 202752,
+    "id": "glm-5",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "glm-5",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "gpt-oss:120b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "gpt-oss:120b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "id": "gpt-oss:20b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "gpt-oss:20b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "kimi-k2-thinking",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262144,
+    "name": "kimi-k2-thinking",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "kimi-k2.5",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 262144,
+    "name": "kimi-k2.5",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "kimi-k2:1t",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262144,
+    "name": "kimi-k2:1t",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "id": "minimax-m2",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 128000,
+    "name": "minimax-m2",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "id": "minimax-m2.1",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "minimax-m2.1",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "id": "minimax-m2.5",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "minimax-m2.5",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "ministral-3:14b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "ministral-3:14b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "ministral-3:3b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "ministral-3:3b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "ministral-3:8b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "ministral-3:8b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "mistral-large-3:675b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 262144,
+    "name": "mistral-large-3:675b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "id": "nemotron-3-nano:30b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "nemotron-3-nano:30b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen3-coder-next",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "qwen3-coder-next",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen3-coder:480b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "qwen3-coder:480b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen3-next:80b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "qwen3-next:80b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen3-vl:235b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 32768,
+    "name": "qwen3-vl:235b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen3-vl:235b-instruct",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 131072,
+    "name": "qwen3-vl:235b-instruct",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "id": "qwen3.5:397b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 81920,
+    "name": "qwen3.5:397b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32768,
+    "id": "rnj-1:8b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 4096,
+    "name": "rnj-1:8b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  }
+]

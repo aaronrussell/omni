@@ -166,6 +166,7 @@ defmodule Omni.Provider do
   @builtin_providers %{
     anthropic: Omni.Providers.Anthropic,
     google: Omni.Providers.Google,
+    ollama: Omni.Providers.Ollama,
     openai: Omni.Providers.OpenAI,
     openrouter: Omni.Providers.OpenRouter
   }
