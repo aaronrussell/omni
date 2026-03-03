@@ -12,9 +12,9 @@ defmodule Omni.Loop do
   #    final response text (JSON decode + Peri validation) and retries up to
   #    @max_output_retries times on failure. Skips retry on :length stop reason.
   #
-  # Both use recursive Stream.concat — each step's StreamingResponse is consumed,
-  # its :done event captured (via process dictionary), and a lazy continuation
-  # thunk decides whether to loop or emit the final :done.
+  # Both use recursive Stream.flat_map — each step's StreamingResponse events
+  # pass through to the consumer, and when :done arrives, the flat_map callback
+  # returns either a terminal event or a new lazy stream for the next step.
   @moduledoc false
 
   alias Omni.{Context, Message, Model, Request, Response, Schema, StreamingResponse, Tool, Usage}
@@ -56,7 +56,7 @@ defmodule Omni.Loop do
       stream = loop_stream(sr, state)
 
       cancel = fn ->
-        case Process.get(cancel_ref) do
+        case Process.delete(cancel_ref) do
           nil -> :ok
           fun when is_function(fun) -> fun.()
           _ -> :ok
@@ -78,33 +78,16 @@ defmodule Omni.Loop do
   # -- Stream pipeline --
 
   defp loop_stream(sr, state) do
-    done_key = make_ref()
+    Stream.flat_map(sr.stream, fn
+      {:done, _data, response} ->
+        handle_step_result(response, state)
 
-    # Pass through all events except :done, which we capture
-    step_events =
-      Stream.flat_map(sr.stream, fn
-        {:done, _data, response} ->
-          Process.put(done_key, response)
-          []
+      {:error, _, _} = event ->
+        finish(state, [event])
 
-        event ->
-          [event]
-      end)
-
-    # Lazy continuation — evaluates after step_events is exhausted
-    continuation =
-      Stream.flat_map([:_], fn :_ ->
-        case Process.delete(done_key) do
-          nil ->
-            # Error occurred mid-stream; :error event already passed through
-            []
-
-          response ->
-            handle_step_result(response, state)
-        end
-      end)
-
-    Stream.concat(step_events, continuation)
+      event ->
+        [event]
+    end)
   end
 
   # -- Step result handling --
@@ -129,7 +112,7 @@ defmodule Omni.Loop do
 
       true ->
         final_response = build_final_response(state, response)
-        [{:done, %{stop_reason: final_response.stop_reason}, final_response}]
+        finish(state, [{:done, %{stop_reason: final_response.stop_reason}, final_response}])
     end
   end
 
@@ -158,7 +141,7 @@ defmodule Omni.Loop do
 
       {:error, reason} ->
         error_response = build_error_response(state, reason)
-        Stream.concat(tool_result_events, [{:error, reason, error_response}])
+        Stream.concat(tool_result_events, finish(state, [{:error, reason, error_response}]))
     end
   end
 
@@ -175,7 +158,7 @@ defmodule Omni.Loop do
         case Schema.validate(state.output_schema, decoded) do
           {:ok, validated} ->
             final_response = %{build_final_response(state, response) | output: validated}
-            [{:done, %{stop_reason: final_response.stop_reason}, final_response}]
+            finish(state, [{:done, %{stop_reason: final_response.stop_reason}, final_response}])
 
           {:error, errors} ->
             retry_output(response, state, :validation, errors)
@@ -189,12 +172,12 @@ defmodule Omni.Loop do
   defp retry_output(response, state, _kind, _errors)
        when state.output_retries >= @max_output_retries do
     final_response = build_final_response(state, response)
-    [{:done, %{stop_reason: final_response.stop_reason}, final_response}]
+    finish(state, [{:done, %{stop_reason: final_response.stop_reason}, final_response}])
   end
 
   defp retry_output(%{stop_reason: :length} = response, state, _kind, _errors) do
     final_response = build_final_response(state, response)
-    [{:done, %{stop_reason: final_response.stop_reason}, final_response}]
+    finish(state, [{:done, %{stop_reason: final_response.stop_reason}, final_response}])
   end
 
   defp retry_output(response, state, kind, errors) do
@@ -228,7 +211,7 @@ defmodule Omni.Loop do
 
       {:error, reason} ->
         error_response = build_error_response(state, reason)
-        [{:error, reason, error_response}]
+        finish(state, [{:error, reason, error_response}])
     end
   end
 
@@ -299,6 +282,13 @@ defmodule Omni.Loop do
       error: reason,
       messages: state.messages
     )
+  end
+
+  # -- Cleanup --
+
+  defp finish(state, events) do
+    Process.delete(state.cancel_ref)
+    events
   end
 
   # -- Helpers --

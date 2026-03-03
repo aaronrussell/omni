@@ -24,7 +24,7 @@ These affect multiple modules or span subsystem boundaries:
 
 5. **`thinking: true` documented but not supported** — `omni.ex:182` docs say `:thinking` accepts `true`, but the schema enum in `request.ex:38` is `{:enum, [false, :low, :medium, :high, :max]}` — no `true`. No dialect has a `normalize_thinking(true)` clause.
 
-6. **Process dictionary leaks in Loop** — `cancel_ref` is never cleaned up after stream completion. `done_key` leaks if stream is cancelled mid-step before continuation executes. Tiny refs, but accumulate in long-lived processes.
+6. `[FIXED]` **Process dictionary leaks in Loop** — `done_key` eliminated entirely by replacing the two-phase `Stream.concat` + process dictionary pattern with a direct `Stream.flat_map` callback. `cancel_ref` now cleaned up via `finish/2` helper at all terminal paths (`:done`, `:error`) and via `Process.delete` in the cancel function itself.
 
 ---
 
@@ -160,7 +160,7 @@ None found.
 
 ### Minor / Nits
 - **loop.ex:118,146,213,218** — Repeated `state.messages ++ [msg]` is O(n) per step, O(n^2) total. Fine for typical use but suboptimal for long agentic loops.
-- **loop.ex:54** — Process dictionary leaks. See cross-cutting #6.
+- `[FIXED]` **loop.ex:54** — Process dictionary leaks. See cross-cutting #6.
 - **request.ex:189** — `merge_config(:headers, a, b)` crashes if either value is not a map. Schema types headers as `:any` with no protection.
 - **loop.ex:279** — `tool_result_text/1` only matches `%Text{}`. A ToolResult with Thinking content would crash. Add catch-all.
 
