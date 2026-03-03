@@ -492,11 +492,11 @@ defmodule Omni.StreamingResponseTest do
       assert resp.usage.cache_write_tokens == 10
       assert resp.usage.total_tokens == 180
 
-      assert resp.usage.input_cost == 300.0
-      assert resp.usage.output_cost == 750.0
-      assert resp.usage.cache_read_cost == 6.0
-      assert resp.usage.cache_write_cost == 37.5
-      assert resp.usage.total_cost == 1093.5
+      assert resp.usage.input_cost == 0.0003
+      assert resp.usage.output_cost == 0.00075
+      assert resp.usage.cache_read_cost == 0.000006
+      assert resp.usage.cache_write_cost == 0.0000375
+      assert_in_delta resp.usage.total_cost, 0.0010935, 1.0e-10
     end
 
     test "nil model produces zero costs" do

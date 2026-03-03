@@ -14,7 +14,7 @@ Full review of all 38 modules across 8 subsystems. Findings are categorized by s
 
 These affect multiple modules or span subsystem boundaries:
 
-1. **Usage cost computation is wrong** — `streaming_response.ex:498-501` computes costs as `tokens * cost_per_million` without dividing by 1,000,000. Model cost fields are documented as "per million tokens" (confirmed in JSON data files). All `Usage` cost fields are inflated by 1M×. (Flagged by both Core Data Structs and Streaming Pipeline reviews.)
+1. `[FIXED]` **Usage cost computation is wrong** — `streaming_response.ex:498-501` computes costs as `tokens * cost_per_million` without dividing by 1,000,000. Model cost fields are documented as "per million tokens" (confirmed in JSON data files). All `Usage` cost fields were inflated by 1M×. Fixed: added `/ 1_000_000` to all four cost computations and corrected the test.
 
 2. **`normalize_thinking/1` duplicated across all 5 dialects** — Identical 4-line function copy-pasted in every dialect. Strong candidate for extraction into `Omni.Dialect` or a shared helper.
 
@@ -55,7 +55,7 @@ These affect multiple modules or span subsystem boundaries:
 ## Streaming Pipeline (StreamingResponse, SSE Parser, NDJSON Parser)
 
 ### Bugs / Correctness
-- **streaming_response.ex:508** — `total_tokens = input + output + cache_read + cache_write` double-counts cached tokens. Provider APIs (e.g. Anthropic) return `input_tokens` that *includes* cache tokens — cache_read/cache_write are subsets, not additive. Formula should be `input + output`. (Related to cross-cutting #1.)
+- `[WONTFIX]` **streaming_response.ex:508** — Flagged as double-counting cached tokens, but this is correct. Anthropic's `input_tokens` is the *non-cached* portion; cache tokens are additive. OpenAI/Google/Ollama don't extract cache tokens separately (always 0). Formula is correct for all providers.
 - **sse.ex:24-26** — Uses `Stream.transform/3` (no `last_fun`), so a connection drop mid-event silently discards the partial buffer. NDJSON parser correctly uses `Stream.transform/5` with a flush. If the lost event was a final content delta, the response will be missing data but `:done` still fires. Add a `last_fun` or document the deliberate omission.
 
 ### Inconsistencies
