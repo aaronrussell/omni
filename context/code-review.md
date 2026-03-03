@@ -20,9 +20,9 @@ These affect multiple modules or span subsystem boundaries:
 
 3. **`maybe_put/3` duplicated across all dialects** — Same private helper in every dialect module.
 
-4. **`Enumerable.t()` specs on `new/1` constructors are inconsistent** — Some constructors (`Message.new/1`, `ToolResult.new/1`) pipe through `Map.new/1` (accepting any enumerable), while others (`Text.new/1`, `Model.new/1`, `ToolUse.new/1`, etc.) pass directly to `struct!/2` (only keyword lists or maps). All are specced as `Enumerable.t()`.
+4. `[WONTFIX]` **`Enumerable.t()` specs on `new/1` constructors are inconsistent** — False positive. Both `Map.new/1` and `struct!/2` accept any enumerable via `Enum.reduce`. The spec `Enumerable.t()` is accurate for all constructors regardless of which internal path they use.
 
-5. **`thinking: true` documented but not supported** — `omni.ex:182` docs say `:thinking` accepts `true`, but the schema enum in `request.ex:38` is `{:enum, [false, :low, :medium, :high, :max]}` — no `true`. No dialect has a `normalize_thinking(true)` clause.
+5. `[FIXED]` **`thinking: true` documented but not supported** — Doc was wrong. Removed `true` from the docs; valid values are `false`, `:low`, `:medium`, `:high`, `:max`, or `%{effort: level, budget: tokens}`.
 
 6. `[FIXED]` **Process dictionary leaks in Loop** — `done_key` eliminated entirely by replacing the two-phase `Stream.concat` + process dictionary pattern with a direct `Stream.flat_map` callback. `cancel_ref` now cleaned up via `finish/2` helper at all terminal paths (`:done`, `:error`) and via `Process.delete` in the cancel function itself.
 
@@ -31,11 +31,11 @@ These affect multiple modules or span subsystem boundaries:
 ## Core Data Structs (Model, Context, Message, Response, Usage, Content blocks)
 
 ### Bugs / Correctness
-- **tool_result.ex:29-35** — Doc says "nil content becomes []" but `Map.update/4` only uses the default when the key is *absent*. Explicit `content: nil` passes through unchanged. Fix: add a `nil -> []` clause in the update function.
+- `[FIXED]` **tool_result.ex:29-35** — Added `nil -> []` clause in the content update function to match the documented behaviour.
 
 ### Inconsistencies
 - **message.ex:24** — Typespec declares `timestamp: DateTime.t()` (non-nilable) but struct defaults to `nil`. Direct construction `%Message{role: :user}` produces `nil` timestamp, violating the type. Fix: change type to `DateTime.t() | nil`.
-- **model.ex:196 vs message.ex:38** — Constructor input handling inconsistency (see cross-cutting #4 above).
+- `[WONTFIX]` **model.ex:196 vs message.ex:38** — Constructor input handling inconsistency (see cross-cutting #4 — false positive).
 
 ### Dead Code
 - **attachment.ex:11** — `opts: %{}` field on Attachment is never read, written, or referenced anywhere in the codebase. Remove or document its purpose.
@@ -56,11 +56,11 @@ These affect multiple modules or span subsystem boundaries:
 
 ### Bugs / Correctness
 - `[WONTFIX]` **streaming_response.ex:508** — Flagged as double-counting cached tokens, but this is correct. Anthropic's `input_tokens` is the *non-cached* portion; cache tokens are additive. OpenAI/Google/Ollama don't extract cache tokens separately (always 0). Formula is correct for all providers.
-- **sse.ex:24-26** — Uses `Stream.transform/3` (no `last_fun`), so a connection drop mid-event silently discards the partial buffer. NDJSON parser correctly uses `Stream.transform/5` with a flush. If the lost event was a final content delta, the response will be missing data but `:done` still fires. Add a `last_fun` or document the deliberate omission.
+- `[FIXED]` **sse.ex:24-26** — Upgraded to `Stream.transform/5` with a `last_fun` that flushes the buffer on stream end, matching the NDJSON parser pattern. Incomplete JSON in the buffer is safely skipped. Added tests for both cases.
 
 ### Inconsistencies
-- **sse.ex:18 vs ndjson.ex:15** — Docs say "produced by `JSON.decode!/1`" but implementations use `JSON.decode/1` (non-raising).
-- **streaming_response.ex:94** — `map() | term()` in event type is redundant (map is a subtype of term). Could be more precise.
+- `[FIXED]` **sse.ex:18 vs ndjson.ex:15** — Fixed docs to say `JSON.decode/1`.
+- `[FIXED]` **streaming_response.ex:94** — Changed to `{event_type(), map(), Response.t()} | {:error, term(), Response.t()}` to precisely express that only error events carry a non-map second element.
 
 ### Dead Code
 - **streaming_response.ex:126-127** — Fallback clauses in `complete/1` are unreachable under normal operation (finalize always emits `:done` or `:error` last).
@@ -92,7 +92,7 @@ These affect multiple modules or span subsystem boundaries:
 
 ### Minor / Nits
 - **tool/runner.ex:90-91** — `format_result/1` uses `inspect/1` for non-binary values. `JSON.encode!/1` would produce more model-friendly output.
-- **tool.ex:131** — Spec says `Enumerable.t()` but `struct!/2` requires keyword or map. See cross-cutting #4.
+- `[WONTFIX]` **tool.ex:131** — See cross-cutting #4 — false positive.
 - **schema.ex:174-178** — Entire module assumes atom-keyed schemas. Undocumented requirement for `validate/2`.
 
 ---
@@ -193,10 +193,10 @@ None found.
 ## Supporting Code (Application, Mix Tasks)
 
 ### Bugs / Correctness
-- **models.get.ex:47** — Uses `Jason.encode!/2` while every other module uses Elixir's built-in `JSON` module. Jason is only a transitive dependency (via Peri/Req). If either drops Jason, the mix task breaks. Fix: switch to `JSON.encode!/1` or add Jason as explicit dev dependency.
+- `[WONTFIX]` **models.get.ex:47** — Jason is needed for `pretty: true` on generated JSON files (reviewed frequently in diffs). Elixir's built-in `JSON` module has no pretty-print option.
 
 ### Inconsistencies
-- **models.get.ex:47 vs provider.ex:378** — `Jason.encode!` in mix task vs `JSON.decode!` everywhere else.
+- `[WONTFIX]` **models.get.ex:47 vs provider.ex:378** — Same as above.
 
 ### Minor / Nits
 - **application.ex:10-11** — If a provider's `models/0` raises during startup (corrupt JSON), the error is opaque. Consider wrapping with descriptive re-raise.

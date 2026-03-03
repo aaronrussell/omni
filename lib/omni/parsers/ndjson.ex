@@ -12,7 +12,7 @@ defmodule Omni.Parsers.NDJSON do
   @doc """
   Transforms an enumerable of binary chunks into a stream of decoded JSON maps.
 
-  Each yielded value is a map produced by `JSON.decode!/1` from one line of
+  Each yielded value is a map produced by `JSON.decode/1` from one line of
   newline-delimited JSON. Lines that fail to decode are silently skipped.
   """
   @spec stream(Enumerable.t()) :: Enumerable.t()

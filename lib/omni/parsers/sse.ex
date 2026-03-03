@@ -15,14 +15,32 @@ defmodule Omni.Parsers.SSE do
   @doc """
   Transforms an enumerable of binary chunks into a stream of decoded JSON maps.
 
-  Each yielded value is a map produced by `JSON.decode!/1` from the `data:` lines
+  Each yielded value is a map produced by `JSON.decode/1` from the `data:` lines
   of a single SSE event. Events without data, comment-only events, and events
   whose data fails to decode are silently skipped.
   """
   @spec stream(Enumerable.t()) :: Enumerable.t()
   def stream(async_body) do
-    async_body
-    |> Stream.transform("", &process_chunk/2)
+    Stream.transform(
+      async_body,
+      fn -> "" end,
+      &process_chunk/2,
+      fn
+        :halt ->
+          {[], :halt}
+
+        "" ->
+          {[], ""}
+
+        buffer ->
+          case parse_event(buffer) do
+            :halt -> {[], :halt}
+            :skip -> {[], ""}
+            {:ok, decoded} -> {[decoded], ""}
+          end
+      end,
+      fn _acc -> :ok end
+    )
   end
 
   defp process_chunk(_chunk, :halt) do

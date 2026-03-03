@@ -91,7 +91,7 @@ defmodule Omni.StreamingResponse do
           | :done
 
   @typedoc "A consumer event emitted during enumeration."
-  @type event :: {event_type(), map() | term(), Response.t()}
+  @type event :: {event_type(), map(), Response.t()} | {:error, term(), Response.t()}
 
   @doc false
   @spec new(Enumerable.t(), keyword()) :: t()

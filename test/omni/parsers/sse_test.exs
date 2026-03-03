@@ -101,5 +101,21 @@ defmodule Omni.Parsers.SSETest do
       chunks = ["data:\n\ndata: {\"ok\":true}\n\n"]
       assert [%{"ok" => true}] = chunks |> SSE.stream() |> Enum.to_list()
     end
+
+    test "flushes buffer on stream end (missing trailing blank line)" do
+      chunks = [
+        "data: {\"id\":1}\n\ndata: {\"id\":2}\n"
+      ]
+
+      assert [%{"id" => 1}, %{"id" => 2}] = chunks |> SSE.stream() |> Enum.to_list()
+    end
+
+    test "partial JSON in buffer on stream end is skipped" do
+      chunks = [
+        "data: {\"id\":1}\n\ndata: {\"trunc"
+      ]
+
+      assert [%{"id" => 1}] = chunks |> SSE.stream() |> Enum.to_list()
+    end
   end
 end

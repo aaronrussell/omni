@@ -179,8 +179,9 @@ defmodule Omni do
 
     * `:max_tokens` — maximum output tokens (Anthropic defaults to 4096)
     * `:temperature` — sampling temperature (number)
-    * `:thinking` — enable extended thinking. Pass `true`, a budget level
-      (`:low`, `:medium`, `:high`, `:max`), or `%{effort: level, budget: tokens}`
+    * `:thinking` — enable extended thinking. Pass a budget level
+      (`:low`, `:medium`, `:high`, `:max`), `%{budget: tokens}`,
+      or `false` to disable
     * `:output` — a JSON Schema map for structured output (see the
       [Structured output](#module-structured-output) section above)
     * `:max_steps` — maximum tool execution rounds (default `:infinity`).
