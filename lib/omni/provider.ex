@@ -139,6 +139,7 @@ defmodule Omni.Provider do
     * `Omni.Dialects.OpenAIResponses` — OpenAI's newer Responses API format
     * `Omni.Dialects.AnthropicMessages` — Anthropic Messages format
     * `Omni.Dialects.GoogleGemini` — Google Gemini format
+    * `Omni.Dialects.OllamaChat` — Ollama native chat format (NDJSON streaming)
 
   If your provider speaks a format not listed here, you'll need to implement a
   new dialect — see `Omni.Dialect` for the behaviour specification.

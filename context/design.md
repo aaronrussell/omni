@@ -15,7 +15,7 @@ The design separates three distinct concerns:
 - **Providers** -- the identity and configuration of a specific service (Anthropic, OpenAI, Groq, etc.)
 - **Dialects** -- the wire format for a family of APIs (how requests are built and responses are parsed)
 
-The relationship: there are ~4-5 dialects, ~20-30 providers (each speaking one dialect), and hundreds of models (each belonging to one provider).
+The relationship: there are ~5 dialects, ~20-30 providers (each speaking one dialect), and hundreds of models (each belonging to one provider).
 
 ---
 
@@ -1221,7 +1221,7 @@ The `is_error` boolean flag tells the model the tool use failed. The error detai
 
 The streaming design has three layers, each with a clear responsibility:
 
-1. **SSE parser** (shared) -- decodes raw SSE bytes into individual JSON event maps
+1. **Stream parser** (shared) -- decodes raw bytes into individual JSON event maps. `Request.stream/3` selects the parser based on the response `content-type` header: `SSE` for SSE streams (most providers), `NDJSON` for newline-delimited JSON (Ollama).
 2. **Dialect** (per-API-family) -- transforms a JSON event map into a normalised delta tuple
 3. **StreamingResponse** (shared) -- accumulates deltas into a partial response, emits rich consumer events
 
@@ -1231,7 +1231,7 @@ The event pipeline is composed as a lazy stream using Req's `into: :self` async 
 Req async response (into: :self)
     │  → raw binary chunks arrive as messages
     ▼
-SSE.stream/1 (shared, stateful for framing)
+SSE.stream/1 or NDJSON.stream/1 (selected by content-type)
     │  → decoded JSON map (one at a time, buffering across chunks)
     ▼
 dialect.handle_event/1 (parse to delta tuples)
@@ -1247,7 +1247,7 @@ StreamingResponse Enumerable (wraps the delta stream)
 Consumer receives rich events
 ```
 
-**No spawned process.** With Req's `into: :self`, the HTTP client (Finch) manages the connection in its own process pool and delivers body chunks as messages to the calling process. The `stream_text` orchestration composes a lazy `Stream` pipeline that receives these chunks, parses SSE, and produces delta tuples. `StreamingResponse` wraps this lazy stream, adding accumulation logic. Everything runs in the caller's process -- no spawned process, no monitors, no message passing between Omni-owned processes.
+**No spawned process.** With Req's `into: :self`, the HTTP client (Finch) manages the connection in its own process pool and delivers body chunks as messages to the calling process. The `stream_text` orchestration composes a lazy `Stream` pipeline that receives these chunks, parses them (SSE or NDJSON depending on content-type), and produces delta tuples. `StreamingResponse` wraps this lazy stream, adding accumulation logic. Everything runs in the caller's process -- no spawned process, no monitors, no message passing between Omni-owned processes.
 
 StreamingResponse itself is a generic mechanism -- it wraps a pre-built lazy stream of delta tuples and accumulates them, with no knowledge of providers, dialects, or HTTP.
 
@@ -1325,11 +1325,14 @@ Omni.StreamingResponse.cancel(stream)
 
 **Why no spawned process?** Req's `into: :self` mode handles async delivery -- the HTTP client (Finch) manages connections in its own process pool and sends body chunks as messages to the calling process. `StreamingResponse` wraps a lazy stream that receives and transforms these messages. Cancellation is via an opaque function passed at construction time. No Omni-owned process is needed, eliminating the complexity of process lifecycle management, bidirectional monitors, and failure propagation.
 
-### SSE parser
+### Stream parsers
 
-A shared SSE parser sits between Req and the dialect. It handles all framing concerns: buffering incomplete events across TCP chunks, splitting multi-event payloads, stripping `data:` prefixes, detecting `[DONE]` sentinels, filtering pings/keepalives, and decoding JSON. What it hands to the dialect is a single decoded map per event.
+Two shared parsers sit between Req and the dialect, selected by response content-type:
 
-The SSE parser is shared across all dialects. If a provider does something non-standard at the SSE level, that can be handled by a parser option or a provider callback, but the common case is standard SSE framing.
+- **`Omni.SSE`** -- handles Server-Sent Events framing: buffering incomplete events across TCP chunks, splitting multi-event payloads, stripping `data:` prefixes, detecting `[DONE]` sentinels, filtering pings/keepalives, and decoding JSON. Used by most providers.
+- **`Omni.NDJSON`** -- handles newline-delimited JSON: splits on `\n`, decodes each line as JSON, skips empty/invalid lines, flushes buffer at stream end. Used by Ollama's native API.
+
+Both parsers expose the same `stream/1` interface — accepting an enumerable of binary chunks and returning a stream of decoded JSON maps. `Request.stream/3` selects the parser by checking the response `content-type` header for `"ndjson"`; all other responses default to SSE.
 
 ### Dialect event parsing
 
@@ -1339,7 +1342,7 @@ Each dialect implements a `handle_event/1` callback that receives a single decod
 @callback handle_event(event :: map()) :: [{atom(), map()}]
 ```
 
-The return is a list of `{event_type, event_map}` tagged tuples. The function returns `[]` if the event should be dropped. The list form allows a single SSE event to produce multiple deltas (some providers bundle data that maps to separate delta types).
+The return is a list of `{event_type, event_map}` tagged tuples. The function returns `[]` if the event should be dropped. The list form allows a single event to produce multiple deltas (some providers bundle data that maps to separate delta types).
 
 The function is stateless and pure -- it receives one event, returns deltas. No accumulation, no knowledge of what came before. This makes dialects trivially testable: give it a JSON map, assert the tuples that come out.
 
@@ -1518,9 +1521,11 @@ def stream(req, model, opts \\ []) do
 
   with {:ok, resp} <- Req.request(req),
        :ok <- check_status(resp) do
+    parser = select_parser(resp)  # SSE or NDJSON based on content-type
+
     deltas =
       resp.body
-      |> SSE.stream()
+      |> parser.stream()
       |> Stream.flat_map(&parse_event(model, &1))
 
     cancel = fn -> Req.cancel_async_response(resp) end
@@ -1547,7 +1552,7 @@ The key architectural points:
 
 - **Status check catches HTTP errors early.** After `Req.request/1` returns, `check_status/1` verifies the response is 200. Non-200 responses (400, 401, 429, 500, etc.) are read and turned into `{:error, reason}` before any streaming begins.
 
-- **The event stream is lazy composition.** `resp.body` is a `Req.Response.Async` enumerable that yields raw binary chunks. `SSE.stream/1` transforms these into decoded JSON event maps. `Request.parse_event/2` composes `dialect.handle_event/1` and `provider.modify_events/2`. Nothing executes until the consumer drives the stream.
+- **The event stream is lazy composition.** `resp.body` is a `Req.Response.Async` enumerable that yields raw binary chunks. The selected parser (`SSE.stream/1` or `NDJSON.stream/1`) transforms these into decoded JSON event maps. `Request.parse_event/2` composes `dialect.handle_event/1` and `provider.modify_events/2`. Nothing executes until the consumer drives the stream.
 
 - **`validate/2` and `parse_event/2` are `@doc false` public functions.** Exposed for unit testing — `validate` for config merging and schema validation, `parse_event` for the event pipeline composition. The public API is `build/3` and `stream/3`.
 
@@ -1578,7 +1583,8 @@ Omni.stream_text(model, context, opts)
 │     ├── Req.request(req) → {:ok, resp}
 │     │     Returns immediately; resp.body is Req.Response.Async
 │     ├── check_status(resp) → :ok | {:error, ...}
-│     ├── SSE.stream(resp.body)
+│     ├── select_parser(resp) → SSE or NDJSON (by content-type)
+│     ├── parser.stream(resp.body)
 │     ├── Stream.flat_map: Request.parse_event(model, event)
 │     │     ├── dialect.handle_event(event) → deltas
 │     │     └── provider.modify_events(deltas, event) → deltas
@@ -1615,7 +1621,8 @@ lib/omni/
 │   ├── attachment.ex          # Generic attachment (images, PDFs, audio)
 │   ├── tool_use.ex            # Tool use content block
 │   └── tool_result.ex         # Tool result content block
-├── sse.ex                     # Shared SSE parser (framing, decoding, buffering)
+├── sse.ex                     # SSE stream parser (framing, decoding, buffering)
+├── ndjson.ex                  # NDJSON stream parser (Ollama)
 ├── request.ex                 # Request orchestration: build/3, stream/3,
 │                              #   validate/2, parse_event/2
 ├── provider.ex                # Provider behaviour, default implementations,
@@ -1623,12 +1630,13 @@ lib/omni/
 ├── providers/
 │   ├── anthropic.ex
 │   ├── openai.ex
-│   ├── groq.ex
+│   ├── ollama.ex
 │   └── ...
 ├── dialect.ex                 # Dialect behaviour definition
 ├── dialects/
 │   ├── anthropic_messages.ex
 │   ├── openai_completions.ex
+│   ├── ollama_chat.ex
 │   └── ...
 └── auth.ex                    # API key resolution logic
 ```

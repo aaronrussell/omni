@@ -19,6 +19,7 @@ defmodule Omni.Dialect do
     * `Omni.Dialects.OpenAIResponses` — OpenAI's newer Responses API format
     * `Omni.Dialects.AnthropicMessages` — Anthropic Messages format
     * `Omni.Dialects.GoogleGemini` — Google Gemini format
+    * `Omni.Dialects.OllamaChat` — Ollama native chat format (NDJSON streaming)
 
   ## Delta types
 
