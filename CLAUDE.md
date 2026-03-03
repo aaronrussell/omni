@@ -68,8 +68,8 @@ lib/omni/
 ├── tool/runner.ex                  # Parallel tool execution (ToolUse → ToolResult)
 ├── schema.ex                       # JSON Schema builders, validation, key normalization
 ├── content/{text,thinking,attachment,tool_use,tool_result}.ex
-├── sse.ex                          # SSE stream parser
-├── ndjson.ex                       # NDJSON stream parser (Ollama)
+├── parsers/sse.ex                  # SSE stream parser
+├── parsers/ndjson.ex               # NDJSON stream parser (Ollama)
 ├── request.ex                      # Request orchestration (build, stream, validate, parse_event)
 ├── loop.ex                         # Recursive stream loop (tool auto-execution)
 ├── agent.ex                        # Agent behaviour, use macro, public API

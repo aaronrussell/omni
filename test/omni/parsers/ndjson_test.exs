@@ -1,7 +1,7 @@
-defmodule Omni.NDJSONTest do
+defmodule Omni.Parsers.NDJSONTest do
   use ExUnit.Case, async: true
 
-  alias Omni.NDJSON
+  alias Omni.Parsers.NDJSON
 
   describe "stream/1" do
     test "single line in one chunk" do

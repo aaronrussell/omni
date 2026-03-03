@@ -1329,8 +1329,8 @@ Omni.StreamingResponse.cancel(stream)
 
 Two shared parsers sit between Req and the dialect, selected by response content-type:
 
-- **`Omni.SSE`** -- handles Server-Sent Events framing: buffering incomplete events across TCP chunks, splitting multi-event payloads, stripping `data:` prefixes, detecting `[DONE]` sentinels, filtering pings/keepalives, and decoding JSON. Used by most providers.
-- **`Omni.NDJSON`** -- handles newline-delimited JSON: splits on `\n`, decodes each line as JSON, skips empty/invalid lines, flushes buffer at stream end. Used by Ollama's native API.
+- **`Omni.Parsers.SSE`** -- handles Server-Sent Events framing: buffering incomplete events across TCP chunks, splitting multi-event payloads, stripping `data:` prefixes, detecting `[DONE]` sentinels, filtering pings/keepalives, and decoding JSON. Used by most providers.
+- **`Omni.Parsers.NDJSON`** -- handles newline-delimited JSON: splits on `\n`, decodes each line as JSON, skips empty/invalid lines, flushes buffer at stream end. Used by Ollama's native API.
 
 Both parsers expose the same `stream/1` interface — accepting an enumerable of binary chunks and returning a stream of decoded JSON maps. `Request.stream/3` selects the parser by checking the response `content-type` header for `"ndjson"`; all other responses default to SSE.
 

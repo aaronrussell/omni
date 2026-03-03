@@ -16,7 +16,7 @@ defmodule Omni.Request do
   @moduledoc false
 
   alias Omni.Content.Attachment
-  alias Omni.{Context, Model, NDJSON, SSE, StreamingResponse}
+  alias Omni.{Context, Model, Parsers, StreamingResponse}
 
   @schema %{
     # Config (type-loose — validated by infrastructure, not user input)
@@ -167,13 +167,12 @@ defmodule Omni.Request do
 
   # -- Private helpers --
 
-  defp select_parser(%Req.Response{headers: headers}) do
-    content_type = headers["content-type"] || []
+  defp select_parser(%Req.Response{} = resp) do
+    content_type = Req.Response.get_header(resp, "content-type")
 
-    if Enum.any?(content_type, &String.contains?(&1, "ndjson")) do
-      NDJSON
-    else
-      SSE
+    cond do
+      content_type |> hd() |> String.contains?("ndjson") -> Parsers.NDJSON
+      true -> Parsers.SSE
     end
   end
 

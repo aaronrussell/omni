@@ -1,4 +1,4 @@
-defmodule Omni.SSE do
+defmodule Omni.Parsers.SSE do
   # Parses a stream of binary chunks into decoded SSE event maps.
   #
   # Accepts any enumerable yielding binary chunks (typically a `Req.Response.Async`)

@@ -1,7 +1,7 @@
-defmodule Omni.SSETest do
+defmodule Omni.Parsers.SSETest do
   use ExUnit.Case, async: true
 
-  alias Omni.SSE
+  alias Omni.Parsers.SSE
 
   describe "stream/1" do
     test "single event in one chunk" do
