@@ -45,7 +45,12 @@ defmodule Omni.Providers.OllamaTest do
     test "builds model from keyword list with full details" do
       Application.put_env(:omni, Ollama,
         models: [
-          [id: "llama3.1:8b", name: "Llama 3.1 8B", context_size: 128_000, max_output_tokens: 8192]
+          [
+            id: "llama3.1:8b",
+            name: "Llama 3.1 8B",
+            context_size: 128_000,
+            max_output_tokens: 8192
+          ]
         ]
       )
 
