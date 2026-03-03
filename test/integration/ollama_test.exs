@@ -84,7 +84,7 @@ defmodule Integration.OllamaTest do
 
       assert {:ok, %Response{} = resp} =
                Omni.generate_text(model(), "How many R's are in strawberry?",
-                 thinking: true,
+                 thinking: :high,
                  plug: {Req.Test, :int_ollama_thinking}
                )
 

@@ -462,17 +462,17 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
                        reasoning: true
                      )
 
-    test "thinking: true sets reasoning_effort to high" do
+    test "thinking: :high sets reasoning_effort to high" do
       context = Context.new("Hello")
-      body = OpenAICompletions.handle_body(@reasoning_model, context, %{thinking: true})
+      body = OpenAICompletions.handle_body(@reasoning_model, context, %{thinking: :high})
 
       assert body["reasoning_effort"] == "high"
     end
 
-    test "effort levels map correctly, :max preserves max" do
+    test "effort levels map correctly, :max maps to xhigh" do
       context = Context.new("Hello")
 
-      for {level, expected} <- [low: "low", medium: "medium", high: "high", max: "max"] do
+      for {level, expected} <- [low: "low", medium: "medium", high: "high", max: "xhigh"] do
         body = OpenAICompletions.handle_body(@reasoning_model, context, %{thinking: level})
 
         assert body["reasoning_effort"] == expected,
@@ -485,24 +485,17 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
 
       body =
         OpenAICompletions.handle_body(@reasoning_model, context, %{
-          thinking: [effort: :medium, budget: 10_000]
+          thinking: %{effort: :medium, budget: 10_000}
         })
 
       assert body["reasoning_effort"] == "medium"
     end
 
-    test "thinking: false is no-op" do
+    test "thinking: false sets reasoning_effort to none" do
       context = Context.new("Hello")
       body = OpenAICompletions.handle_body(@reasoning_model, context, %{thinking: false})
 
-      refute Map.has_key?(body, "reasoning_effort")
-    end
-
-    test "thinking: :none is no-op" do
-      context = Context.new("Hello")
-      body = OpenAICompletions.handle_body(@reasoning_model, context, %{thinking: :none})
-
-      refute Map.has_key?(body, "reasoning_effort")
+      assert body["reasoning_effort"] == "none"
     end
 
     test "non-reasoning model ignores thinking option" do

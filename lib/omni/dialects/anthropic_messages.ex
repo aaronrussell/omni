@@ -129,16 +129,11 @@ defmodule Omni.Dialects.AnthropicMessages do
   # Thinking
 
   defp maybe_put_thinking(body, _model, nil), do: body
+  defp maybe_put_thinking(body, %Model{reasoning: false}, _thinking), do: body
 
   defp maybe_put_thinking(body, _model, false) do
     Map.put(body, "thinking", %{"type" => "disabled"})
   end
-
-  defp maybe_put_thinking(body, _model, :none) do
-    Map.put(body, "thinking", %{"type" => "disabled"})
-  end
-
-  defp maybe_put_thinking(body, %Model{reasoning: false}, _thinking), do: body
 
   defp maybe_put_thinking(body, model, thinking) do
     case normalize_thinking(thinking) do
@@ -174,13 +169,10 @@ defmodule Omni.Dialects.AnthropicMessages do
   defp effort_to_budget(:high), do: 16384
   defp effort_to_budget(:max), do: 32768
 
-  defp normalize_thinking(false), do: :none
-  defp normalize_thinking(true), do: {:effort, :high}
-  defp normalize_thinking(:none), do: :none
   defp normalize_thinking(level) when level in [:low, :medium, :high, :max], do: {:effort, level}
 
-  defp normalize_thinking(opts) when is_list(opts) do
-    {:effort, Keyword.get(opts, :effort, :high), Keyword.get(opts, :budget)}
+  defp normalize_thinking(opts) when is_map(opts) do
+    {:effort, Map.get(opts, :effort, :high), Map.get(opts, :budget)}
   end
 
   # Output schema

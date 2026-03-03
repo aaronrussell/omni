@@ -192,11 +192,16 @@ defmodule Omni.RequestTest do
       assert opts[:temperature] == 0.5
     end
 
-    test "thinking accepts boolean true" do
+    test "thinking rejects true" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, thinking: true)
-      assert opts[:thinking] == true
+      assert {:error, _} = Request.validate(model, thinking: true)
+    end
+
+    test "thinking rejects :none" do
+      model = make_model()
+
+      assert {:error, _} = Request.validate(model, thinking: :none)
     end
 
     test "thinking accepts boolean false" do
@@ -213,12 +218,12 @@ defmodule Omni.RequestTest do
       assert opts[:thinking] == :high
     end
 
-    test "thinking accepts keyword list" do
+    test "thinking accepts keyword list (converted to map by Peri)" do
       model = make_model()
 
       {:ok, opts} = Request.validate(model, thinking: [effort: :high, budget: 10000])
-      assert opts[:thinking][:effort] == :high
-      assert opts[:thinking][:budget] == 10000
+      assert opts[:thinking].effort == :high
+      assert opts[:thinking].budget == 10000
     end
 
     test "thinking rejects invalid value" do

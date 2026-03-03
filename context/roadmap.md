@@ -10,7 +10,7 @@ The initial implementation (Phases 1–5b) is complete. See `context/design.md` 
 
 - **Code review** — Full pass over all modules for consistency, naming, edge cases, and dead code.
 - **Test review** — Audit test coverage, identify gaps, ensure integration tests cover all providers and edge cases.
-- **Revisit `:thinking` option API** — The current accepted values (`true`, `false`, `:none`, `:low`, `:medium`, `:high`, `:max`, keyword list) mix booleans and atoms in a confusing way. `false` and `:none` do the same thing; `true` is an alias for `:high`. Needs a pass across all dialects to settle on a cleaner, more intentional interface.
+
 
 ---
 

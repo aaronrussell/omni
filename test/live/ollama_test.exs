@@ -82,7 +82,7 @@ defmodule Live.OllamaTest do
   test "thinking" do
     assert {:ok, %Response{} = resp} =
              Omni.generate_text(model(), "How many R's are in strawberry?",
-               thinking: true,
+               thinking: :high,
                max_tokens: 2000
              )
 

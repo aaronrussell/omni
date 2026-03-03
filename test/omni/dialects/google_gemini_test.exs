@@ -449,9 +449,9 @@ defmodule Omni.Dialects.GoogleGeminiTest do
                        reasoning: true
                      )
 
-    test "thinking: true sets thinkingConfig with high level" do
+    test "thinking: :high sets thinkingConfig with high level" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: true})
+      body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: :high})
 
       assert body["generationConfig"]["thinkingConfig"] == %{
                "thinkingLevel" => "high",
@@ -461,7 +461,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
 
     test "thinkingConfig is nested inside generationConfig" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: true})
+      body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: :high})
 
       assert Map.has_key?(body["generationConfig"], "thinkingConfig")
       refute Map.has_key?(body, "thinkingConfig")
@@ -485,7 +485,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
 
       body =
         GoogleGemini.handle_body(@reasoning_model, context, %{
-          thinking: [effort: :high, budget: 8192]
+          thinking: %{effort: :high, budget: 8192}
         })
 
       assert body["generationConfig"]["thinkingConfig"]["thinkingBudget"] == 8192
@@ -493,18 +493,11 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       refute Map.has_key?(body["generationConfig"]["thinkingConfig"], "thinkingLevel")
     end
 
-    test "thinking: false is no-op" do
+    test "thinking: false sets thinkingBudget to 0" do
       context = Context.new("Hello")
       body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: false})
 
-      refute Map.has_key?(body, "thinkingConfig")
-    end
-
-    test "thinking: :none is no-op" do
-      context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: :none})
-
-      refute Map.has_key?(body, "thinkingConfig")
+      assert body["generationConfig"]["thinkingConfig"] == %{"thinkingBudget" => 0}
     end
 
     test "non-reasoning model ignores thinking option" do

@@ -77,7 +77,7 @@ defmodule Integration.GoogleTest do
       assert {:ok, %Response{} = resp} =
                Omni.generate_text(model(), "How many R's are in strawberry?",
                  api_key: "test-key",
-                 thinking: true,
+                 thinking: :high,
                  plug: {Req.Test, :int_google_thinking}
                )
 

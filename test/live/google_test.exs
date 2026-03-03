@@ -62,7 +62,7 @@ defmodule Live.GoogleTest do
 
   test "thinking" do
     assert {:ok, %Response{} = resp} =
-             Omni.generate_text(model(), "How many R's are in strawberry?", thinking: true)
+             Omni.generate_text(model(), "How many R's are in strawberry?", thinking: :high)
 
     thinking = Enum.filter(resp.message.content, &match?(%Thinking{}, &1))
     assert length(thinking) > 0

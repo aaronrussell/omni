@@ -65,7 +65,7 @@ defmodule Live.OpenRouterTest do
   test "thinking" do
     assert {:ok, %Response{} = resp} =
              Omni.generate_text(reasoning_model(), "How many R's are in strawberry?",
-               thinking: true
+               thinking: :high
              )
 
     thinking = Enum.filter(resp.message.content, &match?(%Thinking{}, &1))

@@ -35,7 +35,7 @@ defmodule Omni.Request do
     metadata: :map,
     thinking:
       {:either,
-       {{:enum, [true, false, :none, :low, :medium, :high, :max]},
+       {{:enum, [false, :low, :medium, :high, :max]},
         {:schema, %{effort: {:enum, [:low, :medium, :high, :max]}, budget: :integer}}}},
     output: :map
   }

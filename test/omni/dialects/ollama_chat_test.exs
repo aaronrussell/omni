@@ -192,9 +192,9 @@ defmodule Omni.Dialects.OllamaChatTest do
       assert msg["images"] == ["abc123"]
     end
 
-    test "thinking true sets think to true on reasoning model" do
+    test "thinking :high sets think to true on reasoning model" do
       context = Context.new("Hello")
-      body = OllamaChat.handle_body(@reasoning_model, context, %{thinking: true})
+      body = OllamaChat.handle_body(@reasoning_model, context, %{thinking: :high})
 
       assert body["think"] == true
     end
@@ -218,7 +218,7 @@ defmodule Omni.Dialects.OllamaChatTest do
 
     test "thinking on non-reasoning model omits think key" do
       context = Context.new("Hello")
-      body = OllamaChat.handle_body(@model, context, %{thinking: true})
+      body = OllamaChat.handle_body(@model, context, %{thinking: :high})
 
       refute Map.has_key?(body, "think")
     end

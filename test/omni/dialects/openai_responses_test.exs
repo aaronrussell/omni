@@ -433,17 +433,17 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
                        reasoning: true
                      )
 
-    test "thinking: true sets reasoning with high effort and summary auto" do
+    test "thinking: :high sets reasoning with high effort and summary auto" do
       context = Context.new("Hello")
-      body = OpenAIResponses.handle_body(@reasoning_model, context, %{thinking: true})
+      body = OpenAIResponses.handle_body(@reasoning_model, context, %{thinking: :high})
 
       assert body["reasoning"] == %{"effort" => "high", "summary" => "auto"}
     end
 
-    test "effort levels map correctly, :max caps to high" do
+    test "effort levels map correctly, :max maps to xhigh" do
       context = Context.new("Hello")
 
-      for {level, expected} <- [low: "low", medium: "medium", high: "high", max: "high"] do
+      for {level, expected} <- [low: "low", medium: "medium", high: "high", max: "xhigh"] do
         body = OpenAIResponses.handle_body(@reasoning_model, context, %{thinking: level})
 
         assert body["reasoning"]["effort"] == expected,
@@ -458,25 +458,18 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
 
       body =
         OpenAIResponses.handle_body(@reasoning_model, context, %{
-          thinking: [effort: :medium, budget: 10_000]
+          thinking: %{effort: :medium, budget: 10_000}
         })
 
       assert body["reasoning"]["effort"] == "medium"
       refute Map.has_key?(body["reasoning"], "budget")
     end
 
-    test "thinking: false is no-op" do
+    test "thinking: false sets reasoning effort to none" do
       context = Context.new("Hello")
       body = OpenAIResponses.handle_body(@reasoning_model, context, %{thinking: false})
 
-      refute Map.has_key?(body, "reasoning")
-    end
-
-    test "thinking: :none is no-op" do
-      context = Context.new("Hello")
-      body = OpenAIResponses.handle_body(@reasoning_model, context, %{thinking: :none})
-
-      refute Map.has_key?(body, "reasoning")
+      assert body["reasoning"] == %{"effort" => "none"}
     end
 
     test "non-reasoning model ignores thinking option" do

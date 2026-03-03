@@ -81,7 +81,7 @@ defmodule Integration.OpenAITest do
       assert {:ok, %Response{} = resp} =
                Omni.generate_text(reasoning_model(), "How many R's are in strawberry?",
                  api_key: "test-key",
-                 thinking: true,
+                 thinking: :high,
                  plug: {Req.Test, :int_openai_thinking}
                )
 

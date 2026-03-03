@@ -385,12 +385,12 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
                       reasoning: true
                     )
 
-    test "thinking: true with non-4.6 model uses manual format" do
+    test "thinking: :high with non-4.6 model uses manual format" do
       context = Context.new("Hello")
 
       body =
         AnthropicMessages.handle_body(@reasoning_model, context, %{
-          thinking: true,
+          thinking: :high,
           max_tokens: 4096
         })
 
@@ -398,12 +398,12 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       assert body["max_tokens"] == 4096 + 16384
     end
 
-    test "thinking: true with 4.6 model uses adaptive format" do
+    test "thinking: :high with 4.6 model uses adaptive format" do
       context = Context.new("Hello")
 
       body =
         AnthropicMessages.handle_body(@adaptive_model, context, %{
-          thinking: true,
+          thinking: :high,
           max_tokens: 4096
         })
 
@@ -441,12 +441,12 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       end
     end
 
-    test "explicit budget in keyword form (manual path)" do
+    test "explicit budget in map form (manual path)" do
       context = Context.new("Hello")
 
       body =
         AnthropicMessages.handle_body(@reasoning_model, context, %{
-          thinking: [effort: :high, budget: 10_000],
+          thinking: %{effort: :high, budget: 10_000},
           max_tokens: 4096
         })
 
@@ -461,19 +461,12 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       assert body["thinking"] == %{"type" => "disabled"}
     end
 
-    test "thinking: :none sets disabled" do
-      context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@reasoning_model, context, %{thinking: :none})
-
-      assert body["thinking"] == %{"type" => "disabled"}
-    end
-
     test "temperature is dropped when thinking is active" do
       context = Context.new("Hello")
 
       body =
         AnthropicMessages.handle_body(@reasoning_model, context, %{
-          thinking: true,
+          thinking: :high,
           temperature: 0.7,
           max_tokens: 4096
         })
@@ -486,7 +479,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
       body =
         AnthropicMessages.handle_body(@adaptive_model, context, %{
-          thinking: true,
+          thinking: :high,
           max_tokens: 2048
         })
 
@@ -500,11 +493,11 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       refute Map.has_key?(body, "thinking")
     end
 
-    test "non-reasoning model still gets disabled for :none" do
+    test "non-reasoning model with false is no-op" do
       context = Context.new("Hello")
-      body = AnthropicMessages.handle_body(@model, context, %{thinking: :none})
+      body = AnthropicMessages.handle_body(@model, context, %{thinking: false})
 
-      assert body["thinking"] == %{"type" => "disabled"}
+      refute Map.has_key?(body, "thinking")
     end
 
     test "nil thinking is no-op" do

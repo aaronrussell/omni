@@ -122,7 +122,7 @@ Omni.generate_text(model, context,
   temperature: 0.7,
 
   # Provider-specific options (passed through to dialect/provider)
-  thinking: true,
+  thinking: :high,
   tool_choice: :auto,
   cache: :short,
 
@@ -143,7 +143,7 @@ The unified inference options are deliberately minimal -- only the options users
 - `top_p`
 - `stop` (stop sequences)
 
-Provider-specific options (like `thinking`, `tool_choice`, `effort`) are passed through without transformation. Each dialect/provider declares which options it supports via an `option_schema/0` callback, enabling helpful validation error messages (e.g. "you passed `thinking: true` but the OpenAI dialect doesn't support that option"). Option validation is handled using the Peri library for schema-based validation.
+Provider-specific options (like `thinking`, `tool_choice`, `effort`) are passed through without transformation. Each dialect/provider declares which options it supports via an `option_schema/0` callback, enabling helpful validation error messages. Option validation is handled using the Peri library for schema-based validation.
 
 API keys and other request config are resolved in priority order:
 
