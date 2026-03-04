@@ -54,7 +54,9 @@ defmodule Omni.StreamingResponse do
       {:tool_use_delta, %{index: 1, delta: "{\\"city\\":"}, %Response{}}
       {:tool_use_end,   %{index: 1, content: %ToolUse{}}, %Response{}}
 
-  Tool results are emitted between rounds when tools are auto-executed:
+  Tool results are emitted between rounds when tools are auto-executed. The
+  third element is the completed response from the step that triggered tool
+  execution (not a partial response):
 
       {:tool_result, %{name: "weather", tool_use_id: "call_1", output: "72°F", is_error: false}, %Response{}}
 

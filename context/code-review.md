@@ -135,7 +135,7 @@ These affect multiple modules or span subsystem boundaries:
 - `[FIXED]` **openai.ex:36-40, openrouter.ex:74-78, ollama.ex:66-69** — Default `authenticate/2` now sends Bearer token when no `:auth_header` is configured, raw key when a custom header is set. Removed identical overrides from OpenAI, OpenRouter, and Ollama (Ollama retains only its nil-key skip clause).
 
 ### Dead Code
-- **openrouter.ex:53** — True branch of `if effort == "max"` (see Bugs above).
+- `[FIXED]` **openrouter.ex:53** — Removed with the conditional (see Bugs above).
 
 ### Minor / Nits
 - **provider.ex:389** — `String.to_atom/1` on modality strings from JSON. Safe since files are controlled, but `String.to_existing_atom/1` would be more defensive.
@@ -147,13 +147,13 @@ These affect multiple modules or span subsystem boundaries:
 ## Loop & Top-level API (Loop, Omni, Request)
 
 ### Bugs / Correctness
-- **request.ex:174** — `select_parser/1` calls `hd()` on `get_header("content-type")` which returns `[]` for missing headers. `hd([])` raises `ArgumentError`. Fix: add fallback for empty list.
-- **omni.ex:182** — `thinking: true` documented but not in schema. See cross-cutting #5.
+- `[FIXED]` **request.ex:174** — Replaced `hd()` with `Enum.any?/2`, safely handling missing or multiple content-type headers.
+- `[FIXED]` **omni.ex:182** — `thinking: true` documented but not in schema. See cross-cutting #5.
 
 ### Inconsistencies
-- **request.ex:10** — Module comment says `stream/2` but function is `stream/3`.
-- **loop.ex:9** — Module comment says loop breaks on hallucinated tool names, but code shows hallucinated names produce error results and loop continues. Only schema-only tools break the loop.
-- **loop.ex:263-273** — `:tool_result` event passes previous step's response as third tuple element, but StreamingResponse documents third element as partial response of current state.
+- `[FIXED]` **request.ex:10** — Module comment said `stream/2`, corrected to `stream/3`.
+- `[FIXED]` **loop.ex:9** — Corrected module comment: hallucinated tool names produce error results and the loop continues; only schema-only tools break the loop.
+- `[FIXED]` **loop.ex:263-273** — Not a bug. `:tool_result` events are synthetic (emitted by Loop between SR pipelines), so the previous step's completed response is the correct third element. Added clarifying note to StreamingResponse moduledoc.
 
 ### Dead Code
 None found.

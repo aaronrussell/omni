@@ -7,7 +7,7 @@ defmodule Omni.Request do
   #
   # Public API:
   #   - build/3 — validates opts, builds a %Req.Request{} via dialect + provider
-  #   - stream/2 — executes a built request, returns a %StreamingResponse{}
+  #   - stream/3 — executes a built request, returns a %StreamingResponse{}
   #
   # Internal (public but undocumented):
   #   - validate/2 — three-tier config merge + Peri validation
@@ -168,12 +168,9 @@ defmodule Omni.Request do
   # -- Private helpers --
 
   defp select_parser(%Req.Response{} = resp) do
-    content_type = Req.Response.get_header(resp, "content-type")
-
-    cond do
-      content_type |> hd() |> String.contains?("ndjson") -> Parsers.NDJSON
-      true -> Parsers.SSE
-    end
+    if resp |> Req.Response.get_header("content-type") |> Enum.any?(&String.contains?(&1, "ndjson")),
+      do: Parsers.NDJSON,
+      else: Parsers.SSE
   end
 
   defp check_unknown_keys(data, schema) do

@@ -5,8 +5,9 @@ defmodule Omni.Loop do
   #
   # 1. Tool auto-execution — when the model produces tool use blocks, executes
   #    tools via Tool.Runner, feeds results back, and streams the next step.
-  #    Controlled by :max_steps option. Breaks when a tool has no handler
-  #    (schema-only) or a hallucinated tool name produces an error result.
+  #    Controlled by :max_steps option. Breaks when any tool has no handler
+  #    (schema-only). Hallucinated tool names produce error results sent back
+  #    to the model, and the loop continues.
   #
   # 2. Structured output validation — when :output schema is set, validates the
   #    final response text (JSON decode + Peri validation) and retries up to
