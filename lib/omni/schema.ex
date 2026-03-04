@@ -26,53 +26,66 @@ defmodule Omni.Schema do
       }
   """
 
-  @doc "Builds a JSON Schema object with the given properties."
+  import Omni.Util, only: [maybe_put: 3]
+
+  @doc "Builds a JSON Schema object type."
+  @spec object(keyword()) :: map()
+  def object(opts) when is_list(opts) do
+    normalize_opts(opts) |> Map.put(:type, "object")
+  end
+
+  @doc "Builds a JSON Schema object with the given `properties` map."
   @spec object(map(), keyword()) :: map()
-  def object(properties, opts \\ []) do
-    normalize_opts(opts)
-    |> Map.merge(%{type: "object", properties: properties})
+  def object(properties, opts \\ []) when is_map(properties) do
+    Keyword.put(opts, :properties, properties) |> object()
   end
 
   @doc "Builds a JSON Schema string type."
   @spec string(keyword()) :: map()
   def string(opts \\ []) do
-    normalize_opts(opts) |> Map.merge(%{type: "string"})
+    normalize_opts(opts) |> Map.put(:type, "string")
   end
 
   @doc "Builds a JSON Schema number type."
   @spec number(keyword()) :: map()
   def number(opts \\ []) do
-    normalize_opts(opts) |> Map.merge(%{type: "number"})
+    normalize_opts(opts) |> Map.put(:type, "number")
   end
 
   @doc "Builds a JSON Schema integer type."
   @spec integer(keyword()) :: map()
   def integer(opts \\ []) do
-    normalize_opts(opts) |> Map.merge(%{type: "integer"})
+    normalize_opts(opts) |> Map.put(:type, "integer")
   end
 
   @doc "Builds a JSON Schema boolean type."
   @spec boolean(keyword()) :: map()
   def boolean(opts \\ []) do
-    normalize_opts(opts) |> Map.merge(%{type: "boolean"})
+    normalize_opts(opts) |> Map.put(:type, "boolean")
   end
 
-  @doc "Builds a JSON Schema array type with the given items schema."
+  @doc "Builds a JSON Schema array type."
+  @spec array(keyword()) :: map()
+  def array(opts) when is_list(opts) do
+    normalize_opts(opts) |> Map.put(:type, "array")
+  end
+
+  @doc "Builds a JSON Schema array with the given `items` schema."
   @spec array(map(), keyword()) :: map()
-  def array(items, opts \\ []) do
-    normalize_opts(opts) |> Map.merge(%{type: "array", items: items})
+  def array(items, opts \\ []) when is_map(items) do
+    Keyword.put(opts, :items, items) |> array()
   end
 
-  @doc "Builds a JSON Schema string type constrained to the given values."
-  @spec enum(list(String.t()), keyword()) :: map()
+  @doc "Builds a JSON Schema enum — a list of allowed literal values."
+  @spec enum(list(), keyword()) :: map()
   def enum(values, opts \\ []) do
-    normalize_opts(opts) |> Map.merge(%{type: "string", enum: values})
+    normalize_opts(opts) |> Map.put(:enum, values)
   end
 
   @doc "Builds a JSON Schema `anyOf` — valid when at least one subschema matches."
   @spec any_of(list(map()), keyword()) :: map()
   def any_of(schemas, opts \\ []) when is_list(schemas) do
-    normalize_opts(opts) |> Map.merge(%{anyOf: schemas})
+    normalize_opts(opts) |> Map.put(:anyOf, schemas)
   end
 
   @doc """
@@ -144,7 +157,7 @@ defmodule Omni.Schema do
     end)
   end
 
-  defp to_peri(%{type: "string", enum: values}), do: {:enum, values}
+  defp to_peri(%{type: "object"}), do: :map
 
   defp to_peri(%{type: "string"} = schema) do
     constrain(:string, string_constraints(schema))
@@ -152,8 +165,15 @@ defmodule Omni.Schema do
 
   defp to_peri(%{type: "number"} = schema) do
     case numeric_constraints(schema) do
-      [] -> {:either, {:integer, :float}}
-      constraints -> {:either, {{:integer, constraints}, {:float, constraints}}}
+      [] ->
+        {:either, {:integer, :float}}
+
+      constraints ->
+        {:either,
+         {
+           constrain(:integer, constraints),
+           constrain(:float, constraints)
+         }}
     end
   end
 
@@ -163,7 +183,10 @@ defmodule Omni.Schema do
 
   defp to_peri(%{type: "boolean"}), do: :boolean
   defp to_peri(%{type: "array", items: items}), do: {:list, to_peri(items)}
+  defp to_peri(%{type: "array"}), do: :list
+  defp to_peri(%{enum: values}), do: {:enum, values}
   defp to_peri(%{anyOf: schemas}), do: {:oneof, Enum.map(schemas, &to_peri/1)}
+  defp to_peri(_), do: :any
 
   # -- Peri constraint extraction --
 
@@ -173,26 +196,21 @@ defmodule Omni.Schema do
 
   defp string_constraints(schema) do
     []
-    |> maybe_add(:min, schema[:minLength])
-    |> maybe_add(:max, schema[:maxLength])
-    |> maybe_add_pattern(schema[:pattern])
+    |> maybe_put(:min, schema[:minLength])
+    |> maybe_put(:max, schema[:maxLength])
+    |> maybe_put(:regex, compile_pattern(schema[:pattern]))
   end
 
   defp numeric_constraints(schema) do
     []
-    |> maybe_add(:gte, schema[:minimum])
-    |> maybe_add(:lte, schema[:maximum])
-    |> maybe_add(:gt, schema[:exclusiveMinimum])
-    |> maybe_add(:lt, schema[:exclusiveMaximum])
+    |> maybe_put(:gte, schema[:minimum])
+    |> maybe_put(:lte, schema[:maximum])
+    |> maybe_put(:gt, schema[:exclusiveMinimum])
+    |> maybe_put(:lt, schema[:exclusiveMaximum])
   end
 
-  defp maybe_add(constraints, _key, nil), do: constraints
-  defp maybe_add(constraints, key, value), do: [{key, value} | constraints]
-
-  defp maybe_add_pattern(constraints, nil), do: constraints
-
-  defp maybe_add_pattern(constraints, pattern),
-    do: [{:regex, Regex.compile!(pattern)} | constraints]
+  defp compile_pattern(nil), do: nil
+  defp compile_pattern(pattern), do: Regex.compile!(pattern)
 
   # -- Key normalization --
 

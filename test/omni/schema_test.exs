@@ -43,9 +43,9 @@ defmodule Omni.SchemaTest do
   end
 
   describe "enum/2" do
-    test "returns string type with enum constraint" do
+    test "returns enum constraint without hardcoded type" do
       result = Schema.enum(["red", "green", "blue"])
-      assert result == %{type: "string", enum: ["red", "green", "blue"]}
+      assert result == %{enum: ["red", "green", "blue"]}
     end
 
     test "merges opts" do
@@ -55,7 +55,7 @@ defmodule Omni.SchemaTest do
     end
   end
 
-  describe "array/2" do
+  describe "array/1,2" do
     test "nests the items schema" do
       result = Schema.array(Schema.string())
       assert result == %{type: "array", items: %{type: "string"}}
@@ -67,9 +67,13 @@ defmodule Omni.SchemaTest do
       assert result.items == %{type: "integer"}
       assert result.minItems == 1
     end
+
+    test "builds free-form array without items" do
+      assert Schema.array([]) == %{type: "array"}
+    end
   end
 
-  describe "object/2" do
+  describe "object/1,2" do
     test "preserves atom property keys" do
       result = Schema.object(%{name: Schema.string(), age: Schema.integer()})
 
@@ -97,6 +101,10 @@ defmodule Omni.SchemaTest do
              }
     end
 
+    test "builds free-form object without properties" do
+      assert Schema.object([]) == %{type: "object"}
+    end
+
     test "composes nested schemas" do
       result =
         Schema.object(%{
@@ -105,7 +113,7 @@ defmodule Omni.SchemaTest do
         })
 
       assert result.properties.tags == %{type: "array", items: %{type: "string"}}
-      assert result.properties.status == %{type: "string", enum: ["active", "inactive"]}
+      assert result.properties.status == %{enum: ["active", "inactive"]}
     end
   end
 
@@ -315,6 +323,24 @@ defmodule Omni.SchemaTest do
       assert {:ok, %{value: "text"}} = Schema.validate(schema, %{"value" => "text"})
       assert {:ok, %{value: 5}} = Schema.validate(schema, %{"value" => 5})
       assert {:error, _} = Schema.validate(schema, %{"value" => [1, 2]})
+    end
+
+    test "validates enum with non-string values" do
+      schema = Schema.enum([1, 2, 3])
+      assert {:ok, 1} = Schema.validate(schema, 1)
+      assert {:error, _} = Schema.validate(schema, 4)
+    end
+
+    test "validates free-form object" do
+      schema = Schema.object([])
+      assert {:ok, %{"anything" => "goes"}} = Schema.validate(schema, %{"anything" => "goes"})
+      assert {:error, _} = Schema.validate(schema, "not a map")
+    end
+
+    test "validates free-form array" do
+      schema = Schema.array([])
+      assert {:ok, [1, "two", true]} = Schema.validate(schema, [1, "two", true])
+      assert {:error, _} = Schema.validate(schema, "not a list")
     end
 
     test "validates mixed required and optional fields" do

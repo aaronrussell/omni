@@ -76,19 +76,19 @@ These affect multiple modules or span subsystem boundaries:
 ## Tools & Schema (Tool, Tool.Runner, Schema)
 
 ### Bugs / Correctness
-- **schema.ex:137-144** — `to_peri` for objects requires `properties` key. `%{type: "object"}` without properties (free-form object) crashes with `FunctionClauseError`. Fix: add clause returning `:map`.
-- **schema.ex:165** — `to_peri` for arrays requires `items` key. `%{type: "array"}` without items crashes. Fix: add clause returning `:list`.
-- **schema.ex:166** — No catch-all clause in `to_peri`. Any unrecognized schema shape (`"null"`, `oneOf`, `$ref`) raises opaque `FunctionClauseError`. Fix: add `defp to_peri(_), do: :any` or raise a descriptive error.
-- **schema.ex:153-157** — Constrained `number` type doesn't use `constrain/2` helper, unlike `integer` and `string`. If Peri requires a bare tuple for single constraints, this would misvalidate.
+- `[FIXED]` **schema.ex:137-144** — Added `to_peri(%{type: "object"})` returning `:map` for free-form objects. Also added `object/1` builder accepting opts-only (no properties).
+- `[FIXED]` **schema.ex:165** — Added `to_peri(%{type: "array"})` returning `:list` for free-form arrays. Also added `array/1` builder accepting opts-only (no items).
+- `[FIXED]` **schema.ex:166** — Added `defp to_peri(_), do: :any` catch-all for unrecognized schema shapes.
+- `[FIXED]` **schema.ex:153-157** — Number `to_peri` now uses `constrain/2` for consistency with integer and string. No behavioral change (Peri handles both forms) but matches the pattern used elsewhere.
 - **tool.ex:148-155** — `rescue` covers both `validate_input` and `handler.(validated)`. Schema bugs in `to_peri` (above) get silently wrapped as `{:error, exception}` instead of surfacing clearly. Fix: narrow rescue to handler call only.
 
 ### Inconsistencies
-- **schema.ex:67-69** — `enum/2` hardcodes `type: "string"` and spec declares `list(String.t())`. JSON Schema `enum` is type-agnostic. Internally consistent but limits use.
+- `[FIXED]` **schema.ex:67-69** — `enum/2` no longer hardcodes `type: "string"`. Now type-agnostic per JSON Schema spec. `to_peri` handles `%{enum: values}` via Peri's `{:enum, values}` which validates `val in values` regardless of type.
 - **tool/runner.ex:76** — Validation errors from `Tool.execute` go through `inspect(error)`, producing opaque Elixir format sent to the LLM. Compare with `Loop:208` which uses `Schema.format_errors`. Fix: use `Schema.format_errors` for validation errors in runner too.
 - **tool/runner.ex:38** — Default timeout of 5000ms is not configurable from `Omni.Loop`. No `:tool_timeout` in `Request.validate`. May surprise users with slow tools.
 
 ### Dead Code
-- **schema.ex:113** — `format_errors(%{__struct__: _} = error)` handles a single struct, but Peri always returns errors as lists. Unreachable in normal flows.
+- `[WONTFIX]` **schema.ex:113** — `format_errors(%{__struct__: _} = error)` handles a single struct. Kept because Peri's scalar validation path (`validate_field` returning `{:error, reason, info}`) wraps via `Peri.Error.new_single/2` which returns a bare struct, not a list.
 
 ### Minor / Nits
 - **tool/runner.ex:90-91** — `format_result/1` uses `inspect/1` for non-binary values. `JSON.encode!/1` would produce more model-friendly output.
