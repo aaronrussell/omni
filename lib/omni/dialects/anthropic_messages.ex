@@ -10,6 +10,8 @@ defmodule Omni.Dialects.AnthropicMessages do
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Model}
 
+  import Omni.Util, only: [maybe_put: 3]
+
   @image_media_types ~w(image/jpeg image/png image/gif image/webp)
 
   @impl true
@@ -22,21 +24,20 @@ defmodule Omni.Dialects.AnthropicMessages do
   def handle_body(%Model{} = model, %Context{} = context, opts) do
     cache = opts[:cache]
 
-    body =
-      %{
-        "model" => model.id,
-        "messages" => encode_messages(context.messages, cache),
-        "max_tokens" => opts[:max_tokens],
-        "stream" => true
-      }
-      |> maybe_put_system(context.system, cache)
-      |> maybe_put("temperature", opts[:temperature])
-      |> maybe_put("metadata", opts[:metadata])
-      |> maybe_put_tools(context.tools, cache)
-      |> maybe_put_thinking(model, opts[:thinking])
-      |> maybe_put_output(opts[:output])
+    body = %{
+      "model" => model.id,
+      "messages" => encode_messages(context.messages, cache),
+      "max_tokens" => opts[:max_tokens],
+      "stream" => true
+    }
 
     body
+    |> maybe_put("system", encode_system(context.system, cache))
+    |> maybe_put("temperature", opts[:temperature])
+    |> maybe_put("metadata", opts[:metadata])
+    |> maybe_put("tools", encode_tools(context.tools, cache))
+    |> apply_thinking(model, opts[:thinking])
+    |> apply_output(opts[:output])
   end
 
   @impl true
@@ -128,18 +129,18 @@ defmodule Omni.Dialects.AnthropicMessages do
 
   # Thinking
 
-  defp maybe_put_thinking(body, _model, nil), do: body
-  defp maybe_put_thinking(body, %Model{reasoning: false}, _thinking), do: body
+  defp apply_thinking(body, _model, nil), do: body
+  defp apply_thinking(body, %Model{reasoning: false}, _thinking), do: body
 
-  defp maybe_put_thinking(body, _model, false) do
+  defp apply_thinking(body, _model, false) do
     Map.put(body, "thinking", %{"type" => "disabled"})
   end
 
-  defp maybe_put_thinking(body, model, level) when is_atom(level) do
+  defp apply_thinking(body, model, level) when is_atom(level) do
     put_thinking_config(body, model, level, nil)
   end
 
-  defp maybe_put_thinking(body, model, %{} = opts) do
+  defp apply_thinking(body, model, %{} = opts) do
     level = Map.get(opts, :effort, :high)
     put_thinking_config(body, model, level, opts[:budget])
   end
@@ -170,9 +171,9 @@ defmodule Omni.Dialects.AnthropicMessages do
 
   # Output schema
 
-  defp maybe_put_output(body, nil), do: body
+  defp apply_output(body, nil), do: body
 
-  defp maybe_put_output(body, schema) do
+  defp apply_output(body, schema) do
     existing = Map.get(body, "output_config", %{})
     format = %{"type" => "json_schema", "schema" => maybe_put_strict(schema)}
     Map.put(body, "output_config", Map.put(existing, "format", format))
@@ -186,11 +187,10 @@ defmodule Omni.Dialects.AnthropicMessages do
 
   # System encoding
 
-  defp maybe_put_system(body, nil, _cache), do: body
+  defp encode_system(nil, _cache), do: nil
 
-  defp maybe_put_system(body, system, cache) do
-    blocks = maybe_put_cache_control([%{"type" => "text", "text" => system}], cache)
-    Map.put(body, "system", blocks)
+  defp encode_system(system, cache) do
+    maybe_put_cache_control([%{"type" => "text", "text" => system}], cache)
   end
 
   # Message encoding
@@ -274,16 +274,13 @@ defmodule Omni.Dialects.AnthropicMessages do
 
   # Tool encoding
 
-  defp maybe_put_tools(body, [], _cache), do: body
-  defp maybe_put_tools(body, nil, _cache), do: body
+  defp encode_tools(nil, _cache), do: nil
+  defp encode_tools([], _cache), do: nil
 
-  defp maybe_put_tools(body, tools, cache) do
-    encoded =
-      tools
-      |> Enum.map(&encode_tool/1)
-      |> maybe_put_cache_control(cache)
-
-    Map.put(body, "tools", encoded)
+  defp encode_tools(tools, cache) do
+    tools
+    |> Enum.map(&encode_tool/1)
+    |> maybe_put_cache_control(cache)
   end
 
   defp encode_tool(%{name: name, description: description, input_schema: schema}) do
@@ -305,9 +302,6 @@ defmodule Omni.Dialects.AnthropicMessages do
   defp maybe_put_cache_control(blocks, _), do: blocks
 
   # Helpers
-
-  defp maybe_put(map, _key, nil), do: map
-  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp normalize_stop_reason("end_turn"), do: :stop
   defp normalize_stop_reason("stop_sequence"), do: :stop

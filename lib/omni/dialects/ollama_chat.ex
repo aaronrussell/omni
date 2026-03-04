@@ -19,6 +19,8 @@ defmodule Omni.Dialects.OllamaChat do
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Model}
 
+  import Omni.Util, only: [maybe_put: 3]
+
   @impl true
   def option_schema, do: %{}
 
@@ -27,54 +29,44 @@ defmodule Omni.Dialects.OllamaChat do
 
   @impl true
   def handle_body(%Model{} = model, %Context{} = context, opts) do
-    %{
+    body = %{
       "model" => model.id,
       "messages" => encode_messages(context.system, context.messages),
       "stream" => true
     }
-    |> maybe_put_tools(context.tools)
-    |> maybe_put_options(opts)
-    |> maybe_put_thinking(model, opts[:thinking])
-    |> maybe_put_output(opts[:output])
+
+    body
+    |> maybe_put("tools", encode_tools(context.tools))
+    |> maybe_put("options", encode_options(opts))
+    |> maybe_put("think", encode_thinking(model, opts[:thinking]))
+    |> maybe_put("format", encode_output(opts[:output]))
   end
 
   # Thinking
 
-  defp maybe_put_thinking(body, _model, nil), do: body
-  defp maybe_put_thinking(body, %Model{reasoning: false}, _thinking), do: body
-  defp maybe_put_thinking(body, _model, false), do: Map.put(body, "think", false)
-
-  defp maybe_put_thinking(body, _model, level) when level in [:high, :max] do
-    Map.put(body, "think", true)
-  end
-
-  defp maybe_put_thinking(body, _model, level) when is_atom(level) do
-    Map.put(body, "think", Atom.to_string(level))
-  end
-
-  defp maybe_put_thinking(body, _model, %{} = _opts) do
-    Map.put(body, "think", true)
-  end
+  defp encode_thinking(_model, nil), do: nil
+  defp encode_thinking(%Model{reasoning: false}, _thinking), do: nil
+  defp encode_thinking(_model, false), do: false
+  defp encode_thinking(_model, level) when level in [:high, :max], do: true
+  defp encode_thinking(_model, level) when is_atom(level), do: Atom.to_string(level)
+  defp encode_thinking(_model, %{} = _opts), do: true
 
   # Output schema
 
-  defp maybe_put_output(body, nil), do: body
-
-  defp maybe_put_output(body, schema) do
-    Map.put(body, "format", schema)
-  end
+  defp encode_output(nil), do: nil
+  defp encode_output(schema), do: schema
 
   # Options (temperature, max_tokens → num_predict)
 
-  defp maybe_put_options(body, opts) do
+  defp encode_options(opts) do
     options =
       %{}
       |> maybe_put("temperature", opts[:temperature])
       |> maybe_put("num_predict", opts[:max_tokens])
 
     case options do
-      empty when empty == %{} -> body
-      options -> Map.put(body, "options", options)
+      empty when empty == %{} -> nil
+      options -> options
     end
   end
 
@@ -295,12 +287,9 @@ defmodule Omni.Dialects.OllamaChat do
 
   # Tool schema encoding
 
-  defp maybe_put_tools(body, []), do: body
-  defp maybe_put_tools(body, nil), do: body
-
-  defp maybe_put_tools(body, tools) do
-    Map.put(body, "tools", Enum.map(tools, &encode_tool/1))
-  end
+  defp encode_tools(nil), do: nil
+  defp encode_tools([]), do: nil
+  defp encode_tools(tools), do: Enum.map(tools, &encode_tool/1)
 
   defp encode_tool(%{name: name, description: description, input_schema: schema}) do
     %{
@@ -314,9 +303,6 @@ defmodule Omni.Dialects.OllamaChat do
   end
 
   # Helpers
-
-  defp maybe_put(map, _key, nil), do: map
-  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp normalize_stop_reason("stop"), do: :stop
   defp normalize_stop_reason("length"), do: :length

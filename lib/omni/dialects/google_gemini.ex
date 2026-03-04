@@ -16,6 +16,8 @@ defmodule Omni.Dialects.GoogleGemini do
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Model}
 
+  import Omni.Util, only: [maybe_put: 3, maybe_merge: 2]
+
   @impl true
   def option_schema, do: %{}
 
@@ -26,43 +28,33 @@ defmodule Omni.Dialects.GoogleGemini do
 
   @impl true
   def handle_body(%Model{} = model, %Context{} = context, opts) do
-    body =
-      %{
-        "contents" => encode_messages(context.messages),
-        "generationConfig" => build_generation_config(opts)
-      }
-      |> maybe_put_system(context.system)
-      |> maybe_put_tools(context.tools)
-      |> maybe_put_thinking(model, opts[:thinking])
-      |> maybe_put_output(opts[:output])
+    body = %{
+      "contents" => encode_messages(context.messages),
+      "generationConfig" => build_generation_config(model, opts)
+    }
 
     body
+    |> maybe_put("systemInstruction", encode_system(context.system))
+    |> maybe_put("tools", encode_tools(context.tools))
   end
 
   # Thinking
 
-  defp maybe_put_thinking(body, _model, nil), do: body
-  defp maybe_put_thinking(body, %Model{reasoning: false}, _thinking), do: body
+  defp encode_thinking(_model, nil), do: nil
+  defp encode_thinking(%Model{reasoning: false}, _thinking), do: nil
+  defp encode_thinking(_model, false), do: %{"thinkingConfig" => %{"thinkingBudget" => 0}}
 
-  defp maybe_put_thinking(body, _model, false) do
-    thinking_config = %{"thinkingBudget" => 0}
-    Map.update!(body, "generationConfig", &Map.put(&1, "thinkingConfig", thinking_config))
+  defp encode_thinking(_model, level) when is_atom(level) do
+    %{"thinkingConfig" => %{"thinkingLevel" => level_string(level), "includeThoughts" => true}}
   end
 
-  defp maybe_put_thinking(body, _model, level) when is_atom(level) do
-    thinking_config = %{"thinkingLevel" => level_string(level), "includeThoughts" => true}
-    Map.update!(body, "generationConfig", &Map.put(&1, "thinkingConfig", thinking_config))
+  defp encode_thinking(_model, %{budget: budget}) when is_integer(budget) do
+    %{"thinkingConfig" => %{"thinkingBudget" => budget, "includeThoughts" => true}}
   end
 
-  defp maybe_put_thinking(body, _model, %{budget: budget}) when is_integer(budget) do
-    thinking_config = %{"thinkingBudget" => budget, "includeThoughts" => true}
-    Map.update!(body, "generationConfig", &Map.put(&1, "thinkingConfig", thinking_config))
-  end
-
-  defp maybe_put_thinking(body, _model, %{} = opts) do
+  defp encode_thinking(_model, %{} = opts) do
     level = Map.get(opts, :effort, :high)
-    thinking_config = %{"thinkingLevel" => level_string(level), "includeThoughts" => true}
-    Map.update!(body, "generationConfig", &Map.put(&1, "thinkingConfig", thinking_config))
+    %{"thinkingConfig" => %{"thinkingLevel" => level_string(level), "includeThoughts" => true}}
   end
 
   defp level_string(:low), do: "low"
@@ -72,14 +64,10 @@ defmodule Omni.Dialects.GoogleGemini do
 
   # Output schema
 
-  defp maybe_put_output(body, nil), do: body
+  defp encode_output(nil), do: nil
 
-  defp maybe_put_output(body, schema) do
-    Map.update!(body, "generationConfig", fn config ->
-      config
-      |> Map.put("responseMimeType", "application/json")
-      |> Map.put("responseSchema", schema)
-    end)
+  defp encode_output(schema) do
+    %{"responseMimeType" => "application/json", "responseSchema" => schema}
   end
 
   # Parse events — Google sends `GenerateContentResponse` objects.
@@ -180,11 +168,8 @@ defmodule Omni.Dialects.GoogleGemini do
 
   # System encoding
 
-  defp maybe_put_system(body, nil), do: body
-
-  defp maybe_put_system(body, system) do
-    Map.put(body, "systemInstruction", %{"parts" => [%{"text" => system}]})
-  end
+  defp encode_system(nil), do: nil
+  defp encode_system(system), do: %{"parts" => [%{"text" => system}]}
 
   # Message encoding
 
@@ -247,20 +232,22 @@ defmodule Omni.Dialects.GoogleGemini do
 
   # Generation config
 
-  defp build_generation_config(opts) do
+  defp build_generation_config(model, opts) do
     %{}
     |> maybe_put("maxOutputTokens", opts[:max_tokens])
     |> maybe_put("temperature", opts[:temperature])
+    |> maybe_merge(encode_thinking(model, opts[:thinking]))
+    |> maybe_merge(encode_output(opts[:output]))
   end
 
   # Tool encoding
 
-  defp maybe_put_tools(body, []), do: body
-  defp maybe_put_tools(body, nil), do: body
+  defp encode_tools(nil), do: nil
+  defp encode_tools([]), do: nil
 
-  defp maybe_put_tools(body, tools) do
+  defp encode_tools(tools) do
     declarations = Enum.map(tools, &encode_tool/1)
-    Map.put(body, "tools", [%{"functionDeclarations" => declarations}])
+    [%{"functionDeclarations" => declarations}]
   end
 
   defp encode_tool(%{name: name, description: description, input_schema: schema}) do
@@ -277,9 +264,6 @@ defmodule Omni.Dialects.GoogleGemini do
   end
 
   # Helpers
-
-  defp maybe_put(map, _key, nil), do: map
-  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp normalize_stop_reason("STOP"), do: :stop
   defp normalize_stop_reason("MAX_TOKENS"), do: :length

@@ -10,6 +10,8 @@ defmodule Omni.Dialects.OpenAIResponses do
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Model}
 
+  import Omni.Util, only: [maybe_put: 3]
+
   @image_media_types ~w(image/jpeg image/png image/gif image/webp)
 
   @impl true
@@ -20,37 +22,36 @@ defmodule Omni.Dialects.OpenAIResponses do
 
   @impl true
   def handle_body(%Model{} = model, %Context{} = context, opts) do
-    body =
-      %{
-        "model" => model.id,
-        "stream" => true,
-        "input" => encode_input(context.messages)
-      }
-      |> maybe_put("instructions", context.system)
-      |> maybe_put("max_output_tokens", opts[:max_tokens])
-      |> maybe_put("temperature", opts[:temperature])
-      |> maybe_put("metadata", opts[:metadata])
-      |> maybe_put_tools(context.tools)
-      |> maybe_put_cache(opts[:cache])
-      |> maybe_put_thinking(model, opts[:thinking])
-      |> maybe_put_output(opts[:output])
+    body = %{
+      "model" => model.id,
+      "stream" => true,
+      "input" => encode_input(context.messages)
+    }
 
     body
+    |> maybe_put("instructions", context.system)
+    |> maybe_put("max_output_tokens", opts[:max_tokens])
+    |> maybe_put("temperature", opts[:temperature])
+    |> maybe_put("metadata", opts[:metadata])
+    |> maybe_put("tools", encode_tools(context.tools))
+    |> maybe_put("prompt_cache_retention", encode_cache(opts[:cache]))
+    |> maybe_put("reasoning", encode_thinking(model, opts[:thinking]))
+    |> maybe_put("text", encode_output(opts[:output]))
   end
 
   # Output schema
 
-  defp maybe_put_output(body, nil), do: body
+  defp encode_output(nil), do: nil
 
-  defp maybe_put_output(body, schema) do
-    Map.put(body, "text", %{
+  defp encode_output(schema) do
+    %{
       "format" => %{
         "type" => "json_schema",
         "name" => "output",
         "strict" => true,
         "schema" => schema
       }
-    })
+    }
   end
 
   # Parse events — OpenAI Responses sends named events with "type" field
@@ -100,20 +101,17 @@ defmodule Omni.Dialects.OpenAIResponses do
 
   # Thinking
 
-  defp maybe_put_thinking(body, _model, nil), do: body
-  defp maybe_put_thinking(body, %Model{reasoning: false}, _thinking), do: body
+  defp encode_thinking(_model, nil), do: nil
+  defp encode_thinking(%Model{reasoning: false}, _thinking), do: nil
+  defp encode_thinking(_model, false), do: %{"effort" => "none"}
 
-  defp maybe_put_thinking(body, _model, false) do
-    Map.put(body, "reasoning", %{"effort" => "none"})
+  defp encode_thinking(_model, level) when is_atom(level) do
+    %{"effort" => effort_string(level), "summary" => "auto"}
   end
 
-  defp maybe_put_thinking(body, _model, level) when is_atom(level) do
-    Map.put(body, "reasoning", %{"effort" => effort_string(level), "summary" => "auto"})
-  end
-
-  defp maybe_put_thinking(body, _model, %{} = opts) do
+  defp encode_thinking(_model, %{} = opts) do
     level = Map.get(opts, :effort, :high)
-    Map.put(body, "reasoning", %{"effort" => effort_string(level), "summary" => "auto"})
+    %{"effort" => effort_string(level), "summary" => "auto"}
   end
 
   defp effort_string(:low), do: "low"
@@ -219,12 +217,9 @@ defmodule Omni.Dialects.OpenAIResponses do
 
   # Tool encoding — flattened format (no "function" wrapper)
 
-  defp maybe_put_tools(body, []), do: body
-  defp maybe_put_tools(body, nil), do: body
-
-  defp maybe_put_tools(body, tools) do
-    Map.put(body, "tools", Enum.map(tools, &encode_tool/1))
-  end
+  defp encode_tools(nil), do: nil
+  defp encode_tools([]), do: nil
+  defp encode_tools(tools), do: Enum.map(tools, &encode_tool/1)
 
   defp encode_tool(%{name: name, description: description, input_schema: schema}) do
     %{
@@ -237,8 +232,8 @@ defmodule Omni.Dialects.OpenAIResponses do
 
   # Cache control
 
-  defp maybe_put_cache(body, :long), do: Map.put(body, "prompt_cache_retention", "24h")
-  defp maybe_put_cache(body, _), do: body
+  defp encode_cache(:long), do: "24h"
+  defp encode_cache(_), do: nil
 
   # Stop reason inference
 
@@ -262,9 +257,4 @@ defmodule Omni.Dialects.OpenAIResponses do
   end
 
   defp normalize_usage(_), do: nil
-
-  # Helpers
-
-  defp maybe_put(map, _key, nil), do: map
-  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 end

@@ -18,7 +18,7 @@ These affect multiple modules or span subsystem boundaries:
 
 2. `[FIXED]` **`normalize_thinking/1` duplicated across all 5 dialects** — Eliminated entirely. Each dialect's `maybe_put_thinking` now pattern-matches directly on atom levels and map opts, removing the intermediate tuple normalization.
 
-3. **`maybe_put/3` duplicated across all dialects** — Same private helper in every dialect module.
+3. `[FIXED]` **`maybe_put/3` duplicated across all dialects** — Extracted to `Omni.Util.maybe_put/3` and `maybe_merge/2` (works on both maps and keyword lists). All 5 dialects, `streaming_response.ex`, and `request.ex` now import from `Omni.Util`. Dialect `maybe_put_*` wrappers converted to `encode_*` pure functions where possible; body-transforming cases (Anthropic thinking/output) renamed to `apply_*` for clarity.
 
 4. `[WONTFIX]` **`Enumerable.t()` specs on `new/1` constructors are inconsistent** — False positive. Both `Map.new/1` and `struct!/2` accept any enumerable via `Enum.reduce`. The spec `Enumerable.t()` is accurate for all constructors regardless of which internal path they use.
 

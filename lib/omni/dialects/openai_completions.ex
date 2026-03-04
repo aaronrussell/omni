@@ -10,6 +10,8 @@ defmodule Omni.Dialects.OpenAICompletions do
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Model}
 
+  import Omni.Util, only: [maybe_put: 3]
+
   @image_media_types ~w(image/jpeg image/png image/gif image/webp)
 
   @impl true
@@ -20,40 +22,32 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   @impl true
   def handle_body(%Model{} = model, %Context{} = context, opts) do
-    body =
-      %{
-        "model" => model.id,
-        "messages" => encode_messages(context.system, context.messages),
-        "stream" => true,
-        "stream_options" => %{"include_usage" => true}
-      }
-      |> maybe_put("max_completion_tokens", opts[:max_tokens])
-      |> maybe_put("temperature", opts[:temperature])
-      |> maybe_put("metadata", opts[:metadata])
-      |> maybe_put_tools(context.tools)
-      |> maybe_put_cache(opts[:cache])
-      |> maybe_put_thinking(model, opts[:thinking])
-      |> maybe_put_output(opts[:output])
+    body = %{
+      "model" => model.id,
+      "messages" => encode_messages(context.system, context.messages),
+      "stream" => true,
+      "stream_options" => %{"include_usage" => true}
+    }
 
     body
+    |> maybe_put("max_completion_tokens", opts[:max_tokens])
+    |> maybe_put("temperature", opts[:temperature])
+    |> maybe_put("metadata", opts[:metadata])
+    |> maybe_put("tools", encode_tools(context.tools))
+    |> maybe_put("prompt_cache_retention", encode_cache(opts[:cache]))
+    |> maybe_put("reasoning_effort", encode_thinking(model, opts[:thinking]))
+    |> maybe_put("response_format", encode_output(opts[:output]))
   end
 
   # Thinking
 
-  defp maybe_put_thinking(body, _model, nil), do: body
-  defp maybe_put_thinking(body, %Model{reasoning: false}, _thinking), do: body
+  defp encode_thinking(_model, nil), do: nil
+  defp encode_thinking(%Model{reasoning: false}, _thinking), do: nil
+  defp encode_thinking(_model, false), do: "none"
+  defp encode_thinking(_model, level) when is_atom(level), do: effort_string(level)
 
-  defp maybe_put_thinking(body, _model, false) do
-    Map.put(body, "reasoning_effort", "none")
-  end
-
-  defp maybe_put_thinking(body, _model, level) when is_atom(level) do
-    Map.put(body, "reasoning_effort", effort_string(level))
-  end
-
-  defp maybe_put_thinking(body, _model, %{} = opts) do
-    level = Map.get(opts, :effort, :high)
-    Map.put(body, "reasoning_effort", effort_string(level))
+  defp encode_thinking(_model, %{} = opts) do
+    opts |> Map.get(:effort, :high) |> effort_string()
   end
 
   defp effort_string(:low), do: "low"
@@ -63,13 +57,13 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   # Output schema
 
-  defp maybe_put_output(body, nil), do: body
+  defp encode_output(nil), do: nil
 
-  defp maybe_put_output(body, schema) do
-    Map.put(body, "response_format", %{
+  defp encode_output(schema) do
+    %{
       "type" => "json_schema",
       "json_schema" => %{"name" => "output", "strict" => true, "schema" => schema}
-    })
+    }
   end
 
   # Parse events — OpenAI sends homogeneous `chat.completion.chunk` objects
@@ -253,12 +247,9 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   # Tool schema encoding
 
-  defp maybe_put_tools(body, []), do: body
-  defp maybe_put_tools(body, nil), do: body
-
-  defp maybe_put_tools(body, tools) do
-    Map.put(body, "tools", Enum.map(tools, &encode_tool/1))
-  end
+  defp encode_tools(nil), do: nil
+  defp encode_tools([]), do: nil
+  defp encode_tools(tools), do: Enum.map(tools, &encode_tool/1)
 
   defp encode_tool(%{name: name, description: description, input_schema: schema}) do
     %{
@@ -273,8 +264,8 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   # Cache control
 
-  defp maybe_put_cache(body, :long), do: Map.put(body, "prompt_cache_retention", "24h")
-  defp maybe_put_cache(body, _), do: body
+  defp encode_cache(:long), do: "24h"
+  defp encode_cache(_), do: nil
 
   # Usage normalization
 
@@ -286,9 +277,6 @@ defmodule Omni.Dialects.OpenAICompletions do
   end
 
   # Helpers
-
-  defp maybe_put(map, _key, nil), do: map
-  defp maybe_put(map, key, value), do: Map.put(map, key, value)
 
   defp normalize_stop_reason("stop"), do: :stop
   defp normalize_stop_reason("length"), do: :length

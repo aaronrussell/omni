@@ -69,6 +69,8 @@ defmodule Omni.StreamingResponse do
   alias Omni.{Message, Model, Response, Usage}
   alias Omni.Content.{Text, Thinking, ToolUse}
 
+  import Omni.Util, only: [maybe_put: 3]
+
   defstruct [:stream, :cancel]
 
   @typedoc "A streaming response wrapper."
@@ -530,9 +532,6 @@ defmodule Omni.StreamingResponse do
   defp end_atom(:tool_use), do: :tool_use_end
 
   # -- Map Helpers --
-
-  defp maybe_put(acc, _key, nil), do: acc
-  defp maybe_put(acc, key, value), do: Map.put(acc, key, value)
 
   defp merge_private(acc, nil), do: acc
 

@@ -18,6 +18,8 @@ defmodule Omni.Request do
   alias Omni.Content.Attachment
   alias Omni.{Context, Model, Parsers, StreamingResponse}
 
+  import Omni.Util, only: [maybe_put: 3]
+
   @schema %{
     # Config (type-loose — validated by infrastructure, not user input)
     api_key: :any,
@@ -187,9 +189,6 @@ defmodule Omni.Request do
   # Headers merge additively (not last-writer-wins)
   defp merge_config(:headers, a, b), do: Map.merge(a, b)
   defp merge_config(_key, _a, b), do: b
-
-  defp maybe_put(opts, _key, nil), do: opts
-  defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)
 
   defp check_status(%Req.Response{status: 200}), do: :ok
 

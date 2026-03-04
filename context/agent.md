@@ -394,14 +394,15 @@ All events from the agent follow the format `{:agent, agent_pid, event_type, eve
 {:agent, pid, :done, %Response{}}             # prompt round complete
 {:agent, pid, :pause, %ToolUse{}}             # waiting for tool approval
 {:agent, pid, :cancelled, nil}                # cancel was invoked
-{:agent, pid, :error, reason}                 # agent-level error
+{:agent, pid, :retry, reason}                # non-terminal error, agent retrying step
+{:agent, pid, :error, reason}                # terminal error, round is over
 ```
 
 **SR pass-through events** are forwarded from the Step Task as the LLM streams its response. The partial `%Response{}` from `StreamingResponse` is stripped — the listener doesn't need the accumulating state on every delta. The completed response arrives with `:turn` or `:done`.
 
 **Agent-level events** are emitted by the GenServer itself. The 4th element is whatever type is natural for the event — structs for `:tool_result`, `:turn`, `:done`, `:pause`; `nil` for `:cancelled`; a bare term for `:error`.
 
-SR events `:done` and `:error` are not forwarded — they are internal to the step. The agent emits its own `:done` and `:error` events at the prompt round level.
+SR events `:done` and `:error` are not forwarded — they are internal to the step. The agent emits its own `:done` and `:error` events at the prompt round level. `:retry` is emitted when `handle_error` returns `{:retry, state}` — it carries the error reason and signals that a new step will follow. `:error` is always terminal (round is over).
 
 **Turn boundaries:** `:turn` fires after each intermediate turn (where `handle_stop` returned `{:continue, ...}`). `:done` fires after the final turn. The last turn gets `:done`, not `:turn` — no doubling up. A simple chatbot (one turn per prompt) never sees `:turn`, only `:done`.
 
