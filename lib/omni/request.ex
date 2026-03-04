@@ -168,9 +168,11 @@ defmodule Omni.Request do
   # -- Private helpers --
 
   defp select_parser(%Req.Response{} = resp) do
-    if resp |> Req.Response.get_header("content-type") |> Enum.any?(&String.contains?(&1, "ndjson")),
-      do: Parsers.NDJSON,
-      else: Parsers.SSE
+    if resp
+       |> Req.Response.get_header("content-type")
+       |> Enum.any?(&String.contains?(&1, "ndjson")),
+       do: Parsers.NDJSON,
+       else: Parsers.SSE
   end
 
   defp check_unknown_keys(data, schema) do

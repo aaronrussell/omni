@@ -31,5 +31,4 @@ defmodule Omni.Providers.OpenAI do
   def models do
     Omni.Provider.load_models(__MODULE__, "priv/models/openai.json")
   end
-
 end

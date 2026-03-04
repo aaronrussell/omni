@@ -169,19 +169,19 @@ None found.
 ## Agent System (Agent, Executor, Server, State, Step)
 
 ### Bugs / Correctness
-- **server.ex:129-136** — `prompt/3` while running/paused silently discards `opts`. Staged prompt replaces `next_prompt` but caller-supplied opts (e.g. `max_steps: 50`) are lost. Fix: store `next_prompt` as `{content, opts}` tuple.
-- **server.ex:531-541** — `all_executable?/2` returns `true` for hallucinated tool names (nil from map lookup). If model sends a mix of hallucinated + schema-only tools, `all_executable?` returns false (schema-only fails check), and the whole batch goes to `finalize_turn` — losing the hallucinated tool's error feedback entirely.
-- **server.ex:267-269** — `{:executor_error, reason}` calls `reset_round` which discards the assistant message already appended to `pending_messages`. Partial work vanishes silently. Consider calling `handle_error` here like for step errors.
-- **server.ex:244-258** — On step crash + retry, events from the crashed attempt were already forwarded to the listener. Retry produces duplicate/overlapping events with no indication the first batch was invalid.
+- `[FIXED]` **server.ex:129-136** — `next_prompt` now stores `{content, opts}` tuple. Opts are merged into `prompt_opts` when the queued prompt fires.
+- `[FIXED]` **server.ex:531-541** — Renamed `all_executable?/2` to `any_schema_only?/2` (inverted). Logic is unchanged — hallucinated names correctly pass through to execution and get error results from `Tool.Runner`. The rename makes the intent explicit: the check is "are there schema-only tools that need manual handling?"
+- `[FIXED]` **server.ex:267-269** — Removed the try/rescue in Executor and the `{:executor_error, ...}` handler in Server. Tool.Runner handles all per-tool failures internally; an executor crash (internal bug) is caught by the existing EXIT handler.
+- `[FIXED]` **server.ex:244-258** — Listener now receives `{:agent, pid, :retry, reason}` before a retry, distinguishing it from terminal `:error`. Listener contract: `:error` = terminal (round over), `:retry` = non-terminal (more events will follow).
 
 ### Inconsistencies
-- **server.ex:465-486** — `commit_and_done` manually resets every field, duplicating `reset_round`'s field list. New fields must be updated in both places. Maintenance risk.
+- `[FIXED]` **server.ex:465-486** — `commit_and_done` now commits context then delegates to `reset_round`, eliminating the duplicated field list.
 
 ### Dead Code
-- **server.ex:28** — `@type t :: %__MODULE__{}` defined but never referenced. Module is `@moduledoc false`. Can remove.
+- `[FIXED]` **server.ex:28** — Removed unused `@type t` from `@moduledoc false` module.
 
 ### Naming
-- **server.ex:40** — `pending_messages` lifecycle semantics are subtle (buffer until commit). `round_messages` or `uncommitted_messages` might better convey the buffering pattern.
+- `[WONTFIX]` **server.ex:40** — `pending_messages` name kept; added comment clarifying it's buffered until committed on `:done`.
 
 ### Minor / Nits
 - **server.ex:156,364** — `rejected_results ++ [result]` appends in a loop. O(n^2) for many rejected tools.

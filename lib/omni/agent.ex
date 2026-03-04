@@ -104,12 +104,13 @@ defmodule Omni.Agent do
 
   **Agent-level events** — emitted by the agent at lifecycle boundaries:
 
-      {:agent, pid, :tool_result, %{name: "search", tool_use_id: "call_1", is_error: false}}
-      {:agent, pid, :turn,      %Response{}}     # intermediate turn, agent continuing
-      {:agent, pid, :done,      %Response{}}     # prompt round complete
-      {:agent, pid, :pause,     %ToolUse{}}      # waiting for tool approval
-      {:agent, pid, :error,     reason}           # terminal error
-      {:agent, pid, :cancelled, nil}              # cancel was invoked
+      {:agent, pid, :tool_result, %ToolResult{}}  # tool executed, result available
+      {:agent, pid, :turn,        %Response{}}    # intermediate turn, agent continuing
+      {:agent, pid, :done,        %Response{}}    # prompt round complete
+      {:agent, pid, :pause,       %ToolUse{}}     # waiting for tool approval
+      {:agent, pid, :retry,       reason}         # non-terminal error, agent retrying
+      {:agent, pid, :error,       reason}         # terminal error, round is over
+      {:agent, pid, :cancelled,   nil}            # cancel was invoked
 
   `:turn` fires after each intermediate turn (where `handle_stop` returned
   `{:continue, ...}`). `:done` fires after the final turn. A simple chatbot

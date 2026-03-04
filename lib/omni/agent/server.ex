@@ -25,8 +25,6 @@ defmodule Omni.Agent.Server do
   alias Omni.Agent.State
   alias Omni.Content.{ToolResult, ToolUse}
 
-  @type t :: %__MODULE__{}
-
   defstruct [
     # Public state (passed to callbacks)
     :state,
@@ -37,6 +35,10 @@ defmodule Omni.Agent.Server do
     :tool_timeout,
 
     # Round lifecycle (set when a prompt starts, cleared by reset_round)
+    # pending_messages: buffered messages for this round, committed to context on :done
+    # prompt_opts: merged opts for the current round (state.opts + call-site opts)
+    # next_prompt: staged {content, opts} tuple for the next round, set when
+    #   prompt/3 is called while running/paused
     pending_messages: [],
     prompt_opts: [],
     next_prompt: nil,
@@ -127,12 +129,12 @@ defmodule Omni.Agent.Server do
   end
 
   def handle_call(
-        {:prompt, content, _opts},
+        {:prompt, content, opts},
         _from,
         %__MODULE__{state: %{status: status}} = server
       )
       when status in [:running, :paused] do
-    {:reply, :ok, %{server | next_prompt: content}}
+    {:reply, :ok, %{server | next_prompt: {content, opts}}}
   end
 
   def handle_call({:resume, decision}, _from, %__MODULE__{state: %{status: :paused}} = server) do
@@ -232,6 +234,7 @@ defmodule Omni.Agent.Server do
 
     case call_handle_error(server.module, reason, server.state) do
       {:retry, new_state} ->
+        notify(server, :retry, reason)
         {:noreply, spawn_step(%{server | state: new_state})}
 
       {:stop, new_state} ->
@@ -248,6 +251,7 @@ defmodule Omni.Agent.Server do
 
     case call_handle_error(server.module, error, server.state) do
       {:retry, new_state} ->
+        notify(server, :retry, error)
         {:noreply, spawn_step(%{server | state: new_state})}
 
       {:stop, new_state} ->
@@ -261,12 +265,6 @@ defmodule Omni.Agent.Server do
 
   def handle_info({ref, {:tools_executed, results}}, %{executor_task: {_, ref}} = server) do
     server = handle_tools_executed(results, server)
-    {:noreply, server}
-  end
-
-  def handle_info({ref, {:executor_error, reason}}, %{executor_task: {_, ref}} = server) do
-    server = reset_round(server)
-    notify(server, :error, {:executor_error, reason})
     {:noreply, server}
   end
 
@@ -318,7 +316,9 @@ defmodule Omni.Agent.Server do
 
     tool_uses = extract_tool_uses(response.message.content)
 
-    if tool_uses != [] and all_executable?(tool_uses, server.state.context.tools) do
+    # Schema-only tools need manual handling — return to user via finalize_turn.
+    # Hallucinated names pass through and get error results from Tool.Runner.
+    if tool_uses != [] and not any_schema_only?(tool_uses, server.state.context.tools) do
       handle_tool_decision_phase(tool_uses, server)
     else
       finalize_turn(response, server)
@@ -399,11 +399,7 @@ defmodule Omni.Agent.Server do
           {:ok, final_result, new_state} ->
             srv = %{srv | state: new_state}
 
-            notify(srv, :tool_result, %{
-              name: final_result.name,
-              tool_use_id: final_result.tool_use_id,
-              is_error: final_result.is_error
-            })
+            notify(srv, :tool_result, final_result)
 
             {final_result, srv}
         end
@@ -432,8 +428,9 @@ defmodule Omni.Agent.Server do
             commit_and_done(response, server)
 
           server.next_prompt != nil ->
-            content = server.next_prompt
-            server = %{server | next_prompt: nil}
+            {content, opts} = server.next_prompt
+            prompt_opts = Keyword.merge(server.state.opts, opts)
+            server = %{server | next_prompt: nil, prompt_opts: prompt_opts}
             continue_turn(content, response, server)
 
           true ->
@@ -445,8 +442,9 @@ defmodule Omni.Agent.Server do
 
         cond do
           server.next_prompt != nil and not max_steps_reached?(server) ->
-            content = server.next_prompt
-            server = %{server | next_prompt: nil}
+            {content, opts} = server.next_prompt
+            prompt_opts = Keyword.merge(server.state.opts, opts)
+            server = %{server | next_prompt: nil, prompt_opts: prompt_opts}
             continue_turn(content, response, server)
 
           true ->
@@ -464,23 +462,9 @@ defmodule Omni.Agent.Server do
 
   defp commit_and_done(response, server) do
     context = Context.push(server.state.context, server.pending_messages)
+    server = %{server | state: %{server.state | context: context}}
 
-    server = %{
-      server
-      | state: %{server.state | context: context, status: :idle, step: 0},
-        step_task: nil,
-        executor_task: nil,
-        rejected_results: [],
-        pending_messages: [],
-        next_prompt: nil,
-        prompt_opts: [],
-        last_response: nil,
-        tool_map: nil,
-        approved_uses: [],
-        remaining_uses: [],
-        paused_use: nil
-    }
-
+    server = reset_round(server)
     notify(server, :done, response)
     server
   end
@@ -528,15 +512,11 @@ defmodule Omni.Agent.Server do
     Enum.filter(content, &match?(%ToolUse{}, &1))
   end
 
-  defp all_executable?(tool_uses, tools) do
+  defp any_schema_only?(tool_uses, tools) do
     tool_map = build_tool_map(tools)
 
-    Enum.all?(tool_uses, fn tool_use ->
-      case Map.get(tool_map, tool_use.name) do
-        nil -> true
-        %Tool{handler: nil} -> false
-        %Tool{} -> true
-      end
+    Enum.any?(tool_uses, fn tool_use ->
+      match?(%Tool{handler: nil}, Map.get(tool_map, tool_use.name))
     end)
   end
 
