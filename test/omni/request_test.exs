@@ -331,11 +331,10 @@ defmodule Omni.RequestTest do
       {:ok, req} =
         Request.build(model, context, %{
           api_key: "sk-test",
-          base_url: "https://api.test.com",
-          auth_header: "authorization"
+          base_url: "https://api.test.com"
         })
 
-      assert Req.Request.get_header(req, "authorization") == ["sk-test"]
+      assert Req.Request.get_header(req, "authorization") == ["Bearer sk-test"]
     end
 
     test "modify_body is applied to dialect output" do
@@ -402,7 +401,7 @@ defmodule Omni.RequestTest do
 
       assert %Req.Request{} = req
       assert URI.to_string(req.url) == "https://api.test.com/v1/dummy"
-      assert Req.Request.get_header(req, "authorization") == ["sk-test"]
+      assert Req.Request.get_header(req, "authorization") == ["Bearer sk-test"]
     end
 
     test "default timeout applies as receive_timeout on Req request" do

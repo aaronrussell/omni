@@ -469,7 +469,7 @@ Auth is handled by the `authenticate/2` callback, which receives a Req request a
 - Azure OpenAI: API key header or Azure AD bearer tokens with refresh flows
 - Google Vertex AI: short-lived tokens from service account credentials
 
-`use Omni.Provider` provides a default implementation that resolves an API key and adds it as a header, which covers the majority of providers. Providers with exotic auth (like Bedrock) override the callback entirely.
+`use Omni.Provider` provides a default implementation that resolves an API key and sends a Bearer token on the `"authorization"` header. When a provider sets a custom `:auth_header` in `config/0` (e.g. `"x-api-key"`), the raw key is sent on that header instead. This covers the majority of providers without overrides. Providers with exotic auth (like Bedrock) override the callback entirely.
 
 ### API key resolution
 
@@ -553,8 +553,7 @@ defmodule MyApp.Providers.Internal do
   def config do
     %{
       base_url: "https://internal-llm.company.com",
-      auth_header: "authorization",
-      auth_default: {:system, "INTERNAL_LLM_KEY"}
+      api_key: {:system, "INTERNAL_LLM_KEY"}
     }
   end
 

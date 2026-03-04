@@ -132,7 +132,7 @@ These affect multiple modules or span subsystem boundaries:
 - `[FIXED]` **provider.ex:309-313** — MFA `resolve_auth/1` now validates the return is a binary, returning `{:error, {:invalid_auth_value, other}}` otherwise.
 
 ### Inconsistencies
-- **openai.ex:36-40, openrouter.ex:74-78, ollama.ex:66-69** — Three providers have identical Bearer-style `authenticate/2` overrides. The macro default uses raw key (Anthropic/Google style). Majority case (Bearer) requires override, minority case is the default. Consider making Bearer the default.
+- `[FIXED]` **openai.ex:36-40, openrouter.ex:74-78, ollama.ex:66-69** — Default `authenticate/2` now sends Bearer token when no `:auth_header` is configured, raw key when a custom header is set. Removed identical overrides from OpenAI, OpenRouter, and Ollama (Ollama retains only its nil-key skip clause).
 
 ### Dead Code
 - **openrouter.ex:53** — True branch of `if effort == "max"` (see Bugs above).

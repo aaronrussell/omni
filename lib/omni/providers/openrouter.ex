@@ -68,13 +68,6 @@ defmodule Omni.Providers.OpenRouter do
     end
   end
 
-  @impl true
-  def authenticate(req, opts) do
-    with {:ok, key} <- Omni.Provider.resolve_auth(opts.api_key) do
-      {:ok, Req.Request.put_header(req, "authorization", "Bearer #{key}")}
-    end
-  end
-
   defp attach_reasoning_details(body, %Context{messages: messages}) do
     assistant_privates =
       messages

@@ -32,10 +32,4 @@ defmodule Omni.Providers.OpenAI do
     Omni.Provider.load_models(__MODULE__, "priv/models/openai.json")
   end
 
-  @impl true
-  def authenticate(req, opts) do
-    with {:ok, key} <- Omni.Provider.resolve_auth(opts.api_key) do
-      {:ok, Req.Request.put_header(req, "authorization", "Bearer #{key}")}
-    end
-  end
 end

@@ -63,16 +63,25 @@ defmodule Omni.ProviderTest do
       assert TestProvider.modify_events(deltas, %{"type" => "chunk"}) == deltas
     end
 
-    test "authenticate/2 adds literal API key as authorization header" do
+    test "authenticate/2 adds Bearer authorization header by default" do
+      req = Req.new()
+
+      assert {:ok, authed_req} =
+               TestProvider.authenticate(req, %{api_key: "sk-test-123"})
+
+      assert Req.Request.get_header(authed_req, "authorization") == ["Bearer sk-test-123"]
+    end
+
+    test "authenticate/2 uses raw key with custom auth_header" do
       req = Req.new()
 
       assert {:ok, authed_req} =
                TestProvider.authenticate(req, %{
                  api_key: "sk-test-123",
-                 auth_header: "authorization"
+                 auth_header: "x-api-key"
                })
 
-      assert Req.Request.get_header(authed_req, "authorization") == ["sk-test-123"]
+      assert Req.Request.get_header(authed_req, "x-api-key") == ["sk-test-123"]
     end
   end
 

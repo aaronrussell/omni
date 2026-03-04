@@ -62,12 +62,7 @@ defmodule Omni.Providers.Ollama do
 
   @impl true
   def authenticate(req, %{api_key: nil}), do: {:ok, req}
-
-  def authenticate(req, opts) do
-    with {:ok, key} <- Omni.Provider.resolve_auth(opts.api_key) do
-      {:ok, Req.Request.put_header(req, "authorization", "Bearer #{key}")}
-    end
-  end
+  def authenticate(req, opts), do: super(req, opts)
 
   defp build_model(id) when is_binary(id) do
     build_model(id: id)

@@ -96,16 +96,19 @@ defmodule Omni.Provider do
   ## Authentication
 
   The default `authenticate/2` resolves `opts.api_key` via `resolve_auth/1` and
-  sets it as the value of the `opts.auth_header` header (defaulting to
-  `"authorization"`). This covers the majority of providers. Override
-  `authenticate/2` for schemes that need a `Bearer` prefix, request signing, or
+  sets the appropriate header. When no `:auth_header` is configured, it sends a
+  Bearer token on the `"authorization"` header (the most common scheme). When a
+  custom `:auth_header` is set in `config/0` (e.g. `"x-api-key"`), the raw key
+  is sent on that header instead.
+
+  Override `authenticate/2` only for unusual schemes like request signing or
   token refresh:
 
-      # Bearer token (OpenAI-style)
+      # Custom authentication
       @impl true
       def authenticate(req, opts) do
         with {:ok, key} <- Omni.Provider.resolve_auth(opts.api_key) do
-          {:ok, Req.Request.put_header(req, "authorization", "Bearer \#{key}")}
+          {:ok, Req.Request.put_header(req, "x-custom-auth", sign(key))}
         end
       end
 
@@ -124,7 +127,8 @@ defmodule Omni.Provider do
 
     * `:base_url` (required) — the service's base URL
     * `:api_key` — default API key (see `resolve_auth/1` for accepted formats)
-    * `:auth_header` — header name for the API key (default `"authorization"`)
+    * `:auth_header` — custom header name for the API key; when set, the raw
+      key is sent on this header instead of as a Bearer token on `"authorization"`
     * `:headers` — additional headers to include on every request (map)
 
   These values serve as defaults. Users can override `:base_url`, `:api_key`,
@@ -246,9 +250,10 @@ defmodule Omni.Provider do
   authentication depends on external state (environment variables, vaults,
   token endpoints) that can fail at runtime.
 
-  Default: resolves `opts.api_key` via `resolve_auth/1` and sets it as the
-  `opts.auth_header` header value. Override for Bearer token prefixes,
-  request signing (e.g. AWS SigV4), or token refresh flows.
+  Default: resolves `opts.api_key` via `resolve_auth/1` and sends a Bearer
+  token on `"authorization"`. When `:auth_header` is set in config, sends the
+  raw key on that header instead. Override for request signing (e.g. AWS
+  SigV4) or token refresh flows.
   """
   @callback authenticate(req :: Req.Request.t(), opts :: map()) ::
               {:ok, Req.Request.t()} | {:error, term()}
@@ -419,7 +424,13 @@ defmodule Omni.Provider do
       def authenticate(req, opts) do
         with {:ok, key} <- Omni.Provider.resolve_auth(opts.api_key) do
           header = Map.get(opts, :auth_header, "authorization")
-          {:ok, Req.Request.put_header(req, header, key)}
+
+          value =
+            if header == "authorization",
+              do: "Bearer #{key}",
+              else: key
+
+          {:ok, Req.Request.put_header(req, header, value)}
         end
       end
 
