@@ -4,16 +4,17 @@ defmodule Omni.Content.ToolResult do
 
   Appears in user messages to provide the result of a preceding
   `Omni.Content.ToolUse`. The `tool_use_id` links back to the originating
-  tool use block. Content is restricted to `Text` and `Thinking` blocks.
+  tool use block. Content is restricted to `Text` and `Attachment` blocks
+  (image attachments are only supported by some providers).
   """
 
-  alias Omni.Content.{Text, Thinking}
+  alias Omni.Content.{Attachment, Text}
 
   @enforce_keys [:tool_use_id, :name]
   defstruct [:tool_use_id, :name, :content, is_error: false]
 
   @typedoc "Allowed content types within a tool result."
-  @type content :: Text.t() | Thinking.t()
+  @type content :: Text.t() | Attachment.t()
 
   @typedoc "Output of a tool invocation, linked to its originating `ToolUse` by ID."
   @type t :: %__MODULE__{

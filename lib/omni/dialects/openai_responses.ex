@@ -107,28 +107,19 @@ defmodule Omni.Dialects.OpenAIResponses do
     Map.put(body, "reasoning", %{"effort" => "none"})
   end
 
-  defp maybe_put_thinking(body, _model, thinking) do
-    case normalize_thinking(thinking) do
-      {:effort, level} ->
-        effort = effort_string(level)
-        Map.put(body, "reasoning", %{"effort" => effort, "summary" => "auto"})
+  defp maybe_put_thinking(body, _model, level) when is_atom(level) do
+    Map.put(body, "reasoning", %{"effort" => effort_string(level), "summary" => "auto"})
+  end
 
-      {:effort, level, _budget} ->
-        effort = effort_string(level)
-        Map.put(body, "reasoning", %{"effort" => effort, "summary" => "auto"})
-    end
+  defp maybe_put_thinking(body, _model, %{} = opts) do
+    level = Map.get(opts, :effort, :high)
+    Map.put(body, "reasoning", %{"effort" => effort_string(level), "summary" => "auto"})
   end
 
   defp effort_string(:low), do: "low"
   defp effort_string(:medium), do: "medium"
   defp effort_string(:high), do: "high"
   defp effort_string(:max), do: "xhigh"
-
-  defp normalize_thinking(level) when level in [:low, :medium, :high, :max], do: {:effort, level}
-
-  defp normalize_thinking(opts) when is_map(opts) do
-    {:effort, Map.get(opts, :effort, :high), Map.get(opts, :budget)}
-  end
 
   # Input encoding — flat-maps messages into a mixed array
 

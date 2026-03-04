@@ -47,26 +47,19 @@ defmodule Omni.Dialects.OpenAICompletions do
     Map.put(body, "reasoning_effort", "none")
   end
 
-  defp maybe_put_thinking(body, _model, thinking) do
-    case normalize_thinking(thinking) do
-      {:effort, level} ->
-        Map.put(body, "reasoning_effort", effort_string(level))
+  defp maybe_put_thinking(body, _model, level) when is_atom(level) do
+    Map.put(body, "reasoning_effort", effort_string(level))
+  end
 
-      {:effort, level, _budget} ->
-        Map.put(body, "reasoning_effort", effort_string(level))
-    end
+  defp maybe_put_thinking(body, _model, %{} = opts) do
+    level = Map.get(opts, :effort, :high)
+    Map.put(body, "reasoning_effort", effort_string(level))
   end
 
   defp effort_string(:low), do: "low"
   defp effort_string(:medium), do: "medium"
   defp effort_string(:high), do: "high"
   defp effort_string(:max), do: "xhigh"
-
-  defp normalize_thinking(level) when level in [:low, :medium, :high, :max], do: {:effort, level}
-
-  defp normalize_thinking(opts) when is_map(opts) do
-    {:effort, Map.get(opts, :effort, :high), Map.get(opts, :budget)}
-  end
 
   # Output schema
 

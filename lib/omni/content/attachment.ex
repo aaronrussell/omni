@@ -5,6 +5,9 @@ defmodule Omni.Content.Attachment do
 
   Sources use tagged tuples: `{:base64, data}` for inline binary data, or
   `{:url, url}` for remotely-hosted content.
+
+  The `:opts` field is reserved for provider-specific metadata (e.g.
+  citations, titles, file IDs) that dialects may read when encoding.
   """
 
   @enforce_keys [:source, :media_type]

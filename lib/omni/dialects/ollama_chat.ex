@@ -44,22 +44,16 @@ defmodule Omni.Dialects.OllamaChat do
   defp maybe_put_thinking(body, %Model{reasoning: false}, _thinking), do: body
   defp maybe_put_thinking(body, _model, false), do: Map.put(body, "think", false)
 
-  defp maybe_put_thinking(body, _model, thinking) do
-    value =
-      case normalize_thinking(thinking) do
-        {:effort, :high} -> true
-        {:effort, :max} -> true
-        {:effort, level} -> Atom.to_string(level)
-        {:effort, _level, _budget} -> true
-      end
-
-    Map.put(body, "think", value)
+  defp maybe_put_thinking(body, _model, level) when level in [:high, :max] do
+    Map.put(body, "think", true)
   end
 
-  defp normalize_thinking(level) when level in [:low, :medium, :high, :max], do: {:effort, level}
+  defp maybe_put_thinking(body, _model, level) when is_atom(level) do
+    Map.put(body, "think", Atom.to_string(level))
+  end
 
-  defp normalize_thinking(opts) when is_map(opts) do
-    {:effort, Map.get(opts, :effort, :high), Map.get(opts, :budget)}
+  defp maybe_put_thinking(body, _model, %{} = _opts) do
+    Map.put(body, "think", true)
   end
 
   # Output schema

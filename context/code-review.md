@@ -16,7 +16,7 @@ These affect multiple modules or span subsystem boundaries:
 
 1. `[FIXED]` **Usage cost computation is wrong** — `streaming_response.ex:498-501` computes costs as `tokens * cost_per_million` without dividing by 1,000,000. Model cost fields are documented as "per million tokens" (confirmed in JSON data files). All `Usage` cost fields were inflated by 1M×. Fixed: added `/ 1_000_000` to all four cost computations and corrected the test.
 
-2. **`normalize_thinking/1` duplicated across all 5 dialects** — Identical 4-line function copy-pasted in every dialect. Strong candidate for extraction into `Omni.Dialect` or a shared helper.
+2. `[FIXED]` **`normalize_thinking/1` duplicated across all 5 dialects** — Eliminated entirely. Each dialect's `maybe_put_thinking` now pattern-matches directly on atom levels and map opts, removing the intermediate tuple normalization.
 
 3. **`maybe_put/3` duplicated across all dialects** — Same private helper in every dialect module.
 
@@ -38,10 +38,10 @@ These affect multiple modules or span subsystem boundaries:
 - `[WONTFIX]` **model.ex:196 vs message.ex:38** — Constructor input handling inconsistency (see cross-cutting #4 — false positive).
 
 ### Dead Code
-- **attachment.ex:11** — `opts: %{}` field on Attachment is never read, written, or referenced anywhere in the codebase. Remove or document its purpose.
+- `[DEFERRED]` **attachment.ex:11** — `opts` field is reserved for provider-specific metadata (citations, titles, file IDs). Documented its purpose; added to roadmap for future dialect wiring.
 
 ### Naming
-- **tool_result.ex:16** — Type includes `Thinking.t()` but no dialect ever produces/consumes Thinking blocks in ToolResults. Either document when this would occur or remove from the type.
+- `[FIXED]` **tool_result.ex:16** — Changed type from `Thinking.t()` to `Attachment.t()`. Anthropic dialect already handles attachments in tool result content via recursive `encode_content/1`; other dialects correctly filter to text only.
 - `[FIXED]` **model.ex:22-25** — Cost field docs say "per million tokens" but don't specify currency. Added "USD" to Model cost field docs and Usage cost field docs.
 
 ### Minor / Nits

@@ -49,16 +49,19 @@ defmodule Omni.Dialects.GoogleGemini do
     Map.update!(body, "generationConfig", &Map.put(&1, "thinkingConfig", thinking_config))
   end
 
-  defp maybe_put_thinking(body, _model, thinking) do
-    thinking_config =
-      case normalize_thinking(thinking) do
-        {:effort, level} ->
-          %{"thinkingLevel" => level_string(level), "includeThoughts" => true}
+  defp maybe_put_thinking(body, _model, level) when is_atom(level) do
+    thinking_config = %{"thinkingLevel" => level_string(level), "includeThoughts" => true}
+    Map.update!(body, "generationConfig", &Map.put(&1, "thinkingConfig", thinking_config))
+  end
 
-        {:effort, _level, budget} ->
-          %{"thinkingBudget" => budget, "includeThoughts" => true}
-      end
+  defp maybe_put_thinking(body, _model, %{budget: budget}) when is_integer(budget) do
+    thinking_config = %{"thinkingBudget" => budget, "includeThoughts" => true}
+    Map.update!(body, "generationConfig", &Map.put(&1, "thinkingConfig", thinking_config))
+  end
 
+  defp maybe_put_thinking(body, _model, %{} = opts) do
+    level = Map.get(opts, :effort, :high)
+    thinking_config = %{"thinkingLevel" => level_string(level), "includeThoughts" => true}
     Map.update!(body, "generationConfig", &Map.put(&1, "thinkingConfig", thinking_config))
   end
 
@@ -66,12 +69,6 @@ defmodule Omni.Dialects.GoogleGemini do
   defp level_string(:medium), do: "medium"
   defp level_string(:high), do: "high"
   defp level_string(:max), do: "high"
-
-  defp normalize_thinking(level) when level in [:low, :medium, :high, :max], do: {:effort, level}
-
-  defp normalize_thinking(opts) when is_map(opts) do
-    {:effort, Map.get(opts, :effort, :high), Map.get(opts, :budget)}
-  end
 
   # Output schema
 
