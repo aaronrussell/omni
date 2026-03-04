@@ -19,10 +19,10 @@ defmodule Omni.Model do
     * `:reasoning` — whether the model supports extended thinking
     * `:input_modalities` — supported input types (`:text`, `:image`, `:pdf`)
     * `:output_modalities` — supported output types (`:text`)
-    * `:input_cost` — cost per million input tokens
-    * `:output_cost` — cost per million output tokens
-    * `:cache_read_cost` — cost per million cached input tokens (read)
-    * `:cache_write_cost` — cost per million cached input tokens (write)
+    * `:input_cost` — USD cost per million input tokens
+    * `:output_cost` — USD cost per million output tokens
+    * `:cache_read_cost` — USD cost per million cached input tokens (read)
+    * `:cache_write_cost` — USD cost per million cached input tokens (write)
 
   ## Looking up models
 

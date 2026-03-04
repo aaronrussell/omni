@@ -47,8 +47,8 @@ defmodule Omni.Providers.OpenRouterTest do
       refute Map.has_key?(result, "reasoning_effort")
     end
 
-    test "maps max to xhigh" do
-      body = %{"model" => "test", "reasoning_effort" => "max"}
+    test "passes through xhigh effort unchanged" do
+      body = %{"model" => "test", "reasoning_effort" => "xhigh"}
 
       result = OpenRouter.modify_body(body, %Omni.Context{}, %{})
 

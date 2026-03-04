@@ -123,8 +123,7 @@ defmodule Omni.StreamingResponse do
     case Enum.at(sr, -1) do
       {:done, _, response} -> {:ok, response}
       {:error, reason, _} -> {:error, reason}
-      {_, _, %{error: nil} = response} -> {:ok, response}
-      {_, _, %{error: reason}} -> {:error, reason}
+      {_, _, %{error: reason}} when reason != nil -> {:error, reason}
       nil -> {:error, :empty_stream}
     end
   end

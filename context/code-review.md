@@ -34,7 +34,7 @@ These affect multiple modules or span subsystem boundaries:
 - `[FIXED]` **tool_result.ex:29-35** — Added `nil -> []` clause in the content update function to match the documented behaviour.
 
 ### Inconsistencies
-- **message.ex:24** — Typespec declares `timestamp: DateTime.t()` (non-nilable) but struct defaults to `nil`. Direct construction `%Message{role: :user}` produces `nil` timestamp, violating the type. Fix: change type to `DateTime.t() | nil`.
+- `[WONTFIX]` **message.ex:24** — Typespec declares `timestamp: DateTime.t()` (non-nilable) but struct defaults to `nil`. All construction goes through `new/1` which always sets a timestamp, so the typespec accurately describes the intended contract.
 - `[WONTFIX]` **model.ex:196 vs message.ex:38** — Constructor input handling inconsistency (see cross-cutting #4 — false positive).
 
 ### Dead Code
@@ -42,7 +42,7 @@ These affect multiple modules or span subsystem boundaries:
 
 ### Naming
 - **tool_result.ex:16** — Type includes `Thinking.t()` but no dialect ever produces/consumes Thinking blocks in ToolResults. Either document when this would occur or remove from the type.
-- **model.ex:22-25** — Cost field docs say "per million tokens" but don't specify currency. Add "(USD)" for clarity.
+- `[FIXED]` **model.ex:22-25** — Cost field docs say "per million tokens" but don't specify currency. Added "USD" to Model cost field docs and Usage cost field docs.
 
 ### Minor / Nits
 - **context.ex:25** — Doc omits that passing `%Context{}` returns it unchanged (passthrough behavior undocumented).
@@ -63,8 +63,8 @@ These affect multiple modules or span subsystem boundaries:
 - `[FIXED]` **streaming_response.ex:94** — Changed to `{event_type(), map(), Response.t()} | {:error, term(), Response.t()}` to precisely express that only error events carry a non-map second element.
 
 ### Dead Code
-- **streaming_response.ex:126-127** — Fallback clauses in `complete/1` are unreachable under normal operation (finalize always emits `:done` or `:error` last).
-- **ndjson.ex:37-39** — Single-branch case expression just destructures and re-wraps. Could be simplified to `extract_lines(data, [])` directly.
+- `[FIXED]` **streaming_response.ex:126-127** — Removed the `%{error: nil}` fallback (truly unreachable). Kept a single `%{error: reason}` fallback — needed when mid-stream error is followed by block-end events from `finalize_blocks`, making the `:error` tuple not last. Added `when reason != nil` guard for precision.
+- `[FIXED]` **ndjson.ex:37-39** — Simplified `process_chunk/2` to call `extract_lines/2` directly, removing the unnecessary single-branch case.
 
 ### Minor / Nits
 - **streaming_response.ex:342** — `block_order ++ [key]` is O(n) append. Negligible for typical responses (1-5 blocks).
@@ -128,8 +128,8 @@ These affect multiple modules or span subsystem boundaries:
 ## Providers (Provider behaviour, Anthropic, Google, OpenAI, OpenRouter, Ollama)
 
 ### Bugs / Correctness
-- **openrouter.ex:53** — `"max" -> "xhigh"` mapping is unreachable dead code. The OpenAI Completions dialect already converts `:max` to `"xhigh"` before `modify_body/3` runs. The true branch never executes. Works by accident (else branch passes `"xhigh"` through). Fix: remove the conditional.
-- **provider.ex:309-313** — `resolve_auth/1` MFA clause doesn't validate that `apply/3` returns a binary. Non-string return (nil, integer) propagates as `{:ok, non_string}` and crashes in `Req.Request.put_header/3`. Fix: validate return is binary.
+- `[FIXED]` **openrouter.ex:53** — Removed unreachable `"max" -> "xhigh"` conditional. The dialect already converts before `modify_body/3` runs; effort value is now passed through directly.
+- `[FIXED]` **provider.ex:309-313** — MFA `resolve_auth/1` now validates the return is a binary, returning `{:error, {:invalid_auth_value, other}}` otherwise.
 
 ### Inconsistencies
 - **openai.ex:36-40, openrouter.ex:74-78, ollama.ex:66-69** — Three providers have identical Bearer-style `authenticate/2` overrides. The macro default uses raw key (Anthropic/Google style). Majority case (Bearer) requires override, minority case is the default. Consider making Bearer the default.

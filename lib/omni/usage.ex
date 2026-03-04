@@ -11,8 +11,8 @@ defmodule Omni.Usage do
     * `:cache_read_tokens`, `:cache_write_tokens` — prompt caching token counts
     * `:total_tokens` — sum of all token counts
     * `:input_cost`, `:output_cost`, `:cache_read_cost`, `:cache_write_cost` —
-      per-category costs derived from model pricing
-    * `:total_cost` — sum of all cost fields
+      per-category USD costs derived from model pricing
+    * `:total_cost` — sum of all USD cost fields
 
   All fields default to `0`. Use `add/2` and `sum/1` to accumulate across
   multiple requests.

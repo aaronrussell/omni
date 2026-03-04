@@ -50,11 +50,9 @@ defmodule Omni.Providers.OpenRouter do
 
   @impl true
   def modify_body(%{"reasoning_effort" => effort} = body, context, _opts) do
-    mapped = if effort == "max", do: "xhigh", else: effort
-
     body
     |> Map.delete("reasoning_effort")
-    |> Map.put("reasoning", %{"effort" => mapped})
+    |> Map.put("reasoning", %{"effort" => effort})
     |> attach_reasoning_details(context)
   end
 

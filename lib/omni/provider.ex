@@ -307,7 +307,10 @@ defmodule Omni.Provider do
   end
 
   def resolve_auth({mod, fun, args}) when is_atom(mod) and is_atom(fun) and is_list(args) do
-    {:ok, apply(mod, fun, args)}
+    case apply(mod, fun, args) do
+      value when is_binary(value) -> {:ok, value}
+      other -> {:error, {:invalid_auth_value, other}}
+    end
   rescue
     e -> {:error, e}
   end

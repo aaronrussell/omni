@@ -32,11 +32,7 @@ defmodule Omni.Parsers.NDJSON do
   end
 
   defp process_chunk(chunk, buffer) do
-    data = buffer <> chunk
-
-    case extract_lines(data, []) do
-      {events, new_buffer} -> {events, new_buffer}
-    end
+    extract_lines(buffer <> chunk, [])
   end
 
   defp extract_lines(data, acc) do
