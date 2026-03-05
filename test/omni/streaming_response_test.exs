@@ -35,7 +35,8 @@ defmodule Omni.StreamingResponseTest do
     test "first block_delta synthesizes _start" do
       events = [
         {:block_delta, %{type: :text, index: 0, delta: "Hello"}},
-        {:block_delta, %{type: :text, index: 0, delta: " world"}}
+        {:block_delta, %{type: :text, index: 0, delta: " world"}},
+        {:message, %{stop_reason: :stop}}
       ]
 
       result = collect_scripted(events)
@@ -52,7 +53,8 @@ defmodule Omni.StreamingResponseTest do
     test "carries input without needing deltas" do
       events = [
         {:block_start,
-         %{type: :tool_use, index: 0, id: "call_g", name: "search", input: %{"q" => "elixir"}}}
+         %{type: :tool_use, index: 0, id: "call_g", name: "search", input: %{"q" => "elixir"}}},
+        {:message, %{stop_reason: :tool_use}}
       ]
 
       result = collect_scripted(events)
@@ -71,7 +73,8 @@ defmodule Omni.StreamingResponseTest do
   describe "redacted thinking" do
     test "block_start with redacted_data, text is nil" do
       events = [
-        {:block_start, %{type: :thinking, index: 0, redacted_data: "encrypted_blob"}}
+        {:block_start, %{type: :thinking, index: 0, redacted_data: "encrypted_blob"}},
+        {:message, %{stop_reason: :stop}}
       ]
 
       result = collect_scripted(events)
@@ -99,7 +102,8 @@ defmodule Omni.StreamingResponseTest do
     test "signature-only delta skips consumer event" do
       events = [
         {:block_delta, %{type: :text, index: 0, delta: "Hello"}},
-        {:block_delta, %{type: :text, index: 0, signature: "sig_xyz"}}
+        {:block_delta, %{type: :text, index: 0, signature: "sig_xyz"}},
+        {:message, %{stop_reason: :stop}}
       ]
 
       result = collect_scripted(events)
@@ -116,7 +120,8 @@ defmodule Omni.StreamingResponseTest do
     test "accumulated on Message.private" do
       events = [
         {:message, %{private: %{reasoning_details: "some data"}}},
-        {:block_delta, %{type: :text, index: 0, delta: "Hi"}}
+        {:block_delta, %{type: :text, index: 0, delta: "Hi"}},
+        {:message, %{stop_reason: :stop}}
       ]
 
       result = collect_scripted(events)
@@ -134,7 +139,8 @@ defmodule Omni.StreamingResponseTest do
          }},
         {:block_delta, %{type: :text, index: 0, delta: "Hi"}},
         {:message,
-         %{private: %{reasoning_details: [%{"type" => "reasoning.encrypted", "data" => "blob"}]}}}
+         %{private: %{reasoning_details: [%{"type" => "reasoning.encrypted", "data" => "blob"}]}}},
+        {:message, %{stop_reason: :stop}}
       ]
 
       result = collect_scripted(events)
@@ -150,7 +156,7 @@ defmodule Omni.StreamingResponseTest do
       events = [
         {:message, %{private: %{some_key: "first"}}},
         {:block_delta, %{type: :text, index: 0, delta: "Hi"}},
-        {:message, %{private: %{some_key: "second"}}}
+        {:message, %{private: %{some_key: "second"}, stop_reason: :stop}}
       ]
 
       result = collect_scripted(events)
@@ -216,11 +222,62 @@ defmodule Omni.StreamingResponseTest do
     end
   end
 
+  describe "truncated stream (no stop reason)" do
+    test "emits :error instead of :done when stop_reason is nil" do
+      events = [
+        {:block_delta, %{type: :text, index: 0, delta: "Hello"}},
+        {:block_delta, %{type: :text, index: 0, delta: " there"}}
+      ]
+
+      result = collect_scripted(events)
+      types = event_types(result)
+
+      assert :error in types
+      refute :done in types
+      assert :text_end in types
+    end
+
+    test "error is :incomplete_stream" do
+      events = [
+        {:block_delta, %{type: :text, index: 0, delta: "partial"}}
+      ]
+
+      result = collect_scripted(events)
+      {_, reason, resp} = Enum.find(result, &match?({:error, _, _}, &1))
+
+      assert reason == :incomplete_stream
+      assert resp.error == :incomplete_stream
+    end
+
+    test "complete/1 returns {:error, :incomplete_stream}" do
+      events = [
+        {:block_delta, %{type: :text, index: 0, delta: "partial"}}
+      ]
+
+      sr = StreamingResponse.new(events)
+      assert {:error, :incomplete_stream} = StreamingResponse.complete(sr)
+    end
+
+    test "stream with stop_reason emits :done normally" do
+      events = [
+        {:block_delta, %{type: :text, index: 0, delta: "Hello"}},
+        {:message, %{stop_reason: :stop}}
+      ]
+
+      result = collect_scripted(events)
+      types = event_types(result)
+
+      assert :done in types
+      refute :error in types
+    end
+  end
+
   describe "graceful JSON decode failure" do
     test "tool_use with invalid JSON falls back to empty map" do
       events = [
         {:block_start, %{type: :tool_use, index: 0, id: "c1", name: "broken"}},
-        {:block_delta, %{type: :tool_use, index: 0, delta: "{invalid"}}
+        {:block_delta, %{type: :tool_use, index: 0, delta: "{invalid"}},
+        {:message, %{stop_reason: :stop}}
       ]
 
       result = collect_scripted(events)
@@ -264,7 +321,8 @@ defmodule Omni.StreamingResponseTest do
 
     test "attaches raw to final response when provided" do
       events = [
-        {:block_delta, %{type: :text, index: 0, delta: "Hi"}}
+        {:block_delta, %{type: :text, index: 0, delta: "Hi"}},
+        {:message, %{stop_reason: :stop}}
       ]
 
       fake_req = %Req.Request{}
@@ -277,7 +335,11 @@ defmodule Omni.StreamingResponseTest do
     end
 
     test "raw is nil when not provided" do
-      events = [{:block_delta, %{type: :text, index: 0, delta: "Hi"}}]
+      events = [
+        {:block_delta, %{type: :text, index: 0, delta: "Hi"}},
+        {:message, %{stop_reason: :stop}}
+      ]
+
       sr = StreamingResponse.new(events)
       assert {:ok, %Response{raw: nil}} = StreamingResponse.complete(sr)
     end
@@ -301,7 +363,8 @@ defmodule Omni.StreamingResponseTest do
     test "fires handler for matching event type" do
       events = [
         {:block_delta, %{type: :text, index: 0, delta: "Hello"}},
-        {:block_delta, %{type: :text, index: 0, delta: " world"}}
+        {:block_delta, %{type: :text, index: 0, delta: " world"}},
+        {:message, %{stop_reason: :stop}}
       ]
 
       sr = StreamingResponse.new(events)
@@ -320,7 +383,8 @@ defmodule Omni.StreamingResponseTest do
 
     test "does not fire for non-matching events" do
       events = [
-        {:block_delta, %{type: :text, index: 0, delta: "Hello"}}
+        {:block_delta, %{type: :text, index: 0, delta: "Hello"}},
+        {:message, %{stop_reason: :stop}}
       ]
 
       sr = StreamingResponse.new(events)
@@ -340,7 +404,8 @@ defmodule Omni.StreamingResponseTest do
       events = [
         {:block_start, %{type: :tool_use, index: 0, id: "c1", name: "search"}},
         {:block_delta, %{type: :tool_use, index: 0, delta: ~s({"q":"elixir"})}},
-        {:block_delta, %{type: :text, index: 1, delta: "Result"}}
+        {:block_delta, %{type: :text, index: 1, delta: "Result"}},
+        {:message, %{stop_reason: :tool_use}}
       ]
 
       sr = StreamingResponse.new(events)
@@ -362,7 +427,8 @@ defmodule Omni.StreamingResponseTest do
 
     test "multiple handlers for the same event type both fire" do
       events = [
-        {:block_delta, %{type: :text, index: 0, delta: "Hi"}}
+        {:block_delta, %{type: :text, index: 0, delta: "Hi"}},
+        {:message, %{stop_reason: :stop}}
       ]
 
       sr = StreamingResponse.new(events)
@@ -419,7 +485,8 @@ defmodule Omni.StreamingResponseTest do
 
     test "handler on :done fires at stream end" do
       events = [
-        {:block_delta, %{type: :text, index: 0, delta: "Hi"}}
+        {:block_delta, %{type: :text, index: 0, delta: "Hi"}},
+        {:message, %{stop_reason: :stop}}
       ]
 
       sr = StreamingResponse.new(events)

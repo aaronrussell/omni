@@ -124,6 +124,52 @@ defmodule Integration.ErrorTest do
     end
   end
 
+  # -- Truncated stream --
+
+  describe "truncated stream" do
+    test "generate_text returns {:error, :incomplete_stream}" do
+      Req.Test.stub(:err_truncated, fn conn ->
+        body = File.read!("test/support/fixtures/synthetic/anthropic_truncated.sse")
+
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, body)
+      end)
+
+      assert {:error, :incomplete_stream} =
+               Omni.generate_text(model(), "Hello",
+                 api_key: "test-key",
+                 plug: {Req.Test, :err_truncated}
+               )
+    end
+
+    test "stream_text emits :error event with partial content" do
+      Req.Test.stub(:err_truncated_stream, fn conn ->
+        body = File.read!("test/support/fixtures/synthetic/anthropic_truncated.sse")
+
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, body)
+      end)
+
+      {:ok, sr} =
+        Omni.stream_text(model(), "Hello",
+          api_key: "test-key",
+          plug: {Req.Test, :err_truncated_stream}
+        )
+
+      events = Enum.to_list(sr)
+      types = Enum.map(events, &elem(&1, 0))
+
+      assert :error in types
+      refute :done in types
+
+      # Partial content was still accumulated
+      {_, _, resp} = Enum.find(events, &match?({:error, _, _}, &1))
+      assert resp.error == :incomplete_stream
+    end
+  end
+
   # -- Stream features --
 
   describe "stream features" do

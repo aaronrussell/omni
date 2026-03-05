@@ -274,10 +274,18 @@ defmodule Omni.StreamingResponse do
   defp finalize(acc) do
     ends = finalize_blocks(acc)
 
-    if acc.error do
-      {ends, acc}
-    else
-      {ends ++ [finalize_done(acc)], acc}
+    cond do
+      acc.error ->
+        {ends, acc}
+
+      infer_stop_reason(acc) == nil ->
+        error = :incomplete_stream
+        acc = %{acc | error: error}
+        event = {:error, error, build_response(acc)}
+        {ends ++ [event], acc}
+
+      true ->
+        {ends ++ [finalize_done(acc)], acc}
     end
   end
 
@@ -309,7 +317,7 @@ defmodule Omni.StreamingResponse do
     cond do
       reason == :tool_use -> :tool_use
       has_tool_use? -> :tool_use
-      true -> reason || :stop
+      true -> reason
     end
   end
 
