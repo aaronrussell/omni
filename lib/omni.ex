@@ -186,6 +186,7 @@ defmodule Omni do
       [Structured output](#module-structured-output) section above)
     * `:max_steps` — maximum tool execution rounds (default `:infinity`).
       Pass `1` to disable auto-looping for manual tool handling
+    * `:tool_timeout` — per-tool execution timeout in milliseconds (default `30_000`)
     * `:cache` — prompt caching strategy (`:short` or `:long`)
     * `:timeout` — request timeout in milliseconds (default `300_000`)
     * `:api_key` — API key, overriding provider/app config
@@ -205,11 +206,7 @@ defmodule Omni do
   end
 
   def stream_text(%Model{} = model, context, opts) do
-    context = Context.new(context)
-    {raw, opts} = Keyword.pop(opts, :raw, false)
-    {max_steps, opts} = Keyword.pop(opts, :max_steps, :infinity)
-
-    Loop.stream(model, context, opts, raw, max_steps)
+    Loop.stream(model, Context.new(context), opts)
   end
 
   @doc group: :generation

@@ -30,9 +30,12 @@ defmodule Omni.Loop do
   loop based on tool use blocks in the response. The result is a single
   `StreamingResponse` whose stream lazily concatenates all steps.
   """
-  @spec stream(Model.t(), Context.t(), keyword(), boolean(), pos_integer() | :infinity) ::
+  @spec stream(Model.t(), Context.t(), keyword()) ::
           {:ok, StreamingResponse.t()} | {:error, term()}
-  def stream(model, context, opts, raw?, max_steps) do
+  def stream(model, context, opts) do
+    {raw?, opts} = Keyword.pop(opts, :raw, false)
+    {max_steps, opts} = Keyword.pop(opts, :max_steps, :infinity)
+    {tool_timeout, opts} = Keyword.pop(opts, :tool_timeout, 30_000)
     cancel_ref = make_ref()
 
     state = %{
@@ -41,6 +44,7 @@ defmodule Omni.Loop do
       opts: opts,
       raw?: raw?,
       max_steps: max_steps,
+      tool_timeout: tool_timeout,
       step_num: 1,
       cancel_ref: cancel_ref,
       tool_map: build_tool_map(context.tools),
@@ -119,7 +123,7 @@ defmodule Omni.Loop do
 
   defp do_loop(tool_uses, response, state) do
     # Execute tools and build result blocks
-    tool_results = Tool.Runner.run(tool_uses, state.tool_map)
+    tool_results = Tool.Runner.run(tool_uses, state.tool_map, state.tool_timeout)
     tool_result_events = build_tool_result_events(tool_results, response)
 
     # Build user message with tool results, update context

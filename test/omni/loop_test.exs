@@ -44,7 +44,7 @@ defmodule Omni.LoopTest do
       stub_fixture(:unit_no_tools, @text_fixture)
 
       context = Context.new("Hello")
-      {:ok, sr} = Loop.stream(model(), context, opts(:unit_no_tools), false, :infinity)
+      {:ok, sr} = Loop.stream(model(), context, opts(:unit_no_tools))
       {:ok, resp} = StreamingResponse.complete(sr)
 
       assert resp.stop_reason == :stop
@@ -70,7 +70,7 @@ defmodule Omni.LoopTest do
       context = Context.new(messages: [Message.new("Weather?")], tools: [tool])
       test_pid = self()
 
-      {:ok, sr} = Loop.stream(model(), context, opts(:unit_binary_result), false, :infinity)
+      {:ok, sr} = Loop.stream(model(), context, opts(:unit_binary_result))
 
       {:ok, _resp} =
         sr
@@ -96,7 +96,7 @@ defmodule Omni.LoopTest do
       context = Context.new(messages: [Message.new("Weather?")], tools: [tool])
       test_pid = self()
 
-      {:ok, sr} = Loop.stream(model(), context, opts(:unit_inspect_result), false, :infinity)
+      {:ok, sr} = Loop.stream(model(), context, opts(:unit_inspect_result))
 
       {:ok, _resp} =
         sr
@@ -124,7 +124,7 @@ defmodule Omni.LoopTest do
       context = Context.new(messages: [Message.new("Weather?")], tools: [tool])
       test_pid = self()
 
-      {:ok, sr} = Loop.stream(model(), context, opts(:unit_handler_error), false, :infinity)
+      {:ok, sr} = Loop.stream(model(), context, opts(:unit_handler_error))
 
       {:ok, _resp} =
         sr
@@ -145,7 +145,7 @@ defmodule Omni.LoopTest do
       stub_fixture(:unit_cancel, @text_fixture)
 
       context = Context.new("Hello")
-      {:ok, sr} = Loop.stream(model(), context, opts(:unit_cancel), false, :infinity)
+      {:ok, sr} = Loop.stream(model(), context, opts(:unit_cancel))
 
       assert :ok = StreamingResponse.cancel(sr)
     end
@@ -166,7 +166,7 @@ defmodule Omni.LoopTest do
         )
 
       context = Context.new(messages: [Message.new("Weather?")], tools: [tool])
-      {:ok, sr} = Loop.stream(model(), context, opts(:unit_usage_agg), false, :infinity)
+      {:ok, sr} = Loop.stream(model(), context, opts(:unit_usage_agg))
       {:ok, resp} = StreamingResponse.complete(sr)
 
       # Both fixtures have usage data, aggregated total should exceed either alone
@@ -178,7 +178,7 @@ defmodule Omni.LoopTest do
       context2 = Context.new(messages: [Message.new("Weather?")], tools: [tool])
 
       {:ok, sr2} =
-        Loop.stream(model(), context2, opts(:unit_usage_single), false, 1)
+        Loop.stream(model(), context2, opts(:unit_usage_single) ++ [max_steps: 1])
 
       {:ok, single_resp} = StreamingResponse.complete(sr2)
 
@@ -201,7 +201,7 @@ defmodule Omni.LoopTest do
         )
 
       context = Context.new(messages: [Message.new("Weather?")], tools: [tool])
-      {:ok, sr} = Loop.stream(model(), context, opts(:unit_text_stream), false, :infinity)
+      {:ok, sr} = Loop.stream(model(), context, opts(:unit_text_stream))
 
       texts = sr |> StreamingResponse.text_stream() |> Enum.to_list()
 
@@ -231,7 +231,7 @@ defmodule Omni.LoopTest do
       context = Context.new(messages: [Message.new("Weather?")], tools: [tool])
       test_pid = self()
 
-      {:ok, sr} = Loop.stream(model(), context, opts(:unit_on_done), false, :infinity)
+      {:ok, sr} = Loop.stream(model(), context, opts(:unit_on_done))
 
       {:ok, _resp} =
         sr

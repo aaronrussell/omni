@@ -85,7 +85,7 @@ These affect multiple modules or span subsystem boundaries:
 ### Inconsistencies
 - `[FIXED]` **schema.ex:67-69** — `enum/2` no longer hardcodes `type: "string"`. Now type-agnostic per JSON Schema spec. `to_peri` handles `%{enum: values}` via Peri's `{:enum, values}` which validates `val in values` regardless of type.
 - **tool/runner.ex:76** — Validation errors from `Tool.execute` go through `inspect(error)`, producing opaque Elixir format sent to the LLM. Compare with `Loop:208` which uses `Schema.format_errors`. Fix: use `Schema.format_errors` for validation errors in runner too.
-- **tool/runner.ex:38** — Default timeout of 5000ms is not configurable from `Omni.Loop`. No `:tool_timeout` in `Request.validate`. May surprise users with slow tools.
+- `[FIXED]` **tool/runner.ex:38** — Added `:tool_timeout` option (default 30s) to `stream_text/3` and `generate_text/3`. Threaded through `Loop` into `Tool.Runner.run/3`. Default raised from 5s to 30s.
 
 ### Dead Code
 - `[WONTFIX]` **schema.ex:113** — `format_errors(%{__struct__: _} = error)` handles a single struct. Kept because Peri's scalar validation path (`validate_field` returning `{:error, reason, info}`) wraps via `Peri.Error.new_single/2` which returns a bare struct, not a list.
