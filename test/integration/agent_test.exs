@@ -494,6 +494,13 @@ defmodule Integration.AgentTest do
                  opts: [api_key: "test-key"]
                )
     end
+
+    test "start_link fails when model is nil" do
+      Process.flag(:trap_exit, true)
+
+      assert {:error, :missing_model} =
+               WithInit.start_link(opts: [api_key: "test-key"])
+    end
   end
 
   describe "prompt while running (steering)" do

@@ -38,6 +38,14 @@ defmodule Omni.Tool.RunnerTest do
     def call(_input), do: Process.sleep(:infinity)
   end
 
+  defmodule ReturnsPid do
+    use Omni.Tool, name: "returns_pid", description: "Returns a non-JSON-encodable value"
+
+    def schema, do: Omni.Schema.object(%{})
+
+    def call(_input), do: self()
+  end
+
   defp make_tool_use(id, name, input) do
     ToolUse.new(id: id, name: name, input: input)
   end
@@ -110,6 +118,15 @@ defmodule Omni.Tool.RunnerTest do
 
       assert [%ToolResult{is_error: true} = r1, %ToolResult{is_error: false}] = results
       assert [%Omni.Content.Text{text: "Tool execution timed out"}] = r1.content
+    end
+
+    test "non-JSON-encodable result falls back to inspect" do
+      tool_map = make_tool_map([ReturnsPid.new()])
+      tool_uses = [make_tool_use("tu_1", "returns_pid", %{})]
+
+      assert [%ToolResult{is_error: false} = result] = Runner.run(tool_uses, tool_map)
+      assert [%Omni.Content.Text{text: text}] = result.content
+      assert text =~ ~r/#PID<[\d.]+>/
     end
 
     test "empty tool_uses list returns empty list" do

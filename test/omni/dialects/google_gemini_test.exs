@@ -596,64 +596,16 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert [{:message, %{stop_reason: :length}}] = GoogleGemini.handle_event(event)
     end
 
-    test "SAFETY maps to :refusal" do
-      event = %{
-        "candidates" => [
-          %{"finishReason" => "SAFETY", "index" => 0}
-        ]
-      }
+    for reason <- ~w(SAFETY RECITATION LANGUAGE BLOCKLIST PROHIBITED_CONTENT SPII) do
+      test "#{reason} maps to :refusal" do
+        event = %{
+          "candidates" => [
+            %{"finishReason" => unquote(reason), "index" => 0}
+          ]
+        }
 
-      assert [{:message, %{stop_reason: :refusal}}] = GoogleGemini.handle_event(event)
-    end
-
-    test "RECITATION maps to :refusal" do
-      event = %{
-        "candidates" => [
-          %{"finishReason" => "RECITATION", "index" => 0}
-        ]
-      }
-
-      assert [{:message, %{stop_reason: :refusal}}] = GoogleGemini.handle_event(event)
-    end
-
-    test "LANGUAGE maps to :refusal" do
-      event = %{
-        "candidates" => [
-          %{"finishReason" => "LANGUAGE", "index" => 0}
-        ]
-      }
-
-      assert [{:message, %{stop_reason: :refusal}}] = GoogleGemini.handle_event(event)
-    end
-
-    test "BLOCKLIST maps to :refusal" do
-      event = %{
-        "candidates" => [
-          %{"finishReason" => "BLOCKLIST", "index" => 0}
-        ]
-      }
-
-      assert [{:message, %{stop_reason: :refusal}}] = GoogleGemini.handle_event(event)
-    end
-
-    test "PROHIBITED_CONTENT maps to :refusal" do
-      event = %{
-        "candidates" => [
-          %{"finishReason" => "PROHIBITED_CONTENT", "index" => 0}
-        ]
-      }
-
-      assert [{:message, %{stop_reason: :refusal}}] = GoogleGemini.handle_event(event)
-    end
-
-    test "SPII maps to :refusal" do
-      event = %{
-        "candidates" => [
-          %{"finishReason" => "SPII", "index" => 0}
-        ]
-      }
-
-      assert [{:message, %{stop_reason: :refusal}}] = GoogleGemini.handle_event(event)
+        assert [{:message, %{stop_reason: :refusal}}] = GoogleGemini.handle_event(event)
+      end
     end
 
     test "unknown finishReason maps to :stop" do

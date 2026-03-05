@@ -110,6 +110,18 @@ defmodule Omni.Parsers.SSETest do
       assert [%{"id" => 1}, %{"id" => 2}] = chunks |> SSE.stream() |> Enum.to_list()
     end
 
+    for {label, le} <- [{"\\r\\n", "\r\n"}, {"bare \\r", "\r"}] do
+      test "#{label} line endings are normalized to \\n" do
+        le = unquote(le)
+
+        chunks = [
+          "event: ping#{le}data: {\"id\":1}#{le}#{le}data: {\"id\":2}#{le}#{le}"
+        ]
+
+        assert [%{"id" => 1}, %{"id" => 2}] = chunks |> SSE.stream() |> Enum.to_list()
+      end
+    end
+
     test "partial JSON in buffer on stream end is skipped" do
       chunks = [
         "data: {\"id\":1}\n\ndata: {\"trunc"

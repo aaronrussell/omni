@@ -6,13 +6,6 @@ The initial implementation (Phases 1–5b) is complete. See `context/design.md` 
 
 ---
 
-## Pre-v1 Checklist
-
-- **Test review** — Audit test coverage, identify gaps, ensure integration tests cover all providers and edge cases.
-
-
----
-
 ## Future Work
 
 - **Additional providers** — Groq, Together, Fireworks, Bedrock, Azure, Vertex AI. Each is a small module once the infrastructure exists.

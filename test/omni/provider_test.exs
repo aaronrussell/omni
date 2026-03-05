@@ -114,6 +114,11 @@ defmodule Omni.ProviderTest do
                Provider.resolve_auth({String, :to_integer, ["not_a_number"]})
     end
 
+    test "returns error when MFA returns non-string" do
+      assert {:error, {:invalid_auth_value, 12345}} =
+               Provider.resolve_auth({String, :to_integer, ["12345"]})
+    end
+
     test "returns {:error, :no_api_key} for nil" do
       assert {:error, :no_api_key} = Provider.resolve_auth(nil)
     end

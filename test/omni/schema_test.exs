@@ -403,5 +403,10 @@ defmodule Omni.SchemaTest do
 
       assert result == "- name: is required"
     end
+
+    test "accepts a single error struct (not wrapped in list)" do
+      error = %Peri.Error{path: [:city], key: :city, message: "is required", errors: nil}
+      assert Schema.format_errors(error) == "- city: is required"
+    end
   end
 end
