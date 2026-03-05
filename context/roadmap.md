@@ -8,7 +8,6 @@ The initial implementation (Phases 1–5b) is complete. See `context/design.md` 
 
 ## Pre-v1 Checklist
 
-- **Code review** — Full pass over all modules for consistency, naming, edge cases, and dead code.
 - **Test review** — Audit test coverage, identify gaps, ensure integration tests cover all providers and edge cases.
 
 
