@@ -80,18 +80,18 @@ These affect multiple modules or span subsystem boundaries:
 - `[FIXED]` **schema.ex:165** — Added `to_peri(%{type: "array"})` returning `:list` for free-form arrays. Also added `array/1` builder accepting opts-only (no items).
 - `[FIXED]` **schema.ex:166** — Added `defp to_peri(_), do: :any` catch-all for unrecognized schema shapes.
 - `[FIXED]` **schema.ex:153-157** — Number `to_peri` now uses `constrain/2` for consistency with integer and string. No behavioral change (Peri handles both forms) but matches the pattern used elsewhere.
-- **tool.ex:148-155** — `rescue` covers both `validate_input` and `handler.(validated)`. Schema bugs in `to_peri` (above) get silently wrapped as `{:error, exception}` instead of surfacing clearly. Fix: narrow rescue to handler call only.
+- `[FIXED]` **tool.ex:148-155** — Narrowed `rescue` to only the handler call. Schema/validation bugs now raise (surfacing clearly) while handler exceptions are still caught as `{:error, exception}`.
 
 ### Inconsistencies
 - `[FIXED]` **schema.ex:67-69** — `enum/2` no longer hardcodes `type: "string"`. Now type-agnostic per JSON Schema spec. `to_peri` handles `%{enum: values}` via Peri's `{:enum, values}` which validates `val in values` regardless of type.
-- **tool/runner.ex:76** — Validation errors from `Tool.execute` go through `inspect(error)`, producing opaque Elixir format sent to the LLM. Compare with `Loop:208` which uses `Schema.format_errors`. Fix: use `Schema.format_errors` for validation errors in runner too.
+- `[FIXED]` **tool/runner.ex:76** — Validation errors now use `Schema.format_errors`, handler exceptions use `Exception.message`. Both produce LLM-friendly output instead of opaque `inspect` format.
 - `[FIXED]` **tool/runner.ex:38** — Added `:tool_timeout` option (default 30s) to `stream_text/3` and `generate_text/3`. Threaded through `Loop` into `Tool.Runner.run/3`. Default raised from 5s to 30s.
 
 ### Dead Code
 - `[WONTFIX]` **schema.ex:113** — `format_errors(%{__struct__: _} = error)` handles a single struct. Kept because Peri's scalar validation path (`validate_field` returning `{:error, reason, info}`) wraps via `Peri.Error.new_single/2` which returns a bare struct, not a list.
 
 ### Minor / Nits
-- **tool/runner.ex:90-91** — `format_result/1` uses `inspect/1` for non-binary values. `JSON.encode!/1` would produce more model-friendly output.
+- `[FIXED]` **tool/runner.ex:90-91** — `format_result/1` now uses `JSON.encode!/1` with `inspect/1` fallback for non-serializable values.
 - `[WONTFIX]` **tool.ex:131** — See cross-cutting #4 — false positive.
 - **schema.ex:174-178** — Entire module assumes atom-keyed schemas. Undocumented requirement for `validate/2`.
 

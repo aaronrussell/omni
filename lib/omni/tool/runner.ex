@@ -72,8 +72,11 @@ defmodule Omni.Tool.Runner do
               content: format_result(result)
             )
 
+          {:error, %{__exception__: true} = error} ->
+            error_result(tool_use, Exception.message(error))
+
           {:error, error} ->
-            error_result(tool_use, format_result(error))
+            error_result(tool_use, Omni.Schema.format_errors(error))
         end
     end
   end
@@ -88,5 +91,10 @@ defmodule Omni.Tool.Runner do
   end
 
   defp format_result(value) when is_binary(value), do: value
-  defp format_result(value), do: inspect(value)
+
+  defp format_result(value) do
+    JSON.encode!(value)
+  rescue
+    _ -> inspect(value)
+  end
 end

@@ -148,10 +148,12 @@ defmodule Omni.Tool do
   def execute(%__MODULE__{handler: handler, input_schema: schema}, input)
       when is_function(handler, 1) do
     with {:ok, validated} <- validate_input(schema, input) do
-      {:ok, handler.(validated)}
+      try do
+        {:ok, handler.(validated)}
+      rescue
+        e -> {:error, e}
+      end
     end
-  rescue
-    e -> {:error, e}
   end
 
   defp validate_input(nil, input), do: {:ok, input}
