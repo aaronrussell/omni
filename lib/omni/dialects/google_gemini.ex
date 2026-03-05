@@ -86,25 +86,17 @@ defmodule Omni.Dialects.GoogleGemini do
 
   defp extract_message(event) do
     %{}
-    |> maybe_put_model(event)
-    |> maybe_put_stop_reason(event)
-    |> maybe_put_usage(event)
+    |> maybe_put(:model, event["modelVersion"])
+    |> maybe_put(:stop_reason, encode_stop_reason(event))
+    |> maybe_put(:usage, normalize_usage(event["usageMetadata"]))
   end
 
-  defp maybe_put_model(map, %{"modelVersion" => model_id}), do: Map.put(map, :model, model_id)
-  defp maybe_put_model(map, _), do: map
-
-  defp maybe_put_stop_reason(map, %{"candidates" => [%{"finishReason" => reason} | _]})
+  defp encode_stop_reason(%{"candidates" => [%{"finishReason" => reason} | _]})
        when is_binary(reason) do
-    Map.put(map, :stop_reason, normalize_stop_reason(reason))
+    normalize_stop_reason(reason)
   end
 
-  defp maybe_put_stop_reason(map, _), do: map
-
-  defp maybe_put_usage(map, %{"usageMetadata" => usage}),
-    do: Map.put(map, :usage, normalize_usage(usage))
-
-  defp maybe_put_usage(map, _), do: map
+  defp encode_stop_reason(_), do: nil
 
   defp extract_content(%{"candidates" => [%{"content" => %{"parts" => parts}} | _]}) do
     Enum.flat_map(parts, &parse_part/1)
@@ -255,6 +247,8 @@ defmodule Omni.Dialects.GoogleGemini do
   end
 
   # Usage normalization
+
+  defp normalize_usage(nil), do: nil
 
   defp normalize_usage(usage) do
     %{

@@ -7,7 +7,7 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   @behaviour Omni.Dialect
 
-  alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
+  alias Omni.Content.{Text, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Model}
 
   import Omni.Util, only: [maybe_put: 3]
@@ -69,12 +69,11 @@ defmodule Omni.Dialects.OpenAICompletions do
   # Parse events — OpenAI sends homogeneous `chat.completion.chunk` objects
 
   @impl true
-  def handle_event(%{"usage" => %{} = usage}) do
-    [{:message, %{usage: normalize_usage(usage)}}]
-  end
-
-  def handle_event(%{"choices" => [%{"finish_reason" => reason}]}) when is_binary(reason) do
-    [{:message, %{stop_reason: normalize_stop_reason(reason)}}]
+  def handle_event(%{"choices" => [%{"finish_reason" => reason}]} = event)
+      when is_binary(reason) do
+    message = %{stop_reason: normalize_stop_reason(reason)}
+    message = maybe_put(message, :usage, normalize_usage(event["usage"]))
+    [{:message, message}]
   end
 
   def handle_event(%{"choices" => [%{"delta" => %{"tool_calls" => [tool_call | _]}}]} = event)
@@ -132,6 +131,12 @@ defmodule Omni.Dialects.OpenAICompletions do
     [{:message, %{model: model_id}}]
   end
 
+  # Usage may arrive in a standalone chunk or combined with choices (e.g.
+  # OpenRouter). Choices handlers above match first; this catches the rest.
+  def handle_event(%{"usage" => %{} = usage}) do
+    [{:message, %{usage: normalize_usage(usage)}}]
+  end
+
   def handle_event(_), do: []
 
   # Message encoding
@@ -147,7 +152,7 @@ defmodule Omni.Dialects.OpenAICompletions do
   end
 
   defp encode_message(%{role: :assistant, content: content}) do
-    {text_blocks, tool_uses, _other} = split_assistant_content(content)
+    {text_blocks, tool_uses} = split_assistant_content(content)
 
     msg = %{"role" => "assistant"}
 
@@ -187,14 +192,13 @@ defmodule Omni.Dialects.OpenAICompletions do
   end
 
   defp split_assistant_content(content) do
-    Enum.reduce(content, {[], [], []}, fn
-      %Text{} = t, {texts, tools, other} -> {[t | texts], tools, other}
-      %ToolUse{} = tu, {texts, tools, other} -> {texts, [tu | tools], other}
-      %Thinking{}, {texts, tools, other} -> {texts, tools, other}
-      other_block, {texts, tools, other} -> {texts, tools, [other_block | other]}
+    Enum.reduce(content, {[], []}, fn
+      %Text{} = t, {texts, tools} -> {[t | texts], tools}
+      %ToolUse{} = tu, {texts, tools} -> {texts, [tu | tools]}
+      _, acc -> acc
     end)
-    |> then(fn {texts, tools, other} ->
-      {Enum.reverse(texts), Enum.reverse(tools), Enum.reverse(other)}
+    |> then(fn {texts, tools} ->
+      {Enum.reverse(texts), Enum.reverse(tools)}
     end)
   end
 
@@ -216,6 +220,9 @@ defmodule Omni.Dialects.OpenAICompletions do
     %{"type" => "file", "file" => %{"file_data" => "data:#{mt};base64,#{data}"}}
   end
 
+  # Chat Completions has no generic URL content type — "image_url" is the only
+  # URL-based input the API accepts. Non-image URLs (e.g. PDFs) work through
+  # this wrapper on providers that support them.
   defp encode_content(%Attachment{source: {:url, url}}) do
     %{"type" => "image_url", "image_url" => %{"url" => url}}
   end
@@ -268,6 +275,8 @@ defmodule Omni.Dialects.OpenAICompletions do
   defp encode_cache(_), do: nil
 
   # Usage normalization
+
+  defp normalize_usage(nil), do: nil
 
   defp normalize_usage(usage) do
     %{

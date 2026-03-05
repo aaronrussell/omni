@@ -37,6 +37,12 @@ defmodule Omni.Providers.Ollama do
   String entries use the ID as the display name with default values for all
   other fields. Keyword entries accept any field from `Omni.Model.new/1` —
   only `:id` is required, everything else has sensible defaults.
+
+  ## Limitations
+
+  - **Image attachments**: Only base64-encoded images are supported. URL-based
+    image attachments (`{:url, url}`) are silently skipped because Ollama's API
+    has no URL image input mechanism.
   """
 
   use Omni.Provider, dialect: Omni.Dialects.OllamaChat

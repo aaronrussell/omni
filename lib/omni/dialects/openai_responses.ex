@@ -7,7 +7,7 @@ defmodule Omni.Dialects.OpenAIResponses do
 
   @behaviour Omni.Dialect
 
-  alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
+  alias Omni.Content.{Text, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Model}
 
   import Omni.Util, only: [maybe_put: 3]
@@ -97,6 +97,10 @@ defmodule Omni.Dialects.OpenAIResponses do
     [{:message, %{stop_reason: infer_stop_reason(response), usage: normalize_usage(response)}}]
   end
 
+  def handle_event(%{"type" => "response.failed", "response" => %{"error" => error}}) do
+    [{:error, error["message"] || "Response failed"}]
+  end
+
   def handle_event(_), do: []
 
   # Thinking
@@ -126,7 +130,7 @@ defmodule Omni.Dialects.OpenAIResponses do
   end
 
   defp encode_message(%{role: :assistant, content: content}) do
-    {text_blocks, tool_uses, _other} = split_assistant_content(content)
+    {text_blocks, tool_uses} = split_assistant_content(content)
 
     msg =
       case text_blocks do
@@ -182,14 +186,13 @@ defmodule Omni.Dialects.OpenAIResponses do
   end
 
   defp split_assistant_content(content) do
-    Enum.reduce(content, {[], [], []}, fn
-      %Text{} = t, {texts, tools, other} -> {[t | texts], tools, other}
-      %ToolUse{} = tu, {texts, tools, other} -> {texts, [tu | tools], other}
-      %Thinking{}, {texts, tools, other} -> {texts, tools, other}
-      other_block, {texts, tools, other} -> {texts, tools, [other_block | other]}
+    Enum.reduce(content, {[], []}, fn
+      %Text{} = t, {texts, tools} -> {[t | texts], tools}
+      %ToolUse{} = tu, {texts, tools} -> {texts, [tu | tools]}
+      _, acc -> acc
     end)
-    |> then(fn {texts, tools, other} ->
-      {Enum.reverse(texts), Enum.reverse(tools), Enum.reverse(other)}
+    |> then(fn {texts, tools} ->
+      {Enum.reverse(texts), Enum.reverse(tools)}
     end)
   end
 
@@ -244,7 +247,6 @@ defmodule Omni.Dialects.OpenAIResponses do
   end
 
   defp infer_stop_reason(%{"status" => "incomplete"}), do: :length
-  defp infer_stop_reason(%{"status" => "failed"}), do: :error
   defp infer_stop_reason(_), do: :stop
 
   # Usage normalization

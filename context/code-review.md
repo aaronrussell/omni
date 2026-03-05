@@ -100,22 +100,22 @@ These affect multiple modules or span subsystem boundaries:
 ## Dialects (AnthropicMessages, GoogleGemini, OllamaChat, OpenAICompletions, OpenAIResponses)
 
 ### Bugs / Correctness
-- **anthropic_messages.ex:123** — `normalize_stop_reason(delta["stop_reason"])` called unconditionally on `message_delta`. When `stop_reason` is `nil`, catch-all maps to `:stop`, prematurely setting stop reason. Other dialects guard with `when is_binary(reason)` or `maybe_put_stop_reason`. Fix: add nil guard.
-- **google_gemini.ex:58-59** — `thinking: %{effort: :high}` (map form, no `:budget`) produces `%{"thinkingBudget" => nil}` sent to API. Anthropic has fallback (`budget || effort_to_budget(level)`), Gemini does not. Fix: fall back to `thinkingLevel` config when budget is nil.
-- **openai_responses.ex:261** — `infer_stop_reason(%{"status" => "failed"})` returns `:error`, but no `handle_event` clause for `"response.failed"` — falls through to catch-all `do: []`. The API sends `response.failed` for failures, not `response.completed`. Fix: add `handle_event` for `"type" => "response.failed"` that emits `{:error, reason}`.
-- **ollama_chat.ex:266-270** — URL-based image attachments silently dropped by `extract_images/1` (only matches `{:base64, data}`). Silent data loss for users providing `{:url, url}` to Ollama. Fix: raise or warn for unsupported URL sources.
+- `[FIXED]` **anthropic_messages.ex:123** — Added `nil` clause to `normalize_stop_reason` and switched to `maybe_put` in `handle_event`, so nil stop reasons are skipped instead of falling through to the catch-all.
+- `[FIXED]` **google_gemini.ex:58-59** — Already resolved in prior refactor. Separate clauses now match `%{budget: budget} when is_integer(budget)` vs `%{} = opts` (effort-only), so nil budget is never sent.
+- `[FIXED]` **openai_responses.ex:261** — Added `handle_event` for `"response.failed"` that emits `{:error, message}`. Removed unreachable `infer_stop_reason(%{"status" => "failed"})` clause.
+- `[DEFERRED]` **ollama_chat.ex:266-270** — URL-based image attachments silently skipped (Ollama has no URL input mechanism). Documented in Ollama provider moduledoc and `extract_images` comment. Warning mechanism added to roadmap.
 
 ### Inconsistencies
-- **All dialects** — `normalize_thinking/1` is copy-pasted identically. See cross-cutting #2.
-- **All dialects** — `maybe_put/3` duplicated. See cross-cutting #3.
-- **openai_completions.ex:85-87** — `handle_event(%{"usage" => usage})` matches *any* event with usage key, potentially dropping choices data from combined chunks. In practice OpenAI separates these, but fragile for third-party providers.
-- **openai_completions.ex:228-234** — Non-image URL attachments use `"type" => "image_url"` wrapper, which seems like a misuse of the type name.
-- **ollama_chat.ex:299** — `encode_tool_result` omits `tool_use_id`. Results can't be correlated to specific tool calls in parallel tool use.
-- **openai_completions.ex:163** — `split_assistant_content` returns third element `_other` that is always discarded at call site. Wasted accumulation. Same in `openai_responses.ex:140`.
+- `[FIXED]` **All dialects** — `normalize_thinking/1` eliminated. See cross-cutting #2.
+- `[FIXED]` **All dialects** — `maybe_put/3` extracted to `Omni.Util`. See cross-cutting #3.
+- `[FIXED]` **openai_completions.ex:85-87** — Moved usage handler below all choices handlers. `finish_reason` clause now also extracts usage from combined chunks (e.g. OpenRouter). Standalone usage handler catches the rest.
+- `[WONTFIX]` **openai_completions.ex:228-234** — API limitation, not a bug. Chat Completions has no generic URL content type; `image_url` is the only URL-based input available. Added comment explaining the constraint.
+- `[WONTFIX]` **ollama_chat.ex:299** — Ollama's API correlates tool results by `tool_name`, not by ID. Omitting `tool_use_id` is correct per the API spec.
+- `[FIXED]` **openai_completions.ex:163** — Removed unused third accumulator from `split_assistant_content` in both Completions and Responses dialects. No assistant content types fall outside Text/ToolUse.
 
 ### Dead Code
-- **google_gemini.ex:28** — Trailing `body` after pipeline is redundant (pipeline already evaluates to result). Same pattern in `anthropic_messages.ex:39`, `openai_completions.ex:38`, `openai_responses.ex:38`.
-- **ollama_chat.ex:147** — `Enum.with_index` used but index discarded. Use `Enum.map` instead.
+- `[WONTFIX]` **google_gemini.ex:28** — Not redundant. `body` on its own line is the start of a `body |> maybe_put(...) |> ...` pipeline, not a trailing expression.
+- `[FIXED]` **ollama_chat.ex:147** — Replaced `Enum.with_index |> Enum.map` with plain `Enum.map`.
 
 ### Minor / Nits
 - **anthropic_messages.ex:165** — `adaptive_model?` uses `String.contains?(id, "4.6")` — fragile heuristic that will break with future models.

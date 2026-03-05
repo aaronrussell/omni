@@ -119,10 +119,12 @@ defmodule Omni.Dialects.AnthropicMessages do
   end
 
   def handle_event(%{"type" => "message_delta", "delta" => delta} = event) do
-    [
-      {:message,
-       %{stop_reason: normalize_stop_reason(delta["stop_reason"]), usage: event["usage"]}}
-    ]
+    message =
+      %{}
+      |> maybe_put(:stop_reason, normalize_stop_reason(delta["stop_reason"]))
+      |> maybe_put(:usage, event["usage"])
+
+    [{:message, message}]
   end
 
   def handle_event(_), do: []
@@ -303,6 +305,7 @@ defmodule Omni.Dialects.AnthropicMessages do
 
   # Helpers
 
+  defp normalize_stop_reason(nil), do: nil
   defp normalize_stop_reason("end_turn"), do: :stop
   defp normalize_stop_reason("stop_sequence"), do: :stop
   defp normalize_stop_reason("max_tokens"), do: :length

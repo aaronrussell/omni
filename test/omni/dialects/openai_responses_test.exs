@@ -598,17 +598,16 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       assert [{:message, %{stop_reason: :length}}] = OpenAIResponses.handle_event(event)
     end
 
-    test "response.completed with failed status returns message with :error" do
+    test "response.failed returns error with message" do
       event = %{
-        "type" => "response.completed",
+        "type" => "response.failed",
         "response" => %{
           "status" => "failed",
-          "output" => [],
-          "usage" => %{"input_tokens" => 10, "output_tokens" => 0, "total_tokens" => 10}
+          "error" => %{"code" => "server_error", "message" => "Internal server error"}
         }
       }
 
-      assert [{:message, %{stop_reason: :error}}] = OpenAIResponses.handle_event(event)
+      assert [{:error, "Internal server error"}] = OpenAIResponses.handle_event(event)
     end
 
     test "response.output_item.added with non-function_call returns empty list" do

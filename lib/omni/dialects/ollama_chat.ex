@@ -128,9 +128,7 @@ defmodule Omni.Dialects.OllamaChat do
   defp extract_text(_), do: []
 
   defp extract_tool_calls(%{"tool_calls" => tool_calls}) when is_list(tool_calls) do
-    tool_calls
-    |> Enum.with_index()
-    |> Enum.map(fn {tc, _idx} ->
+    Enum.map(tool_calls, fn tc ->
       func = tc["function"] || %{}
 
       {:block_start,
@@ -249,6 +247,8 @@ defmodule Omni.Dialects.OllamaChat do
     end)
   end
 
+  # Ollama only supports base64-encoded images. URL-based image attachments
+  # are silently skipped — Ollama's API has no URL image input mechanism.
   defp extract_images(blocks) do
     Enum.flat_map(blocks, fn
       %Attachment{source: {:base64, data}, media_type: "image/" <> _} -> [data]
@@ -275,6 +275,7 @@ defmodule Omni.Dialects.OllamaChat do
   end
 
   # Tool result encoding (separate "tool" role messages)
+  # Ollama correlates results by tool_name, not by ID — tool_use_id is intentionally omitted.
 
   defp encode_tool_result(%ToolResult{content: content}) do
     text =
