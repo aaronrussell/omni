@@ -258,6 +258,20 @@ defmodule Omni.RequestTest do
       assert {:error, _} = Request.validate(model, max_tokens: "big")
     end
 
+    test "output accepts map" do
+      model = make_model()
+      schema = %{type: :object, properties: %{name: %{type: :string}}}
+
+      {:ok, opts} = Request.validate(model, output: schema)
+      assert opts[:output] == schema
+    end
+
+    test "output rejects non-map" do
+      model = make_model()
+
+      assert {:error, _} = Request.validate(model, output: "not a map")
+    end
+
     test "dialect option_schema merge overrides universal schema" do
       # Create a dialect that overrides max_tokens with a default
       defmodule OverrideDialect do
@@ -598,6 +612,76 @@ defmodule Omni.RequestTest do
       context = Omni.Context.new(messages: [])
 
       assert :ok = Request.validate_context(model, context)
+    end
+  end
+
+  describe "stream/3" do
+    test "selects SSE parser for text/event-stream content-type" do
+      Req.Test.stub(:stream_sse, fn conn ->
+        body = File.read!("test/support/fixtures/synthetic/anthropic_truncated.sse")
+
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, body)
+      end)
+
+      model = make_model()
+
+      {:ok, req} =
+        Request.build(model, Omni.Context.new("Hello"),
+          api_key: "test-key",
+          plug: {Req.Test, :stream_sse}
+        )
+
+      assert {:ok, %Omni.StreamingResponse{}} = Request.stream(req, model, [])
+    end
+
+    test "selects NDJSON parser for application/x-ndjson content-type" do
+      Req.Test.stub(:stream_ndjson, fn conn ->
+        body =
+          ~s({"message":{"role":"assistant","content":"Hi"},"done":true,"done_reason":"stop"}\n)
+
+        conn
+        |> Plug.Conn.put_resp_content_type("application/x-ndjson")
+        |> Plug.Conn.send_resp(200, body)
+      end)
+
+      model =
+        Omni.Model.new(
+          id: "test-model",
+          name: "Test Model",
+          provider: TestProvider,
+          dialect: Omni.Dialects.OllamaChat,
+          max_output_tokens: 2048
+        )
+
+      {:ok, req} =
+        Request.build(model, Omni.Context.new("Hello"),
+          api_key: "test-key",
+          plug: {Req.Test, :stream_ndjson}
+        )
+
+      assert {:ok, %Omni.StreamingResponse{}} = Request.stream(req, model, [])
+    end
+
+    test "non-200 status returns HTTP error with parsed body" do
+      Req.Test.stub(:stream_401, fn conn ->
+        body = JSON.encode!(%{"error" => %{"message" => "Unauthorized"}})
+
+        conn
+        |> Plug.Conn.put_resp_content_type("application/json")
+        |> Plug.Conn.send_resp(401, body)
+      end)
+
+      model = make_model()
+
+      {:ok, req} =
+        Request.build(model, Omni.Context.new("Hello"),
+          api_key: "test-key",
+          plug: {Req.Test, :stream_401}
+        )
+
+      assert {:error, {:http_error, 401, %{"error" => _}}} = Request.stream(req, model, [])
     end
   end
 

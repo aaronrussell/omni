@@ -345,6 +345,13 @@ defmodule Omni.StreamingResponseTest do
     end
   end
 
+  describe "complete/1 on empty stream" do
+    test "returns {:error, :incomplete_stream} when no events are emitted" do
+      sr = StreamingResponse.new([])
+      assert {:error, :incomplete_stream} = StreamingResponse.complete(sr)
+    end
+  end
+
   describe "text_stream/1" do
     test "yields only text delta binaries" do
       events = [

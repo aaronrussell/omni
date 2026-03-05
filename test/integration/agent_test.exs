@@ -102,6 +102,40 @@ defmodule Integration.AgentTest do
     end
   end
 
+  defmodule TerminateAgent do
+    use Omni.Agent
+
+    @impl Omni.Agent
+    def init(opts), do: {:ok, opts[:assigns] || %{}}
+
+    @impl Omni.Agent
+    def terminate(reason, state) do
+      if pid = state.assigns[:test_pid] do
+        send(pid, {:terminated, reason})
+      end
+    end
+  end
+
+  defmodule CrashRetryAgent do
+    use Omni.Agent
+
+    @impl Omni.Agent
+    def init(_opts), do: {:ok, %{retries: 0}}
+
+    @impl Omni.Agent
+    def handle_error({:step_crashed, _} = _error, state) do
+      retries = state.assigns.retries
+
+      if retries < 1 do
+        {:retry, %{state | assigns: %{state.assigns | retries: retries + 1}}}
+      else
+        {:stop, state}
+      end
+    end
+
+    def handle_error(_error, state), do: {:stop, state}
+  end
+
   defmodule PauseAgent do
     use Omni.Agent
 
@@ -1279,6 +1313,139 @@ defmodule Integration.AgentTest do
       events = collect_events(agent)
 
       assert {:done, %Response{stop_reason: :stop}} = List.last(events)
+    end
+  end
+
+  describe "terminate callback" do
+    test "terminate/2 is called on normal shutdown" do
+      stub_name = unique_stub_name()
+      stub_fixture(stub_name, @text_fixture)
+
+      {:ok, agent} =
+        TerminateAgent.start_link(
+          model: model(),
+          assigns: %{test_pid: self()},
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      Process.unlink(agent)
+      GenServer.stop(agent, :normal)
+      assert_receive {:terminated, :normal}, 1000
+    end
+
+    test "terminate/2 receives shutdown reason" do
+      stub_name = unique_stub_name()
+      stub_fixture(stub_name, @text_fixture)
+
+      {:ok, agent} =
+        TerminateAgent.start_link(
+          model: model(),
+          assigns: %{test_pid: self()},
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      Process.unlink(agent)
+      GenServer.stop(agent, :shutdown)
+      assert_receive {:terminated, :shutdown}, 1000
+    end
+  end
+
+  describe "step crash handling" do
+    test "step crash triggers handle_error with {:step_crashed, reason}" do
+      stub_name = unique_stub_name()
+      test_pid = self()
+
+      # Hang the plug so the step stays alive while we crash it
+      Req.Test.stub(stub_name, fn conn ->
+        send(test_pid, :step_started)
+        Process.sleep(:infinity)
+
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, "")
+      end)
+
+      {:ok, agent} =
+        CrashRetryAgent.start_link(
+          model: model(),
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      assert_receive :step_started, 2000
+
+      server = :sys.get_state(agent)
+      {step_pid, _ref} = server.step_task
+      Process.exit(step_pid, :test_crash)
+
+      # handle_error returns {:retry, state} — agent retries then hangs again
+      assert_receive {:agent, ^agent, :retry, {:step_crashed, :test_crash}}, 2000
+    end
+
+    test "executor crash emits :error with {:executor_crashed, reason}" do
+      stub_name = unique_stub_name()
+
+      # Step completes with tool_use, then executor runs the hanging tool
+      stub_fixture(stub_name, @tool_use_fixture)
+
+      hanging_tool =
+        Omni.tool(
+          name: "get_weather",
+          description: "Gets the weather",
+          input_schema: %{type: "object", properties: %{location: %{type: "string"}}},
+          handler: fn _input -> Process.sleep(:infinity) end
+        )
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          listener: self(),
+          tools: [hanging_tool],
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "What's the weather?")
+
+      # Wait for step to complete and executor to spawn
+      Process.sleep(200)
+
+      server = :sys.get_state(agent)
+      assert {executor_pid, _ref} = server.executor_task
+      Process.exit(executor_pid, :test_crash)
+
+      assert_receive {:agent, ^agent, :error, {:executor_crashed, :test_crash}}, 2000
+    end
+
+    test "step crash with default handle_error emits :error" do
+      stub_name = unique_stub_name()
+      test_pid = self()
+
+      Req.Test.stub(stub_name, fn conn ->
+        send(test_pid, :step_started)
+        Process.sleep(:infinity)
+
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, "")
+      end)
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      assert_receive :step_started, 2000
+
+      server = :sys.get_state(agent)
+      {step_pid, _ref} = server.step_task
+      Process.exit(step_pid, :test_crash)
+
+      # Default handle_error returns {:stop, state} — agent emits :error
+      assert_receive {:agent, ^agent, :error, {:step_crashed, :test_crash}}, 2000
     end
   end
 end

@@ -140,6 +140,174 @@ defmodule Omni.LoopTest do
     end
   end
 
+  # -- max_steps capping --
+
+  describe "max_steps" do
+    test "max_steps: 1 breaks the loop after one step" do
+      stub_fixture(:unit_max_steps_1, @tool_use_fixture)
+
+      tool =
+        Omni.tool(
+          name: "get_weather",
+          description: "Gets the weather",
+          input_schema: %{type: "object", properties: %{location: %{type: "string"}}},
+          handler: fn _input -> "sunny" end
+        )
+
+      context = Context.new(messages: [Message.new("Weather?")], tools: [tool])
+      {:ok, sr} = Loop.stream(model(), context, opts(:unit_max_steps_1) ++ [max_steps: 1])
+      {:ok, resp} = StreamingResponse.complete(sr)
+
+      # Only one step executed — response still has tool_use stop reason
+      assert resp.stop_reason == :tool_use
+      assert length(resp.messages) == 1
+    end
+
+    test "max_steps: 2 allows tool loop then final response" do
+      stub_sequence(:unit_max_steps_2, [@tool_use_fixture, @text_fixture])
+
+      tool =
+        Omni.tool(
+          name: "get_weather",
+          description: "Gets the weather",
+          input_schema: %{type: "object", properties: %{location: %{type: "string"}}},
+          handler: fn _input -> "sunny" end
+        )
+
+      context = Context.new(messages: [Message.new("Weather?")], tools: [tool])
+      {:ok, sr} = Loop.stream(model(), context, opts(:unit_max_steps_2) ++ [max_steps: 2])
+      {:ok, resp} = StreamingResponse.complete(sr)
+
+      assert resp.stop_reason == :stop
+      # Two steps: assistant tool_use + user tool_result + assistant text
+      assert length(resp.messages) == 3
+    end
+  end
+
+  # -- Schema-only tools (nil handler) --
+
+  describe "schema-only tools break the loop" do
+    test "tool with nil handler returns response without executing" do
+      stub_fixture(:unit_schema_only, @tool_use_fixture)
+
+      tool =
+        Omni.tool(
+          name: "get_weather",
+          description: "Gets the weather",
+          input_schema: %{type: "object", properties: %{location: %{type: "string"}}}
+        )
+
+      context = Context.new(messages: [Message.new("Weather?")], tools: [tool])
+      {:ok, sr} = Loop.stream(model(), context, opts(:unit_schema_only))
+      {:ok, resp} = StreamingResponse.complete(sr)
+
+      # Loop breaks — no tool execution, no second step
+      assert resp.stop_reason == :tool_use
+      assert length(resp.messages) == 1
+    end
+  end
+
+  # -- Structured output validation --
+
+  describe "structured output validation" do
+    test "valid JSON matching schema sets response.output" do
+      stub_name = :unit_output_valid
+      fixture = "test/support/fixtures/synthetic/anthropic_json_valid.sse"
+      stub_fixture(stub_name, fixture)
+
+      # Fixture returns {"city": "London", "temperature": 18}
+      schema = %{type: :object, properties: %{city: %{type: :string}}, required: [:city]}
+      context = Context.new("Give me JSON")
+      {:ok, sr} = Loop.stream(model(), context, opts(stub_name) ++ [output: schema])
+      {:ok, resp} = StreamingResponse.complete(sr)
+
+      assert resp.output["city"] == "London"
+    end
+
+    test "invalid JSON retries up to 3 times then returns without output" do
+      stub_name = :unit_output_invalid
+
+      # All responses return invalid JSON — loop retries 3 times then gives up
+      stub_sequence(stub_name, [
+        "test/support/fixtures/synthetic/anthropic_not_json.sse",
+        "test/support/fixtures/synthetic/anthropic_not_json.sse",
+        "test/support/fixtures/synthetic/anthropic_not_json.sse",
+        "test/support/fixtures/synthetic/anthropic_not_json.sse"
+      ])
+
+      schema = %{type: :object, properties: %{name: %{type: :string}}, required: [:name]}
+      context = Context.new("Give me JSON")
+      {:ok, sr} = Loop.stream(model(), context, opts(stub_name) ++ [output: schema])
+      {:ok, resp} = StreamingResponse.complete(sr)
+
+      # Gave up after retries — output is nil
+      assert resp.output == nil
+    end
+
+    test "length stop reason skips retry" do
+      stub_name = :unit_output_length
+
+      # Use the truncated fixture which gives no stop reason, but we need :length.
+      # Actually, we need a fixture where stop_reason is :length. Let's use the
+      # valid JSON fixture — the test is about the *validation path* not content.
+      # We need to produce :length... let's stub a sequence where the model returns
+      # truncated JSON with max_tokens stop reason. Use the json_truncated fixture.
+      stub_fixture(stub_name, "test/support/fixtures/synthetic/anthropic_json_truncated.sse")
+
+      schema = %{type: :object, properties: %{name: %{type: :string}}, required: [:name]}
+      context = Context.new("Give me JSON")
+      {:ok, sr} = Loop.stream(model(), context, opts(stub_name) ++ [output: schema])
+      {:ok, resp} = StreamingResponse.complete(sr)
+
+      # Should not retry — returns immediately with nil output
+      assert resp.output == nil
+      assert resp.stop_reason == :length
+    end
+  end
+
+  # -- do_loop error path --
+
+  describe "do_loop error path" do
+    test "step error mid-loop emits :error event" do
+      stub_name = :unit_loop_error
+      {:ok, counter} = Agent.start_link(fn -> 0 end)
+
+      Req.Test.stub(stub_name, fn conn ->
+        call_num = Agent.get_and_update(counter, fn n -> {n, n + 1} end)
+
+        if call_num == 0 do
+          # First call: return tool_use
+          body = File.read!(@tool_use_fixture)
+
+          conn
+          |> Plug.Conn.put_resp_content_type("text/event-stream")
+          |> Plug.Conn.send_resp(200, body)
+        else
+          # Second call: transport error
+          Req.Test.transport_error(conn, :closed)
+        end
+      end)
+
+      tool =
+        Omni.tool(
+          name: "get_weather",
+          description: "Gets the weather",
+          input_schema: %{type: "object", properties: %{location: %{type: "string"}}},
+          handler: fn _input -> "sunny" end
+        )
+
+      context = Context.new(messages: [Message.new("Weather?")], tools: [tool])
+      {:ok, sr} = Loop.stream(model(), context, opts(stub_name))
+
+      events = Enum.to_list(sr)
+      types = Enum.map(events, &elem(&1, 0))
+
+      assert :error in types
+      assert :tool_result in types
+      refute :done in types
+    end
+  end
+
   # -- Cancel across steps --
 
   describe "cancel" do

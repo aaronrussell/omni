@@ -58,6 +58,34 @@ defmodule Integration.ErrorTest do
     end
   end
 
+  # -- Transport errors --
+
+  describe "transport errors" do
+    test "connection timeout returns {:error, %Req.TransportError{}}" do
+      Req.Test.stub(:err_timeout, fn conn ->
+        Req.Test.transport_error(conn, :timeout)
+      end)
+
+      assert {:error, %Req.TransportError{reason: :timeout}} =
+               Omni.generate_text(model(), "Hello",
+                 api_key: "test-key",
+                 plug: {Req.Test, :err_timeout}
+               )
+    end
+
+    test "connection closed returns {:error, %Req.TransportError{}}" do
+      Req.Test.stub(:err_closed, fn conn ->
+        Req.Test.transport_error(conn, :closed)
+      end)
+
+      assert {:error, %Req.TransportError{reason: :closed}} =
+               Omni.generate_text(model(), "Hello",
+                 api_key: "test-key",
+                 plug: {Req.Test, :err_closed}
+               )
+    end
+  end
+
   # -- Auth error --
 
   describe "auth error" do
