@@ -22,7 +22,8 @@ defmodule Omni.Context do
 
   A string is treated as a single user message. A list is treated as messages.
   """
-  @spec new(String.t() | [Message.t()] | t() | Enumerable.t()) :: t()
+  @spec new(Enumerable.t() | String.t() | [Message.t()] | t()) :: t()
+  def new(attrs \\ [])
   def new(%__MODULE__{} = context), do: context
   def new(text) when is_binary(text), do: new(messages: [Message.new(text)])
   def new([%Message{} | _] = messages), do: new(messages: messages)

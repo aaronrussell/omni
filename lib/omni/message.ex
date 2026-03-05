@@ -32,19 +32,19 @@ defmodule Omni.Message do
   content is wrapped in a `Text` block. A timestamp is auto-assigned via
   `DateTime.utc_now/0` unless explicitly set.
   """
-  @spec new(String.t() | Enumerable.t()) :: t()
+  @spec new(Enumerable.t() | String.t() | t()) :: t()
+  def new(%__MODULE__{} = message), do: message
+
   def new(text) when is_binary(text), do: new(role: :user, content: text)
 
   def new(attrs) do
     attrs
     |> Map.new()
-    |> Map.put_new_lazy(:timestamp, &now/0)
+    |> Map.put_new_lazy(:timestamp, &DateTime.utc_now/0)
     |> Map.update(:content, [], fn
       content when is_binary(content) -> [Text.new(content)]
       content -> content
     end)
     |> then(&struct!(__MODULE__, &1))
   end
-
-  defp now, do: DateTime.utc_now()
 end

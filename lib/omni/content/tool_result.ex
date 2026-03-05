@@ -34,7 +34,6 @@ defmodule Omni.Content.ToolResult do
     attrs
     |> Map.new()
     |> Map.update(:content, [], fn
-      nil -> []
       content when is_binary(content) -> [Text.new(content)]
       content -> content
     end)
