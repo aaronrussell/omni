@@ -101,6 +101,10 @@ defmodule Omni.Dialects.OpenAIResponses do
     [{:error, error["message"] || "Response failed"}]
   end
 
+  def handle_event(%{"type" => "error", "message" => message}) do
+    [{:error, message}]
+  end
+
   def handle_event(_), do: []
 
   # Thinking

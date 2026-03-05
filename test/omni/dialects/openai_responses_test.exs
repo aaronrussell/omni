@@ -627,6 +627,17 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
     test "completely unknown structure returns empty list" do
       assert [] == OpenAIResponses.handle_event(%{"something" => "else"})
     end
+
+    test "error event returns error delta" do
+      event = %{
+        "type" => "error",
+        "code" => "server_error",
+        "message" => "An error occurred during streaming."
+      }
+
+      assert [{:error, "An error occurred during streaming."}] =
+               OpenAIResponses.handle_event(event)
+    end
   end
 
   describe "handle_body/3 output" do

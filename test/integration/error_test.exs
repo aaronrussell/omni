@@ -3,8 +3,6 @@ defmodule Integration.ErrorTest do
 
   alias Omni.{Context, Message, Response, StreamingResponse}
 
-  @error_fixture "test/support/fixtures/synthetic/anthropic_error.sse"
-
   defp model do
     {:ok, model} = Omni.get_model(:anthropic, "claude-haiku-4-5")
     model
@@ -56,26 +54,6 @@ defmodule Integration.ErrorTest do
                Omni.generate_text(model(), "Hello",
                  api_key: "test-key",
                  plug: {Req.Test, :err_500}
-               )
-    end
-  end
-
-  # -- Mid-stream SSE error --
-
-  describe "mid-stream SSE error" do
-    test "error event mid-stream returns error from generate_text" do
-      Req.Test.stub(:err_midstream, fn conn ->
-        body = File.read!(@error_fixture)
-
-        conn
-        |> Plug.Conn.put_resp_content_type("text/event-stream")
-        |> Plug.Conn.send_resp(200, body)
-      end)
-
-      assert {:error, "Overloaded"} =
-               Omni.generate_text(model(), "Hello",
-                 api_key: "test-key",
-                 plug: {Req.Test, :err_midstream}
                )
     end
   end

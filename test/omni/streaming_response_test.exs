@@ -187,7 +187,7 @@ defmodule Omni.StreamingResponseTest do
       result = collect_scripted(events)
 
       {_, _, resp} = Enum.find(result, &match?({:error, _, _}, &1))
-      assert resp.error == "rate_limit"
+      assert resp.error == {:stream_error, "rate_limit"}
     end
 
     test "error event is terminal — no :done follows" do
@@ -206,13 +206,13 @@ defmodule Omni.StreamingResponseTest do
       assert :text_end in types
     end
 
-    test "complete/1 returns {:error, reason} on error" do
+    test "complete/1 returns {:error, {:stream_error, reason}} on error" do
       events = [
         {:error, "overloaded"}
       ]
 
       sr = StreamingResponse.new(events)
-      assert {:error, "overloaded"} = StreamingResponse.complete(sr)
+      assert {:error, {:stream_error, "overloaded"}} = StreamingResponse.complete(sr)
     end
   end
 
@@ -444,14 +444,14 @@ defmodule Omni.StreamingResponseTest do
       sr = StreamingResponse.new(events)
       test_pid = self()
 
-      {:error, "rate_limit"} =
+      {:error, {:stream_error, "rate_limit"}} =
         sr
         |> StreamingResponse.on(:error, fn reason ->
           send(test_pid, {:error, reason})
         end)
         |> StreamingResponse.complete()
 
-      assert_received {:error, "rate_limit"}
+      assert_received {:error, {:stream_error, "rate_limit"}}
     end
   end
 

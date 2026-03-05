@@ -90,6 +90,18 @@ defmodule Integration.AnthropicTest do
     end
   end
 
+  describe "generate_text/3 — mid-stream error" do
+    test "error event mid-stream returns stream_error" do
+      stub_fixture(:int_anthropic_error, "test/support/fixtures/synthetic/anthropic_error.sse")
+
+      assert {:error, {:stream_error, "Overloaded"}} =
+               Omni.generate_text(model(), "Hello",
+                 api_key: "test-key",
+                 plug: {Req.Test, :int_anthropic_error}
+               )
+    end
+  end
+
   describe "stream_text/3 — text streaming" do
     test "text_stream yields non-empty binaries" do
       stub_fixture(:int_anthropic_stream, @text_fixture)

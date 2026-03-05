@@ -787,7 +787,7 @@ defmodule Omni.Response do
     :model,         # %Model{} -- the model that generated this response
     :usage,         # %Usage{} -- token counts and computed costs
     :stop_reason,   # :stop | :length | :tool_use | :error
-    :error,         # nil | String.t()
+    :error,         # nil | {:stream_error, String.t()}
     :raw            # nil | {%Req.Request{}, %Req.Response{}}
   ]
 end
@@ -1380,7 +1380,7 @@ The dialect's normalised delta tuples form the contract between dialects and Str
 # Stream lifecycle
 {:start, %{model: model_id}}
 {:done, %{stop_reason: stop_reason, usage: usage_map}}
-{:error, %{reason: reason}}
+{:error, reason}
 
 # Content block lifecycle
 {:text_start, %{index: integer}}
@@ -1413,7 +1413,7 @@ The `StreamingResponse` enumerable yields events as three-element tuples: `{even
 {:tool_use_delta, %{index: 2, delta: "{\"city\":"}, %Response{...}}
 {:tool_use_end, %{index: 2, tool_use: %ToolUse{...}}, %Response{...}}
 {:done, %{stop_reason: :stop}, %Response{...}}
-{:error, %{reason: reason}, %Response{...}}
+{:error, {:stream_error, reason}, %Response{...}}
 ```
 
 The `_end` events carry the completed value for that content block -- the full text string, parsed `ToolUse` struct, etc. Consumers who don't want to process deltas can listen only for `_end` events and get finished content blocks.
@@ -1447,11 +1447,11 @@ Direct `Enum.each/2` iteration is still available for advanced cases where manua
 
 Errors are categorised into two surfaces:
 
-**Pre-stream errors** surface as `{:error, reason}` from `stream_text/3`. These include model not found, validation failures, authentication errors, HTTP request failures, and non-200 status codes. The stream never starts. For non-200 responses, the error body is read from the async response to build a useful error message before returning.
+**Pre-stream errors** surface as `{:error, reason}` from `stream_text/3`. These include model not found (`{:error, {:unknown_model, ...}}`), validation failures, authentication errors (`{:error, :no_api_key}`), and non-200 status codes (`{:error, {:http_error, status, body}}`). The stream never starts.
 
-**Mid-stream errors** (connection drops, provider errors partway through) are emitted as `{:error, %{reason: reason}, partial_response}` events through the enumeration, after which the stream terminates.
+**Mid-stream errors** (provider errors partway through a streaming response) are wrapped as `{:error, {:stream_error, message}, partial_response}` events through the enumeration, after which the stream terminates. The `{:stream_error, message}` tuple distinguishes mid-stream errors from pre-stream errors at the call site. All dialect `handle_event/1` callbacks emit raw `{:error, message}` deltas; `StreamingResponse` wraps these into `{:stream_error, message}` during processing.
 
-`StreamingResponse.complete/1` returns `{:ok, %Response{}} | {:error, reason}`. If a mid-stream error occurs, `complete/1` returns `{:error, reason}` -- the partial response is discarded. Consumers who care about partial data under failure should consume the stream manually, where they receive valid chunks followed by the error event.
+`StreamingResponse.complete/1` returns `{:ok, %Response{}} | {:error, reason}`. If a mid-stream error occurs, `complete/1` returns `{:error, {:stream_error, message}}` -- the partial response is discarded. Consumers who care about partial data under failure should consume the stream manually, where they receive valid chunks followed by the error event.
 
 ```elixir
 # complete/1 gives clean ok/error semantics
@@ -1462,7 +1462,7 @@ end
 
 # Manual consumption gives access to partial data on error
 Enum.each(stream, fn
-  {:error, %{reason: reason}, _partial} -> handle_error(reason)
+  {:error, {:stream_error, message}, _partial} -> handle_error(message)
   {:text_delta, %{delta: delta}, _} -> IO.write(delta)
   _ -> :ok
 end)

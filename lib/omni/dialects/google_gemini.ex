@@ -75,6 +75,10 @@ defmodule Omni.Dialects.GoogleGemini do
   # Each event is decomposed into envelope (:message) + content (:block_delta/:block_start).
 
   @impl true
+  def handle_event(%{"error" => %{"message" => message}}) do
+    [{:error, message}]
+  end
+
   def handle_event(event) do
     message = extract_message(event)
     content = extract_content(event)

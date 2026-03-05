@@ -743,6 +743,20 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
     test "unknown event returns empty list" do
       assert [] == OpenAICompletions.handle_event(%{"type" => "something_else"})
     end
+
+    test "error event returns error delta" do
+      event = %{
+        "error" => %{
+          "message" => "The server had an error while processing your request.",
+          "type" => "server_error",
+          "param" => nil,
+          "code" => nil
+        }
+      }
+
+      assert [{:error, "The server had an error while processing your request."}] =
+               OpenAICompletions.handle_event(event)
+    end
   end
 
   describe "handle_body/3 output" do

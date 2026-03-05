@@ -204,6 +204,18 @@ defmodule Omni.Providers.OpenRouterTest do
       assert result == existing
     end
 
+    test "error in raw event replaces deltas" do
+      raw_event = %{
+        "error" => %{"code" => "server_error", "message" => "Provider disconnected"},
+        "choices" => [%{"index" => 0, "delta" => %{"content" => ""}, "finish_reason" => "error"}]
+      }
+
+      existing = [{:message, %{stop_reason: :stop}}]
+      result = OpenRouter.modify_events(existing, raw_event)
+
+      assert [{:error, "Provider disconnected"}] = result
+    end
+
     test "appends to existing deltas" do
       details = [%{"type" => "reasoning.encrypted", "data" => "blob"}]
 

@@ -96,6 +96,15 @@ defmodule Integration.OllamaTest do
     end
   end
 
+  describe "generate_text/3 — mid-stream error" do
+    test "error in NDJSON stream returns stream_error" do
+      stub_fixture(:int_ollama_error, "test/support/fixtures/synthetic/ollama_error.ndjson")
+
+      assert {:error, {:stream_error, "an error was encountered while running the model"}} =
+               Omni.generate_text(model(), "Hello", plug: {Req.Test, :int_ollama_error})
+    end
+  end
+
   describe "stream_text/3 — text streaming" do
     test "text_stream yields non-empty binaries" do
       stub_fixture(:int_ollama_stream, @text_fixture)

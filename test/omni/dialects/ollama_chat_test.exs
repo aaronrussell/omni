@@ -424,6 +424,13 @@ defmodule Omni.Dialects.OllamaChatTest do
       assert [] = OllamaChat.handle_event(%{"unknown" => "event"})
     end
 
+    test "error event returns error delta" do
+      event = %{"error" => "an error was encountered while running the model"}
+
+      assert [{:error, "an error was encountered while running the model"}] =
+               OllamaChat.handle_event(event)
+    end
+
     test "multiple tool calls in one event" do
       event = %{
         "model" => "qwen3.5:4b",

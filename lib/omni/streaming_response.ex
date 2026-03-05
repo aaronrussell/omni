@@ -263,8 +263,9 @@ defmodule Omni.StreamingResponse do
   end
 
   defp process_delta({:error, reason}, acc) do
-    acc = %{acc | error: reason}
-    event = {:error, reason, build_response(acc)}
+    error = {:stream_error, reason}
+    acc = %{acc | error: error}
+    event = {:error, error, build_response(acc)}
     {[event], acc}
   end
 

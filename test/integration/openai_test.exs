@@ -95,6 +95,34 @@ defmodule Integration.OpenAITest do
     end
   end
 
+  describe "generate_text/3 — mid-stream error" do
+    test "response.failed event returns stream_error" do
+      stub_fixture(
+        :int_openai_err_failed,
+        "test/support/fixtures/synthetic/openai_responses_failed.sse"
+      )
+
+      assert {:error, {:stream_error, "The model failed to generate a response."}} =
+               Omni.generate_text(model(), "Hello",
+                 api_key: "test-key",
+                 plug: {Req.Test, :int_openai_err_failed}
+               )
+    end
+
+    test "error event returns stream_error" do
+      stub_fixture(
+        :int_openai_err_stream,
+        "test/support/fixtures/synthetic/openai_responses_stream_error.sse"
+      )
+
+      assert {:error, {:stream_error, "An error occurred during streaming."}} =
+               Omni.generate_text(model(), "Hello",
+                 api_key: "test-key",
+                 plug: {Req.Test, :int_openai_err_stream}
+               )
+    end
+  end
+
   describe "stream_text/3 — text streaming" do
     test "text_stream yields non-empty binaries" do
       stub_fixture(:int_openai_stream, @text_fixture)

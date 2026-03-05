@@ -137,6 +137,10 @@ defmodule Omni.Dialects.OpenAICompletions do
     [{:message, %{usage: normalize_usage(usage)}}]
   end
 
+  def handle_event(%{"error" => %{"message" => message}}) do
+    [{:error, message}]
+  end
+
   def handle_event(_), do: []
 
   # Message encoding

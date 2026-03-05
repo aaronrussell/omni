@@ -740,6 +740,18 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert [] == GoogleGemini.handle_event(%{"type" => "something_else"})
     end
 
+    test "error event returns error delta" do
+      event = %{
+        "error" => %{
+          "code" => 429,
+          "status" => "RESOURCE_EXHAUSTED",
+          "message" => "You've exceeded the rate limit."
+        }
+      }
+
+      assert [{:error, "You've exceeded the rate limit."}] = GoogleGemini.handle_event(event)
+    end
+
     test "empty text with finishReason emits only message" do
       event = %{
         "candidates" => [

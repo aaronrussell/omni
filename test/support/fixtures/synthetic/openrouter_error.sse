@@ -1,0 +1,4 @@
+data: {"id":"gen-synth","object":"chat.completion.chunk","model":"openai/gpt-4.1-mini","error":{"code":"server_error","message":"Provider disconnected"},"choices":[{"index":0,"delta":{"content":""},"finish_reason":"error"}]}
+
+data: [DONE]
+

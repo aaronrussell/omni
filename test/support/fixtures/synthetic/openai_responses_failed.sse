@@ -1,0 +1,6 @@
+event: response.created
+data: {"type":"response.created","response":{"id":"resp_synth","model":"gpt-4.1-nano","status":"in_progress"}}
+
+event: response.failed
+data: {"type":"response.failed","response":{"id":"resp_synth","status":"failed","error":{"code":"server_error","message":"The model failed to generate a response."}}}
+

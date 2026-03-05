@@ -62,11 +62,20 @@ defmodule Omni.Providers.OpenRouter do
 
   @impl true
   def modify_events(deltas, raw_event) do
-    case extract_reasoning_details(raw_event) do
-      [] -> deltas
-      details -> deltas ++ [{:message, %{private: %{reasoning_details: details}}}]
+    case extract_error(raw_event) do
+      {:error, _} = error ->
+        [error]
+
+      nil ->
+        case extract_reasoning_details(raw_event) do
+          [] -> deltas
+          details -> deltas ++ [{:message, %{private: %{reasoning_details: details}}}]
+        end
     end
   end
+
+  defp extract_error(%{"error" => %{"message" => message}}), do: {:error, message}
+  defp extract_error(_), do: nil
 
   defp attach_reasoning_details(body, %Context{messages: messages}) do
     assistant_privates =

@@ -93,6 +93,18 @@ defmodule Integration.GoogleTest do
     end
   end
 
+  describe "generate_text/3 — mid-stream error" do
+    test "error event returns stream_error" do
+      stub_fixture(:int_google_error, "test/support/fixtures/synthetic/google_error.sse")
+
+      assert {:error, {:stream_error, "You've exceeded the rate limit."}} =
+               Omni.generate_text(model(), "Hello",
+                 api_key: "test-key",
+                 plug: {Req.Test, :int_google_error}
+               )
+    end
+  end
+
   describe "stream_text/3 — text streaming" do
     test "text_stream yields non-empty binaries" do
       stub_fixture(:int_google_stream, @text_fixture)

@@ -166,6 +166,18 @@ defmodule Integration.OpenRouterTest do
     end
   end
 
+  describe "generate_text/3 — mid-stream error" do
+    test "error in chunk returns stream_error" do
+      stub_fixture(:int_openrouter_error, "test/support/fixtures/synthetic/openrouter_error.sse")
+
+      assert {:error, {:stream_error, "Provider disconnected"}} =
+               Omni.generate_text(model(), "Hello",
+                 api_key: "test-key",
+                 plug: {Req.Test, :int_openrouter_error}
+               )
+    end
+  end
+
   describe "stream_text/3 — text streaming" do
     test "text_stream yields non-empty binaries" do
       stub_fixture(:int_openrouter_stream, @text_fixture)

@@ -106,6 +106,10 @@ defmodule Omni.Dialects.OllamaChat do
     end
   end
 
+  def handle_event(%{"error" => message}) when is_binary(message) do
+    [{:error, message}]
+  end
+
   def handle_event(_), do: []
 
   defp extract_model(%{"model" => model_id}), do: %{model: model_id}
