@@ -46,13 +46,17 @@ defmodule Integration.OllamaTest do
                )
 
       assert resp.stop_reason == :stop
+      assert resp.message.role == :assistant
+      assert %Omni.Model{} = resp.model
+      assert resp.usage.input_tokens > 0
+      assert resp.usage.output_tokens > 0
       assert [%Text{text: text}] = resp.message.content
       assert is_binary(text) and byte_size(text) > 0
     end
   end
 
   describe "generate_text/3 — tool use" do
-    test "returns content with tool use" do
+    test "returns a tool use response" do
       stub_fixture(:int_ollama_tool, @tool_use_fixture)
 
       tool =
@@ -72,9 +76,11 @@ defmodule Integration.OllamaTest do
                Omni.generate_text(model(), context, plug: {Req.Test, :int_ollama_tool})
 
       assert resp.stop_reason == :tool_use
+      assert resp.message.role == :assistant
       assert tool_use = Enum.find(resp.message.content, &match?(%ToolUse{}, &1))
       assert is_binary(tool_use.name) and tool_use.name == "get_weather"
       assert is_map(tool_use.input)
+      assert is_binary(tool_use.id)
     end
   end
 
@@ -88,8 +94,12 @@ defmodule Integration.OllamaTest do
                  plug: {Req.Test, :int_ollama_thinking}
                )
 
+      assert resp.stop_reason == :stop
+      assert resp.message.role == :assistant
+
       thinking = Enum.filter(resp.message.content, &match?(%Thinking{}, &1))
       assert length(thinking) > 0
+      assert Enum.all?(thinking, &is_binary(&1.text))
 
       texts = Enum.filter(resp.message.content, &match?(%Text{}, &1))
       assert length(texts) > 0
@@ -106,7 +116,7 @@ defmodule Integration.OllamaTest do
   end
 
   describe "stream_text/3 — text streaming" do
-    test "text_stream yields non-empty binaries" do
+    test "streams text and completes with full response" do
       stub_fixture(:int_ollama_stream, @text_fixture)
 
       {:ok, sr} =
@@ -119,6 +129,23 @@ defmodule Integration.OllamaTest do
       assert length(texts) > 0
       assert Enum.all?(texts, &is_binary/1)
       assert Enum.join(texts) != ""
+    end
+
+    test "complete/1 returns a full response" do
+      stub_fixture(:int_ollama_complete, @text_fixture)
+
+      {:ok, sr} =
+        Omni.stream_text(model(), "Write a haiku about the sky.",
+          plug: {Req.Test, :int_ollama_complete}
+        )
+
+      assert {:ok, %Response{} = resp} = StreamingResponse.complete(sr)
+      assert resp.stop_reason == :stop
+      assert resp.message.role == :assistant
+      assert resp.usage.input_tokens > 0
+      assert resp.usage.output_tokens > 0
+      assert [%Text{text: text}] = resp.message.content
+      assert byte_size(text) > 0
     end
   end
 end

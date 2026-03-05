@@ -34,6 +34,10 @@ defmodule Integration.AnthropicTest do
                )
 
       assert resp.stop_reason == :stop
+      assert resp.message.role == :assistant
+      assert %Omni.Model{} = resp.model
+      assert resp.usage.input_tokens > 0
+      assert resp.usage.output_tokens > 0
       assert [%Text{text: text}] = resp.message.content
       assert is_binary(text) and byte_size(text) > 0
     end
@@ -63,9 +67,13 @@ defmodule Integration.AnthropicTest do
                )
 
       assert resp.stop_reason == :tool_use
+      assert resp.message.role == :assistant
+      assert resp.usage.input_tokens > 0
+      assert resp.usage.output_tokens > 0
       assert tool_use = Enum.find(resp.message.content, &match?(%ToolUse{}, &1))
       assert is_binary(tool_use.name) and tool_use.name == "get_weather"
       assert is_map(tool_use.input)
+      assert is_binary(tool_use.id)
     end
   end
 
@@ -81,9 +89,13 @@ defmodule Integration.AnthropicTest do
                )
 
       assert resp.stop_reason == :stop
+      assert resp.message.role == :assistant
+      assert resp.usage.input_tokens > 0
+      assert resp.usage.output_tokens > 0
 
       thinking = Enum.filter(resp.message.content, &match?(%Thinking{}, &1))
       assert length(thinking) > 0
+      assert Enum.all?(thinking, &is_binary(&1.text))
 
       texts = Enum.filter(resp.message.content, &match?(%Text{}, &1))
       assert length(texts) > 0
@@ -103,7 +115,7 @@ defmodule Integration.AnthropicTest do
   end
 
   describe "stream_text/3 — text streaming" do
-    test "text_stream yields non-empty binaries" do
+    test "streams text and completes with full response" do
       stub_fixture(:int_anthropic_stream, @text_fixture)
 
       {:ok, sr} =
@@ -117,6 +129,24 @@ defmodule Integration.AnthropicTest do
       assert length(texts) > 0
       assert Enum.all?(texts, &is_binary/1)
       assert Enum.join(texts) != ""
+    end
+
+    test "complete/1 returns a full response" do
+      stub_fixture(:int_anthropic_complete, @text_fixture)
+
+      {:ok, sr} =
+        Omni.stream_text(model(), "Write a haiku about why the sky is blue.",
+          api_key: "test-key",
+          plug: {Req.Test, :int_anthropic_complete}
+        )
+
+      assert {:ok, %Response{} = resp} = StreamingResponse.complete(sr)
+      assert resp.stop_reason == :stop
+      assert resp.message.role == :assistant
+      assert resp.usage.input_tokens > 0
+      assert resp.usage.output_tokens > 0
+      assert [%Text{text: text}] = resp.message.content
+      assert byte_size(text) > 0
     end
   end
 end

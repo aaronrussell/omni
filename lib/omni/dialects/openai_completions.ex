@@ -71,8 +71,10 @@ defmodule Omni.Dialects.OpenAICompletions do
   @impl true
   def handle_event(%{"choices" => [%{"finish_reason" => reason}]} = event)
       when is_binary(reason) do
-    message = %{stop_reason: normalize_stop_reason(reason)}
-    message = maybe_put(message, :usage, normalize_usage(event["usage"]))
+    message =
+      %{stop_reason: normalize_stop_reason(reason)}
+      |> maybe_put(:usage, normalize_usage(event["usage"]))
+
     [{:message, message}]
   end
 
@@ -124,11 +126,17 @@ defmodule Omni.Dialects.OpenAICompletions do
     [{:block_delta, %{type: :text, index: 0, delta: content}}]
   end
 
-  def handle_event(%{
-        "choices" => [%{"delta" => %{"role" => "assistant"}}],
-        "model" => model_id
-      }) do
-    [{:message, %{model: model_id}}]
+  def handle_event(
+        %{
+          "choices" => [%{"delta" => %{"role" => "assistant"}}],
+          "model" => model_id
+        } = event
+      ) do
+    message =
+      %{model: model_id}
+      |> maybe_put(:usage, normalize_usage(event["usage"]))
+
+    [{:message, message}]
   end
 
   # Usage may arrive in a standalone chunk or combined with choices (e.g.
