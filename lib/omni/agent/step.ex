@@ -45,7 +45,7 @@ defmodule Omni.Agent.Step do
           send(parent, {ref, {:error, reason}})
       end
     rescue
-      e -> send(parent, {ref, {:error, Exception.message(e)}})
+      e -> send(parent, {ref, {:error, e}})
     catch
       {:stream_error, reason} ->
         send(parent, {ref, {:error, reason}})

@@ -19,7 +19,7 @@ defmodule Omni.Loop do
   @moduledoc false
 
   alias Omni.{Context, Message, Model, Request, Response, Schema, StreamingResponse, Tool, Usage}
-  alias Omni.Content.{Text, ToolResult, ToolUse}
+  alias Omni.Content.{Text, ToolUse}
 
   @max_output_retries 3
 
@@ -250,21 +250,8 @@ defmodule Omni.Loop do
 
   defp build_tool_result_events(tool_results, response) do
     Enum.map(tool_results, fn tr ->
-      {:tool_result,
-       %{
-         name: tr.name,
-         tool_use_id: tr.tool_use_id,
-         output: tool_result_text(tr),
-         is_error: tr.is_error
-       }, response}
+      {:tool_result, tr, response}
     end)
-  end
-
-  defp tool_result_text(%ToolResult{content: [%Text{text: text}]}), do: text
-  defp tool_result_text(%ToolResult{content: []}), do: ""
-
-  defp tool_result_text(%ToolResult{content: blocks}) when is_list(blocks) do
-    Enum.map_join(blocks, "\n", fn %Text{text: text} -> text end)
   end
 
   # -- Response building --

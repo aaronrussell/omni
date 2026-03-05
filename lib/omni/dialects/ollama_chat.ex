@@ -47,9 +47,17 @@ defmodule Omni.Dialects.OllamaChat do
   defp encode_thinking(_model, nil), do: nil
   defp encode_thinking(%Model{reasoning: false}, _thinking), do: nil
   defp encode_thinking(_model, false), do: false
-  defp encode_thinking(_model, level) when level in [:high, :max], do: true
-  defp encode_thinking(_model, level) when is_atom(level), do: Atom.to_string(level)
+
+  # gpt-oss models (via Ollama) accept string thinking levels; :max downgrades to "high".
+  # All other Ollama models only accept a boolean.
+  defp encode_thinking(%Model{id: id}, level) when is_atom(level) do
+    if String.starts_with?(id, "gpt-oss"), do: level_string(level), else: true
+  end
+
   defp encode_thinking(_model, %{} = _opts), do: true
+
+  defp level_string(:max), do: "high"
+  defp level_string(level), do: Atom.to_string(level)
 
   # Output schema
 
@@ -277,11 +285,15 @@ defmodule Omni.Dialects.OllamaChat do
   # Tool result encoding (separate "tool" role messages)
   # Ollama correlates results by tool_name, not by ID — tool_use_id is intentionally omitted.
 
-  defp encode_tool_result(%ToolResult{content: content}) do
+  # Ollama's API has no error field on tool messages, so we prefix the content
+  # with "Error: " to signal failure to the model.
+  defp encode_tool_result(%ToolResult{content: content, is_error: is_error}) do
     text =
       content
       |> Enum.filter(&match?(%Text{}, &1))
       |> Enum.map_join("", & &1.text)
+
+    text = if is_error, do: "Error: " <> text, else: text
 
     %{"role" => "tool", "content" => text}
   end

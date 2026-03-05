@@ -2,6 +2,7 @@ defmodule Omni.LoopTest do
   use ExUnit.Case, async: true
 
   alias Omni.{Context, Loop, Message, StreamingResponse}
+  alias Omni.Content.{Text, ToolResult}
 
   @tool_use_fixture "test/support/fixtures/sse/anthropic_tool_use.sse"
   @text_fixture "test/support/fixtures/sse/anthropic_text.sse"
@@ -74,15 +75,16 @@ defmodule Omni.LoopTest do
 
       {:ok, _resp} =
         sr
-        |> StreamingResponse.on(:tool_result, fn event ->
-          send(test_pid, {:result, event.output})
+        |> StreamingResponse.on(:tool_result, fn %ToolResult{} = tr ->
+          send(test_pid, {:result, tr})
         end)
         |> StreamingResponse.complete()
 
-      assert_received {:result, "sunny and warm"}
+      assert_received {:result,
+                       %ToolResult{name: "get_weather", content: [%Text{text: "sunny and warm"}]}}
     end
 
-    test "non-binary result is inspected" do
+    test "non-binary result is JSON encoded" do
       stub_sequence(:unit_inspect_result, [@tool_use_fixture, @text_fixture])
 
       tool =
@@ -100,12 +102,12 @@ defmodule Omni.LoopTest do
 
       {:ok, _resp} =
         sr
-        |> StreamingResponse.on(:tool_result, fn event ->
-          send(test_pid, {:result, event.output})
+        |> StreamingResponse.on(:tool_result, fn %ToolResult{} = tr ->
+          send(test_pid, {:result, tr})
         end)
         |> StreamingResponse.complete()
 
-      assert_received {:result, output}
+      assert_received {:result, %ToolResult{content: [%Text{text: output}]}}
       assert output =~ "temp"
       assert output =~ "72"
     end
@@ -128,12 +130,12 @@ defmodule Omni.LoopTest do
 
       {:ok, _resp} =
         sr
-        |> StreamingResponse.on(:tool_result, fn event ->
-          send(test_pid, {:result, event})
+        |> StreamingResponse.on(:tool_result, fn %ToolResult{} = tr ->
+          send(test_pid, {:result, tr})
         end)
         |> StreamingResponse.complete()
 
-      assert_received {:result, %{is_error: true, output: output}}
+      assert_received {:result, %ToolResult{is_error: true, content: [%Text{text: output}]}}
       assert output =~ "connection timeout"
     end
   end

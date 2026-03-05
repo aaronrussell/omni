@@ -134,8 +134,7 @@ defmodule Integration.LoopTest do
         end)
         |> StreamingResponse.complete()
 
-      assert_received {:tool_result,
-                       %{name: "get_weather", output: "72°F and sunny", is_error: false}}
+      assert_received {:tool_result, %ToolResult{name: "get_weather", is_error: false}}
     end
   end
 

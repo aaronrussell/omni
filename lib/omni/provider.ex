@@ -339,7 +339,18 @@ defmodule Omni.Provider do
   def load(providers) when is_list(providers) do
     for provider <- providers do
       {id, mod} = normalize_provider(provider)
-      model_map = Map.new(mod.models(), &{&1.id, &1})
+
+      models =
+        try do
+          mod.models()
+        rescue
+          e ->
+            reraise "failed to load models for provider #{inspect(id)} (#{inspect(mod)}): " <>
+                      Exception.message(e),
+                    __STACKTRACE__
+        end
+
+      model_map = Map.new(models, &{&1.id, &1})
       existing = :persistent_term.get({Omni, id}, %{})
       :persistent_term.put({Omni, id}, Map.merge(existing, model_map))
     end

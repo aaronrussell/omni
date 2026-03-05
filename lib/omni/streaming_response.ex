@@ -58,7 +58,7 @@ defmodule Omni.StreamingResponse do
   third element is the completed response from the step that triggered tool
   execution (not a partial response):
 
-      {:tool_result, %{name: "weather", tool_use_id: "call_1", output: "72°F", is_error: false}, %Response{}}
+      {:tool_result, %ToolResult{}, %Response{}}
 
   Terminal events — every stream ends with exactly one of these:
 
@@ -238,7 +238,7 @@ defmodule Omni.StreamingResponse do
     acc = register_block(acc, key, block_acc)
 
     event_data = start_event_data(type, data)
-    event = {start_atom(type), event_data, build_response(acc, false)}
+    event = {start_atom(type), event_data, build_response(acc)}
     {[event], acc}
   end
 
@@ -254,7 +254,7 @@ defmodule Omni.StreamingResponse do
     delta_events =
       if data[:delta] do
         event_data = %{index: index, delta: data.delta}
-        [{delta_atom(type), event_data, build_response(acc, false)}]
+        [{delta_atom(type), event_data, build_response(acc)}]
       else
         []
       end
@@ -264,7 +264,7 @@ defmodule Omni.StreamingResponse do
 
   defp process_delta({:error, reason}, acc) do
     acc = %{acc | error: reason}
-    event = {:error, reason, build_response(acc, false)}
+    event = {:error, reason, build_response(acc)}
     {[event], acc}
   end
 
@@ -283,16 +283,16 @@ defmodule Omni.StreamingResponse do
   defp finalize_blocks(acc) do
     Enum.map(acc.block_order, fn key ->
       block = Map.fetch!(acc.blocks, key)
-      content = finalize_block(block)
+      content = build_block(block)
       {type, index} = key
-      {end_atom(type), %{index: index, content: content}, build_response(acc, true)}
+      {end_atom(type), %{index: index, content: content}, build_response(acc)}
     end)
   end
 
   defp finalize_done(acc) do
     stop_reason = infer_stop_reason(acc)
     acc = %{acc | stop_reason: stop_reason}
-    response = build_response(acc, true)
+    response = build_response(acc)
     response = %{response | messages: [response.message]}
     response = if acc.raw, do: %{response | raw: [acc.raw]}, else: response
     {:done, %{stop_reason: stop_reason}, response}
@@ -376,7 +376,7 @@ defmodule Omni.StreamingResponse do
         if type == :thinking, do: Map.put(block_acc, :redacted_data, nil), else: block_acc
 
       acc = register_block(acc, key, block_acc)
-      event = {start_atom(type), %{index: index}, build_response(acc, false)}
+      event = {start_atom(type), %{index: index}, build_response(acc)}
       {[event], acc}
     end
   end
@@ -396,21 +396,21 @@ defmodule Omni.StreamingResponse do
 
   # -- Block Finalization --
 
-  defp finalize_block(%{type: :text} = b) do
+  defp build_block(%{type: :text} = b) do
     text = b.parts |> Enum.reverse() |> IO.iodata_to_binary()
     Text.new(text: text, signature: b.signature)
   end
 
-  defp finalize_block(%{type: :thinking, redacted_data: rd} = b) when not is_nil(rd) do
+  defp build_block(%{type: :thinking, redacted_data: rd} = b) when not is_nil(rd) do
     Thinking.new(redacted_data: rd, signature: b.signature)
   end
 
-  defp finalize_block(%{type: :thinking} = b) do
+  defp build_block(%{type: :thinking} = b) do
     text = b.parts |> Enum.reverse() |> IO.iodata_to_binary()
     Thinking.new(text: text, signature: b.signature)
   end
 
-  defp finalize_block(%{type: :tool_use} = b) do
+  defp build_block(%{type: :tool_use} = b) do
     input =
       if b.input do
         b.input
@@ -428,11 +428,10 @@ defmodule Omni.StreamingResponse do
 
   # -- Response Building --
 
-  defp build_response(acc, final?) do
+  defp build_response(acc) do
     content =
       Enum.map(acc.block_order, fn key ->
-        block = Map.fetch!(acc.blocks, key)
-        if final?, do: finalize_block(block), else: partial_block(block)
+        acc.blocks |> Map.fetch!(key) |> build_block()
       end)
 
     message = Message.new(role: :assistant, content: content, private: acc.private)
@@ -445,36 +444,6 @@ defmodule Omni.StreamingResponse do
       stop_reason: acc.stop_reason,
       error: acc.error
     )
-  end
-
-  defp partial_block(%{type: :text} = b) do
-    text = b.parts |> Enum.reverse() |> IO.iodata_to_binary()
-    Text.new(text: text, signature: b.signature)
-  end
-
-  defp partial_block(%{type: :thinking, redacted_data: rd} = b) when not is_nil(rd) do
-    Thinking.new(redacted_data: rd, signature: b.signature)
-  end
-
-  defp partial_block(%{type: :thinking} = b) do
-    text = b.parts |> Enum.reverse() |> IO.iodata_to_binary()
-    Thinking.new(text: text, signature: b.signature)
-  end
-
-  defp partial_block(%{type: :tool_use} = b) do
-    input =
-      if b.input do
-        b.input
-      else
-        json = b.parts |> Enum.reverse() |> IO.iodata_to_binary()
-
-        case JSON.decode(json) do
-          {:ok, parsed} -> parsed
-          {:error, _} -> %{}
-        end
-      end
-
-    ToolUse.new(id: b.id, name: b.name, input: input, signature: b.signature)
   end
 
   # -- Usage --

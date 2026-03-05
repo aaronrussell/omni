@@ -45,10 +45,10 @@ These affect multiple modules or span subsystem boundaries:
 - `[FIXED]` **model.ex:22-25** — Cost field docs say "per million tokens" but don't specify currency. Added "USD" to Model cost field docs and Usage cost field docs.
 
 ### Minor / Nits
-- **context.ex:25** — Doc omits that passing `%Context{}` returns it unchanged (passthrough behavior undocumented).
-- **context.ex:28** — `new([])` succeeds only accidentally because empty keyword list is valid for `struct!/2`.
-- **response.ex:30** — Constructor doesn't auto-populate `messages` from `message`. Manual construction must set both.
-- **context.ex:14** — Type declares `tools: [Tool.t()]` but `nil` is possible via direct construction. Consider `[Tool.t()] | nil`.
+- `[WONTFIX]` **context.ex:25** — Passthrough is in the typespec, sufficient documentation.
+- `[WONTFIX]` **context.ex:28** — `new/0` producing an empty context is intentional convenience, not accidental.
+- `[WONTFIX]` **response.ex:30** — Constructor shouldn't infer field relationships; caller is responsible for assembling params.
+- `[WONTFIX]` **context.ex:14** — Typespecs define intended structure, not every possible runtime state.
 
 ---
 
@@ -67,9 +67,9 @@ These affect multiple modules or span subsystem boundaries:
 - `[FIXED]` **ndjson.ex:37-39** — Simplified `process_chunk/2` to call `extract_lines/2` directly, removing the unnecessary single-branch case.
 
 ### Minor / Nits
-- **streaming_response.ex:342** — `block_order ++ [key]` is O(n) append. Negligible for typical responses (1-5 blocks).
-- **streaming_response.ex:461-474 vs 396-424** — `partial_block/1` and `finalize_block/1` are nearly identical; `final?` flag doesn't actually change behavior. Could unify.
-- **sse.ex:34** — `\r\n` normalization applied to entire `buffer <> chunk` on every chunk, even though buffer was already normalized.
+- `[WONTFIX]` **streaming_response.ex:342** — `block_order ++ [key]` is O(n) on 1-5 elements. Reversing at read time would be worse since `build_response` is called on every delta. Correct tradeoff.
+- `[FIXED]` **streaming_response.ex:461-474 vs 396-424** — Unified `partial_block/1` and `finalize_block/1` into single `build_block/1`. Removed unused `final?` parameter from `build_response`.
+- `[WONTFIX]` **sse.ex:34** — A chunk can split `\r\n` across boundary (`\r` at end, `\n` at start of next), so the buffer must be re-normalized with each new chunk. Correct as-is.
 
 ---
 
@@ -93,7 +93,7 @@ These affect multiple modules or span subsystem boundaries:
 ### Minor / Nits
 - `[FIXED]` **tool/runner.ex:90-91** — `format_result/1` now uses `JSON.encode!/1` with `inspect/1` fallback for non-serializable values.
 - `[WONTFIX]` **tool.ex:131** — See cross-cutting #4 — false positive.
-- **schema.ex:174-178** — Entire module assumes atom-keyed schemas. Undocumented requirement for `validate/2`.
+- `[FIXED]` **schema.ex:174-178** — Added docs to `validate/2` clarifying that property key types are preserved through validation and that builder options must be atom keywords.
 
 ---
 
@@ -118,10 +118,10 @@ These affect multiple modules or span subsystem boundaries:
 - `[FIXED]` **ollama_chat.ex:147** — Replaced `Enum.with_index |> Enum.map` with plain `Enum.map`.
 
 ### Minor / Nits
-- **anthropic_messages.ex:165** — `adaptive_model?` uses `String.contains?(id, "4.6")` — fragile heuristic that will break with future models.
-- **google_gemini.ex:68** — `level_string(:max)` returns `"high"` (silent downgrade). Worth a comment.
-- **ollama_chat.ex:50-52** — `:high` and `:max` map to `true` (boolean) while `:low`/:medium` map to strings. Asymmetry is Ollama-specific but surprising without a comment.
-- **ollama_chat.ex:293-299** — `encode_tool_result` ignores `is_error`. Ollama gets no error indication.
+- `[FIXED]` **anthropic_messages.ex:165** — Replaced `String.contains?(id, "4.6")` with explicit `@adaptive_prefixes` module attribute list. Manually maintained as new models are released.
+- `[FIXED]` **google_gemini.ex:68** — Added comment explaining `:max` downgrades to `"high"` (Gemini's highest level).
+- `[FIXED]` **ollama_chat.ex:50-52** — Bug fix: all thinking levels now map to `true` for standard Ollama models. Only `gpt-oss` prefix models accept string levels (with `:max` → `"high"` downgrade). Added comments.
+- `[FIXED]` **ollama_chat.ex:293-299** — `encode_tool_result` now prefixes content with `"Error: "` when `is_error` is true, since Ollama's API has no error field.
 
 ---
 
@@ -138,9 +138,9 @@ These affect multiple modules or span subsystem boundaries:
 - `[FIXED]` **openrouter.ex:53** — Removed with the conditional (see Bugs above).
 
 ### Minor / Nits
-- **provider.ex:389** — `String.to_atom/1` on modality strings from JSON. Safe since files are controlled, but `String.to_existing_atom/1` would be more defensive.
-- **ollama.ex:76-81** — `build_model/1` allows overriding `:provider` and `:dialect` via user attrs, creating potential mismatch with persistent_term key.
-- **openrouter.ex:80-96** — `attach_reasoning_details/2` assumes assistant messages appear in same positional order in context and wire-format body. Implicit coupling with dialect.
+- `[WONTFIX]` **provider.ex:389** — `String.to_existing_atom/1` fails at app startup because `:pdf` may not be in the atom table yet. `String.to_atom/1` is safe — JSON files are controlled and committed.
+- `[FIXED]` **ollama.ex:76-81** — `provider` and `dialect` now merged after user attrs, so they can't be overridden. Only `:name` and capability fields are user-overridable.
+- `[WONTFIX]` **openrouter.ex:80-96** — Positional coupling is safe: dialect's `encode_message/1` maps each assistant message to exactly one `"assistant"` wire message, preserving 1:1 order. User messages may split into multiple wire messages, but those are `"tool"` role, not `"assistant"`.
 
 ---
 
@@ -159,10 +159,10 @@ These affect multiple modules or span subsystem boundaries:
 None found.
 
 ### Minor / Nits
-- **loop.ex:118,146,213,218** — Repeated `state.messages ++ [msg]` is O(n) per step, O(n^2) total. Fine for typical use but suboptimal for long agentic loops.
+- `[WONTFIX]` **loop.ex:118,146,213,218** — O(n²) message append is negligible: loops hit model context limits or memory before list append matters. Typical loops are 10-20 steps on lists of 20-40 messages.
 - `[FIXED]` **loop.ex:54** — Process dictionary leaks. See cross-cutting #6.
-- **request.ex:189** — `merge_config(:headers, a, b)` crashes if either value is not a map. Schema types headers as `:any` with no protection.
-- **loop.ex:279** — `tool_result_text/1` only matches `%Text{}`. A ToolResult with Thinking content would crash. Add catch-all.
+- `[FIXED]` **request.ex:189** — Changed headers schema type from `:any` to `:map`, so Peri validates the type before merge.
+- `[FIXED]` **loop.ex:279** — Eliminated `tool_result_text/1` entirely. `:tool_result` events now emit `%ToolResult{}` structs directly (consistent with Agent events), instead of decomposing into a map.
 
 ---
 
@@ -184,9 +184,9 @@ None found.
 - `[WONTFIX]` **server.ex:40** — `pending_messages` name kept; added comment clarifying it's buffered until committed on `:done`.
 
 ### Minor / Nits
-- **server.ex:156,364** — `rejected_results ++ [result]` appends in a loop. O(n^2) for many rejected tools.
-- **step.ex:48, executor.ex:23** — `Exception.message(e)` discards exception struct and stack trace. Loses debuggability.
-- **server.ex:490-497** — Window between `kill_task` and `reset_round` where stale messages can arrive. Silently dropped by catch-all. Correct but worth a comment.
+- `[WONTFIX]` **server.ex:156,364** — O(n²) append within a single turn. Same reasoning as loop message appends — context limits hit first.
+- `[FIXED]` **step.ex:48** — `rescue` now sends the exception struct instead of `Exception.message(e)`, preserving debuggability. The `throw`/`catch` for stream errors is correct — it's control flow to break out of `reduce` with non-exception error terms.
+- `[WONTFIX]` **server.ex:490-497** — The catch-all `handle_info/2` at line 278 handles stale messages from killed tasks. This is standard GenServer practice; the catch-all's existence is the documentation.
 
 ---
 
@@ -199,6 +199,6 @@ None found.
 - `[WONTFIX]` **models.get.ex:47 vs provider.ex:378** — Same as above.
 
 ### Minor / Nits
-- **application.ex:10-11** — If a provider's `models/0` raises during startup (corrupt JSON), the error is opaque. Consider wrapping with descriptive re-raise.
-- **models.get.ex:43** — `Enum.filter(&("text" in &1["input_modalities"]))` is effectively unreachable filtering — `filter_modalities/2` already defaults empty/nil to `["text"]`.
-- **models.get.ex:93** — `model["reasoning"] || false` converts explicit `nil` to `false`. `Map.get(model, "reasoning", false)` would be more precise.
+- `[FIXED]` **application.ex:10-11** — `Provider.load/1` now wraps `mod.models()` in try/rescue with a descriptive re-raise including provider id and module.
+- `[FIXED]` **models.get.ex:43** — Bug: `filter_modalities` was defaulting nil/empty modalities to `["text"]`, incorrectly giving text capability to audio/video-only models. Now returns `[]` for nil and filters without defaults. The text filter on line 43 correctly excludes models without text input.
+- `[WONTFIX]` **models.get.ex:93** — `|| false` is intentional: we want a boolean, not nil.

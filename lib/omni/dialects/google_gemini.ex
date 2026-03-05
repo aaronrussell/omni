@@ -60,6 +60,7 @@ defmodule Omni.Dialects.GoogleGemini do
   defp level_string(:low), do: "low"
   defp level_string(:medium), do: "medium"
   defp level_string(:high), do: "high"
+  # Gemini's highest thinking level is "high" — :max downgrades silently.
   defp level_string(:max), do: "high"
 
   # Output schema

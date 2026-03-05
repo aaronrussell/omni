@@ -199,14 +199,32 @@ defmodule Omni.Dialects.OllamaChatTest do
       assert body["think"] == true
     end
 
-    test "thinking effort level sets think value" do
+    test "thinking effort level sets think to true for standard models" do
       context = Context.new("Hello")
 
       body = OllamaChat.handle_body(@reasoning_model, context, %{thinking: :low})
-      assert body["think"] == "low"
+      assert body["think"] == true
 
       body = OllamaChat.handle_body(@reasoning_model, context, %{thinking: :medium})
-      assert body["think"] == "medium"
+      assert body["think"] == true
+    end
+
+    test "gpt-oss models accept string thinking levels" do
+      gpt_oss =
+        Model.new(
+          id: "gpt-oss:latest",
+          name: "gpt-oss",
+          provider: Omni.Providers.Ollama,
+          dialect: OllamaChat,
+          reasoning: true
+        )
+
+      context = Context.new("Hello")
+
+      assert OllamaChat.handle_body(gpt_oss, context, %{thinking: :low})["think"] == "low"
+      assert OllamaChat.handle_body(gpt_oss, context, %{thinking: :medium})["think"] == "medium"
+      assert OllamaChat.handle_body(gpt_oss, context, %{thinking: :high})["think"] == "high"
+      assert OllamaChat.handle_body(gpt_oss, context, %{thinking: :max})["think"] == "high"
     end
 
     test "thinking false explicitly sets think to false" do

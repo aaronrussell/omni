@@ -77,13 +77,10 @@ defmodule Mix.Tasks.Models.Get do
   defp skip?(%{"tool_call" => nil}), do: true
   defp skip?(model), do: not Map.has_key?(model, "tool_call")
 
-  defp filter_modalities(nil, supported), do: Enum.take(supported, 1)
+  defp filter_modalities(nil, _supported), do: []
 
   defp filter_modalities(modalities, supported) do
-    case Enum.filter(modalities, &(&1 in supported)) do
-      [] -> Enum.take(supported, 1)
-      filtered -> filtered
-    end
+    Enum.filter(modalities, &(&1 in supported))
   end
 
   defp transform_model(model) do

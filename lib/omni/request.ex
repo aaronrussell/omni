@@ -25,7 +25,7 @@ defmodule Omni.Request do
     api_key: :any,
     base_url: :any,
     auth_header: {:string, {:default, "authorization"}},
-    headers: {:any, {:default, %{}}},
+    headers: {:map, {:default, %{}}},
     plug: :any,
     models: :any,
 

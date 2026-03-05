@@ -14,6 +14,10 @@ defmodule Omni.Dialects.AnthropicMessages do
 
   @image_media_types ~w(image/jpeg image/png image/gif image/webp)
 
+  # Models that support adaptive thinking (type: "adaptive" + output_config.effort)
+  # instead of budget-based thinking. Maintained manually as new models are released.
+  @adaptive_prefixes ["claude-opus-4-6", "claude-sonnet-4-6"]
+
   @impl true
   def option_schema, do: %{max_tokens: {:integer, {:default, 4096}}}
 
@@ -164,7 +168,9 @@ defmodule Omni.Dialects.AnthropicMessages do
     end
   end
 
-  defp adaptive_model?(%Model{id: id}), do: String.contains?(id, "4.6")
+  defp adaptive_model?(%Model{id: id}) do
+    Enum.any?(@adaptive_prefixes, &String.starts_with?(id, &1))
+  end
 
   defp effort_to_budget(:low), do: 1024
   defp effort_to_budget(:medium), do: 4096

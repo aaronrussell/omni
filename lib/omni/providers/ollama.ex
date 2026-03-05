@@ -75,10 +75,9 @@ defmodule Omni.Providers.Ollama do
   end
 
   defp build_model(attrs) when is_list(attrs) do
-    defaults = [name: attrs[:id], provider: __MODULE__, dialect: dialect()]
-
-    defaults
+    [name: attrs[:id]]
     |> Keyword.merge(attrs)
+    |> Keyword.merge(provider: __MODULE__, dialect: dialect())
     |> Omni.Model.new()
   end
 end

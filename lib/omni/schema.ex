@@ -107,6 +107,11 @@ defmodule Omni.Schema do
   array-level constraints (`minItems`, `maxItems`, `uniqueItems`) and
   `multipleOf` are not — these are still sent to the LLM in the schema but
   skipped during local validation.
+
+  Property key types are preserved: atom-keyed schemas validate and cast
+  string-keyed JSON input back to atom keys, so validated output uses the same
+  key types as the schema definition. Builder option keywords (e.g.
+  `min_length:`) must be atoms.
   """
   @spec validate(map(), term()) :: {:ok, term()} | {:error, term()}
   def validate(schema, input) do

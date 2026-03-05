@@ -377,7 +377,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
                      )
 
     @adaptive_model Model.new(
-                      id: "claude-sonnet-4.6-20260214",
+                      id: "claude-sonnet-4-6-20260214",
                       name: "Claude Sonnet 4.6",
                       provider: Omni.Providers.Anthropic,
                       dialect: AnthropicMessages,
@@ -792,7 +792,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
     test "output schema merges with thinking output_config" do
       adaptive_model =
         Model.new(
-          id: "claude-sonnet-4.6-20260214",
+          id: "claude-sonnet-4-6-20260214",
           name: "Claude Sonnet 4.6",
           provider: Omni.Providers.Anthropic,
           dialect: AnthropicMessages,
