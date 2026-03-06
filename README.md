@@ -36,8 +36,10 @@ by default — if your keys are set, no configuration is needed:
 | Provider | Environment variable |
 | --- | --- |
 | Anthropic | `ANTHROPIC_API_KEY` |
-| OpenAI | `OPENAI_API_KEY` |
 | Google | `GEMINI_API_KEY` |
+| Ollama Cloud | `OLLAMA_API_KEY` |
+| OpenAI | `OPENAI_API_KEY` |
+| OpenCode | `OPENCODE_API_KEY` |
 | OpenRouter | `OPENROUTER_API_KEY` |
 
 Anthropic, OpenAI, and Google are loaded by default. To add others or limit

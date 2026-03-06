@@ -22,8 +22,10 @@ defmodule Omni do
   | Provider | Environment variable |
   | --- | --- |
   | Anthropic | `ANTHROPIC_API_KEY` |
-  | OpenAI | `OPENAI_API_KEY` |
   | Google | `GEMINI_API_KEY` |
+  | Ollama Cloud | `OLLAMA_API_KEY` |
+  | OpenAI | `OPENAI_API_KEY` |
+  | OpenCode | `OPENCODE_API_KEY` |
   | OpenRouter | `OPENROUTER_API_KEY` |
 
   To override a key — for example, to use a different variable name or load
