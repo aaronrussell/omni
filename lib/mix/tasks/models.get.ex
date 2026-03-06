@@ -8,8 +8,14 @@ defmodule Mix.Tasks.Models.Get do
 
   Each supported provider gets a JSON file containing an array of model objects
   with fields matching the `Omni.Model` struct: `id`, `name`, `reasoning`,
-  `input_modalities`, `output_modalities`, `input_cost`, `output_cost`,
+  `dialect`, `input_modalities`, `output_modalities`, `input_cost`, `output_cost`,
   `cache_read_cost`, `cache_write_cost`, `context_size`, and `max_output_tokens`.
+
+  The `dialect` field is a string identifier (e.g. `"anthropic_messages"`,
+  `"openai_responses"`) inferred from the models.dev npm package metadata.
+  It is resolved to a module by `Omni.Dialect.get!/1` at load time. For
+  single-dialect providers the field is present but ignored — the provider's
+  declared dialect takes priority.
 
   Models that are deprecated or lack tool use support are filtered out. Modalities
   are filtered to those Omni supports (input: text, image, pdf; output: text).
@@ -20,9 +26,16 @@ defmodule Mix.Tasks.Models.Get do
 
   @api_url "https://models.dev/api.json"
   @output_dir "priv/models"
-  @providers ["anthropic", "google", "ollama-cloud", "openai", "openrouter"]
+  @providers ["anthropic", "google", "ollama-cloud", "openai", "opencode", "openrouter"]
   @supported_input_modalities Enum.map(Omni.Model.supported_modalities(:input), &to_string/1)
   @supported_output_modalities Enum.map(Omni.Model.supported_modalities(:output), &to_string/1)
+
+  @npm_to_dialect %{
+    "@ai-sdk/anthropic" => "anthropic_messages",
+    "@ai-sdk/openai" => "openai_responses",
+    "@ai-sdk/openai-compatible" => "openai_completions",
+    "@ai-sdk/google" => "google_gemini"
+  }
 
   @impl Mix.Task
   def run(_args) do
@@ -35,11 +48,13 @@ defmodule Mix.Tasks.Models.Get do
     for provider_id <- @providers do
       case Map.fetch(data, provider_id) do
         {:ok, provider_data} ->
+          provider_npm = provider_data["npm"]
+
           models =
             provider_data
             |> get_models()
             |> Enum.reject(&skip?/1)
-            |> Enum.map(&transform_model/1)
+            |> Enum.map(&transform_model(&1, provider_npm))
             |> Enum.filter(&("text" in &1["input_modalities"]))
             |> Enum.sort_by(& &1["id"])
 
@@ -83,11 +98,15 @@ defmodule Mix.Tasks.Models.Get do
     Enum.filter(modalities, &(&1 in supported))
   end
 
-  defp transform_model(model) do
+  defp transform_model(model, provider_npm) do
+    npm = get_in(model, ["provider", "npm"]) || provider_npm
+    dialect = @npm_to_dialect[npm]
+
     %{
       "id" => model["id"],
       "name" => model["name"],
       "reasoning" => model["reasoning"] || false,
+      "dialect" => dialect,
       "input_modalities" =>
         filter_modalities(get_in(model, ["modalities", "input"]), @supported_input_modalities),
       "output_modalities" =>

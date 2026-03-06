@@ -3,6 +3,7 @@
     "cache_read_cost": 0.01875,
     "cache_write_cost": 0,
     "context_size": 1000000,
+    "dialect": "google_gemini",
     "id": "gemini-1.5-flash",
     "input_cost": 0.075,
     "input_modalities": [
@@ -21,6 +22,7 @@
     "cache_read_cost": 0.01,
     "cache_write_cost": 0,
     "context_size": 1000000,
+    "dialect": "google_gemini",
     "id": "gemini-1.5-flash-8b",
     "input_cost": 0.0375,
     "input_modalities": [
@@ -39,6 +41,7 @@
     "cache_read_cost": 0.3125,
     "cache_write_cost": 0,
     "context_size": 1000000,
+    "dialect": "google_gemini",
     "id": "gemini-1.5-pro",
     "input_cost": 1.25,
     "input_modalities": [
@@ -57,6 +60,7 @@
     "cache_read_cost": 0.025,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-2.0-flash",
     "input_cost": 0.1,
     "input_modalities": [
@@ -76,6 +80,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-2.0-flash-lite",
     "input_cost": 0.075,
     "input_modalities": [
@@ -95,6 +100,7 @@
     "cache_read_cost": 0.075,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-2.5-flash",
     "input_cost": 0.3,
     "input_modalities": [
@@ -114,6 +120,7 @@
     "cache_read_cost": 0.025,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-2.5-flash-lite",
     "input_cost": 0.1,
     "input_modalities": [
@@ -133,6 +140,7 @@
     "cache_read_cost": 0.025,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-2.5-flash-lite-preview-06-17",
     "input_cost": 0.1,
     "input_modalities": [
@@ -152,6 +160,7 @@
     "cache_read_cost": 0.025,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-2.5-flash-lite-preview-09-2025",
     "input_cost": 0.1,
     "input_modalities": [
@@ -171,6 +180,7 @@
     "cache_read_cost": 0.0375,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-2.5-flash-preview-04-17",
     "input_cost": 0.15,
     "input_modalities": [
@@ -190,6 +200,7 @@
     "cache_read_cost": 0.0375,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-2.5-flash-preview-05-20",
     "input_cost": 0.15,
     "input_modalities": [
@@ -209,6 +220,7 @@
     "cache_read_cost": 0.075,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-2.5-flash-preview-09-2025",
     "input_cost": 0.3,
     "input_modalities": [
@@ -228,6 +240,7 @@
     "cache_read_cost": 0.31,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-2.5-pro",
     "input_cost": 1.25,
     "input_modalities": [
@@ -247,6 +260,7 @@
     "cache_read_cost": 0.31,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-2.5-pro-preview-05-06",
     "input_cost": 1.25,
     "input_modalities": [
@@ -266,6 +280,7 @@
     "cache_read_cost": 0.31,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-2.5-pro-preview-06-05",
     "input_cost": 1.25,
     "input_modalities": [
@@ -285,6 +300,7 @@
     "cache_read_cost": 0.05,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-3-flash-preview",
     "input_cost": 0.5,
     "input_modalities": [
@@ -304,6 +320,7 @@
     "cache_read_cost": 0.2,
     "cache_write_cost": 0,
     "context_size": 1000000,
+    "dialect": "google_gemini",
     "id": "gemini-3-pro-preview",
     "input_cost": 2,
     "input_modalities": [
@@ -323,6 +340,7 @@
     "cache_read_cost": 0.2,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-3.1-pro-preview",
     "input_cost": 2,
     "input_modalities": [
@@ -342,6 +360,7 @@
     "cache_read_cost": 0.2,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-3.1-pro-preview-customtools",
     "input_cost": 2,
     "input_modalities": [
@@ -361,6 +380,7 @@
     "cache_read_cost": 0.075,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-flash-latest",
     "input_cost": 0.3,
     "input_modalities": [
@@ -380,6 +400,7 @@
     "cache_read_cost": 0.025,
     "cache_write_cost": 0,
     "context_size": 1048576,
+    "dialect": "google_gemini",
     "id": "gemini-flash-lite-latest",
     "input_cost": 0.1,
     "input_modalities": [
@@ -399,6 +420,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 128000,
+    "dialect": "google_gemini",
     "id": "gemini-live-2.5-flash",
     "input_cost": 0.5,
     "input_modalities": [
@@ -417,6 +439,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 131072,
+    "dialect": "google_gemini",
     "id": "gemini-live-2.5-flash-preview-native-audio",
     "input_cost": 0.5,
     "input_modalities": [

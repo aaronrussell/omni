@@ -1,0 +1,617 @@
+[
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "dialect": "anthropic_messages",
+    "id": "big-pickle",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 128000,
+    "name": "Big Pickle",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.08,
+    "cache_write_cost": 1,
+    "context_size": 200000,
+    "dialect": "anthropic_messages",
+    "id": "claude-3-5-haiku",
+    "input_cost": 0.8,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Claude Haiku 3.5",
+    "output_cost": 4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0.1,
+    "cache_write_cost": 1.25,
+    "context_size": 200000,
+    "dialect": "anthropic_messages",
+    "id": "claude-haiku-4-5",
+    "input_cost": 1,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 64000,
+    "name": "Claude Haiku 4.5",
+    "output_cost": 5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 1.5,
+    "cache_write_cost": 18.75,
+    "context_size": 200000,
+    "dialect": "anthropic_messages",
+    "id": "claude-opus-4-1",
+    "input_cost": 15,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 32000,
+    "name": "Claude Opus 4.1",
+    "output_cost": 75,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.5,
+    "cache_write_cost": 6.25,
+    "context_size": 200000,
+    "dialect": "anthropic_messages",
+    "id": "claude-opus-4-5",
+    "input_cost": 5,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 64000,
+    "name": "Claude Opus 4.5",
+    "output_cost": 25,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.5,
+    "cache_write_cost": 6.25,
+    "context_size": 1000000,
+    "dialect": "anthropic_messages",
+    "id": "claude-opus-4-6",
+    "input_cost": 5,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 128000,
+    "name": "Claude Opus 4.6",
+    "output_cost": 25,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.3,
+    "cache_write_cost": 3.75,
+    "context_size": 1000000,
+    "dialect": "anthropic_messages",
+    "id": "claude-sonnet-4",
+    "input_cost": 3,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 64000,
+    "name": "Claude Sonnet 4",
+    "output_cost": 15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.3,
+    "cache_write_cost": 3.75,
+    "context_size": 1000000,
+    "dialect": "anthropic_messages",
+    "id": "claude-sonnet-4-5",
+    "input_cost": 3,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 64000,
+    "name": "Claude Sonnet 4.5",
+    "output_cost": 15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.3,
+    "cache_write_cost": 3.75,
+    "context_size": 1000000,
+    "dialect": "anthropic_messages",
+    "id": "claude-sonnet-4-6",
+    "input_cost": 3,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 64000,
+    "name": "Claude Sonnet 4.6",
+    "output_cost": 15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.05,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "dialect": "google_gemini",
+    "id": "gemini-3-flash",
+    "input_cost": 0.5,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Gemini 3 Flash",
+    "output_cost": 3,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.2,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "dialect": "google_gemini",
+    "id": "gemini-3-pro",
+    "input_cost": 2,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Gemini 3 Pro",
+    "output_cost": 12,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.2,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "dialect": "google_gemini",
+    "id": "gemini-3.1-pro",
+    "input_cost": 2,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Gemini 3.1 Pro Preview",
+    "output_cost": 12,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.1,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "dialect": "openai_completions",
+    "id": "glm-4.6",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "GLM-4.6",
+    "output_cost": 2.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.1,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "dialect": "openai_completions",
+    "id": "glm-4.7",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "GLM-4.7",
+    "output_cost": 2.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.2,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "dialect": "openai_completions",
+    "id": "glm-5",
+    "input_cost": 1,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "GLM-5",
+    "output_cost": 3.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.107,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "dialect": "openai_responses",
+    "id": "gpt-5",
+    "input_cost": 1.07,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5",
+    "output_cost": 8.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.107,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "dialect": "openai_responses",
+    "id": "gpt-5-codex",
+    "input_cost": 1.07,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5 Codex",
+    "output_cost": 8.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "dialect": "openai_responses",
+    "id": "gpt-5-nano",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5 Nano",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.107,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "dialect": "openai_responses",
+    "id": "gpt-5.1",
+    "input_cost": 1.07,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.1",
+    "output_cost": 8.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.107,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "dialect": "openai_responses",
+    "id": "gpt-5.1-codex",
+    "input_cost": 1.07,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.1 Codex",
+    "output_cost": 8.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.125,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "dialect": "openai_responses",
+    "id": "gpt-5.1-codex-max",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.1 Codex Max",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.025,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "dialect": "openai_responses",
+    "id": "gpt-5.1-codex-mini",
+    "input_cost": 0.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.1 Codex Mini",
+    "output_cost": 2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.175,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "dialect": "openai_responses",
+    "id": "gpt-5.2",
+    "input_cost": 1.75,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.2",
+    "output_cost": 14,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.175,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "dialect": "openai_responses",
+    "id": "gpt-5.2-codex",
+    "input_cost": 1.75,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.2 Codex",
+    "output_cost": 14,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.175,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "dialect": "openai_responses",
+    "id": "gpt-5.3-codex",
+    "input_cost": 1.75,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.3 Codex",
+    "output_cost": 14,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.175,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "dialect": "openai_responses",
+    "id": "gpt-5.3-codex-spark",
+    "input_cost": 1.75,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.3 Codex Spark",
+    "output_cost": 14,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.25,
+    "cache_write_cost": 0,
+    "context_size": 1050000,
+    "dialect": "openai_responses",
+    "id": "gpt-5.4",
+    "input_cost": 2.5,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.4",
+    "output_cost": 15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 30,
+    "cache_write_cost": 0,
+    "context_size": 1050000,
+    "dialect": "openai_responses",
+    "id": "gpt-5.4-pro",
+    "input_cost": 30,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.4 Pro",
+    "output_cost": 180,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.08,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": "openai_completions",
+    "id": "kimi-k2.5",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Kimi K2.5",
+    "output_cost": 3,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.1,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "dialect": "openai_completions",
+    "id": "minimax-m2.1",
+    "input_cost": 0.3,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "MiniMax M2.1",
+    "output_cost": 1.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.06,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "dialect": "openai_completions",
+    "id": "minimax-m2.5",
+    "input_cost": 0.3,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "MiniMax M2.5",
+    "output_cost": 1.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "dialect": "anthropic_messages",
+    "id": "minimax-m2.5-free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "MiniMax M2.5 Free",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  }
+]

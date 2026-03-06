@@ -21,6 +21,14 @@ defmodule Omni.Dialect do
     * `Omni.Dialects.GoogleGemini` — Google Gemini format
     * `Omni.Dialects.OllamaChat` — Ollama native chat format (NDJSON streaming)
 
+  ## Dialect registry
+
+  Built-in dialects are registered with string identifiers for use in JSON
+  data files (e.g. `"anthropic_messages"`, `"openai_responses"`). Use `get/1`
+  or `get!/1` to resolve a string to its module. This is primarily used by
+  `Omni.Provider.load_models/2` for multi-dialect providers where the dialect
+  varies per model.
+
   ## Delta types
 
   `c:handle_event/1` returns a list of `{type, map}` delta tuples.
@@ -105,6 +113,45 @@ defmodule Omni.Dialect do
   """
 
   alias Omni.{Context, Model}
+
+  @registry %{
+    "anthropic_messages" => Omni.Dialects.AnthropicMessages,
+    "openai_completions" => Omni.Dialects.OpenAICompletions,
+    "openai_responses" => Omni.Dialects.OpenAIResponses,
+    "google_gemini" => Omni.Dialects.GoogleGemini,
+    "ollama_chat" => Omni.Dialects.OllamaChat
+  }
+
+  @doc """
+  Resolves a dialect string identifier to its module.
+
+  Built-in dialect identifiers: `"anthropic_messages"`, `"openai_completions"`,
+  `"openai_responses"`, `"google_gemini"`, `"ollama_chat"`.
+  """
+  @spec get(String.t()) :: {:ok, module()} | {:error, {:unknown_dialect, String.t()}}
+  def get(name) when is_binary(name) do
+    case @registry[name] do
+      nil -> {:error, {:unknown_dialect, name}}
+      mod -> {:ok, mod}
+    end
+  end
+
+  @doc """
+  Resolves a dialect string identifier to its module, raising on failure.
+  """
+  @spec get!(String.t() | nil) :: module()
+  def get!(nil) do
+    raise ArgumentError,
+          "no dialect specified — multi-dialect providers require a \"dialect\" field " <>
+            "in the model data"
+  end
+
+  def get!(name) when is_binary(name) do
+    case get(name) do
+      {:ok, mod} -> mod
+      {:error, reason} -> raise ArgumentError, "#{inspect(reason)}"
+    end
+  end
 
   @doc """
   Returns a Peri schema map for dialect-specific options.

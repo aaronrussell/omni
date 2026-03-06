@@ -1,7 +1,7 @@
 alias Omni.Test.Capture
 
-# Load OpenRouter (not in default providers)
-Omni.Provider.load([:openrouter])
+# Load additional providers
+Omni.Provider.load([:opencode, :openrouter])
 
 fixture_dir = "test/support/fixtures/sse"
 
@@ -15,7 +15,7 @@ weather_tool =
       "properties" => %{
         "location" => %{
           "type" => "string",
-          "description" => "The city and state, e.g. San Francisco, CA"
+          "description" => "The city, e.g. San Francisco"
         }
       },
       "required" => ["location"]
@@ -29,10 +29,11 @@ prompts = %{
 }
 
 models = %{
-  :anthropic => "claude-haiku-4-5",
-  :openai => "gpt-5-mini",
-  :google => "gemini-3-flash-preview",
-  :openrouter => "openai/gpt-4o-mini"
+  #:anthropic => "claude-haiku-4-5",
+  #:openai => "gpt-5-mini",
+  #:google => "gemini-3-flash-preview",
+  #:openrouter => "openai/gpt-4o-mini",
+  :opencode => "gpt-5.2"
 }
 
 for provider <- Map.keys(models) do
@@ -42,7 +43,8 @@ for provider <- Map.keys(models) do
   Capture.record(
     model,
     Omni.context(prompts[:text]),
-    "#{fixture_dir}/#{provider}_text.sse"
+    "#{fixture_dir}/#{provider}_text.sse",
+    thinking: false
   )
 
   IO.puts("Capturing #{provider}_thinking...")
@@ -60,7 +62,8 @@ for provider <- Map.keys(models) do
       messages: [Omni.message("What is the weather in London?")],
       tools: [weather_tool]
     ),
-    "#{fixture_dir}/#{provider}_tool_use.sse"
+    "#{fixture_dir}/#{provider}_tool_use.sse",
+    thinking: false
   )
 end
 

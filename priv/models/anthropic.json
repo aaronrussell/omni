@@ -3,6 +3,7 @@
     "cache_read_cost": 0.08,
     "cache_write_cost": 1,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-3-5-haiku-20241022",
     "input_cost": 0.8,
     "input_modalities": [
@@ -22,6 +23,7 @@
     "cache_read_cost": 0.08,
     "cache_write_cost": 1,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-3-5-haiku-latest",
     "input_cost": 0.8,
     "input_modalities": [
@@ -41,6 +43,7 @@
     "cache_read_cost": 0.3,
     "cache_write_cost": 3.75,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-3-5-sonnet-20240620",
     "input_cost": 3,
     "input_modalities": [
@@ -60,6 +63,7 @@
     "cache_read_cost": 0.3,
     "cache_write_cost": 3.75,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-3-5-sonnet-20241022",
     "input_cost": 3,
     "input_modalities": [
@@ -79,6 +83,7 @@
     "cache_read_cost": 0.3,
     "cache_write_cost": 3.75,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-3-7-sonnet-20250219",
     "input_cost": 3,
     "input_modalities": [
@@ -98,6 +103,7 @@
     "cache_read_cost": 0.3,
     "cache_write_cost": 3.75,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-3-7-sonnet-latest",
     "input_cost": 3,
     "input_modalities": [
@@ -117,6 +123,7 @@
     "cache_read_cost": 0.03,
     "cache_write_cost": 0.3,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-3-haiku-20240307",
     "input_cost": 0.25,
     "input_modalities": [
@@ -136,6 +143,7 @@
     "cache_read_cost": 1.5,
     "cache_write_cost": 18.75,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-3-opus-20240229",
     "input_cost": 15,
     "input_modalities": [
@@ -155,6 +163,7 @@
     "cache_read_cost": 0.3,
     "cache_write_cost": 0.3,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-3-sonnet-20240229",
     "input_cost": 3,
     "input_modalities": [
@@ -174,6 +183,7 @@
     "cache_read_cost": 0.1,
     "cache_write_cost": 1.25,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-haiku-4-5",
     "input_cost": 1,
     "input_modalities": [
@@ -193,6 +203,7 @@
     "cache_read_cost": 0.1,
     "cache_write_cost": 1.25,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-haiku-4-5-20251001",
     "input_cost": 1,
     "input_modalities": [
@@ -212,6 +223,7 @@
     "cache_read_cost": 1.5,
     "cache_write_cost": 18.75,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-opus-4-0",
     "input_cost": 15,
     "input_modalities": [
@@ -231,6 +243,7 @@
     "cache_read_cost": 1.5,
     "cache_write_cost": 18.75,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-opus-4-1",
     "input_cost": 15,
     "input_modalities": [
@@ -250,6 +263,7 @@
     "cache_read_cost": 1.5,
     "cache_write_cost": 18.75,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-opus-4-1-20250805",
     "input_cost": 15,
     "input_modalities": [
@@ -269,6 +283,7 @@
     "cache_read_cost": 1.5,
     "cache_write_cost": 18.75,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-opus-4-20250514",
     "input_cost": 15,
     "input_modalities": [
@@ -288,6 +303,7 @@
     "cache_read_cost": 0.5,
     "cache_write_cost": 6.25,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-opus-4-5",
     "input_cost": 5,
     "input_modalities": [
@@ -307,6 +323,7 @@
     "cache_read_cost": 0.5,
     "cache_write_cost": 6.25,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-opus-4-5-20251101",
     "input_cost": 5,
     "input_modalities": [
@@ -326,6 +343,7 @@
     "cache_read_cost": 0.5,
     "cache_write_cost": 6.25,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-opus-4-6",
     "input_cost": 5,
     "input_modalities": [
@@ -345,6 +363,7 @@
     "cache_read_cost": 0.3,
     "cache_write_cost": 3.75,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-sonnet-4-0",
     "input_cost": 3,
     "input_modalities": [
@@ -364,6 +383,7 @@
     "cache_read_cost": 0.3,
     "cache_write_cost": 3.75,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-sonnet-4-20250514",
     "input_cost": 3,
     "input_modalities": [
@@ -383,6 +403,7 @@
     "cache_read_cost": 0.3,
     "cache_write_cost": 3.75,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-sonnet-4-5",
     "input_cost": 3,
     "input_modalities": [
@@ -402,6 +423,7 @@
     "cache_read_cost": 0.3,
     "cache_write_cost": 3.75,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-sonnet-4-5-20250929",
     "input_cost": 3,
     "input_modalities": [
@@ -421,6 +443,7 @@
     "cache_read_cost": 0.3,
     "cache_write_cost": 3.75,
     "context_size": 200000,
+    "dialect": "anthropic_messages",
     "id": "claude-sonnet-4-6",
     "input_cost": 3,
     "input_modalities": [

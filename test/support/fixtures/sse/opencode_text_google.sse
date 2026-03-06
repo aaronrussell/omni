@@ -1,0 +1,6 @@
+data: {"candidates": [{"content": {"role": "model","parts": [{"text": "Sunlight hits the air,\nScattering the shortest waves,\nBlue fills"}]}}],"usageMetadata": {"trafficType": "ON_DEMAND"},"modelVersion": "gemini-3-flash-preview","createTime": "2026-03-06T14:15:38.351161Z","responseId": "iuGqabm3FZH-sbwPjvSn4Qk"}
+
+data: {"candidates": [{"content": {"role": "model","parts": [{"text": " up the sky.","thoughtSignature": "CiEBjz1rXx0A4WuARiie4cApwlQNi0VxEcipbD/BikPMP3A="}]},"finishReason": "STOP"}],"usageMetadata": {"promptTokenCount": 11,"candidatesTokenCount": 20,"totalTokenCount": 31,"trafficType": "ON_DEMAND","promptTokensDetails": [{"modality": "TEXT","tokenCount": 11}],"candidatesTokensDetails": [{"modality": "TEXT","tokenCount": 20}]},"modelVersion": "gemini-3-flash-preview","createTime": "2026-03-06T14:15:38.351161Z","responseId": "iuGqabm3FZH-sbwPjvSn4Qk"}
+
+data: {"type":"ping","cost":"0.00006550"}
+

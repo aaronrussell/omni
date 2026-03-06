@@ -10,7 +10,7 @@ Omni is an Elixir library for interacting with LLM APIs across multiple provider
 - **Providers** — authenticated HTTP layer (where to send requests, how to authenticate)
 - **Dialects** — wire format translation (how to build request bodies, parse streaming events)
 
-The relationship: ~4-5 dialects, ~20-30 providers (each speaking one dialect), hundreds of models (each belonging to one provider). All requests are streaming-first; `generate_text` is built on top of `stream_text`.
+The relationship: ~4-5 dialects, ~20-30 providers (most speaking one dialect, though multi-model gateways like OpenCode Zen use multiple), hundreds of models (each belonging to one provider). The dialect is stored on each `%Model{}` struct, so dispatch is always per-model. All requests are streaming-first; `generate_text` is built on top of `stream_text`.
 
 See the [Context Documents](#context-documents) section for when and how to use the detailed design docs.
 
@@ -42,7 +42,7 @@ mix models.get           # Fetch model data from models.dev into priv/models/
 
 - **Streaming-first**: Every LLM request uses streaming HTTP via Req's `into: :self` async mode. The event pipeline is composed as a lazy `Stream`: format parsing (SSE or NDJSON, selected by response content-type) → `Request.parse_event/2` (dialect `handle_event/1` + provider `modify_events/2`) → delta tuples. `parse_event` returns a list of `{type, map}` tuples (4 generic types: `:message`, `:block_start`, `:block_delta`, `:error`), so the pipeline uses `Stream.flat_map/2`. `StreamingResponse.new/2` takes raw delta events and keyword opts (`model`, `cancel`, `raw`), building the full consumer event pipeline at construction time via `Stream.transform/5`. The struct holds two fields: `stream` (the pipeline) and `cancel` (an opaque zero-arity function). Model and raw HTTP data are baked into the transform closure, not stored on the struct. Its `Enumerable` implementation delegates directly to the pipeline, yielding `{event_type, data, partial_response}` tuples (where `data` is a map for most events, a `%ToolResult{}` for `:tool_result`, or a bare term for `:error`). Key functions: `on/3` (register side-effect handler for an event type, returns new StreamingResponse — pipeline-composable), `text_stream/1` (stream of text delta binaries), `complete/1` (consume to final `%Response{}`), `cancel/1` (invoke cancel function). `Stream.transform/5`'s `last_fun` handles finalization — `:done` is only emitted when a stop reason was received; streams that end without one (connection drop, truncation) emit `{:error, :incomplete_stream}` instead, and explicit `:error` deltas also suppress `:done`. No spawned process — Req/Finch manage the connection.
 
-- **Models are data, not modules**: `%Model{}` structs are loaded from `priv/models/*.json` at startup into `:persistent_term` (keyed per provider). Models carry a direct module reference to their provider; the dialect is accessed via `provider.dialect()`.
+- **Models are data, not modules**: `%Model{}` structs are loaded from `priv/models/*.json` at startup into `:persistent_term` (keyed per provider). Models carry direct module references to their provider and dialect. The dialect is stored on the model, not derived from the provider at runtime — this enables multi-dialect providers where different models use different wire formats.
 
 - **Request building separated from execution**: `Request.build/3` takes Omni types (model, context, opts), validates options via Peri, and returns a `%Req.Request{}` via dialect + provider composition. `Request.stream/3` executes the request and returns a `StreamingResponse`. The dialect does heavy transformation (Omni types ↔ native JSON). The provider optionally modifies dialect output for service-specific quirks via `modify_body/3` (request body, context, opts) and `modify_events/2` (response).
 
@@ -75,9 +75,9 @@ lib/omni/
 ├── loop.ex                         # Recursive stream loop (tool auto-execution)
 ├── agent.ex                        # Agent behaviour, use macro, public API
 ├── agent/{state,server,step,executor}.ex  # Agent internals
-├── provider.ex                     # Provider behaviour + shared utilities
-├── providers/{anthropic,openai,ollama,...}.ex
-├── dialect.ex                      # Dialect behaviour
+├── provider.ex                     # Provider behaviour + shared utilities + dialect registry
+├── providers/{anthropic,openai,ollama,open_code,...}.ex
+├── dialect.ex                      # Dialect behaviour + string→module registry
 └── dialects/{anthropic_messages,openai_completions,openai_responses,ollama_chat,...}.ex
 ```
 
@@ -85,7 +85,7 @@ lib/omni/
 
 - All public API functions return `{:ok, result} | {:error, reason}` tuples.
 - Content blocks are separate structs under `Omni.Content` — pattern match on struct name, not a type field.
-- Providers use `use Omni.Provider, dialect: Module` — the macro generates `dialect/0` and defaults for all optional callbacks. Provider IDs are assigned in the application config, not on the module. Built-in providers are registered in `@builtin_providers` (a static `%{id => module}` map in `Omni.Provider`). Not all built-in providers are loaded by default — `@default_providers` in `Omni.Application` controls what loads at startup (OpenRouter and Ollama are opt-in). Users override via `config :omni, :providers, [:anthropic, :openai, custom: MyApp.Custom]`. Shorthand atoms are looked up in the built-in map; custom providers use `{id, Module}` tuples. `Provider.load/1` loads providers into `:persistent_term` on demand and merges with existing entries, so it can be called multiple times safely. Models are stored in `:persistent_term` keyed as `{Omni, provider_id}`.
+- Providers use `use Omni.Provider` with an optional `:dialect` option. Single-dialect providers pass `dialect: Module` — the macro generates `dialect/0` returning that module and defaults for all optional callbacks. Multi-dialect providers (gateways like OpenCode Zen) omit `:dialect` — `dialect/0` returns `nil`, and each model gets its dialect from the `"dialect"` field in the JSON data file, resolved via `Omni.Dialect.get!/1`. In `Provider.load_models/2`, the provider's declared dialect takes priority; when `nil`, the JSON dialect is used. Provider IDs are assigned in the application config, not on the module. Built-in providers are registered in `@builtin_providers` (a static `%{id => module}` map in `Omni.Provider`). Not all built-in providers are loaded by default — `@default_providers` in `Omni.Application` controls what loads at startup (OpenRouter, Ollama, and OpenCode Zen are opt-in). Users override via `config :omni, :providers, [:anthropic, :openai, custom: MyApp.Custom]`. Shorthand atoms are looked up in the built-in map; custom providers use `{id, Module}` tuples. `Provider.load/1` loads providers into `:persistent_term` on demand and merges with existing entries, so it can be called multiple times safely. Models are stored in `:persistent_term` keyed as `{Omni, provider_id}`.
 - Provider `config/0` returns `%{base_url, auth_header, api_key, headers}`. The `api_key` value is a `resolve_auth/1` term — typically `{:system, "ENV_VAR"}`. When `:auth_header` is omitted, the default `authenticate/2` sends a Bearer token on `"authorization"`. When set (e.g. `"x-api-key"`), the raw key is sent on that header instead.
 - API key resolution order (three-tier): explicit `:api_key` opt at call site → `config :omni, ProviderModule, api_key: ...` app config → provider's `config()` default. All three accept the same value types: literal string, `{:system, "ENV"}`, or `{Mod, :fun, args}` MFA tuple.
 - Tool modules use `use Omni.Tool, name: "string", description: "string"` — generates `new/0,1` constructors. Import `Omni.Schema` inside the `schema/0` callback (not at module level, not auto-imported by `use Omni.Tool`).

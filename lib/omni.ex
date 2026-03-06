@@ -149,9 +149,10 @@ defmodule Omni do
 
   ## Providers
 
-  Omni ships with built-in providers for Anthropic, OpenAI, Google, and
-  OpenRouter. Each provider is paired with a dialect that handles wire format
-  translation.
+  Omni ships with built-in providers for Anthropic, OpenAI, Google, OpenRouter,
+  and OpenCode Zen. Each provider is paired with one or more dialects that
+  handle wire format translation — most providers use a single dialect, while
+  multi-model gateways like OpenCode Zen use different dialects per model.
 
   Models are referenced as `{provider_id, model_id}` tuples. To list available
   models for a provider:

@@ -4,6 +4,11 @@ defmodule Omni.Dialects.GoogleGemini do
 
   See `Omni.Dialect` for the behaviour specification and delta types.
 
+  ## Options
+
+  - `:beta` (boolean, default `false`) — when `true`, uses the `/v1beta/`
+    API path instead of `/v1/`, enabling access to beta features
+
   ## Notable differences
 
   - Model ID is embedded in the URL path, not the request body
@@ -19,11 +24,16 @@ defmodule Omni.Dialects.GoogleGemini do
   import Omni.Util, only: [maybe_put: 3, maybe_merge: 2]
 
   @impl true
-  def option_schema, do: %{}
+  def option_schema do
+    %{
+      beta: {:boolean, {:default, false}}
+    }
+  end
 
   @impl true
-  def handle_path(%Model{id: model_id}, _opts) do
-    "/v1beta/models/#{model_id}:streamGenerateContent?alt=sse"
+  def handle_path(%Model{id: model_id}, opts) do
+    v = if opts[:beta], do: "v1beta", else: "v1"
+    "/#{v}/models/#{model_id}:streamGenerateContent?alt=sse"
   end
 
   @impl true

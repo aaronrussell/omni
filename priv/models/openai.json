@@ -3,6 +3,7 @@
     "cache_read_cost": 0.375,
     "cache_write_cost": 0,
     "context_size": 200000,
+    "dialect": "openai_responses",
     "id": "codex-mini-latest",
     "input_cost": 1.5,
     "input_modalities": [
@@ -20,6 +21,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 8192,
+    "dialect": "openai_responses",
     "id": "gpt-4",
     "input_cost": 30,
     "input_modalities": [
@@ -37,6 +39,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 128000,
+    "dialect": "openai_responses",
     "id": "gpt-4-turbo",
     "input_cost": 10,
     "input_modalities": [
@@ -55,6 +58,7 @@
     "cache_read_cost": 0.5,
     "cache_write_cost": 0,
     "context_size": 1047576,
+    "dialect": "openai_responses",
     "id": "gpt-4.1",
     "input_cost": 2,
     "input_modalities": [
@@ -73,6 +77,7 @@
     "cache_read_cost": 0.1,
     "cache_write_cost": 0,
     "context_size": 1047576,
+    "dialect": "openai_responses",
     "id": "gpt-4.1-mini",
     "input_cost": 0.4,
     "input_modalities": [
@@ -91,6 +96,7 @@
     "cache_read_cost": 0.03,
     "cache_write_cost": 0,
     "context_size": 1047576,
+    "dialect": "openai_responses",
     "id": "gpt-4.1-nano",
     "input_cost": 0.1,
     "input_modalities": [
@@ -109,6 +115,7 @@
     "cache_read_cost": 1.25,
     "cache_write_cost": 0,
     "context_size": 128000,
+    "dialect": "openai_responses",
     "id": "gpt-4o",
     "input_cost": 2.5,
     "input_modalities": [
@@ -127,6 +134,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 128000,
+    "dialect": "openai_responses",
     "id": "gpt-4o-2024-05-13",
     "input_cost": 5,
     "input_modalities": [
@@ -145,6 +153,7 @@
     "cache_read_cost": 1.25,
     "cache_write_cost": 0,
     "context_size": 128000,
+    "dialect": "openai_responses",
     "id": "gpt-4o-2024-08-06",
     "input_cost": 2.5,
     "input_modalities": [
@@ -163,6 +172,7 @@
     "cache_read_cost": 1.25,
     "cache_write_cost": 0,
     "context_size": 128000,
+    "dialect": "openai_responses",
     "id": "gpt-4o-2024-11-20",
     "input_cost": 2.5,
     "input_modalities": [
@@ -181,6 +191,7 @@
     "cache_read_cost": 0.08,
     "cache_write_cost": 0,
     "context_size": 128000,
+    "dialect": "openai_responses",
     "id": "gpt-4o-mini",
     "input_cost": 0.15,
     "input_modalities": [
@@ -199,6 +210,7 @@
     "cache_read_cost": 0.125,
     "cache_write_cost": 0,
     "context_size": 400000,
+    "dialect": "openai_responses",
     "id": "gpt-5",
     "input_cost": 1.25,
     "input_modalities": [
@@ -217,6 +229,7 @@
     "cache_read_cost": 0.125,
     "cache_write_cost": 0,
     "context_size": 400000,
+    "dialect": "openai_responses",
     "id": "gpt-5-codex",
     "input_cost": 1.25,
     "input_modalities": [
@@ -235,6 +248,7 @@
     "cache_read_cost": 0.025,
     "cache_write_cost": 0,
     "context_size": 400000,
+    "dialect": "openai_responses",
     "id": "gpt-5-mini",
     "input_cost": 0.25,
     "input_modalities": [
@@ -253,6 +267,7 @@
     "cache_read_cost": 0.005,
     "cache_write_cost": 0,
     "context_size": 400000,
+    "dialect": "openai_responses",
     "id": "gpt-5-nano",
     "input_cost": 0.05,
     "input_modalities": [
@@ -271,6 +286,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 400000,
+    "dialect": "openai_responses",
     "id": "gpt-5-pro",
     "input_cost": 15,
     "input_modalities": [
@@ -289,6 +305,7 @@
     "cache_read_cost": 0.13,
     "cache_write_cost": 0,
     "context_size": 400000,
+    "dialect": "openai_responses",
     "id": "gpt-5.1",
     "input_cost": 1.25,
     "input_modalities": [
@@ -307,6 +324,7 @@
     "cache_read_cost": 0.125,
     "cache_write_cost": 0,
     "context_size": 128000,
+    "dialect": "openai_responses",
     "id": "gpt-5.1-chat-latest",
     "input_cost": 1.25,
     "input_modalities": [
@@ -325,6 +343,7 @@
     "cache_read_cost": 0.125,
     "cache_write_cost": 0,
     "context_size": 400000,
+    "dialect": "openai_responses",
     "id": "gpt-5.1-codex",
     "input_cost": 1.25,
     "input_modalities": [
@@ -343,6 +362,7 @@
     "cache_read_cost": 0.125,
     "cache_write_cost": 0,
     "context_size": 400000,
+    "dialect": "openai_responses",
     "id": "gpt-5.1-codex-max",
     "input_cost": 1.25,
     "input_modalities": [
@@ -361,6 +381,7 @@
     "cache_read_cost": 0.025,
     "cache_write_cost": 0,
     "context_size": 400000,
+    "dialect": "openai_responses",
     "id": "gpt-5.1-codex-mini",
     "input_cost": 0.25,
     "input_modalities": [
@@ -379,6 +400,7 @@
     "cache_read_cost": 0.175,
     "cache_write_cost": 0,
     "context_size": 400000,
+    "dialect": "openai_responses",
     "id": "gpt-5.2",
     "input_cost": 1.75,
     "input_modalities": [
@@ -397,6 +419,7 @@
     "cache_read_cost": 0.175,
     "cache_write_cost": 0,
     "context_size": 128000,
+    "dialect": "openai_responses",
     "id": "gpt-5.2-chat-latest",
     "input_cost": 1.75,
     "input_modalities": [
@@ -415,6 +438,7 @@
     "cache_read_cost": 0.175,
     "cache_write_cost": 0,
     "context_size": 400000,
+    "dialect": "openai_responses",
     "id": "gpt-5.2-codex",
     "input_cost": 1.75,
     "input_modalities": [
@@ -434,6 +458,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 400000,
+    "dialect": "openai_responses",
     "id": "gpt-5.2-pro",
     "input_cost": 21,
     "input_modalities": [
@@ -452,6 +477,7 @@
     "cache_read_cost": 0.175,
     "cache_write_cost": 0,
     "context_size": 400000,
+    "dialect": "openai_responses",
     "id": "gpt-5.3-codex",
     "input_cost": 1.75,
     "input_modalities": [
@@ -471,6 +497,7 @@
     "cache_read_cost": 0.175,
     "cache_write_cost": 0,
     "context_size": 128000,
+    "dialect": "openai_responses",
     "id": "gpt-5.3-codex-spark",
     "input_cost": 1.75,
     "input_modalities": [
@@ -487,9 +514,48 @@
     "reasoning": true
   },
   {
+    "cache_read_cost": 0.25,
+    "cache_write_cost": 0,
+    "context_size": 1050000,
+    "dialect": "openai_responses",
+    "id": "gpt-5.4",
+    "input_cost": 2.5,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.4",
+    "output_cost": 15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1050000,
+    "dialect": "openai_responses",
+    "id": "gpt-5.4-pro",
+    "input_cost": 30,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.4 Pro",
+    "output_cost": 180,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
     "cache_read_cost": 7.5,
     "cache_write_cost": 0,
     "context_size": 200000,
+    "dialect": "openai_responses",
     "id": "o1",
     "input_cost": 15,
     "input_modalities": [
@@ -508,6 +574,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 200000,
+    "dialect": "openai_responses",
     "id": "o1-pro",
     "input_cost": 150,
     "input_modalities": [
@@ -526,6 +593,7 @@
     "cache_read_cost": 0.5,
     "cache_write_cost": 0,
     "context_size": 200000,
+    "dialect": "openai_responses",
     "id": "o3",
     "input_cost": 2,
     "input_modalities": [
@@ -544,6 +612,7 @@
     "cache_read_cost": 2.5,
     "cache_write_cost": 0,
     "context_size": 200000,
+    "dialect": "openai_responses",
     "id": "o3-deep-research",
     "input_cost": 10,
     "input_modalities": [
@@ -562,6 +631,7 @@
     "cache_read_cost": 0.55,
     "cache_write_cost": 0,
     "context_size": 200000,
+    "dialect": "openai_responses",
     "id": "o3-mini",
     "input_cost": 1.1,
     "input_modalities": [
@@ -579,6 +649,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 200000,
+    "dialect": "openai_responses",
     "id": "o3-pro",
     "input_cost": 20,
     "input_modalities": [
@@ -597,6 +668,7 @@
     "cache_read_cost": 0.28,
     "cache_write_cost": 0,
     "context_size": 200000,
+    "dialect": "openai_responses",
     "id": "o4-mini",
     "input_cost": 1.1,
     "input_modalities": [
@@ -615,6 +687,7 @@
     "cache_read_cost": 0.5,
     "cache_write_cost": 0,
     "context_size": 200000,
+    "dialect": "openai_responses",
     "id": "o4-mini-deep-research",
     "input_cost": 2,
     "input_modalities": [

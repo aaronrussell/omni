@@ -14,10 +14,15 @@ defmodule Omni.Provider do
   the occasional quirk differ. A provider captures those differences; a dialect
   (see `Omni.Dialect`) handles the wire format shared across many providers.
 
+  Most providers speak a single dialect, but multi-model gateways (like OpenCode
+  Zen) route to different upstream APIs depending on the model. These providers
+  omit the `:dialect` option — the dialect is resolved per-model from the JSON
+  data files at load time. See "Multi-dialect providers" below.
+
   ## Defining a provider
 
-  Use `use Omni.Provider` with a required `:dialect` option. The only required
-  callback is `config/0` — everything else has a sensible default:
+  Use `use Omni.Provider` with an optional `:dialect` option. Most providers
+  declare a dialect — the only required callback is `config/0`:
 
       defmodule MyApp.Providers.Acme do
         use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
@@ -45,9 +50,10 @@ defmodule Omni.Provider do
         end
       end
 
-  The `use` macro generates a `dialect/0` accessor from the provided module and
-  default implementations for all optional callbacks. Override only what your
-  provider needs — most providers are just `config/0` and `models/0`.
+  The `use` macro generates a `dialect/0` accessor from the provided module (or
+  `nil` when omitted) and default implementations for all optional callbacks.
+  Override only what your provider needs — most providers are just `config/0`
+  and `models/0`.
 
   ## The request pipeline
 
@@ -134,6 +140,32 @@ defmodule Omni.Provider do
   These values serve as defaults. Users can override `:base_url`, `:api_key`,
   and `:headers` at the application config level or at the call site.
 
+  ## Multi-dialect providers
+
+  Some providers act as gateways to multiple upstream APIs, each with its own
+  wire format. For example, OpenCode Zen routes Claude models through the
+  Anthropic Messages format and GPT models through OpenAI Responses.
+
+  These providers omit the `:dialect` option:
+
+      defmodule MyApp.Providers.Gateway do
+        use Omni.Provider
+
+        @impl true
+        def config do
+          %{base_url: "https://gateway.example.com", api_key: {:system, "GW_KEY"}}
+        end
+
+        @impl true
+        def models do
+          Omni.Provider.load_models(__MODULE__, "priv/models/gateway.json")
+        end
+      end
+
+  When `dialect/0` returns `nil`, `load_models/2` reads the `"dialect"` string
+  from each model's JSON entry and resolves it via `Omni.Dialect.get!/1`. If a
+  model is missing the `"dialect"` field, loading raises at startup.
+
   ## Choosing a dialect
 
   Pick the dialect that matches your provider's wire format:
@@ -173,6 +205,7 @@ defmodule Omni.Provider do
     google: Omni.Providers.Google,
     ollama: Omni.Providers.Ollama,
     openai: Omni.Providers.OpenAI,
+    opencode: Omni.Providers.OpenCode,
     openrouter: Omni.Providers.OpenRouter
   }
 
@@ -201,9 +234,8 @@ defmodule Omni.Provider do
   @doc """
   Returns the provider's list of model structs.
 
-  Each model must have `:provider` set to this module and `:dialect` set to
-  `dialect()`. Built-in providers use `load_models/2` to read from a JSON data
-  file; custom providers can return models from any source:
+  Built-in providers use `load_models/2` to read from a JSON data file; custom
+  providers can return models from any source:
 
       @impl true
       def models do
@@ -218,6 +250,9 @@ defmodule Omni.Provider do
           )
         ]
       end
+
+  For multi-dialect providers (where `dialect/0` returns `nil`), `load_models/2`
+  resolves each model's dialect from the `"dialect"` field in the JSON data.
 
   Default: `[]` (no models).
   """
@@ -378,7 +413,12 @@ defmodule Omni.Provider do
   @doc """
   Loads models from a JSON file and builds `%Model{}` structs.
 
-  Each model is stamped with the given provider module and its dialect.
+  Each model is stamped with the given provider module and a dialect. The
+  dialect is resolved in priority order: if the provider declares a dialect
+  (via `use Omni.Provider, dialect: Module`), that dialect is used for all
+  models. Otherwise, each model's `"dialect"` string from the JSON data is
+  resolved via `Omni.Dialect.get!/1`.
+
   The `path` may be absolute or relative to the provider module's OTP app
   directory (determined via `Application.get_application/1`).
   """
@@ -399,11 +439,13 @@ defmodule Omni.Provider do
   end
 
   defp build_model(data, module) do
+    dialect = module.dialect() || Omni.Dialect.get!(data["dialect"])
+
     Model.new(
       id: data["id"],
       name: data["name"],
       provider: module,
-      dialect: module.dialect(),
+      dialect: dialect,
       reasoning: data["reasoning"] || false,
       input_modalities: Enum.map(data["input_modalities"] || ["text"], &String.to_atom/1),
       output_modalities: Enum.map(data["output_modalities"] || ["text"], &String.to_atom/1),
@@ -417,7 +459,7 @@ defmodule Omni.Provider do
   end
 
   defmacro __using__(opts) do
-    dialect = Keyword.fetch!(opts, :dialect)
+    dialect = Keyword.get(opts, :dialect)
 
     quote do
       @behaviour Omni.Provider

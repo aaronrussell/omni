@@ -14,19 +14,24 @@ defmodule Omni.Dialects.GoogleGeminiTest do
          )
 
   describe "option_schema/0" do
-    test "returns empty map" do
-      assert GoogleGemini.option_schema() == %{}
+    test "includes beta option defaulting to false" do
+      assert %{beta: {:boolean, {:default, false}}} = GoogleGemini.option_schema()
     end
   end
 
-  describe "handle_path/1" do
+  describe "handle_path/2" do
     test "embeds model ID in path" do
       path = GoogleGemini.handle_path(@model, %{})
       assert path =~ "gemini-2.0-flash-lite"
     end
 
-    test "includes ?alt=sse query param" do
+    test "defaults to v1 path" do
       path = GoogleGemini.handle_path(@model, %{})
+      assert path == "/v1/models/gemini-2.0-flash-lite:streamGenerateContent?alt=sse"
+    end
+
+    test "uses v1beta path when beta is true" do
+      path = GoogleGemini.handle_path(@model, %{beta: true})
       assert path == "/v1beta/models/gemini-2.0-flash-lite:streamGenerateContent?alt=sse"
     end
   end

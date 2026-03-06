@@ -45,8 +45,8 @@ defmodule Omni.Dialects.AnthropicMessages do
   end
 
   @impl true
-  def handle_event(%{"type" => "message_start", "message" => %{"model" => model_id}}) do
-    [{:message, %{model: model_id}}]
+  def handle_event(%{"type" => "message_start", "message" => %{"model" => model_id} = message}) do
+    [{:message, %{model: model_id} |> maybe_put(:usage, message["usage"])}]
   end
 
   def handle_event(%{

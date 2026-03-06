@@ -1,0 +1,44 @@
+[
+  {
+    "id": "claude-test",
+    "name": "Claude Test",
+    "reasoning": true,
+    "dialect": "anthropic_messages",
+    "input_modalities": ["text", "image"],
+    "output_modalities": ["text"],
+    "input_cost": 3.0,
+    "output_cost": 15.0,
+    "cache_read_cost": 0.3,
+    "cache_write_cost": 3.75,
+    "context_size": 200000,
+    "max_output_tokens": 8192
+  },
+  {
+    "id": "gpt-test",
+    "name": "GPT Test",
+    "reasoning": true,
+    "dialect": "openai_responses",
+    "input_modalities": ["text", "image"],
+    "output_modalities": ["text"],
+    "input_cost": 2.0,
+    "output_cost": 10.0,
+    "cache_read_cost": 0.2,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "max_output_tokens": 16384
+  },
+  {
+    "id": "gemini-test",
+    "name": "Gemini Test",
+    "reasoning": false,
+    "dialect": "google_gemini",
+    "input_modalities": ["text"],
+    "output_modalities": ["text"],
+    "input_cost": 1.0,
+    "output_cost": 4.0,
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 100000,
+    "max_output_tokens": 8192
+  }
+]

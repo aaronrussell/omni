@@ -37,11 +37,31 @@ defmodule Omni.ProviderTest do
     end
   end
 
+  defmodule MultiDialectProvider do
+    use Omni.Provider
+
+    @impl true
+    def config do
+      %{
+        base_url: "https://api.multi.test",
+        api_key: {:system, "MULTI_TEST_KEY"}
+      }
+    end
+  end
+
   @fixture_path Path.expand("../support/fixtures/test_models.json", __DIR__)
+  @multi_dialect_fixture_path Path.expand(
+                                "../support/fixtures/test_models_multi_dialect.json",
+                                __DIR__
+                              )
 
   describe "__using__/1 macro" do
     test "dialect/0 returns the configured dialect module" do
       assert TestProvider.dialect() == DummyDialect
+    end
+
+    test "dialect/0 returns nil when no dialect is declared" do
+      assert MultiDialectProvider.dialect() == nil
     end
 
     test "models/0 returns empty list by default" do
@@ -169,6 +189,42 @@ defmodule Omni.ProviderTest do
 
       refute small.reasoning
       assert large.reasoning
+    end
+  end
+
+  describe "load_models/2 with per-model dialect" do
+    test "resolves dialect from JSON when provider declares no dialect" do
+      models = Provider.load_models(MultiDialectProvider, @multi_dialect_fixture_path)
+
+      claude = Enum.find(models, &(&1.id == "claude-test"))
+      gpt = Enum.find(models, &(&1.id == "gpt-test"))
+      gemini = Enum.find(models, &(&1.id == "gemini-test"))
+
+      assert claude.dialect == Omni.Dialects.AnthropicMessages
+      assert gpt.dialect == Omni.Dialects.OpenAIResponses
+      assert gemini.dialect == Omni.Dialects.GoogleGemini
+    end
+
+    test "all models share the same provider module" do
+      models = Provider.load_models(MultiDialectProvider, @multi_dialect_fixture_path)
+
+      for model <- models do
+        assert model.provider == MultiDialectProvider
+      end
+    end
+
+    test "provider's declared dialect takes priority over JSON dialect" do
+      models = Provider.load_models(TestProvider, @multi_dialect_fixture_path)
+
+      for model <- models do
+        assert model.dialect == DummyDialect
+      end
+    end
+
+    test "raises when no dialect is declared and JSON has no dialect field" do
+      assert_raise ArgumentError, ~r/no dialect specified/, fn ->
+        Provider.load_models(MultiDialectProvider, @fixture_path)
+      end
     end
   end
 

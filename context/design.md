@@ -15,7 +15,7 @@ The design separates three distinct concerns:
 - **Providers** -- the identity and configuration of a specific service (Anthropic, OpenAI, Groq, etc.)
 - **Dialects** -- the wire format for a family of APIs (how requests are built and responses are parsed)
 
-The relationship: there are ~5 dialects, ~20-30 providers (each speaking one dialect), and hundreds of models (each belonging to one provider).
+The relationship: there are ~5 dialects, ~20-30 providers (most speaking one dialect, though multi-model gateways like OpenCode Zen use multiple), and hundreds of models (each belonging to one provider). The dialect is stored on each `%Model{}` struct, so dispatch is always per-model.
 
 ---
 
@@ -356,7 +356,9 @@ A provider answers the question: **"How do I reach and authenticate with this sp
 
 It's operational identity. A provider knows where it lives (base URL), how to prove you're allowed to talk to it (authentication), and any service-specific adjustments on top of the standard dialect. The provider has no knowledge of request body structure or response parsing -- it doesn't know what JSON fields exist or how streaming events are shaped.
 
-The separation from dialects exists because the mapping is many-to-one. There are ~4-5 wire formats but ~20-30 services. Groq, Together, Fireworks, OpenRouter, DeepSeek, and a dozen others all speak the same OpenAI Chat Completions wire format. Their request bodies are identical. Their streaming events have the same JSON schema. The only things that differ are: where you send the request, how you authenticate, and maybe a handful of quirks.
+The separation from dialects exists because the mapping is typically many-to-one. There are ~4-5 wire formats but ~20-30 services. Groq, Together, Fireworks, OpenRouter, DeepSeek, and a dozen others all speak the same OpenAI Chat Completions wire format. Their request bodies are identical. Their streaming events have the same JSON schema. The only things that differ are: where you send the request, how you authenticate, and maybe a handful of quirks.
+
+Some providers are multi-dialect gateways -- they route to different upstream APIs depending on the model. OpenCode Zen, for example, serves Claude models via the Anthropic Messages format and GPT models via OpenAI Responses, all through a single service. These providers omit the `:dialect` option from `use Omni.Provider`, and each model gets its dialect from the JSON data file instead.
 
 ### The Omni.Provider module
 
@@ -371,7 +373,7 @@ Request building and event parsing orchestration lives in `Omni.Request`, not on
 
 ### Provider declaration
 
-Each provider module uses `use Omni.Provider` with its dialect:
+Each provider module uses `use Omni.Provider`, typically with a dialect:
 
 ```elixir
 defmodule Omni.Providers.Anthropic do
@@ -379,7 +381,7 @@ defmodule Omni.Providers.Anthropic do
 end
 ```
 
-The `use` macro generates a `dialect/0` accessor function from the provided value. The `:dialect` option is required -- every provider must declare which dialect it speaks. Provider IDs are not declared on the module; they are assigned in the application config when registering providers.
+The `use` macro generates a `dialect/0` accessor function from the provided value (or `nil` when omitted). Most providers declare a single dialect. Multi-dialect providers omit the option -- `dialect/0` returns `nil`, and each model's dialect is resolved from the JSON data file at load time via `Omni.Dialect.get!/1`. Provider IDs are not declared on the module; they are assigned in the application config when registering providers.
 
 ### Provider behaviour callbacks
 
@@ -421,7 +423,7 @@ This is a plain function returning a map -- no macros or DSL. This keeps the cod
 
 Each provider has a `models/0` callback that returns its list of `%Model{}` structs. The default implementation returns an empty list -- providers that have models must explicitly implement the callback.
 
-Built-in providers use the `Omni.Provider.load_models/2` helper, which reads a JSON data file and builds model structs stamped with the provider module and its dialect:
+Built-in providers use the `Omni.Provider.load_models/2` helper, which reads a JSON data file and builds model structs stamped with the provider module and a dialect:
 
 ```elixir
 defmodule Omni.Providers.Anthropic do
@@ -434,7 +436,7 @@ defmodule Omni.Providers.Anthropic do
 end
 ```
 
-`load_models/2` takes the provider module and a file path. It calls `module.dialect()` internally to stamp both `provider` and `dialect` onto each model struct. The models returned from `models/0` are always complete -- all enforce_keys are populated.
+`load_models/2` takes the provider module and a file path. It resolves the dialect in priority order: if `module.dialect()` returns a module, that dialect is used for all models; otherwise, each model's `"dialect"` string from the JSON data is resolved via `Omni.Dialect.get!/1`. The models returned from `models/0` are always complete -- all enforce_keys are populated.
 
 Custom providers can implement `models/0` to return models from any source:
 
