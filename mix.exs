@@ -1,13 +1,14 @@
 defmodule Omni.MixProject do
   use Mix.Project
 
+  @version "1.0.0"
+  @source_url "https://github.com/aaronrussell/omni"
+
   def project do
     [
       app: :omni,
       name: "Omni",
-      description: "Universal Elixir client for LLM APIs. Text generation, tool use, and agents.",
-      source_url: "https://github.com/aaronrussell/omni",
-      version: "1.0.0",
+      version: @version,
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
@@ -41,6 +42,9 @@ defmodule Omni.MixProject do
   defp docs do
     [
       main: "Omni",
+      source_url: @source_url,
+      homepage_url: @source_url,
+      extras: ["CHANGELOG.md"],
       groups_for_modules: [
         Agents: ~r/^Omni\.Agent/,
         Data: [
@@ -63,9 +67,10 @@ defmodule Omni.MixProject do
 
   defp pkg do
     [
-      name: "omni",
-      files: ~w(lib priv/models .formatter.exs mix.exs README.md LICENSE),
+      description: "Universal Elixir client for LLM APIs. Text generation, tool use, and agents.",
       licenses: ["Apache-2.0"],
+      maintainers: ["Aaron Russell"],
+      files: ~w(lib priv/models .formatter.exs mix.exs CHANGELOG.md LICENSE README.md),
       links: %{
         "GitHub" => "https://github.com/aaronrussell/omni"
       }
