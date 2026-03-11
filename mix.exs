@@ -72,7 +72,7 @@ defmodule Omni.MixProject do
       maintainers: ["Aaron Russell"],
       files: ~w(lib priv/models .formatter.exs mix.exs CHANGELOG.md LICENSE README.md),
       links: %{
-        "GitHub" => "https://github.com/aaronrussell/omni"
+        "GitHub" => @source_url
       }
     ]
   end

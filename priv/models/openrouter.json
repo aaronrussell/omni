@@ -694,6 +694,60 @@
     "reasoning": false
   },
   {
+    "cache_read_cost": 0.025,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "dialect": null,
+    "id": "inception/mercury",
+    "input_cost": 0.25,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32000,
+    "name": "Mercury",
+    "output_cost": 0.75,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
+    "cache_read_cost": 0.025,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "dialect": null,
+    "id": "inception/mercury-2",
+    "input_cost": 0.25,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 50000,
+    "name": "Mercury 2",
+    "output_cost": 0.75,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.025,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "dialect": null,
+    "id": "inception/mercury-coder",
+    "input_cost": 0.25,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32000,
+    "name": "Mercury Coder",
+    "output_cost": 0.75,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false
+  },
+  {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 256000,
@@ -1910,6 +1964,25 @@
     ],
     "max_output_tokens": 50000,
     "name": "Aurora Alpha",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "dialect": null,
+    "id": "openrouter/free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8000,
+    "name": "Free Models Router",
     "output_cost": 0,
     "output_modalities": [
       "text"
