@@ -1612,6 +1612,8 @@ lib/omni/
 ├── response.ex                # Response struct (message envelope with metadata)
 ├── streaming_response.ex      # StreamingResponse struct, Enumerable impl,
 │                              #   complete/1, cancel/1
+├── message_tree.ex            # Tree-structured conversation history with
+│                              #   branching, navigation, Enumerable impl
 ├── usage.ex                   # Usage struct (token counts and computed costs)
 ├── tool.ex                    # Tool struct, behaviour, use macro, execute/2
 ├── tool/

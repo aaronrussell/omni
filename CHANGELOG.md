@@ -4,6 +4,12 @@ All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **MessageTree** — tree-structured conversation history for branching, regeneration, and navigation. Pure functional data structure with `Enumerable` implementation. Foundation for agent session persistence (Layer 1 of sessions work).
+
 ## [1.0.0] - 2026-03-06
 
 Complete rewrite of Omni as a production-ready, multi-provider LLM client for Elixir.
@@ -27,4 +33,5 @@ Complete rewrite of Omni as a production-ready, multi-provider LLM client for El
 
 *Versions 0.1.0 and 0.1.1, released in 2024, were early prototypes with a different architecture. Version 1.0 is a complete rewrite and is not compatible with 0.1.x.*
 
+[Unreleased]: https://github.com/aaronrussell/omni/compare/v1.0.0...HEAD
 [1.0.0]: https://github.com/aaronrussell/omni/releases/tag/v1.0.0
