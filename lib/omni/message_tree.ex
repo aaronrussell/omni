@@ -44,10 +44,10 @@ defmodule Omni.MessageTree do
     Enum.flat_map(path, fn id -> rounds[id].messages end)
   end
 
-  @doc "Returns the cumulative usage across the active path."
+  @doc "Returns the cumulative usage across all rounds in the tree."
   @spec usage(t()) :: Usage.t()
-  def usage(%__MODULE__{rounds: rounds, active_path: path}) do
-    path |> Enum.map(fn id -> rounds[id].usage end) |> Usage.sum()
+  def usage(%__MODULE__{rounds: rounds}) do
+    Map.values(rounds) |> Enum.map(& &1.usage) |> Usage.sum()
   end
 
   @doc "Returns the number of rounds in the active path."
@@ -75,11 +75,12 @@ defmodule Omni.MessageTree do
   def push(%__MODULE__{rounds: rounds, active_path: path} = tree, messages, %Usage{} = usage) do
     id = map_size(rounds)
 
-    rounds = Map.put(rounds, id, %{
-      parent: head(tree),
-      messages: messages,
-      usage: usage
-    })
+    rounds =
+      Map.put(rounds, id, %{
+        parent: head(tree),
+        messages: messages,
+        usage: usage
+      })
 
     {id, %{tree | rounds: rounds, active_path: path ++ [id]}}
   end
@@ -163,7 +164,7 @@ defmodule Omni.MessageTree do
   defimpl Enumerable do
     def reduce(tree, cmd, fun) do
       tree.active_path
-      |> Enum.map(& {&1, tree.rounds[&1]})
+      |> Enum.map(&{&1, tree.rounds[&1]})
       |> Enumerable.List.reduce(cmd, fun)
     end
 

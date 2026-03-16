@@ -203,7 +203,7 @@ defmodule Omni.MessageTreeTest do
   end
 
   describe "usage/1" do
-    test "sums usage across active path" do
+    test "sums usage across all rounds in the tree" do
       tree = %MessageTree{}
       {_, tree} = MessageTree.push(tree, [msg("a")], usage(10, 5))
       {_, tree} = MessageTree.push(tree, [msg("b")], usage(20, 10))
@@ -212,6 +212,13 @@ defmodule Omni.MessageTreeTest do
 
       assert result.input_tokens == 30
       assert result.output_tokens == 15
+    end
+
+    test "includes inactive branches" do
+      tree = example_tree()
+
+      # All 7 rounds: 10 + 20 + 30 + 40 + 50 + 60 + 70 = 280
+      assert MessageTree.usage(tree).input_tokens == 280
     end
 
     test "returns zero usage for empty tree" do
@@ -461,16 +468,16 @@ defmodule Omni.MessageTreeTest do
       assert tree.active_path == [0, 1, 4, 5]
     end
 
-    test "usage reflects active branch" do
+    test "usage sums all rounds regardless of active path" do
       tree = example_tree()
 
-      # Active path [0, 1, 4, 5]: input = 10 + 20 + 50 + 60 = 140
-      assert MessageTree.usage(tree).input_tokens == 140
+      # All 7 rounds: 10 + 20 + 30 + 40 + 50 + 60 + 70 = 280
+      assert MessageTree.usage(tree).input_tokens == 280
 
       {:ok, tree} = MessageTree.navigate(tree, 3)
 
-      # Path [0, 1, 2, 3]: input = 10 + 20 + 30 + 40 = 100
-      assert MessageTree.usage(tree).input_tokens == 100
+      # Navigation doesn't change total usage — still all 7 rounds
+      assert MessageTree.usage(tree).input_tokens == 280
     end
   end
 end
