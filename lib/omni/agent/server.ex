@@ -77,7 +77,7 @@ defmodule Omni.Agent.Server do
     with {:ok, model} <- resolve_model(opts[:model]),
          {:ok, private} <- call_init(module, opts) do
       agent_state = %State{
-        session_id: opts[:session_id] || generate_session_id(),
+        session_id: generate_session_id(),
         model: model,
         system: opts[:system],
         tools: opts[:tools] || [],

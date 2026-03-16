@@ -445,18 +445,10 @@ defmodule Integration.AgentTest do
       assert byte_size(session_id) > 0
     end
 
-    test "caller-provided via opts" do
-      stub_name = unique_stub_name()
-      stub_fixture(stub_name, @text_fixture)
-
-      {:ok, agent} =
-        Agent.start_link(
-          model: model(),
-          session_id: "my-session-123",
-          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
-        )
-
-      assert Agent.get_state(agent, :session_id) == "my-session-123"
+    test "unique across agents" do
+      {:ok, agent1} = start_agent()
+      {:ok, agent2} = start_agent()
+      assert Agent.get_state(agent1, :session_id) != Agent.get_state(agent2, :session_id)
     end
 
     test "changes on clear" do

@@ -78,7 +78,6 @@ defmodule Omni.Agent do
     * `:model` (required) — `{provider_id, model_id}` tuple or `%Model{}`
     * `:system` — system prompt string
     * `:tools` — list of `%Tool{}` structs
-    * `:session_id` — caller-provided session ID (auto-generated if omitted)
     * `:meta` — initial metadata map (serializable user data, persisted by storage)
     * `:listener` — pid to receive events (defaults to first `prompt/3` caller)
     * `:tool_timeout` — per-tool execution timeout in ms (default `5_000`)
