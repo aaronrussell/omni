@@ -7,48 +7,59 @@ defmodule Omni.Agent.State do
 
   Fields fall into two groups:
 
-  **Configuration** — set at startup, stable for the agent's lifetime:
+  **Configuration** — set at startup, changeable via `configure/2,3`:
 
     * `:model` — the `%Model{}` this agent is using
-    * `:context` — the committed `%Context{}` (system prompt, messages, tools).
-      Only includes messages from completed prompt rounds — in-progress messages
-      are not visible here until the round finishes
+    * `:system` — the system prompt string (or `nil`)
+    * `:tools` — list of `%Tool{}` structs available to the model
     * `:opts` — agent-level default inference options (keyword list), passed to
       `stream_text` each step
 
   **Session** — change during operation:
 
+    * `:session_id` — unique session identifier. Generated at startup, changes
+      on `Omni.Agent.clear/1`
+    * `:tree` — `%MessageTree{}` containing the full conversation tree. Only
+      includes messages from completed prompt rounds — in-progress messages
+      are not visible here until the round finishes
+    * `:meta` — serializable user metadata (title, tags, custom domain data).
+      Persisted by storage (Layer 3). Set initial values via `:meta` start
+      option, update via `configure/2,3`
+    * `:private` — runtime state (PIDs, ETS refs, closures). Not persisted.
+      Set initial values in `init/1`, update in any callback via
+      `%{state | private: ...}`
     * `:status` — `:idle`, `:running`, or `:paused`
-    * `:usage` — cumulative `%Usage{}` across all prompt rounds. Reset by
-      `Omni.Agent.clear/1`
-    * `:assigns` — user-defined state, like Phoenix socket assigns. Persists
-      across callbacks and prompt rounds. Set initial values in `init/1`,
-      update in any callback via `%{state | assigns: ...}`
     * `:step` — current step counter within the active prompt round. Resets
       to `0` when a new round begins. Useful for step-based policies in
       callbacks (e.g. rejecting tools after a threshold)
   """
 
-  alias Omni.{Context, Model, Usage}
+  alias Omni.{MessageTree, Model, Tool}
 
   @typedoc "The public agent state passed to all callbacks."
   @type t :: %__MODULE__{
+          session_id: String.t() | nil,
           model: Model.t(),
-          context: Context.t(),
+          system: String.t() | nil,
+          tools: [Tool.t()],
+          tree: MessageTree.t(),
           opts: keyword(),
+          meta: map(),
+          private: map(),
           status: :idle | :running | :paused,
-          usage: Usage.t(),
-          assigns: map(),
           step: non_neg_integer()
         }
 
   defstruct [
+    :session_id,
     :model,
-    :context,
     :opts,
+    system: nil,
+    tools: [],
+    tree: %MessageTree{},
+    meta: %{},
+    private: %{},
     status: :idle,
-    usage: %Usage{},
-    assigns: %{},
     step: 0
   ]
 end

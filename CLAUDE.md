@@ -130,7 +130,7 @@ Tests are organized in four layers, none of which require API keys except live t
 The `context/` directory contains detailed design documents. This CLAUDE.md provides sufficient context for most tasks — consult the design docs when working in depth on a specific subsystem.
 
 - **`context/design.md`** — Full architecture reference covering: top-level API, models and data loading, providers (behaviour, callbacks, config, auth), dialects (behaviour, callbacks, option validation), messages and content blocks, streaming pipeline (SSE/NDJSON, deltas, StreamingResponse), tools (struct, schema, modules, execution), and request flow.
-- **`context/agent.md`** — Agent system: GenServer architecture, public API, lifecycle callbacks (`init`, `handle_tool_call`, `handle_tool_result`, `handle_stop`, `handle_error`, `terminate`), process model (Step/Executor/Tool Tasks), pause/resume, prompt queuing/steering, context management, and the completion tool pattern.
-- **`context/sessions.md`** — Session persistence design: MessageTree (Layer 1, complete), agent state restructure (Layer 2), and Store behaviour (Layer 3).
+- **`context/agent.md`** — Agent system: GenServer architecture, public API (`prompt`, `configure`, `navigate`, `clear`, `usage`), lifecycle callbacks (`init`, `handle_tool_call`, `handle_tool_result`, `handle_stop`, `handle_error`, `terminate`), process model (Step/Executor/Tool Tasks), pause/resume, prompt queuing/steering, tree management, and the completion tool pattern.
+- **`context/sessions.md`** — Session persistence design: MessageTree (Layer 1, complete), agent state restructure (Layer 2, complete), and Store behaviour (Layer 3).
 - **`context/roadmap.md`** — Pre-v1 checklist and future work.
 - **`context/provider-apis.md`** — Provider API documentation URLs (fetch on demand when working on a specific provider/dialect).

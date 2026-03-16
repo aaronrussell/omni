@@ -1,7 +1,7 @@
 defmodule Integration.AgentTest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Agent, Context, Response, Usage}
+  alias Omni.{Agent, MessageTree, Response, Usage}
   alias Omni.Content.{Text, ToolResult, ToolUse}
 
   @text_fixture "test/support/fixtures/sse/anthropic_text.sse"
@@ -28,7 +28,7 @@ defmodule Integration.AgentTest do
 
     @impl Omni.Agent
     def handle_stop(response, state) do
-      {:stop, %{state | assigns: Map.put(state.assigns, :last_stop_reason, response.stop_reason)}}
+      {:stop, %{state | private: Map.put(state.private, :last_stop_reason, response.stop_reason)}}
     end
   end
 
@@ -58,8 +58,8 @@ defmodule Integration.AgentTest do
 
     @impl Omni.Agent
     def handle_tool_call(tool_use, state) do
-      calls = Map.get(state.assigns, :tool_calls, [])
-      state = %{state | assigns: Map.put(state.assigns, :tool_calls, calls ++ [tool_use.name])}
+      calls = Map.get(state.private, :tool_calls, [])
+      state = %{state | private: Map.put(state.private, :tool_calls, calls ++ [tool_use.name])}
       {:execute, state}
     end
   end
@@ -72,8 +72,8 @@ defmodule Integration.AgentTest do
 
     @impl Omni.Agent
     def handle_stop(_response, state) do
-      count = state.assigns.turn_count + 1
-      state = %{state | assigns: %{state.assigns | turn_count: count}}
+      count = state.private.turn_count + 1
+      state = %{state | private: %{state.private | turn_count: count}}
 
       if count < 3 do
         {:continue, "Continue.", state}
@@ -91,10 +91,10 @@ defmodule Integration.AgentTest do
 
     @impl Omni.Agent
     def handle_error(_error, state) do
-      retries = state.assigns.retries
+      retries = state.private.retries
 
       if retries < 1 do
-        state = %{state | assigns: %{state.assigns | retries: retries + 1}}
+        state = %{state | private: %{state.private | retries: retries + 1}}
         {:retry, state}
       else
         {:stop, state}
@@ -106,11 +106,11 @@ defmodule Integration.AgentTest do
     use Omni.Agent
 
     @impl Omni.Agent
-    def init(opts), do: {:ok, opts[:assigns] || %{}}
+    def init(opts), do: {:ok, opts[:private] || %{}}
 
     @impl Omni.Agent
     def terminate(reason, state) do
-      if pid = state.assigns[:test_pid] do
+      if pid = state.private[:test_pid] do
         send(pid, {:terminated, reason})
       end
     end
@@ -124,10 +124,10 @@ defmodule Integration.AgentTest do
 
     @impl Omni.Agent
     def handle_error({:step_crashed, _} = _error, state) do
-      retries = state.assigns.retries
+      retries = state.private.retries
 
       if retries < 1 do
-        {:retry, %{state | assigns: %{state.assigns | retries: retries + 1}}}
+        {:retry, %{state | private: %{state.private | retries: retries + 1}}}
       else
         {:stop, state}
       end
@@ -353,7 +353,7 @@ defmodule Integration.AgentTest do
       events = collect_events(agent, 2000)
       assert {:cancelled, nil} = List.last(events)
       assert Agent.get_state(agent, :status) == :idle
-      assert Agent.get_state(agent, :context).messages == []
+      assert MessageTree.messages(Agent.get_state(agent, :tree)) == []
     end
 
     test "cancel while idle returns error" do
@@ -363,19 +363,19 @@ defmodule Integration.AgentTest do
   end
 
   describe "clear" do
-    test "resets messages and usage but preserves assigns" do
+    test "resets messages and usage" do
       {:ok, agent} = start_agent()
       :ok = Agent.prompt(agent, "Hello!")
       _events = collect_events(agent)
 
-      # Context should have messages after prompt completes
-      assert length(Agent.get_state(agent, :context).messages) > 0
-      assert Agent.get_state(agent, :usage).total_tokens > 0
+      # Tree should have messages after prompt completes
+      assert length(MessageTree.messages(Agent.get_state(agent, :tree))) > 0
+      assert Agent.usage(agent).total_tokens > 0
 
-      :ok = Agent.clear(agent)
+      {:ok, _session_id} = Agent.clear(agent)
 
-      assert Agent.get_state(agent, :context).messages == []
-      assert Agent.get_state(agent, :usage) == %Usage{}
+      assert MessageTree.messages(Agent.get_state(agent, :tree)) == []
+      assert Agent.usage(agent) == %Usage{}
     end
 
     test "clear while running returns error" do
@@ -410,7 +410,7 @@ defmodule Integration.AgentTest do
 
       :ok = Agent.prompt(agent, "First message")
       _events = collect_events(agent)
-      usage1 = Agent.get_state(agent, :usage)
+      usage1 = Agent.usage(agent)
       assert usage1.total_tokens > 0
 
       # Need a new stub for the second request
@@ -425,20 +425,245 @@ defmodule Integration.AgentTest do
 
       :ok = Agent.prompt(agent2, "First")
       _events = collect_events(agent2)
-      first_usage = Agent.get_state(agent2, :usage)
+      first_usage = Agent.usage(agent2)
 
       # Stub a new fixture for the second call
       stub_fixture(stub_name, @text_fixture)
       :ok = Agent.prompt(agent2, "Second")
       _events = collect_events(agent2)
-      total_usage = Agent.get_state(agent2, :usage)
+      total_usage = Agent.usage(agent2)
 
       assert total_usage.total_tokens == first_usage.total_tokens * 2
     end
   end
 
+  describe "session_id" do
+    test "auto-generated on start" do
+      {:ok, agent} = start_agent()
+      session_id = Agent.get_state(agent, :session_id)
+      assert is_binary(session_id)
+      assert byte_size(session_id) > 0
+    end
+
+    test "caller-provided via opts" do
+      stub_name = unique_stub_name()
+      stub_fixture(stub_name, @text_fixture)
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          session_id: "my-session-123",
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      assert Agent.get_state(agent, :session_id) == "my-session-123"
+    end
+
+    test "changes on clear" do
+      {:ok, agent} = start_agent()
+      old_id = Agent.get_state(agent, :session_id)
+      {:ok, new_id} = Agent.clear(agent)
+      assert new_id != old_id
+      assert Agent.get_state(agent, :session_id) == new_id
+    end
+  end
+
+  describe "usage/1" do
+    test "returns empty usage for fresh agent" do
+      {:ok, agent} = start_agent()
+      assert Agent.usage(agent) == %Usage{}
+    end
+
+    test "returns accumulated usage after prompts" do
+      {:ok, agent} = start_agent()
+      :ok = Agent.prompt(agent, "Hello!")
+      _events = collect_events(agent)
+      assert Agent.usage(agent).total_tokens > 0
+    end
+  end
+
+  describe "configure/2" do
+    test "changes system prompt" do
+      {:ok, agent} = start_agent()
+      assert Agent.get_state(agent, :system) == nil
+      :ok = Agent.configure(agent, system: "Be helpful.")
+      assert Agent.get_state(agent, :system) == "Be helpful."
+    end
+
+    test "merges opts" do
+      {:ok, agent} = start_agent()
+      :ok = Agent.configure(agent, opts: [temperature: 0.7])
+      opts = Agent.get_state(agent, :opts)
+      assert Keyword.get(opts, :temperature) == 0.7
+      # Original opts should still be present
+      assert Keyword.has_key?(opts, :api_key)
+    end
+
+    test "merges meta" do
+      {:ok, agent} = start_agent()
+      :ok = Agent.configure(agent, meta: %{title: "Chat"})
+      assert Agent.get_state(agent, :meta) == %{title: "Chat"}
+      :ok = Agent.configure(agent, meta: %{tags: [:test]})
+      assert Agent.get_state(agent, :meta) == %{title: "Chat", tags: [:test]}
+    end
+
+    test "rejects invalid keys" do
+      {:ok, agent} = start_agent()
+      assert {:error, {:invalid_key, :tools}} = Agent.configure(agent, tools: [])
+      assert {:error, {:invalid_key, :status}} = Agent.configure(agent, status: :running)
+    end
+
+    test "atomic — bad model rejects all changes" do
+      {:ok, agent} = start_agent()
+      original_system = Agent.get_state(agent, :system)
+
+      result = Agent.configure(agent, model: {:nonexistent, "no-model"}, system: "New system")
+      assert {:error, {:model_not_found, _}} = result
+      # System should not have changed
+      assert Agent.get_state(agent, :system) == original_system
+    end
+
+    test "returns error when running" do
+      stub_name = unique_stub_name()
+
+      Req.Test.stub(stub_name, fn conn ->
+        Process.sleep(2000)
+        body = File.read!(@text_fixture)
+
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, body)
+      end)
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      Process.sleep(50)
+      assert {:error, :running} = Agent.configure(agent, system: "New")
+      Agent.cancel(agent)
+      _events = collect_events(agent, 2000)
+    end
+  end
+
+  describe "configure/3" do
+    test "transforms opts with function" do
+      {:ok, agent} = start_agent()
+      :ok = Agent.configure(agent, opts: [temperature: 0.7])
+      :ok = Agent.configure(agent, :opts, fn opts -> Keyword.drop(opts, [:temperature]) end)
+      refute Keyword.has_key?(Agent.get_state(agent, :opts), :temperature)
+    end
+
+    test "transforms meta with function" do
+      {:ok, agent} = start_agent()
+      :ok = Agent.configure(agent, meta: %{count: 1})
+      :ok = Agent.configure(agent, :meta, fn meta -> Map.update!(meta, :count, &(&1 + 1)) end)
+      assert Agent.get_state(agent, :meta) == %{count: 2}
+    end
+
+    test "rejects invalid field" do
+      {:ok, agent} = start_agent()
+      assert {:error, {:invalid_field, :model}} = Agent.configure(agent, :model, fn _ -> nil end)
+
+      assert {:error, {:invalid_field, :system}} =
+               Agent.configure(agent, :system, fn _ -> nil end)
+    end
+  end
+
+  describe "navigate/2" do
+    test "navigates to earlier round" do
+      stub_name = unique_stub_name()
+      stub_sequence(stub_name, [@text_fixture, @text_fixture])
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "First")
+      _events = collect_events(agent)
+      messages_after_first = MessageTree.messages(Agent.get_state(agent, :tree))
+      assert length(messages_after_first) == 2
+
+      stub_fixture(stub_name, @text_fixture)
+      :ok = Agent.prompt(agent, "Second")
+      _events = collect_events(agent)
+      messages_after_second = MessageTree.messages(Agent.get_state(agent, :tree))
+      assert length(messages_after_second) == 4
+
+      # Navigate back to round 0
+      {:ok, tree} = Agent.navigate(agent, 0)
+      assert length(MessageTree.messages(tree)) == 2
+      assert length(MessageTree.messages(Agent.get_state(agent, :tree))) == 2
+    end
+
+    test "returns error for non-existent round" do
+      {:ok, agent} = start_agent()
+      assert {:error, :not_found} = Agent.navigate(agent, 999)
+    end
+
+    test "returns error when running" do
+      stub_name = unique_stub_name()
+
+      Req.Test.stub(stub_name, fn conn ->
+        Process.sleep(2000)
+        body = File.read!(@text_fixture)
+
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, body)
+      end)
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      Process.sleep(50)
+      assert {:error, :running} = Agent.navigate(agent, 0)
+      Agent.cancel(agent)
+      _events = collect_events(agent, 2000)
+    end
+
+    test "prompt after navigate branches from navigated round" do
+      stub_name = unique_stub_name()
+      stub_sequence(stub_name, [@text_fixture, @text_fixture, @text_fixture])
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      # Two rounds: 0, 1
+      :ok = Agent.prompt(agent, "First")
+      _events = collect_events(agent)
+      :ok = Agent.prompt(agent, "Second")
+      _events = collect_events(agent)
+
+      # Navigate back to round 0
+      {:ok, _tree} = Agent.navigate(agent, 0)
+
+      # Prompt creates a new branch from round 0
+      :ok = Agent.prompt(agent, "Alternate second")
+      _events = collect_events(agent)
+
+      tree = Agent.get_state(agent, :tree)
+      # Active path should be round 0 → new round (not round 1)
+      assert MessageTree.round_count(tree) == 2
+      # Round 0 should have two children: round 1 and the new branch
+      assert length(MessageTree.children(tree, 0)) == 2
+    end
+  end
+
   describe "custom init callback" do
-    test "init sets assigns" do
+    test "init sets private" do
       stub_name = unique_stub_name()
       stub_fixture(stub_name, @text_fixture)
 
@@ -449,7 +674,7 @@ defmodule Integration.AgentTest do
           opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
         )
 
-      assert Agent.get_state(agent, :assigns) == %{name: "test-bot"}
+      assert Agent.get_state(agent, :private) == %{name: "test-bot"}
     end
 
     test "init with default name" do
@@ -462,12 +687,12 @@ defmodule Integration.AgentTest do
           opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
         )
 
-      assert Agent.get_state(agent, :assigns) == %{name: "default"}
+      assert Agent.get_state(agent, :private) == %{name: "default"}
     end
   end
 
   describe "custom handle_stop callback" do
-    test "handle_stop can modify assigns" do
+    test "handle_stop can modify private" do
       stub_name = unique_stub_name()
       stub_fixture(stub_name, @text_fixture)
 
@@ -480,7 +705,7 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "Hello!")
       _events = collect_events(agent)
 
-      assert Agent.get_state(agent, :assigns).last_stop_reason == :stop
+      assert Agent.get_state(agent, :private).last_stop_reason == :stop
     end
   end
 
@@ -556,16 +781,18 @@ defmodule Integration.AgentTest do
       assert %Omni.Agent.State{} = state
       assert %Omni.Model{id: "claude-haiku-4-5"} = state.model
       assert state.status == :idle
-      assert state.assigns == %{}
+      assert state.private == %{}
+      assert state.meta == %{}
     end
 
     test "returns individual fields by key" do
       {:ok, agent} = start_agent()
       assert %Omni.Model{id: "claude-haiku-4-5"} = Agent.get_state(agent, :model)
-      assert %Context{messages: [], tools: []} = Agent.get_state(agent, :context)
+      assert %MessageTree{} = Agent.get_state(agent, :tree)
+      assert Agent.get_state(agent, :tools) == []
       assert Agent.get_state(agent, :status) == :idle
-      assert Agent.get_state(agent, :assigns) == %{}
-      assert Agent.get_state(agent, :usage) == %Usage{}
+      assert Agent.get_state(agent, :private) == %{}
+      assert Agent.usage(agent) == %Usage{}
     end
 
     test "returns nil for unknown keys" do
@@ -586,7 +813,7 @@ defmodule Integration.AgentTest do
         )
 
       assert is_pid(agent)
-      assert Agent.get_state(agent, :assigns) == %{name: "default"}
+      assert Agent.get_state(agent, :private) == %{name: "default"}
     end
   end
 
@@ -597,8 +824,8 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "First message")
       _events = collect_events(agent)
 
-      context = Agent.get_state(agent, :context)
-      assert length(context.messages) == 2
+      messages = MessageTree.messages(Agent.get_state(agent, :tree))
+      assert length(messages) == 2
 
       stub_name = unique_stub_name()
       stub_fixture(stub_name, @text_fixture)
@@ -611,12 +838,12 @@ defmodule Integration.AgentTest do
 
       :ok = Agent.prompt(agent2, "First")
       _events = collect_events(agent2)
-      assert length(Agent.get_state(agent2, :context).messages) == 2
+      assert length(MessageTree.messages(Agent.get_state(agent2, :tree))) == 2
 
       stub_fixture(stub_name, @text_fixture)
       :ok = Agent.prompt(agent2, "Second")
       _events = collect_events(agent2)
-      assert length(Agent.get_state(agent2, :context).messages) == 4
+      assert length(MessageTree.messages(Agent.get_state(agent2, :tree))) == 4
     end
   end
 
@@ -632,7 +859,7 @@ defmodule Integration.AgentTest do
           opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
         )
 
-      assert Agent.get_state(agent, :context).system == "You are a helpful assistant."
+      assert Agent.get_state(agent, :system) == "You are a helpful assistant."
     end
   end
 
@@ -657,9 +884,9 @@ defmodule Integration.AgentTest do
       assert {:done, %Response{stop_reason: :stop} = resp} = List.last(events)
       assert [%Text{}] = resp.message.content
 
-      # Context should have all messages: user, assistant(tool_use), user(tool_results), assistant(text)
-      context = Agent.get_state(agent, :context)
-      assert length(context.messages) >= 4
+      # Tree should have all messages: user, assistant(tool_use), user(tool_results), assistant(text)
+      messages = MessageTree.messages(Agent.get_state(agent, :tree))
+      assert length(messages) >= 4
     end
   end
 
@@ -680,7 +907,7 @@ defmodule Integration.AgentTest do
 
       # Should end with :done and tool_use stop reason
       assert {:done, %Response{stop_reason: :tool_use}} = List.last(events)
-      assert Agent.get_state(agent, :assigns).last_stop_reason == :tool_use
+      assert Agent.get_state(agent, :private).last_stop_reason == :tool_use
     end
   end
 
@@ -719,10 +946,10 @@ defmodule Integration.AgentTest do
       assert {:done, %Response{}} = List.last(events)
 
       # The tool result user message should contain modified content
-      context = Agent.get_state(agent, :context)
+      messages = MessageTree.messages(Agent.get_state(agent, :tree))
 
       tool_result_msgs =
-        Enum.filter(context.messages, fn msg ->
+        Enum.filter(messages, fn msg ->
           msg.role == :user and Enum.any?(msg.content, &match?(%ToolResult{}, &1))
         end)
 
@@ -756,15 +983,15 @@ defmodule Integration.AgentTest do
     test "adds and removes tools when idle" do
       {:ok, agent} = start_agent()
 
-      assert Agent.get_state(agent, :context).tools == []
+      assert Agent.get_state(agent, :tools) == []
 
       tool = tool_with_handler()
       :ok = Agent.add_tools(agent, [tool])
-      assert length(Agent.get_state(agent, :context).tools) == 1
-      assert hd(Agent.get_state(agent, :context).tools).name == "get_weather"
+      assert length(Agent.get_state(agent, :tools)) == 1
+      assert hd(Agent.get_state(agent, :tools)).name == "get_weather"
 
       :ok = Agent.remove_tools(agent, ["get_weather"])
-      assert Agent.get_state(agent, :context).tools == []
+      assert Agent.get_state(agent, :tools) == []
     end
 
     test "returns {:error, :running} when agent is running" do
@@ -821,7 +1048,7 @@ defmodule Integration.AgentTest do
       events = collect_events(agent, 2000)
       assert {:cancelled, nil} = List.last(events)
       assert Agent.get_state(agent, :status) == :idle
-      assert Agent.get_state(agent, :context).messages == []
+      assert MessageTree.messages(Agent.get_state(agent, :tree)) == []
     end
   end
 
@@ -869,15 +1096,15 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "What's the weather?")
       _events = collect_events(agent)
 
-      usage = Agent.get_state(agent, :usage)
+      usage = Agent.usage(agent)
       assert usage.total_tokens > 0
       assert usage.input_tokens > 0
       assert usage.output_tokens > 0
     end
   end
 
-  describe "handle_tool_call modifies assigns" do
-    test "callback can store info in assigns" do
+  describe "handle_tool_call modifies private" do
+    test "callback can store info in private" do
       {:ok, agent} =
         start_agent_with_module(TrackToolCalls,
           tools: [tool_with_handler()],
@@ -887,8 +1114,8 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "What's the weather?")
       _events = collect_events(agent)
 
-      assigns = Agent.get_state(agent, :assigns)
-      assert assigns.tool_calls == ["get_weather"]
+      private = Agent.get_state(agent, :private)
+      assert private.tool_calls == ["get_weather"]
     end
   end
 
@@ -926,7 +1153,7 @@ defmodule Integration.AgentTest do
       events = collect_events(agent)
 
       assert {:done, %Response{stop_reason: :stop}} = List.last(events)
-      assert Agent.get_state(agent, :assigns).retries == 1
+      assert Agent.get_state(agent, :private).retries == 1
     end
 
     test "retry exhaustion still emits :error" do
@@ -945,7 +1172,7 @@ defmodule Integration.AgentTest do
       # After retrying once and failing again, should emit :error
       assert {:error, _reason} = List.last(events)
       assert Agent.get_state(agent, :status) == :idle
-      assert Agent.get_state(agent, :assigns).retries == 1
+      assert Agent.get_state(agent, :private).retries == 1
     end
   end
 
@@ -973,7 +1200,7 @@ defmodule Integration.AgentTest do
       assert length(done_events) == 1
 
       assert {:done, %Response{}} = List.last(events)
-      assert Agent.get_state(agent, :assigns).turn_count == 3
+      assert Agent.get_state(agent, :private).turn_count == 3
     end
 
     test "context accumulates all messages across turns" do
@@ -989,10 +1216,10 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "Start")
       _events = collect_events(agent)
 
-      context = Agent.get_state(agent, :context)
+      messages = MessageTree.messages(Agent.get_state(agent, :tree))
       # Initial user + assistant, then 2 more (user continue + assistant) per extra turn
       # = 2 + 2 + 2 = 6 messages
-      assert length(context.messages) == 6
+      assert length(messages) == 6
     end
 
     test "usage accumulates across continuation turns" do
@@ -1008,7 +1235,7 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "Start")
       _events = collect_events(agent)
 
-      usage = Agent.get_state(agent, :usage)
+      usage = Agent.usage(agent)
       # Should be 3x a single request's usage
       assert usage.total_tokens > 0
     end
@@ -1057,9 +1284,9 @@ defmodule Integration.AgentTest do
       assert {:done, %Response{stop_reason: :tool_use}} = List.last(events)
       assert Agent.get_state(agent, :status) == :idle
 
-      # Context should be committed (includes tool result messages)
-      context = Agent.get_state(agent, :context)
-      assert length(context.messages) > 0
+      # Tree should be committed (includes tool result messages)
+      messages = MessageTree.messages(Agent.get_state(agent, :tree))
+      assert length(messages) > 0
     end
   end
 
@@ -1156,10 +1383,10 @@ defmodule Integration.AgentTest do
       assert length(turn_events) == 1
       assert {:done, %Response{}} = List.last(events)
 
-      # Context should have messages from two turns
-      context = Agent.get_state(agent, :context)
+      # Tree should have messages from two turns
+      messages = MessageTree.messages(Agent.get_state(agent, :tree))
       # First user + assistant + second user + assistant = 4
-      assert length(context.messages) == 4
+      assert length(messages) == 4
     end
 
     test "prompt while paused stages content for next turn" do
@@ -1295,7 +1522,7 @@ defmodule Integration.AgentTest do
       events = collect_events(agent, 2000)
       assert {:cancelled, nil} = List.last(events)
       assert Agent.get_state(agent, :status) == :idle
-      assert Agent.get_state(agent, :context).messages == []
+      assert MessageTree.messages(Agent.get_state(agent, :tree)) == []
     end
 
     test "multiple tools: pause on first, approve, remaining processed normally" do
@@ -1331,7 +1558,7 @@ defmodule Integration.AgentTest do
       {:ok, agent} =
         TerminateAgent.start_link(
           model: model(),
-          assigns: %{test_pid: self()},
+          private: %{test_pid: self()},
           opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
         )
 
@@ -1347,7 +1574,7 @@ defmodule Integration.AgentTest do
       {:ok, agent} =
         TerminateAgent.start_link(
           model: model(),
-          assigns: %{test_pid: self()},
+          private: %{test_pid: self()},
           opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
         )
 

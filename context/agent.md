@@ -1,7 +1,7 @@
 # Omni Agent Design
 
 **Status:** Implemented
-**Last updated:** February 2026
+**Last updated:** March 2026
 
 ---
 
@@ -9,12 +9,12 @@
 
 `Omni.Agent` is a GenServer-based building block for stateful, long-running LLM interactions. It wraps Omni's existing `stream_text`/`generate_text` pipeline in a supervised process that manages its own conversation context, executes tools, and communicates with callers via process messages.
 
-The core idea: an agent is a process that holds a model, a context (system prompt, messages, tools), and user-defined state. The outside world sends prompts in; the agent works on them (potentially across multiple LLM turns) and sends events back. Users control agent behaviour through a set of lifecycle callbacks.
+The core idea: an agent is a process that holds a model, a conversation tree, tools, and user-defined state. The outside world sends prompts in; the agent works on them (potentially across multiple LLM turns) and sends events back. Users control agent behaviour through a set of lifecycle callbacks.
 
 ### What the agent is
 
 - A supervised GenServer process
-- Manages its own `%Context{}` (system prompt, messages, tools)
+- Manages its own conversation tree (`%MessageTree{}`), system prompt, and tools
 - Communicates asynchronously via process messages
 - Behaviour controlled by user-defined callbacks with sensible defaults
 - A building block, not a framework -- users compose agents into larger systems
@@ -37,7 +37,7 @@ Omni already has two key pieces:
 
 The agent adds:
 
-- **State management** -- the agent holds the conversation context so the caller doesn't have to thread messages through.
+- **State management** -- the agent holds the conversation tree so the caller doesn't have to thread messages through.
 - **Its own loop** -- after each LLM turn completes, the agent decides whether to continue (re-prompt) or stop, based on user-defined callbacks.
 - **Lifecycle hooks** -- callbacks for intercepting tool execution, handling errors, and controlling continuation.
 
@@ -46,7 +46,7 @@ The agent does **not** use `Omni.Loop` for tool execution. It calls `stream_text
 ```
 ┌─────────────────────────────────────────────────┐
 │  Omni.Agent (GenServer)                         │
-│  - Manages context and state                    │
+│  - Manages conversation tree and state           │
 │  - Decides continue/stop between turns          │
 │  - Lifecycle callbacks                          │
 │  - Tool execution with per-tool interception    │
@@ -164,19 +164,20 @@ Agent state is split into two structs: a public `%Omni.Agent.State{}` passed to 
 
 ### Public state (`Omni.Agent.State`)
 
-The public state is a documented, 7-field struct. User-defined state lives in `assigns`, similar to a Phoenix LiveView socket.
+The public state is a 10-field struct. User-defined state is split into `meta` (serializable, persisted by storage) and `private` (runtime, not persisted).
 
 ```elixir
 defmodule Omni.Agent.State do
-  @moduledoc "The public state passed to `Omni.Agent` callbacks."
-
   defstruct [
+    :session_id,                      # String.t() — unique session identifier
     :model,                           # %Model{} — the agent's model
-    :context,                         # %Context{} — committed conversation history
     :opts,                            # keyword — agent-level default inference opts
+    system: nil,                      # String.t() | nil — system prompt
+    tools: [],                        # [Tool.t()] — available tools
+    tree: %MessageTree{},             # %MessageTree{} — conversation tree
+    meta: %{},                        # serializable user data (persisted by storage)
+    private: %{},                     # runtime state (PIDs, refs — not persisted)
     status: :idle,                    # :idle | :running | :paused
-    usage: %Usage{},                  # cumulative across all prompt rounds
-    assigns: %{},                     # user-defined state
     step: 0                           # current step counter within the active round
   ]
 end
@@ -184,12 +185,14 @@ end
 
 The fields have two logical tiers:
 
-- **Core identity** — `model`, `context`, and `opts` are set at `start_link` and persist for the agent's lifetime. `context` is the committed conversation history; `opts` holds agent-level inference defaults (`:temperature`, `:max_tokens`, `:max_steps`, etc.).
-- **Session state** — `status`, `usage`, `assigns`, and `step` change during operation. `usage` accumulates token counts and costs from every LLM request. `assigns` is the user's domain state. `step` resets per prompt round.
+- **Configuration** — `model`, `system`, `tools`, and `opts` are set at `start_link` and changeable via `configure/2,3` (idle only). `opts` holds agent-level inference defaults (`:temperature`, `:max_tokens`, `:max_steps`, etc.).
+- **Session state** — `session_id`, `tree`, `meta`, `private`, `status`, and `step` change during operation. `tree` holds the full conversation history as a `%MessageTree{}`. `meta` is serializable user data. `private` is runtime state. `step` resets per prompt round.
 
-All callbacks receive this public `%State{}` struct. Users can read any field (context, model, step count, etc.) but primarily read and write `assigns`. The framework manages the other fields.
+All callbacks receive this public `%State{}` struct. Users can read any field and primarily read/write `meta` and `private`. The framework manages the other fields.
 
-Note: `context` reflects the committed state — it only includes messages from completed prompt rounds. In-progress messages are tracked internally and are not visible in `context` until the round completes. See "Context management" section.
+Note: `tree` reflects the committed state — it only includes messages from completed prompt rounds. In-progress messages are tracked internally and are not visible in `tree` until the round completes. See "Context management" section.
+
+Usage is not cached on state — `Agent.usage/1` computes it via `MessageTree.usage/1`, which sums all rounds in the tree.
 
 ### Internal server state (`Omni.Agent.Server`)
 
@@ -207,6 +210,7 @@ defstruct [
 
   # Round lifecycle (reset per prompt round)
   pending_messages: [],               # in-progress message accumulator
+  pending_usage: %Usage{},            # accumulated usage for current round
   prompt_opts: [],                    # per-round merged opts
   next_prompt: nil,                   # staged prompt (steering)
   last_response: nil,                 # most recent Response from a step
@@ -224,15 +228,13 @@ defstruct [
 ]
 ```
 
-The `paused_decision` map from the previous design has been flattened — `tool_map`, `approved_uses`, `remaining_uses`, and `paused_use` are top-level server fields. `rejected_results` was already on the old state and remains alongside the other decision-phase fields.
+`pending_messages` and `pending_usage` accumulate together during a round and are both reset by `reset_round/1`. On round commit, they are passed to `MessageTree.push/3`.
 
 ### Usage accumulation
 
-The agent accumulates a single `%Usage{}` struct across its lifetime. Each step's `%Response{}` carries per-step usage; the agent adds it to `state.usage` via `Usage.add/2` after every step completes. This answers "how much has this agent cost?" at any point.
+Usage is not cached on `%State{}`. Each step's usage accumulates into `server.pending_usage` during a round. On round commit, `pending_usage` is stored in the `MessageTree` round via `push/3`. `Agent.usage/1` computes the total via `MessageTree.usage/1`, which sums all rounds in the tree — including inactive branches (total API spend, not just the active conversation path).
 
-Per-round usage is not tracked separately on the state. The `:turn` and `:done` events carry the `%Response{}` for each turn, which includes per-turn usage — listeners can track per-round usage externally if needed.
-
-`Agent.clear/1` resets `usage` to `%Usage{}` along with the context (see "Public API" section).
+`Agent.clear/1` replaces the tree with a fresh `%MessageTree{}`, so `usage/1` returns `%Usage{}` after clear.
 
 ### What the state does NOT store
 
@@ -253,14 +255,21 @@ The agent communicates with callers via process messages. This is the natural El
 
 ```elixir
 # Lifecycle
-Omni.Agent.start_link(opts)                       # no custom module
+Omni.Agent.start_link(opts)                        # no custom module
 Omni.Agent.start_link(module, opts)                # with callback module
 
 # Interaction
 Agent.prompt(agent, content, opts \\ [])           # send prompt / steer
 Agent.resume(agent, decision)                      # resume from tool approval pause
 Agent.cancel(agent)                                # abort and rollback
-Agent.clear(agent)                                 # reset context + usage (idle only)
+
+# Configuration (idle only)
+Agent.configure(agent, opts)                       # → :ok | {:error, ...}
+Agent.configure(agent, field, updater_fn)          # → :ok | {:error, ...}
+
+# Navigation (idle only)
+Agent.navigate(agent, round_id)                    # → {:ok, %MessageTree{}} | {:error, ...}
+Agent.clear(agent)                                 # → {:ok, session_id} | {:error, :running}
 
 # Listener
 Agent.listen(agent, pid)                           # → :ok | {:error, :running}
@@ -269,6 +278,7 @@ Agent.listen(agent, pid)                           # → :ok | {:error, :running
 Agent.get_state(agent)                             # → %State{}
 Agent.get_state(agent, :model)                     # → %Model{}
 Agent.get_state(agent, :status)                    # → :idle | :running | :paused
+Agent.usage(agent)                                 # → %Usage{}
 
 # Tool management (idle only)
 Agent.add_tools(agent, tools)                      # → :ok | {:error, :running}
@@ -322,19 +332,19 @@ Only valid when the agent is `:paused` (from `handle_tool_call` returning `{:pau
 Agent.cancel(agent)
 ```
 
-Aborts the current operation and rolls back to the context state before the current prompt round. Kills any running Step/Executor/Tool Tasks. The agent returns to `:idle` with a clean, consistent context. See "Context management" section below.
+Aborts the current operation. Kills any running Step/Executor/Tool Tasks, discards pending messages, tree unchanged. The agent returns to `:idle`. See "Context management" section below.
 
 Works when `:running` or `:paused`. Returns `{:error, :idle}` if already idle.
 
 ### clear/1
 
 ```elixir
-Agent.clear(agent)
+{:ok, new_session_id} = Agent.clear(agent)
 ```
 
-Resets the agent for a new conversation. Clears `context.messages` (preserving system prompt and tools) and resets `usage` to `%Usage{}`. Leaves `assigns` untouched — user domain state is the user's responsibility. Only valid when `:idle`; returns `{:error, :running}` otherwise.
+Starts a new session. Generates a new session ID and replaces the tree with a fresh `%MessageTree{}`. Preserves system prompt, tools, model, opts, meta, and private. Returns `{:ok, new_session_id}`. Only valid when `:idle`; returns `{:error, :running}` otherwise.
 
-Use this to start a fresh conversation without killing and restarting the agent process.
+This is distinct from `navigate/2`: navigating moves the cursor within the same session and tree. `clear/1` creates a clean slate with a new session ID.
 
 ### add_tools/2, remove_tools/2
 
@@ -343,7 +353,7 @@ Use this to start a fresh conversation without killing and restarting the agent 
 :ok = Agent.remove_tools(agent, ["old_tool"])
 ```
 
-Modify the agent's tool set by updating the committed context. Only valid when the agent is `:idle` — returns `{:error, :running}` if the agent is running or paused. This avoids race conditions with in-progress tool execution.
+Modify the agent's tool set. Only valid when the agent is `:idle` — returns `{:error, :running}` if the agent is running or paused. This avoids race conditions with in-progress tool execution.
 
 ### Listener
 
@@ -510,7 +520,7 @@ Agent GenServer                Step Task             Listener
      │  handle_tool_result(C, result_c) → {:ok, ...}
      │────── {:agent, pid, :tool_result, %ToolResult{C}} ──▶│
      │
-     │  build context, spawn next Step Task
+     │  build_context, spawn next Step Task
 ```
 
 ### Why this design
@@ -579,7 +589,7 @@ All callbacks are optional with `defoverridable` defaults. Users implement only 
 
 ### init/1
 
-Called once when the agent starts. Receives the full opts passed to `start_link` (including framework keys like `model:`, `system:` -- the user ignores what they don't need). Returns `{:ok, assigns}` or `{:error, reason}`.
+Called once when the agent starts. Receives the full opts passed to `start_link` (including framework keys like `model:`, `system:` -- the user ignores what they don't need). Returns `{:ok, private}` or `{:error, reason}`.
 
 ```elixir
 def init(opts) do
@@ -591,10 +601,10 @@ end
 ```
 
 Return values:
-- `{:ok, assigns}` -- start successfully with these assigns
+- `{:ok, private}` -- start successfully with this runtime state (populates `state.private`)
 - `{:error, reason}` -- refuse to start (`start_link` returns `{:error, reason}`)
 
-Default: `{:ok, %{}}` (empty assigns).
+Default: `{:ok, %{}}` (empty private).
 
 ### handle_tool_call/2
 
@@ -674,7 +684,7 @@ Called when the agent process is shutting down. Receives the shutdown reason and
 
 ```elixir
 def terminate(reason, state) do
-  MyApp.ResourcePool.release(state.assigns.resource)
+  MyApp.ResourcePool.release(state.private.resource)
   :ok
 end
 ```
@@ -707,7 +717,7 @@ When the model calls `task_complete`, the agent sees a schema-only tool (no hand
 def handle_stop(%{stop_reason: :tool_use} = response, state) do
   case find_tool_use(response, "task_complete") do
     %{input: %{"result" => result}} ->
-      state = put_in(state.assigns.result, result)
+      state = %{state | private: Map.put(state.private, :result, result)}
       {:stop, state}
     nil ->
       {:stop, state}
@@ -753,7 +763,7 @@ end
 # In handle_stop: save the tool use info and stop
 def handle_stop(%{stop_reason: :tool_use} = response, state) do
   tool_use = find_tool_use(response, "needs_human_review")
-  {:stop, %{state | assigns: Map.put(state.assigns, :pending_tool, tool_use)}}
+  {:stop, %{state | private: Map.put(state.private, :pending_tool, tool_use)}}
 end
 
 # Later, when the external work completes:
@@ -812,7 +822,7 @@ There is no separate `max_turns` option. External control covers turn-level inte
 
 - `Agent.cancel/1` -- hard stop with rollback
 - `Agent.prompt/3` -- steering at the next turn boundary ("stop what you're doing")
-- User-defined turn tracking in `assigns` via `handle_stop` for custom policies
+- User-defined turn tracking in `private` via `handle_stop` for custom policies
 
 The `state.step` counter is visible to all callbacks, so users can make decisions based on it (e.g. reject tools after a threshold in `handle_tool_call`).
 
@@ -855,7 +865,7 @@ When the agent is running (autonomously looping), the caller can steer it by sen
 
 The prompt is **staged** as a pending prompt. At the next turn boundary (after the current turn completes):
 
-- `handle_stop` fires as normal (for bookkeeping, assigns updates, etc.)
+- `handle_stop` fires as normal (for bookkeeping, state updates, etc.)
 - Regardless of `handle_stop`'s return value, the staged prompt overrides the decision
 - If `handle_stop` returned `{:stop, state}`, the staged prompt continues the loop instead
 - If `handle_stop` returned `{:continue, callback_prompt, state}`, the staged prompt replaces `callback_prompt`
@@ -868,28 +878,28 @@ This replaces the need for a separate `Agent.pause/1` function. External interve
 
 ## Context management
 
-### Lazy context updates
+### Lazy tree updates
 
-The agent does not commit messages to the context until a prompt round completes successfully. During the loop, in-progress messages (the user's prompt, assistant responses, tool results) are tracked in `state.pending_messages` — similar to how `Omni.Loop` tracks its `messages` list.
+The agent does not commit messages to the tree until a prompt round completes successfully. During the loop, in-progress messages (the user's prompt, assistant responses, tool results) are tracked in `server.pending_messages`. A transient `%Context{}` is built on demand for each step via `build_context/1`, combining `MessageTree.messages(state.tree)` with `pending_messages`.
 
-- `state.context` = the committed context, only updated atomically on completion
-- Step Tasks receive the committed context + pending messages for LLM requests
-- On `{:stop, state}`: all pending messages are committed to the context at once
-- On cancel: pending messages are discarded, context unchanged
+- `state.tree` = the committed conversation tree, only updated atomically on completion
+- Step Tasks receive a transient `%Context{}` built from tree messages + pending messages
+- On `:done`: `MessageTree.push(tree, pending_messages, pending_usage)` commits the round
+- On cancel: pending messages and pending usage are discarded, tree unchanged
 
-This means the context is always in a consistent state — no orphaned tool use blocks, no consecutive user messages, no partial turns.
+This means the tree is always in a consistent state — no orphaned tool use blocks, no consecutive user messages, no partial turns.
 
 ### Cancel semantics
 
-`Agent.cancel/1` aborts the current operation and rolls back:
+`Agent.cancel/1` aborts the current operation:
 
 1. Kills any running Step/Executor/Tool Tasks
-2. Discards all pending messages (including the user's prompt from `prompt/3`)
-3. Context reverts to the state before the current prompt round began
+2. Discards all pending messages and pending usage
+3. Tree is unchanged — only committed rounds persist
 4. Agent returns to `:idle`
 5. Listener receives `{:agent, pid, :cancelled, nil}`
 
-Cancel works at any point during the loop — mid-stream, mid-tool-execution, mid-callback — and always produces a clean rollback. No special handling needed per cancellation point.
+Cancel works at any point during the loop — mid-stream, mid-tool-execution, mid-callback — and always produces a clean state. No special handling needed per cancellation point.
 
 ---
 

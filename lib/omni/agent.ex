@@ -2,7 +2,7 @@ defmodule Omni.Agent do
   @moduledoc """
   A supervised process that manages multi-turn LLM conversations.
 
-  An agent holds a model, a conversation context (system prompt, messages,
+  An agent holds a model, a conversation tree (system prompt, messages,
   tools), and user-defined state. The outside world sends prompts in; the
   agent streams events back. Between turns, lifecycle callbacks control
   whether the agent continues, stops, or pauses for human approval.
@@ -78,6 +78,8 @@ defmodule Omni.Agent do
     * `:model` (required) — `{provider_id, model_id}` tuple or `%Model{}`
     * `:system` — system prompt string
     * `:tools` — list of `%Tool{}` structs
+    * `:session_id` — caller-provided session ID (auto-generated if omitted)
+    * `:meta` — initial metadata map (serializable user data, persisted by storage)
     * `:listener` — pid to receive events (defaults to first `prompt/3` caller)
     * `:tool_timeout` — per-tool execution timeout in ms (default `5_000`)
     * `:opts` — inference options passed to `stream_text` each step
@@ -155,7 +157,7 @@ defmodule Omni.Agent do
   Calling `prompt/3` while the agent is running or paused stages the content
   for the next turn boundary. When the current turn completes:
 
-    * `handle_stop/2` fires as normal (for bookkeeping, assigns updates)
+    * `handle_stop/2` fires as normal (for bookkeeping, state updates)
     * The staged prompt overrides `handle_stop`'s decision — the agent
       continues with the staged content regardless of whether the callback
       returned `{:stop, state}` or `{:continue, ...}`
@@ -264,6 +266,7 @@ defmodule Omni.Agent do
       end
   """
 
+  alias Omni.{MessageTree, Usage}
   alias Omni.Agent.State
   alias Omni.Content.{ToolResult, ToolUse}
   alias Omni.Response
@@ -272,16 +275,16 @@ defmodule Omni.Agent do
   Called when the agent starts.
 
   Receives the full opts passed to `start_link` (including framework keys like
-  `:model` and `:system` — ignore what you don't need). Return `{:ok, assigns}`
-  to start with initial assigns, or `{:error, reason}` to refuse startup.
+  `:model` and `:system` — ignore what you don't need). Return `{:ok, private}`
+  to start with initial private state, or `{:error, reason}` to refuse startup.
 
-  Assigns work like Phoenix socket assigns — a map of user-defined state that
-  persists across callbacks and prompt rounds. Access via `state.assigns` in
-  other callbacks.
+  Private state holds runtime data (PIDs, refs, closures) that persists across
+  callbacks and prompt rounds but is not serialized by storage. Access via
+  `state.private` in other callbacks.
 
   Default: `{:ok, %{}}`.
   """
-  @callback init(opts :: keyword()) :: {:ok, assigns :: map()} | {:error, term()}
+  @callback init(opts :: keyword()) :: {:ok, private :: map()} | {:error, term()}
 
   @doc """
   Called at each turn boundary to decide whether to continue or stop.
@@ -466,9 +469,9 @@ defmodule Omni.Agent do
   @doc """
   Cancels the current prompt round.
 
-  Kills any running tasks, discards all in-progress messages, and rolls the
-  context back to the state before the current round began. The listener
-  receives `{:agent, pid, :cancelled, nil}`.
+  Kills any running tasks, discards all in-progress messages, and leaves the
+  conversation tree unchanged. The listener receives
+  `{:agent, pid, :cancelled, nil}`.
 
   Returns `{:error, :idle}` if the agent is already idle.
   """
@@ -478,7 +481,7 @@ defmodule Omni.Agent do
   end
 
   @doc """
-  Adds tools to the agent's context.
+  Adds tools to the agent.
 
   Only valid when idle. Returns `{:error, :running}` if the agent is running
   or paused.
@@ -489,7 +492,7 @@ defmodule Omni.Agent do
   end
 
   @doc """
-  Removes tools by name from the agent's context.
+  Removes tools by name from the agent.
 
   Only valid when idle. Returns `{:error, :running}` if the agent is running
   or paused.
@@ -500,13 +503,16 @@ defmodule Omni.Agent do
   end
 
   @doc """
-  Clears conversation history and resets usage for a fresh conversation.
+  Starts a new session, discarding the conversation tree.
 
-  Preserves the system prompt, tools, and assigns. Clears messages and resets
-  usage to `%Usage{}`. Only valid when idle. Returns `{:error, :running}` if
-  the agent is running or paused.
+  Generates a new session ID and replaces the tree with a fresh
+  `%MessageTree{}`. Preserves system prompt, tools, model, opts, meta, and
+  private. Returns the new session ID.
+
+  Only valid when idle. Returns `{:error, :running}` if the agent is running
+  or paused.
   """
-  @spec clear(GenServer.server()) :: :ok | {:error, :running}
+  @spec clear(GenServer.server()) :: {:ok, String.t()} | {:error, :running}
   def clear(agent) do
     GenServer.call(agent, :clear)
   end
@@ -528,13 +534,79 @@ defmodule Omni.Agent do
   With no key, returns the full `%State{}`. With a key, returns the value of
   that field (or `nil` for unknown keys).
 
-      Agent.get_state(agent)          #=> %State{model: ..., context: ..., ...}
-      Agent.get_state(agent, :usage)  #=> %Usage{}
-      Agent.get_state(agent, :status) #=> :idle
+      Agent.get_state(agent)            #=> %State{model: ..., tree: ..., ...}
+      Agent.get_state(agent, :status)   #=> :idle
+      Agent.get_state(agent, :tree)     #=> %MessageTree{}
+      Agent.get_state(agent, :private)  #=> %{}
   """
   @spec get_state(GenServer.server()) :: State.t()
   def get_state(agent), do: GenServer.call(agent, :get_state)
 
   @spec get_state(GenServer.server(), atom()) :: term()
   def get_state(agent, key) when is_atom(key), do: GenServer.call(agent, {:get_state, key})
+
+  @doc """
+  Returns cumulative token usage across all rounds in the conversation tree.
+
+  Computed via `MessageTree.usage/1`, which sums all rounds (including
+  inactive branches). Returns `%Usage{}` for a fresh agent with no rounds.
+  """
+  @spec usage(GenServer.server()) :: Usage.t()
+  def usage(agent) do
+    GenServer.call(agent, :usage)
+  end
+
+  @doc """
+  Updates agent configuration. Idle only. Atomic.
+
+  Accepts the following keys:
+
+    * `:model` — replace the model. Resolved via `Omni.get_model/2`.
+      Fails with `{:error, {:model_not_found, ref}}` if not found
+    * `:system` — replace the system prompt (string or `nil`)
+    * `:opts` — merge onto existing inference opts (`Keyword.merge/2`)
+    * `:meta` — merge onto existing meta (`Map.merge/2`)
+
+  Unrecognized keys return `{:error, {:invalid_key, key}}`. Use `add_tools/2`
+  and `remove_tools/2` to manage tools.
+
+  Returns `{:error, :running}` if the agent is running or paused.
+  """
+  @spec configure(GenServer.server(), keyword()) :: :ok | {:error, :running} | {:error, term()}
+  def configure(agent, opts) when is_list(opts) do
+    GenServer.call(agent, {:configure, opts})
+  end
+
+  @doc """
+  Transforms a configuration field using a function. Idle only.
+
+  Only `:opts` and `:meta` are supported — other fields return
+  `{:error, {:invalid_field, field}}`. The function receives the current
+  value and must return the new value.
+
+      Agent.configure(agent, :opts, fn opts -> Keyword.drop(opts, [:temperature]) end)
+      Agent.configure(agent, :meta, fn meta -> Map.delete(meta, :title) end)
+
+  Returns `{:error, :running}` if the agent is running or paused.
+  """
+  @spec configure(GenServer.server(), atom(), (term() -> term())) ::
+          :ok | {:error, :running} | {:error, term()}
+  def configure(agent, field, fun) when is_atom(field) and is_function(fun, 1) do
+    GenServer.call(agent, {:configure, field, fun})
+  end
+
+  @doc """
+  Sets the active conversation path to the given round.
+
+  Delegates to `MessageTree.navigate/2`. The next `prompt/3` call will
+  branch from this point. Returns the updated tree for immediate UI rendering.
+
+  Only valid when idle. Returns `{:error, :running}` if the agent is running
+  or paused.
+  """
+  @spec navigate(GenServer.server(), MessageTree.round_id()) ::
+          {:ok, MessageTree.t()} | {:error, :running} | {:error, :not_found}
+  def navigate(agent, round_id) do
+    GenServer.call(agent, {:navigate, round_id})
+  end
 end

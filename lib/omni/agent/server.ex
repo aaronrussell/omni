@@ -21,7 +21,7 @@ defmodule Omni.Agent.Server do
 
   use GenServer
 
-  alias Omni.{Context, Message, Model, Response, Tool, Usage}
+  alias Omni.{Context, Message, MessageTree, Model, Response, Tool, Usage}
   alias Omni.Agent.State
   alias Omni.Content.{ToolResult, ToolUse}
 
@@ -35,11 +35,13 @@ defmodule Omni.Agent.Server do
     :tool_timeout,
 
     # Round lifecycle (set when a prompt starts, cleared by reset_round)
-    # pending_messages: buffered messages for this round, committed to context on :done
+    # pending_messages: buffered messages for this round, committed to tree on :done
+    # pending_usage: accumulated usage for the current round across all steps
     # prompt_opts: merged opts for the current round (state.opts + call-site opts)
     # next_prompt: staged {content, opts} tuple for the next round, set when
     #   prompt/3 is called while running/paused
     pending_messages: [],
+    pending_usage: %Usage{},
     prompt_opts: [],
     next_prompt: nil,
     last_response: nil,
@@ -73,18 +75,15 @@ defmodule Omni.Agent.Server do
     Process.flag(:trap_exit, true)
 
     with {:ok, model} <- resolve_model(opts[:model]),
-         {:ok, assigns} <- call_init(module, opts) do
-      context =
-        Context.new(
-          system: opts[:system],
-          tools: opts[:tools] || []
-        )
-
+         {:ok, private} <- call_init(module, opts) do
       agent_state = %State{
+        session_id: opts[:session_id] || generate_session_id(),
         model: model,
-        context: context,
+        system: opts[:system],
+        tools: opts[:tools] || [],
         opts: Keyword.get(opts, :opts, []),
-        assigns: assigns
+        meta: opts[:meta] || %{},
+        private: private
       }
 
       server = %__MODULE__{
@@ -103,6 +102,15 @@ defmodule Omni.Agent.Server do
   defp resolve_model({provider_id, model_id}), do: Model.get(provider_id, model_id)
   defp resolve_model(%Model{} = model), do: {:ok, model}
   defp resolve_model(nil), do: {:error, :missing_model}
+
+  defp generate_session_id do
+    <<
+      :erlang.phash2({node(), self()}, 16_777_216)::24,
+      System.system_time(:second)::32,
+      :rand.uniform(16_777_216) - 1::24
+    >>
+    |> Base.url_encode64(padding: false)
+  end
 
   # -- Calls --
 
@@ -167,15 +175,19 @@ defmodule Omni.Agent.Server do
   end
 
   def handle_call({:add_tools, tools}, _from, %__MODULE__{state: %{status: :idle}} = server) do
-    context = %{server.state.context | tools: server.state.context.tools ++ tools}
-    {:reply, :ok, %{server | state: %{server.state | context: context}}}
+    new_state = %{server.state | tools: server.state.tools ++ tools}
+    {:reply, :ok, %{server | state: new_state}}
   end
 
   def handle_call({:remove_tools, names}, _from, %__MODULE__{state: %{status: :idle}} = server) do
     name_set = MapSet.new(names)
-    tools = Enum.reject(server.state.context.tools, &MapSet.member?(name_set, &1.name))
-    context = %{server.state.context | tools: tools}
-    {:reply, :ok, %{server | state: %{server.state | context: context}}}
+
+    new_state = %{
+      server.state
+      | tools: Enum.reject(server.state.tools, &MapSet.member?(name_set, &1.name))
+    }
+
+    {:reply, :ok, %{server | state: new_state}}
   end
 
   def handle_call(:cancel, _from, %__MODULE__{state: %{status: status}} = server)
@@ -189,17 +201,62 @@ defmodule Omni.Agent.Server do
   end
 
   def handle_call(:clear, _from, %__MODULE__{state: %{status: :idle}} = server) do
-    new_state = %{
-      server.state
-      | context: %{server.state.context | messages: []},
-        usage: %Usage{}
-    }
-
-    {:reply, :ok, %{server | state: new_state}}
+    session_id = generate_session_id()
+    new_state = %{server.state | session_id: session_id, tree: %MessageTree{}}
+    {:reply, {:ok, session_id}, %{server | state: new_state}}
   end
 
   def handle_call({:listen, pid}, _from, %__MODULE__{state: %{status: :idle}} = server) do
     {:reply, :ok, %{server | listener: pid}}
+  end
+
+  def handle_call(:usage, _from, server) do
+    {:reply, MessageTree.usage(server.state.tree), server}
+  end
+
+  def handle_call(
+        {:navigate, round_id},
+        _from,
+        %__MODULE__{state: %{status: :idle}} = server
+      ) do
+    case MessageTree.navigate(server.state.tree, round_id) do
+      {:ok, tree} ->
+        new_state = %{server.state | tree: tree}
+        {:reply, {:ok, tree}, %{server | state: new_state}}
+
+      {:error, :not_found} ->
+        {:reply, {:error, :not_found}, server}
+    end
+  end
+
+  def handle_call(
+        {:configure, opts},
+        _from,
+        %__MODULE__{state: %{status: :idle}} = server
+      ) do
+    case apply_configure(server.state, opts) do
+      {:ok, new_state} -> {:reply, :ok, %{server | state: new_state}}
+      {:error, _} = error -> {:reply, error, server}
+    end
+  end
+
+  def handle_call(
+        {:configure, field, fun},
+        _from,
+        %__MODULE__{state: %{status: :idle}} = server
+      )
+      when field in [:opts, :meta] do
+    new_value = fun.(Map.get(server.state, field))
+    new_state = Map.put(server.state, field, new_value)
+    {:reply, :ok, %{server | state: new_state}}
+  end
+
+  def handle_call(
+        {:configure, field, _fun},
+        _from,
+        %__MODULE__{state: %{status: :idle}} = server
+      ) do
+    {:reply, {:error, {:invalid_field, field}}, server}
   end
 
   # Catch-all for mutating ops while running or paused
@@ -208,6 +265,18 @@ defmodule Omni.Agent.Server do
   end
 
   def handle_call(:clear, _from, server) do
+    {:reply, {:error, :running}, server}
+  end
+
+  def handle_call({:navigate, _id}, _from, server) do
+    {:reply, {:error, :running}, server}
+  end
+
+  def handle_call({:configure, _opts}, _from, server) do
+    {:reply, {:error, :running}, server}
+  end
+
+  def handle_call({:configure, _field, _fun}, _from, server) do
     {:reply, {:error, :running}, server}
   end
 
@@ -289,7 +358,7 @@ defmodule Omni.Agent.Server do
   # -- Step execution --
 
   defp spawn_step(server) do
-    full_context = Context.push(server.state.context, server.pending_messages)
+    full_context = build_context(server)
 
     opts = Keyword.merge(server.prompt_opts, max_steps: 1)
     ref = make_ref()
@@ -300,25 +369,35 @@ defmodule Omni.Agent.Server do
     %{server | step_task: {pid, ref}, state: %{server.state | step: step}}
   end
 
+  defp build_context(server) do
+    messages = MessageTree.messages(server.state.tree) ++ server.pending_messages
+
+    %Context{
+      system: server.state.system,
+      messages: messages,
+      tools: server.state.tools
+    }
+  end
+
   # -- Step completion --
 
   defp handle_step_complete(response, server) do
     pending = server.pending_messages ++ [response.message]
-    usage = Usage.add(server.state.usage, response.usage)
+    pending_usage = Usage.add(server.pending_usage, response.usage)
 
     server = %{
       server
       | pending_messages: pending,
         step_task: nil,
         last_response: response,
-        state: %{server.state | usage: usage}
+        pending_usage: pending_usage
     }
 
     tool_uses = extract_tool_uses(response.message.content)
 
     # Schema-only tools need manual handling — return to user via finalize_turn.
     # Hallucinated names pass through and get error results from Tool.Runner.
-    if tool_uses != [] and not any_schema_only?(tool_uses, server.state.context.tools) do
+    if tool_uses != [] and not any_schema_only?(tool_uses, server.state.tools) do
       handle_tool_decision_phase(tool_uses, server)
     else
       finalize_turn(response, server)
@@ -328,7 +407,7 @@ defmodule Omni.Agent.Server do
   # -- Tool decision phase --
 
   defp handle_tool_decision_phase(tool_uses, server) do
-    tool_map = build_tool_map(server.state.context.tools)
+    tool_map = build_tool_map(server.state.tools)
 
     %{server | tool_map: tool_map, remaining_uses: tool_uses, approved_uses: []}
     |> process_next_tool_decision()
@@ -461,8 +540,10 @@ defmodule Omni.Agent.Server do
   end
 
   defp commit_and_done(response, server) do
-    context = Context.push(server.state.context, server.pending_messages)
-    server = %{server | state: %{server.state | context: context}}
+    {_round_id, tree} =
+      MessageTree.push(server.state.tree, server.pending_messages, server.pending_usage)
+
+    server = %{server | state: %{server.state | tree: tree}}
 
     server = reset_round(server)
     notify(server, :done, response)
@@ -483,12 +564,58 @@ defmodule Omni.Agent.Server do
   defp kill_task(nil), do: :ok
   defp kill_task({pid, _ref}), do: Process.exit(pid, :kill)
 
+  # -- Configure --
+
+  @configurable_keys [:model, :system, :opts, :meta]
+
+  defp apply_configure(state, opts) do
+    with :ok <- validate_configure_keys(opts) do
+      apply_configure_changes(state, opts)
+    end
+  end
+
+  defp validate_configure_keys(opts) do
+    case Enum.find(opts, fn {key, _} -> key not in @configurable_keys end) do
+      nil -> :ok
+      {key, _} -> {:error, {:invalid_key, key}}
+    end
+  end
+
+  defp apply_configure_changes(state, opts) do
+    # Resolve model first — if it fails, no changes are applied
+    with {:ok, state} <- maybe_resolve_model(state, opts) do
+      state =
+        Enum.reduce(opts, state, fn
+          {:model, _}, acc -> acc
+          {:system, value}, acc -> %{acc | system: value}
+          {:opts, value}, acc -> %{acc | opts: Keyword.merge(acc.opts, value)}
+          {:meta, value}, acc -> %{acc | meta: Map.merge(acc.meta, value)}
+        end)
+
+      {:ok, state}
+    end
+  end
+
+  defp maybe_resolve_model(state, opts) do
+    case Keyword.fetch(opts, :model) do
+      {:ok, model_ref} ->
+        case resolve_model(model_ref) do
+          {:ok, model} -> {:ok, %{state | model: model}}
+          {:error, _} -> {:error, {:model_not_found, model_ref}}
+        end
+
+      :error ->
+        {:ok, state}
+    end
+  end
+
   # -- Helpers --
 
   defp reset_round(server) do
     %{
       server
       | state: %{server.state | status: :idle, step: 0},
+        pending_usage: %Usage{},
         step_task: nil,
         executor_task: nil,
         rejected_results: [],
