@@ -388,6 +388,9 @@ defmodule Omni.Provider do
       model_map = Map.new(models, &{&1.id, &1})
       existing = :persistent_term.get({Omni, id}, %{})
       :persistent_term.put({Omni, id}, Map.merge(existing, model_map))
+
+      existing_ids = :persistent_term.get({Omni, :provider_ids}, %{})
+      :persistent_term.put({Omni, :provider_ids}, Map.put(existing_ids, mod, id))
     end
 
     :ok

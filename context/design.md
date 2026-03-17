@@ -264,6 +264,13 @@ Models are stored per-provider as separate persistent_term entries, keyed by the
 })
 
 :persistent_term.put({Omni, :openai}, %{...})
+
+# Reverse mapping: provider module → atom ID (used by Model.to_ref/1)
+:persistent_term.put({Omni, :provider_ids}, %{
+  Omni.Providers.Anthropic => :anthropic,
+  Omni.Providers.OpenAI => :openai,
+  ...
+})
 ```
 
 The startup loading logic is uniform for every provider -- built-in or custom:

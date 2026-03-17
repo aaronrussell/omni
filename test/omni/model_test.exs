@@ -193,6 +193,23 @@ defmodule Omni.ModelTest do
     end
   end
 
+  describe "to_ref/1" do
+    test "returns {provider_id, model_id} for a loaded model" do
+      {:ok, [model | _]} = Model.list(:anthropic)
+      {provider_id, model_id} = Model.to_ref(model)
+      assert provider_id == :anthropic
+      assert model_id == model.id
+    end
+
+    test "raises for an unloaded provider module" do
+      model = Model.new(id: "test", name: "Test", provider: UnloadedProvider, dialect: D)
+
+      assert_raise ArgumentError, ~r/UnloadedProvider is not loaded/, fn ->
+        Model.to_ref(model)
+      end
+    end
+  end
+
   describe "supported_modalities/1" do
     test "returns the supported input modalities" do
       assert Model.supported_modalities(:input) == [:text, :image, :pdf]

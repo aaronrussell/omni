@@ -122,6 +122,23 @@ defmodule Omni.Model do
   end
 
   @doc """
+  Converts a model back to its `{provider_id, model_id}` lookup reference.
+
+      {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-4-5-20250514")
+      Model.to_ref(model)
+      #=> {:anthropic, "claude-sonnet-4-5-20250514"}
+  """
+  @spec to_ref(t()) :: ref()
+  def to_ref(%__MODULE__{} = model) do
+    provider_ids = :persistent_term.get({Omni, :provider_ids}, %{})
+
+    case Map.fetch(provider_ids, model.provider) do
+      {:ok, id} -> {id, model.id}
+      :error -> raise ArgumentError, "provider #{inspect(model.provider)} is not loaded"
+    end
+  end
+
+  @doc """
   Looks up a model by provider ID and model ID from `:persistent_term`.
 
   Returns `{:ok, model}` if found, or an error tuple identifying what's missing.

@@ -16,10 +16,15 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - **`Agent.usage/1`** — cumulative token usage across all turns in the tree.
 - **Turn data on agent events** — `:turn` and `:done` events carry a `%Turn{}` with tree position, enabling external persistence without built-in storage.
 - **`tree:` start option** — hydrate an agent with a pre-built `%MessageTree{}`.
+- **`Model.to_ref/1`** — convert a resolved `%Model{}` back to its `{provider_id, model_id}` lookup reference.
 
 ### Changed
 
 - **`%Response{}`** — `messages` and `usage` fields replaced by `turn` field containing a `%Turn{}`. Access via `response.turn.messages` and `response.turn.usage`.
+
+### Fixed
+
+- **OpenAI Completions dialect** — tool use name lost when provider sends `id` on every SSE chunk (affected Kimi models via OpenCode/Fireworks).
 
 ## [1.0.0] - 2026-03-06
 
