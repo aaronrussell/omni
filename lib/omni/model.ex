@@ -139,7 +139,7 @@ defmodule Omni.Model do
   end
 
   @doc """
-  Looks up a model by provider ID and model ID from `:persistent_term`.
+  Looks up a model by provider ID and model ID.
 
   Returns `{:ok, model}` if found, or an error tuple identifying what's missing.
   """
@@ -167,23 +167,11 @@ defmodule Omni.Model do
   end
 
   @doc """
-  Registers a model in `:persistent_term` under the given provider ID.
+  Registers a model under the given provider ID.
 
-  Use this to make a hand-built model discoverable via `get/2` and `list/1`.
-  If a model with the same ID already exists for that provider, it is replaced.
-
-      model = Model.new(
-        id: "my-custom-model",
-        name: "My Custom Model",
-        provider: Omni.Providers.OpenAI,
-        dialect: Omni.Dialects.OpenAICompletions,
-        context_size: 128_000,
-        max_output_tokens: 16_384,
-        input_cost: 2.0,
-        output_cost: 8.0
-      )
-
-      Model.put(:openai, model)
+  Makes the model discoverable via `get/2` and `list/1`. If a model with the
+  same ID already exists for that provider, it is replaced. See the "Custom
+  models" section in the moduledoc for a full example.
   """
   @spec put(atom(), t()) :: :ok
   def put(provider_id, %__MODULE__{} = model) do
@@ -197,18 +185,8 @@ defmodule Omni.Model do
 
   Normalizes modalities to the supported set — unsupported values are silently
   dropped, and an empty list defaults to `[:text]`. Does not validate field
-  values; validation happens at the API boundary.
-
-      model = Model.new(
-        id: "my-model",
-        name: "My Model",
-        provider: Omni.Providers.OpenAI,
-        dialect: Omni.Dialects.OpenAICompletions,
-        context_size: 128_000,
-        max_output_tokens: 16_384,
-        input_cost: 2.0,
-        output_cost: 8.0
-      )
+  values; validation happens at the API boundary. See the "Custom models"
+  section in the moduledoc for a full example.
   """
   @spec new(Enumerable.t()) :: t()
   def new(attrs) do
