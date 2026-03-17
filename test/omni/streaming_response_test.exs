@@ -178,8 +178,8 @@ defmodule Omni.StreamingResponseTest do
       {:done, %{stop_reason: stop}, resp} = List.last(result)
 
       assert stop == :stop
-      assert resp.usage.input_tokens == 10
-      assert resp.usage.output_tokens == 5
+      assert resp.turn.usage.input_tokens == 10
+      assert resp.turn.usage.output_tokens == 5
     end
   end
 
@@ -560,17 +560,17 @@ defmodule Omni.StreamingResponseTest do
       sr = StreamingResponse.new(events, model: model)
       {:ok, resp} = StreamingResponse.complete(sr)
 
-      assert resp.usage.input_tokens == 100
-      assert resp.usage.output_tokens == 50
-      assert resp.usage.cache_read_tokens == 20
-      assert resp.usage.cache_write_tokens == 10
-      assert resp.usage.total_tokens == 180
+      assert resp.turn.usage.input_tokens == 100
+      assert resp.turn.usage.output_tokens == 50
+      assert resp.turn.usage.cache_read_tokens == 20
+      assert resp.turn.usage.cache_write_tokens == 10
+      assert resp.turn.usage.total_tokens == 180
 
-      assert resp.usage.input_cost == 0.0003
-      assert resp.usage.output_cost == 0.00075
-      assert resp.usage.cache_read_cost == 0.000006
-      assert resp.usage.cache_write_cost == 0.0000375
-      assert_in_delta resp.usage.total_cost, 0.0010935, 1.0e-10
+      assert resp.turn.usage.input_cost == 0.0003
+      assert resp.turn.usage.output_cost == 0.00075
+      assert resp.turn.usage.cache_read_cost == 0.000006
+      assert resp.turn.usage.cache_write_cost == 0.0000375
+      assert_in_delta resp.turn.usage.total_cost, 0.0010935, 1.0e-10
     end
 
     test "nil model produces zero costs" do
@@ -582,10 +582,10 @@ defmodule Omni.StreamingResponseTest do
       sr = StreamingResponse.new(events, model: nil)
       {:ok, resp} = StreamingResponse.complete(sr)
 
-      assert resp.usage.input_tokens == 100
-      assert resp.usage.output_tokens == 50
-      assert resp.usage.input_cost == 0
-      assert resp.usage.output_cost == 0
+      assert resp.turn.usage.input_tokens == 100
+      assert resp.turn.usage.output_tokens == 50
+      assert resp.turn.usage.input_cost == 0
+      assert resp.turn.usage.output_cost == 0
     end
   end
 

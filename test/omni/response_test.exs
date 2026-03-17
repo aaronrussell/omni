@@ -1,19 +1,20 @@
 defmodule Omni.ResponseTest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Message, Model, Response, Usage}
+  alias Omni.{Message, Model, Response, Turn, Usage}
 
   describe "new/1" do
     test "creates response from keyword list with all fields" do
       message = Message.new(role: :assistant, content: "Hello")
       model = Model.new(id: "test-model", name: "Test", provider: P, dialect: D)
       usage = Usage.new(input_tokens: 10, output_tokens: 5)
+      turn = Turn.new(usage: usage, messages: [message])
 
       response =
         Response.new(
           message: message,
           model: model,
-          usage: usage,
+          turn: turn,
           stop_reason: :stop,
           error: nil,
           raw: nil
@@ -21,7 +22,8 @@ defmodule Omni.ResponseTest do
 
       assert response.message == message
       assert response.model == model
-      assert response.usage == usage
+      assert response.turn.usage == usage
+      assert response.turn.messages == [message]
       assert response.stop_reason == :stop
       assert response.error == nil
       assert response.raw == nil
@@ -30,12 +32,12 @@ defmodule Omni.ResponseTest do
     test "error and raw default to nil" do
       message = Message.new(role: :assistant, content: "Hello")
       model = Model.new(id: "test-model", name: "Test", provider: P, dialect: D)
-      usage = Usage.new([])
 
-      response = Response.new(message: message, model: model, usage: usage, stop_reason: :stop)
+      response = Response.new(message: message, model: model, stop_reason: :stop)
 
       assert response.error == nil
       assert response.raw == nil
+      assert response.turn == %Turn{}
     end
 
     test "raises on missing enforced keys" do
@@ -49,7 +51,6 @@ defmodule Omni.ResponseTest do
         Response.new(
           message: Message.new("hi"),
           model: Model.new(id: "t", name: "T", provider: P, dialect: D),
-          usage: Usage.new([]),
           stop_reason: :stop,
           bogus: true
         )

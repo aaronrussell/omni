@@ -7,7 +7,7 @@ defmodule Omni.Agent.State do
 
   Fields fall into two groups:
 
-  **Configuration** — set at startup, changeable via `configure/2,3`:
+  **Configuration** — set at startup, changeable via `set_state/2,3`:
 
     * `:model` — the `%Model{}` this agent is using
     * `:system` — the system prompt string (or `nil`)
@@ -17,14 +17,11 @@ defmodule Omni.Agent.State do
 
   **Session** — change during operation:
 
-    * `:session_id` — unique session identifier. Generated at startup, changes
-      on `Omni.Agent.clear/1`
     * `:tree` — `%MessageTree{}` containing the full conversation tree. Only
       includes messages from completed prompt rounds — in-progress messages
       are not visible here until the round finishes
-    * `:meta` — serializable user metadata (title, tags, custom domain data).
-      Persisted by storage (Layer 3). Set initial values via `:meta` start
-      option, update via `configure/2,3`
+    * `:meta` — user metadata map (title, tags, custom domain data). Set initial
+      values via `:meta` start option, update via `set_state/2,3`
     * `:private` — runtime state (PIDs, ETS refs, closures). Not persisted.
       Set initial values in `init/1`, update in any callback via
       `%{state | private: ...}`
@@ -38,7 +35,6 @@ defmodule Omni.Agent.State do
 
   @typedoc "The public agent state passed to all callbacks."
   @type t :: %__MODULE__{
-          session_id: String.t() | nil,
           model: Model.t(),
           system: String.t() | nil,
           tools: [Tool.t()],
@@ -51,7 +47,6 @@ defmodule Omni.Agent.State do
         }
 
   defstruct [
-    :session_id,
     :model,
     :opts,
     system: nil,

@@ -9,36 +9,36 @@ defmodule Omni.Response do
   ## Struct fields
 
     * `:model` — the `%Model{}` that handled the request
-    * `:message` — the assistant's response message
-    * `:messages` — all messages from the generation. Single-step calls produce
-      `[response.message]`; multi-step tool loops include assistant and
-      tool-result messages from every round
+    * `:message` — the assistant's response message (the last assistant message)
+    * `:turn` — `%Turn{}` containing all messages from this generation and their
+      cumulative token usage. For single-step calls, `turn.messages` is
+      `[response.message]`. For multi-step tool loops, it includes assistant
+      and tool-result messages from every step. The `turn.id` and `turn.parent`
+      position the turn within a conversation tree
     * `:output` — validated, decoded map when the `:output` option was set
     * `:stop_reason` — why generation ended: `:stop` (natural completion),
       `:length` (token limit reached), `:tool_use` (model invoked a tool),
       `:refusal` (declined due to content or safety policy), or `:error`
-    * `:usage` — token counts and costs (see `Omni.Usage`)
     * `:error` — error description when `stop_reason` is `:error`, otherwise `nil`
     * `:raw` — list of `{%Req.Request{}, %Req.Response{}}` tuples when `:raw`
-      was set (one per generation round)
+      was set (one per generation step)
 
   """
 
-  alias Omni.{Message, Model, Usage}
+  alias Omni.{Message, Model, Turn}
 
-  @enforce_keys [:message, :model, :usage, :stop_reason]
-  defstruct [:message, :model, :usage, :stop_reason, :error, :raw, :output, messages: []]
+  @enforce_keys [:message, :model, :stop_reason]
+  defstruct [:message, :model, :stop_reason, :error, :raw, :output, turn: %Turn{}]
 
   @typedoc "A generation response envelope."
   @type t :: %__MODULE__{
           message: Message.t(),
           model: Model.t(),
-          usage: Usage.t(),
+          turn: Turn.t(),
           stop_reason: stop_reason(),
           error: String.t() | nil,
           raw: [{Req.Request.t(), Req.Response.t()}] | nil,
-          output: map() | list() | nil,
-          messages: [Message.t()]
+          output: map() | list() | nil
         }
 
   @typedoc "Why generation ended."

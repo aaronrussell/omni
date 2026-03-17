@@ -78,15 +78,15 @@ defmodule Integration.LoopTest do
       assert [%Text{}] = resp.message.content
 
       # 3 messages: assistant (tool_use), user (tool_result), assistant (text)
-      assert length(resp.messages) == 3
+      assert length(resp.turn.messages) == 3
 
       assert [%Message{role: :assistant}, %Message{role: :user}, %Message{role: :assistant}] =
-               resp.messages
+               resp.turn.messages
 
-      assert resp.message == List.last(resp.messages)
+      assert resp.message == List.last(resp.turn.messages)
 
       # Tool result message
-      [_, tool_result_msg, _] = resp.messages
+      [_, tool_result_msg, _] = resp.turn.messages
       assert [%ToolResult{is_error: false}] = tool_result_msg.content
     end
   end
@@ -108,7 +108,7 @@ defmodule Integration.LoopTest do
 
       assert resp.stop_reason == :tool_use
       assert Enum.any?(resp.message.content, &match?(%ToolUse{}, &1))
-      assert resp.messages == [resp.message]
+      assert resp.turn.messages == [resp.message]
     end
   end
 
@@ -156,10 +156,10 @@ defmodule Integration.LoopTest do
       assert resp.stop_reason == :tool_use
 
       # 3 assistant + 2 user = 5 messages
-      assert length(resp.messages) == 5
+      assert length(resp.turn.messages) == 5
 
-      assistant_msgs = Enum.filter(resp.messages, &(&1.role == :assistant))
-      user_msgs = Enum.filter(resp.messages, &(&1.role == :user))
+      assistant_msgs = Enum.filter(resp.turn.messages, &(&1.role == :assistant))
+      user_msgs = Enum.filter(resp.turn.messages, &(&1.role == :user))
       assert length(assistant_msgs) == 3
       assert length(user_msgs) == 2
     end
@@ -181,7 +181,7 @@ defmodule Integration.LoopTest do
 
       assert resp.stop_reason == :tool_use
       assert Enum.any?(resp.message.content, &match?(%ToolUse{}, &1))
-      assert resp.messages == [resp.message]
+      assert resp.turn.messages == [resp.message]
     end
   end
 
@@ -213,10 +213,10 @@ defmodule Integration.LoopTest do
                )
 
       assert resp.stop_reason == :stop
-      assert length(resp.messages) == 3
+      assert length(resp.turn.messages) == 3
 
       # Tool result message has error
-      [_, tool_result_msg, _] = resp.messages
+      [_, tool_result_msg, _] = resp.turn.messages
       assert [%ToolResult{is_error: true}] = tool_result_msg.content
     end
   end
@@ -257,9 +257,9 @@ defmodule Integration.LoopTest do
                )
 
       # Both fixtures report usage; aggregated total should exceed either single step
-      assert resp.usage.total_tokens > 0
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
+      assert resp.turn.usage.total_tokens > 0
+      assert resp.turn.usage.input_tokens > 0
+      assert resp.turn.usage.output_tokens > 0
     end
   end
 
@@ -276,7 +276,7 @@ defmodule Integration.LoopTest do
                )
 
       assert resp.stop_reason == :stop
-      assert resp.messages == [resp.message]
+      assert resp.turn.messages == [resp.message]
     end
   end
 end

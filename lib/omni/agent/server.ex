@@ -21,7 +21,7 @@ defmodule Omni.Agent.Server do
 
   use GenServer
 
-  alias Omni.{Context, Message, MessageTree, Model, Response, Tool, Usage}
+  alias Omni.{Context, Message, MessageTree, Model, Response, Tool, Turn, Usage}
   alias Omni.Agent.State
   alias Omni.Content.{ToolResult, ToolUse}
 
@@ -58,6 +58,8 @@ defmodule Omni.Agent.Server do
     paused_use: nil
   ]
 
+  @settable_fields [:model, :system, :tools, :tree, :opts, :meta]
+
   def start_link(init_arg, gs_opts) do
     # Capture $callers so the chain reaches back to whoever started the agent.
     # GenServer doesn't propagate $callers like Task does, so without this,
@@ -77,10 +79,10 @@ defmodule Omni.Agent.Server do
     with {:ok, model} <- resolve_model(opts[:model]),
          {:ok, private} <- call_init(module, opts) do
       agent_state = %State{
-        session_id: generate_session_id(),
         model: model,
         system: opts[:system],
         tools: opts[:tools] || [],
+        tree: opts[:tree] || %MessageTree{},
         opts: Keyword.get(opts, :opts, []),
         meta: opts[:meta] || %{},
         private: private
@@ -102,15 +104,6 @@ defmodule Omni.Agent.Server do
   defp resolve_model({provider_id, model_id}), do: Model.get(provider_id, model_id)
   defp resolve_model(%Model{} = model), do: {:ok, model}
   defp resolve_model(nil), do: {:error, :missing_model}
-
-  defp generate_session_id do
-    <<
-      :erlang.phash2({node(), self()}, 16_777_216)::24,
-      System.system_time(:second)::32,
-      :rand.uniform(16_777_216) - 1::24
-    >>
-    |> Base.url_encode64(padding: false)
-  end
 
   # -- Calls --
 
@@ -174,22 +167,6 @@ defmodule Omni.Agent.Server do
     {:reply, {:error, :not_paused}, server}
   end
 
-  def handle_call({:add_tools, tools}, _from, %__MODULE__{state: %{status: :idle}} = server) do
-    new_state = %{server.state | tools: server.state.tools ++ tools}
-    {:reply, :ok, %{server | state: new_state}}
-  end
-
-  def handle_call({:remove_tools, names}, _from, %__MODULE__{state: %{status: :idle}} = server) do
-    name_set = MapSet.new(names)
-
-    new_state = %{
-      server.state
-      | tools: Enum.reject(server.state.tools, &MapSet.member?(name_set, &1.name))
-    }
-
-    {:reply, :ok, %{server | state: new_state}}
-  end
-
   def handle_call(:cancel, _from, %__MODULE__{state: %{status: status}} = server)
       when status in [:running, :paused] do
     server = do_cancel(server)
@@ -198,12 +175,6 @@ defmodule Omni.Agent.Server do
 
   def handle_call(:cancel, _from, %__MODULE__{state: %{status: :idle}} = server) do
     {:reply, {:error, :idle}, server}
-  end
-
-  def handle_call(:clear, _from, %__MODULE__{state: %{status: :idle}} = server) do
-    session_id = generate_session_id()
-    new_state = %{server.state | session_id: session_id, tree: %MessageTree{}}
-    {:reply, {:ok, session_id}, %{server | state: new_state}}
   end
 
   def handle_call({:listen, pid}, _from, %__MODULE__{state: %{status: :idle}} = server) do
@@ -215,11 +186,11 @@ defmodule Omni.Agent.Server do
   end
 
   def handle_call(
-        {:navigate, round_id},
+        {:navigate, turn_id},
         _from,
         %__MODULE__{state: %{status: :idle}} = server
       ) do
-    case MessageTree.navigate(server.state.tree, round_id) do
+    case MessageTree.navigate(server.state.tree, turn_id) do
       {:ok, tree} ->
         new_state = %{server.state | tree: tree}
         {:reply, {:ok, tree}, %{server | state: new_state}}
@@ -229,30 +200,43 @@ defmodule Omni.Agent.Server do
     end
   end
 
+  # -- set_state/2 --
+
   def handle_call(
-        {:configure, opts},
+        {:set_state, opts},
         _from,
         %__MODULE__{state: %{status: :idle}} = server
       ) do
-    case apply_configure(server.state, opts) do
+    case apply_set_state(server.state, opts) do
       {:ok, new_state} -> {:reply, :ok, %{server | state: new_state}}
       {:error, _} = error -> {:reply, error, server}
     end
   end
 
+  # -- set_state/3 --
+
   def handle_call(
-        {:configure, field, fun},
+        {:set_state, field, value_or_fun},
         _from,
         %__MODULE__{state: %{status: :idle}} = server
       )
-      when field in [:opts, :meta] do
-    new_value = fun.(Map.get(server.state, field))
-    new_state = Map.put(server.state, field, new_value)
-    {:reply, :ok, %{server | state: new_state}}
+      when field in @settable_fields do
+    new_value =
+      if is_function(value_or_fun, 1),
+        do: value_or_fun.(Map.get(server.state, field)),
+        else: value_or_fun
+
+    case maybe_resolve_field(field, new_value) do
+      {:ok, resolved} ->
+        {:reply, :ok, %{server | state: Map.put(server.state, field, resolved)}}
+
+      {:error, _} = error ->
+        {:reply, error, server}
+    end
   end
 
   def handle_call(
-        {:configure, field, _fun},
+        {:set_state, field, _value_or_fun},
         _from,
         %__MODULE__{state: %{status: :idle}} = server
       ) do
@@ -260,25 +244,10 @@ defmodule Omni.Agent.Server do
   end
 
   # Catch-all for mutating ops while running or paused
-  def handle_call({op, _}, _from, server) when op in [:add_tools, :remove_tools, :listen] do
-    {:reply, {:error, :running}, server}
-  end
-
-  def handle_call(:clear, _from, server) do
-    {:reply, {:error, :running}, server}
-  end
-
-  def handle_call({:navigate, _id}, _from, server) do
-    {:reply, {:error, :running}, server}
-  end
-
-  def handle_call({:configure, _opts}, _from, server) do
-    {:reply, {:error, :running}, server}
-  end
-
-  def handle_call({:configure, _field, _fun}, _from, server) do
-    {:reply, {:error, :running}, server}
-  end
+  def handle_call({:listen, _}, _from, server), do: {:reply, {:error, :running}, server}
+  def handle_call({:navigate, _}, _from, server), do: {:reply, {:error, :running}, server}
+  def handle_call({:set_state, _}, _from, server), do: {:reply, {:error, :running}, server}
+  def handle_call({:set_state, _, _}, _from, server), do: {:reply, {:error, :running}, server}
 
   def handle_call(:get_state, _from, server), do: {:reply, server.state, server}
 
@@ -383,7 +352,7 @@ defmodule Omni.Agent.Server do
 
   defp handle_step_complete(response, server) do
     pending = server.pending_messages ++ [response.message]
-    pending_usage = Usage.add(server.pending_usage, response.usage)
+    pending_usage = Usage.add(server.pending_usage, response.turn.usage)
 
     server = %{
       server
@@ -533,6 +502,16 @@ defmodule Omni.Agent.Server do
   end
 
   defp continue_turn(prompt, response, server) do
+    partial_turn =
+      Turn.new(
+        id: map_size(server.state.tree.turns),
+        parent: MessageTree.head(server.state.tree),
+        messages: server.pending_messages,
+        usage: server.pending_usage
+      )
+
+    response = %{response | turn: partial_turn}
+
     notify(server, :turn, response)
     user_message = Message.new(role: :user, content: prompt)
     server = %{server | pending_messages: server.pending_messages ++ [user_message]}
@@ -540,8 +519,10 @@ defmodule Omni.Agent.Server do
   end
 
   defp commit_and_done(response, server) do
-    {_round_id, tree} =
+    {turn, tree} =
       MessageTree.push(server.state.tree, server.pending_messages, server.pending_usage)
+
+    response = %{response | turn: turn}
 
     server = %{server | state: %{server.state | tree: tree}}
 
@@ -564,35 +545,25 @@ defmodule Omni.Agent.Server do
   defp kill_task(nil), do: :ok
   defp kill_task({pid, _ref}), do: Process.exit(pid, :kill)
 
-  # -- Configure --
+  # -- set_state --
 
-  @configurable_keys [:model, :system, :opts, :meta]
-
-  defp apply_configure(state, opts) do
-    with :ok <- validate_configure_keys(opts) do
-      apply_configure_changes(state, opts)
-    end
-  end
-
-  defp validate_configure_keys(opts) do
-    case Enum.find(opts, fn {key, _} -> key not in @configurable_keys end) do
-      nil -> :ok
-      {key, _} -> {:error, {:invalid_key, key}}
-    end
-  end
-
-  defp apply_configure_changes(state, opts) do
-    # Resolve model first — if it fails, no changes are applied
-    with {:ok, state} <- maybe_resolve_model(state, opts) do
+  defp apply_set_state(state, opts) do
+    with :ok <- validate_set_state_keys(opts),
+         {:ok, state} <- maybe_resolve_model(state, opts) do
       state =
         Enum.reduce(opts, state, fn
           {:model, _}, acc -> acc
-          {:system, value}, acc -> %{acc | system: value}
-          {:opts, value}, acc -> %{acc | opts: Keyword.merge(acc.opts, value)}
-          {:meta, value}, acc -> %{acc | meta: Map.merge(acc.meta, value)}
+          {key, value}, acc -> Map.put(acc, key, value)
         end)
 
       {:ok, state}
+    end
+  end
+
+  defp validate_set_state_keys(opts) do
+    case Enum.find(opts, fn {key, _} -> key not in @settable_fields end) do
+      nil -> :ok
+      {key, _} -> {:error, {:invalid_key, key}}
     end
   end
 
@@ -608,6 +579,15 @@ defmodule Omni.Agent.Server do
         {:ok, state}
     end
   end
+
+  defp maybe_resolve_field(:model, value) do
+    case resolve_model(value) do
+      {:ok, model} -> {:ok, model}
+      {:error, _} -> {:error, {:model_not_found, value}}
+    end
+  end
+
+  defp maybe_resolve_field(_field, value), do: {:ok, value}
 
   # -- Helpers --
 

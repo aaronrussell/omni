@@ -1,7 +1,7 @@
 defmodule Integration.AgentTest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Agent, MessageTree, Response, Usage}
+  alias Omni.{Agent, MessageTree, Response, Turn, Usage}
   alias Omni.Content.{Text, ToolResult, ToolUse}
 
   @text_fixture "test/support/fixtures/sse/anthropic_text.sse"
@@ -362,48 +362,6 @@ defmodule Integration.AgentTest do
     end
   end
 
-  describe "clear" do
-    test "resets messages and usage" do
-      {:ok, agent} = start_agent()
-      :ok = Agent.prompt(agent, "Hello!")
-      _events = collect_events(agent)
-
-      # Tree should have messages after prompt completes
-      assert length(MessageTree.messages(Agent.get_state(agent, :tree))) > 0
-      assert Agent.usage(agent).total_tokens > 0
-
-      {:ok, _session_id} = Agent.clear(agent)
-
-      assert MessageTree.messages(Agent.get_state(agent, :tree)) == []
-      assert Agent.usage(agent) == %Usage{}
-    end
-
-    test "clear while running returns error" do
-      stub_name = unique_stub_name()
-
-      Req.Test.stub(stub_name, fn conn ->
-        Process.sleep(2000)
-        body = File.read!(@text_fixture)
-
-        conn
-        |> Plug.Conn.put_resp_content_type("text/event-stream")
-        |> Plug.Conn.send_resp(200, body)
-      end)
-
-      {:ok, agent} =
-        Agent.start_link(
-          model: model(),
-          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
-        )
-
-      :ok = Agent.prompt(agent, "Hello!")
-      Process.sleep(50)
-      assert {:error, :running} = Agent.clear(agent)
-      Agent.cancel(agent)
-      _events = collect_events(agent, 2000)
-    end
-  end
-
   describe "usage accumulation" do
     test "usage sums across multiple prompt rounds" do
       {:ok, agent} = start_agent()
@@ -437,29 +395,6 @@ defmodule Integration.AgentTest do
     end
   end
 
-  describe "session_id" do
-    test "auto-generated on start" do
-      {:ok, agent} = start_agent()
-      session_id = Agent.get_state(agent, :session_id)
-      assert is_binary(session_id)
-      assert byte_size(session_id) > 0
-    end
-
-    test "unique across agents" do
-      {:ok, agent1} = start_agent()
-      {:ok, agent2} = start_agent()
-      assert Agent.get_state(agent1, :session_id) != Agent.get_state(agent2, :session_id)
-    end
-
-    test "changes on clear" do
-      {:ok, agent} = start_agent()
-      old_id = Agent.get_state(agent, :session_id)
-      {:ok, new_id} = Agent.clear(agent)
-      assert new_id != old_id
-      assert Agent.get_state(agent, :session_id) == new_id
-    end
-  end
-
   describe "usage/1" do
     test "returns empty usage for fresh agent" do
       {:ok, agent} = start_agent()
@@ -474,99 +409,8 @@ defmodule Integration.AgentTest do
     end
   end
 
-  describe "configure/2" do
-    test "changes system prompt" do
-      {:ok, agent} = start_agent()
-      assert Agent.get_state(agent, :system) == nil
-      :ok = Agent.configure(agent, system: "Be helpful.")
-      assert Agent.get_state(agent, :system) == "Be helpful."
-    end
-
-    test "merges opts" do
-      {:ok, agent} = start_agent()
-      :ok = Agent.configure(agent, opts: [temperature: 0.7])
-      opts = Agent.get_state(agent, :opts)
-      assert Keyword.get(opts, :temperature) == 0.7
-      # Original opts should still be present
-      assert Keyword.has_key?(opts, :api_key)
-    end
-
-    test "merges meta" do
-      {:ok, agent} = start_agent()
-      :ok = Agent.configure(agent, meta: %{title: "Chat"})
-      assert Agent.get_state(agent, :meta) == %{title: "Chat"}
-      :ok = Agent.configure(agent, meta: %{tags: [:test]})
-      assert Agent.get_state(agent, :meta) == %{title: "Chat", tags: [:test]}
-    end
-
-    test "rejects invalid keys" do
-      {:ok, agent} = start_agent()
-      assert {:error, {:invalid_key, :tools}} = Agent.configure(agent, tools: [])
-      assert {:error, {:invalid_key, :status}} = Agent.configure(agent, status: :running)
-    end
-
-    test "atomic — bad model rejects all changes" do
-      {:ok, agent} = start_agent()
-      original_system = Agent.get_state(agent, :system)
-
-      result = Agent.configure(agent, model: {:nonexistent, "no-model"}, system: "New system")
-      assert {:error, {:model_not_found, _}} = result
-      # System should not have changed
-      assert Agent.get_state(agent, :system) == original_system
-    end
-
-    test "returns error when running" do
-      stub_name = unique_stub_name()
-
-      Req.Test.stub(stub_name, fn conn ->
-        Process.sleep(2000)
-        body = File.read!(@text_fixture)
-
-        conn
-        |> Plug.Conn.put_resp_content_type("text/event-stream")
-        |> Plug.Conn.send_resp(200, body)
-      end)
-
-      {:ok, agent} =
-        Agent.start_link(
-          model: model(),
-          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
-        )
-
-      :ok = Agent.prompt(agent, "Hello!")
-      Process.sleep(50)
-      assert {:error, :running} = Agent.configure(agent, system: "New")
-      Agent.cancel(agent)
-      _events = collect_events(agent, 2000)
-    end
-  end
-
-  describe "configure/3" do
-    test "transforms opts with function" do
-      {:ok, agent} = start_agent()
-      :ok = Agent.configure(agent, opts: [temperature: 0.7])
-      :ok = Agent.configure(agent, :opts, fn opts -> Keyword.drop(opts, [:temperature]) end)
-      refute Keyword.has_key?(Agent.get_state(agent, :opts), :temperature)
-    end
-
-    test "transforms meta with function" do
-      {:ok, agent} = start_agent()
-      :ok = Agent.configure(agent, meta: %{count: 1})
-      :ok = Agent.configure(agent, :meta, fn meta -> Map.update!(meta, :count, &(&1 + 1)) end)
-      assert Agent.get_state(agent, :meta) == %{count: 2}
-    end
-
-    test "rejects invalid field" do
-      {:ok, agent} = start_agent()
-      assert {:error, {:invalid_field, :model}} = Agent.configure(agent, :model, fn _ -> nil end)
-
-      assert {:error, {:invalid_field, :system}} =
-               Agent.configure(agent, :system, fn _ -> nil end)
-    end
-  end
-
   describe "navigate/2" do
-    test "navigates to earlier round" do
+    test "navigates to earlier turn" do
       stub_name = unique_stub_name()
       stub_sequence(stub_name, [@text_fixture, @text_fixture])
 
@@ -587,13 +431,13 @@ defmodule Integration.AgentTest do
       messages_after_second = MessageTree.messages(Agent.get_state(agent, :tree))
       assert length(messages_after_second) == 4
 
-      # Navigate back to round 0
+      # Navigate back to turn 0
       {:ok, tree} = Agent.navigate(agent, 0)
       assert length(MessageTree.messages(tree)) == 2
       assert length(MessageTree.messages(Agent.get_state(agent, :tree))) == 2
     end
 
-    test "returns error for non-existent round" do
+    test "returns error for non-existent turn" do
       {:ok, agent} = start_agent()
       assert {:error, :not_found} = Agent.navigate(agent, 999)
     end
@@ -623,7 +467,7 @@ defmodule Integration.AgentTest do
       _events = collect_events(agent, 2000)
     end
 
-    test "prompt after navigate branches from navigated round" do
+    test "prompt after navigate branches from navigated turn" do
       stub_name = unique_stub_name()
       stub_sequence(stub_name, [@text_fixture, @text_fixture, @text_fixture])
 
@@ -633,24 +477,220 @@ defmodule Integration.AgentTest do
           opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
         )
 
-      # Two rounds: 0, 1
+      # Two turns: 0, 1
       :ok = Agent.prompt(agent, "First")
       _events = collect_events(agent)
       :ok = Agent.prompt(agent, "Second")
       _events = collect_events(agent)
 
-      # Navigate back to round 0
+      # Navigate back to turn 0
       {:ok, _tree} = Agent.navigate(agent, 0)
 
-      # Prompt creates a new branch from round 0
+      # Prompt creates a new branch from turn 0
       :ok = Agent.prompt(agent, "Alternate second")
       _events = collect_events(agent)
 
       tree = Agent.get_state(agent, :tree)
-      # Active path should be round 0 → new round (not round 1)
-      assert MessageTree.round_count(tree) == 2
-      # Round 0 should have two children: round 1 and the new branch
+      # Active path should be turn 0 -> new turn (not turn 1)
+      assert MessageTree.turn_count(tree) == 2
+      # Turn 0 should have two children: turn 1 and the new branch
       assert length(MessageTree.children(tree, 0)) == 2
+    end
+  end
+
+  describe "set_state/2" do
+    test "replaces system prompt" do
+      {:ok, agent} = start_agent()
+      assert Agent.get_state(agent, :system) == nil
+      :ok = Agent.set_state(agent, system: "Be helpful.")
+      assert Agent.get_state(agent, :system) == "Be helpful."
+    end
+
+    test "replaces opts (full replacement, not merge)" do
+      {:ok, agent} = start_agent()
+      # Original opts include api_key and plug
+      original_opts = Agent.get_state(agent, :opts)
+      assert Keyword.has_key?(original_opts, :api_key)
+
+      :ok = Agent.set_state(agent, opts: [temperature: 0.7])
+      new_opts = Agent.get_state(agent, :opts)
+      assert new_opts == [temperature: 0.7]
+      refute Keyword.has_key?(new_opts, :api_key)
+    end
+
+    test "replaces meta (full replacement, not merge)" do
+      {:ok, agent} = start_agent(meta: %{a: 1})
+      assert Agent.get_state(agent, :meta) == %{a: 1}
+
+      :ok = Agent.set_state(agent, meta: %{b: 2})
+      assert Agent.get_state(agent, :meta) == %{b: 2}
+    end
+
+    test "replaces tools list" do
+      {:ok, agent} = start_agent()
+      assert Agent.get_state(agent, :tools) == []
+
+      tool = tool_with_handler()
+      :ok = Agent.set_state(agent, tools: [tool])
+      assert length(Agent.get_state(agent, :tools)) == 1
+      assert hd(Agent.get_state(agent, :tools)).name == "get_weather"
+    end
+
+    test "replaces tree" do
+      {:ok, agent} = start_agent()
+      :ok = Agent.prompt(agent, "Hello!")
+      _events = collect_events(agent)
+      assert length(MessageTree.messages(Agent.get_state(agent, :tree))) > 0
+
+      new_tree = %MessageTree{}
+      :ok = Agent.set_state(agent, tree: new_tree)
+      assert MessageTree.messages(Agent.get_state(agent, :tree)) == []
+    end
+
+    test "rejects invalid keys" do
+      {:ok, agent} = start_agent()
+      assert {:error, {:invalid_key, :status}} = Agent.set_state(agent, status: :running)
+    end
+
+    test "atomic — bad model rejects all changes" do
+      {:ok, agent} = start_agent()
+      original_system = Agent.get_state(agent, :system)
+
+      result = Agent.set_state(agent, model: {:anthropic, "nonexistent"}, system: "new")
+      assert {:error, {:model_not_found, _}} = result
+      # System should not have changed
+      assert Agent.get_state(agent, :system) == original_system
+    end
+
+    test "returns error when running" do
+      stub_name = unique_stub_name()
+
+      Req.Test.stub(stub_name, fn conn ->
+        Process.sleep(2000)
+        body = File.read!(@text_fixture)
+
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, body)
+      end)
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      Process.sleep(50)
+      assert {:error, :running} = Agent.set_state(agent, system: "New")
+      Agent.cancel(agent)
+      _events = collect_events(agent, 2000)
+    end
+  end
+
+  describe "set_state/3" do
+    test "replaces field with value" do
+      {:ok, agent} = start_agent()
+      :ok = Agent.set_state(agent, :system, "New system")
+      assert Agent.get_state(agent, :system) == "New system"
+    end
+
+    test "transforms field with function" do
+      {:ok, agent} = start_agent()
+      :ok = Agent.set_state(agent, :opts, fn opts -> Keyword.put(opts, :temperature, 0.7) end)
+      assert Keyword.get(Agent.get_state(agent, :opts), :temperature) == 0.7
+    end
+
+    test "rejects non-settable field" do
+      {:ok, agent} = start_agent()
+      assert {:error, {:invalid_field, :status}} = Agent.set_state(agent, :status, :running)
+    end
+
+    test "rejects non-settable field private" do
+      {:ok, agent} = start_agent()
+      assert {:error, {:invalid_field, :private}} = Agent.set_state(agent, :private, %{})
+    end
+  end
+
+  describe "tree: at start_link" do
+    test "accepts pre-built tree" do
+      stub_name = unique_stub_name()
+      stub_fixture(stub_name, @text_fixture)
+
+      user_msg = Omni.Message.new(role: :user, content: "Hello")
+      asst_msg = Omni.Message.new(role: :assistant, content: "Hi there")
+      {_turn, tree} = MessageTree.push(%MessageTree{}, [user_msg, asst_msg], %Usage{})
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          tree: tree,
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      assert MessageTree.turn_count(Agent.get_state(agent, :tree)) == 1
+    end
+
+    test "prompt builds on existing tree" do
+      stub_name = unique_stub_name()
+      stub_fixture(stub_name, @text_fixture)
+
+      user_msg = Omni.Message.new(role: :user, content: "Hello")
+      asst_msg = Omni.Message.new(role: :assistant, content: "Hi there")
+      {_turn, tree} = MessageTree.push(%MessageTree{}, [user_msg, asst_msg], %Usage{})
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          tree: tree,
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Follow up")
+      _events = collect_events(agent)
+
+      final_tree = Agent.get_state(agent, :tree)
+      assert MessageTree.turn_count(final_tree) == 2
+
+      # Second turn's parent should be turn 0
+      turn_1 = MessageTree.get_turn(final_tree, 1)
+      assert turn_1.parent == 0
+    end
+  end
+
+  describe "Turn on events" do
+    test "done event has Turn with correct data" do
+      {:ok, agent} = start_agent()
+      :ok = Agent.prompt(agent, "Hello!")
+      events = collect_events(agent)
+
+      assert {:done, %Response{} = resp} = List.last(events)
+      assert %Turn{} = resp.turn
+      assert resp.turn.id == 0
+      assert resp.turn.parent == nil
+      assert length(resp.turn.messages) > 0
+      assert resp.turn.usage.total_tokens > 0
+    end
+
+    test "second prompt produces Turn with id 1, parent 0" do
+      stub_name = unique_stub_name()
+      stub_sequence(stub_name, [@text_fixture, @text_fixture])
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "First")
+      _events = collect_events(agent)
+
+      :ok = Agent.prompt(agent, "Second")
+      events = collect_events(agent)
+
+      assert {:done, %Response{} = resp} = List.last(events)
+      assert resp.turn.id == 1
+      assert resp.turn.parent == 0
     end
   end
 
@@ -968,48 +1008,6 @@ defmodule Integration.AgentTest do
       [tr] = tool_result_events
       assert tr.name == "get_weather"
       assert tr.is_error == false
-    end
-  end
-
-  describe "add_tools/remove_tools" do
-    test "adds and removes tools when idle" do
-      {:ok, agent} = start_agent()
-
-      assert Agent.get_state(agent, :tools) == []
-
-      tool = tool_with_handler()
-      :ok = Agent.add_tools(agent, [tool])
-      assert length(Agent.get_state(agent, :tools)) == 1
-      assert hd(Agent.get_state(agent, :tools)).name == "get_weather"
-
-      :ok = Agent.remove_tools(agent, ["get_weather"])
-      assert Agent.get_state(agent, :tools) == []
-    end
-
-    test "returns {:error, :running} when agent is running" do
-      stub_name = unique_stub_name()
-
-      Req.Test.stub(stub_name, fn conn ->
-        Process.sleep(2000)
-        body = File.read!(@text_fixture)
-
-        conn
-        |> Plug.Conn.put_resp_content_type("text/event-stream")
-        |> Plug.Conn.send_resp(200, body)
-      end)
-
-      {:ok, agent} =
-        Agent.start_link(
-          model: model(),
-          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
-        )
-
-      :ok = Agent.prompt(agent, "Hello!")
-      Process.sleep(50)
-      assert {:error, :running} = Agent.add_tools(agent, [tool_with_handler()])
-      assert {:error, :running} = Agent.remove_tools(agent, ["get_weather"])
-      Agent.cancel(agent)
-      _events = collect_events(agent, 2000)
     end
   end
 

@@ -41,8 +41,8 @@ defmodule Integration.OpenCodeTest do
 
       assert resp.stop_reason == :stop
       assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
+      assert resp.turn.usage.input_tokens > 0
+      assert resp.turn.usage.output_tokens > 0
       assert [%Text{text: text}] = resp.message.content
       assert is_binary(text) and byte_size(text) > 0
     end
@@ -64,8 +64,8 @@ defmodule Integration.OpenCodeTest do
 
       assert resp.stop_reason == :stop
       assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
+      assert resp.turn.usage.input_tokens > 0
+      assert resp.turn.usage.output_tokens > 0
       assert [%Text{text: text}] = resp.message.content
       assert is_binary(text) and byte_size(text) > 0
     end
@@ -87,8 +87,8 @@ defmodule Integration.OpenCodeTest do
 
       assert resp.stop_reason == :stop
       assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
+      assert resp.turn.usage.input_tokens > 0
+      assert resp.turn.usage.output_tokens > 0
       assert [%Text{text: text}] = resp.message.content
       assert is_binary(text) and byte_size(text) > 0
     end
@@ -110,8 +110,8 @@ defmodule Integration.OpenCodeTest do
 
       assert resp.stop_reason == :stop
       assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
+      assert resp.turn.usage.input_tokens > 0
+      assert resp.turn.usage.output_tokens > 0
       assert [%Text{text: text}] = resp.message.content
       assert is_binary(text) and byte_size(text) > 0
     end

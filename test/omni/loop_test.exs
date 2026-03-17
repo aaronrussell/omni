@@ -49,7 +49,7 @@ defmodule Omni.LoopTest do
       {:ok, resp} = StreamingResponse.complete(sr)
 
       assert resp.stop_reason == :stop
-      assert resp.messages == [resp.message]
+      assert resp.turn.messages == [resp.message]
       assert resp.raw == nil
     end
   end
@@ -160,7 +160,7 @@ defmodule Omni.LoopTest do
 
       # Only one step executed — response still has tool_use stop reason
       assert resp.stop_reason == :tool_use
-      assert length(resp.messages) == 1
+      assert length(resp.turn.messages) == 1
     end
 
     test "max_steps: 2 allows tool loop then final response" do
@@ -180,7 +180,7 @@ defmodule Omni.LoopTest do
 
       assert resp.stop_reason == :stop
       # Two steps: assistant tool_use + user tool_result + assistant text
-      assert length(resp.messages) == 3
+      assert length(resp.turn.messages) == 3
     end
   end
 
@@ -203,7 +203,7 @@ defmodule Omni.LoopTest do
 
       # Loop breaks — no tool execution, no second step
       assert resp.stop_reason == :tool_use
-      assert length(resp.messages) == 1
+      assert length(resp.turn.messages) == 1
     end
   end
 
@@ -340,8 +340,8 @@ defmodule Omni.LoopTest do
       {:ok, resp} = StreamingResponse.complete(sr)
 
       # Both fixtures have usage data, aggregated total should exceed either alone
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
+      assert resp.turn.usage.input_tokens > 0
+      assert resp.turn.usage.output_tokens > 0
 
       # Verify aggregation: get single-step usage for comparison
       stub_fixture(:unit_usage_single, @tool_use_fixture)
@@ -352,7 +352,7 @@ defmodule Omni.LoopTest do
 
       {:ok, single_resp} = StreamingResponse.complete(sr2)
 
-      assert resp.usage.total_tokens > single_resp.usage.total_tokens
+      assert resp.turn.usage.total_tokens > single_resp.turn.usage.total_tokens
     end
   end
 

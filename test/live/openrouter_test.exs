@@ -33,7 +33,7 @@ defmodule Live.OpenRouterTest do
     truncated = String.replace(truncated, "\n", " ")
 
     IO.puts(
-      "[openrouter] text: \"#{truncated}\" (stop: #{resp.stop_reason}, in: #{resp.usage.input_tokens}, out: #{resp.usage.output_tokens})"
+      "[openrouter] text: \"#{truncated}\" (stop: #{resp.stop_reason}, in: #{resp.turn.usage.input_tokens}, out: #{resp.turn.usage.output_tokens})"
     )
   end
 

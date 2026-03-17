@@ -18,7 +18,19 @@ defmodule Omni.Loop do
   # returns either a terminal event or a new lazy stream for the next step.
   @moduledoc false
 
-  alias Omni.{Context, Message, Model, Request, Response, Schema, StreamingResponse, Tool, Usage}
+  alias Omni.{
+    Context,
+    Message,
+    Model,
+    Request,
+    Response,
+    Schema,
+    StreamingResponse,
+    Tool,
+    Turn,
+    Usage
+  }
+
   alias Omni.Content.{Text, ToolUse}
 
   @max_output_retries 3
@@ -36,6 +48,8 @@ defmodule Omni.Loop do
     {raw?, opts} = Keyword.pop(opts, :raw, false)
     {max_steps, opts} = Keyword.pop(opts, :max_steps, :infinity)
     {tool_timeout, opts} = Keyword.pop(opts, :tool_timeout, 30_000)
+    {turn_id, opts} = Keyword.pop(opts, :turn_id, 0)
+    {turn_parent, opts} = Keyword.pop(opts, :turn_parent, nil)
     cancel_ref = make_ref()
 
     state = %{
@@ -52,7 +66,9 @@ defmodule Omni.Loop do
       raws: [],
       usage: %Usage{},
       output_schema: opts[:output],
-      output_retries: 0
+      output_retries: 0,
+      turn_id: turn_id,
+      turn_parent: turn_parent
     }
 
     with {:ok, sr} <- step(state) do
@@ -104,7 +120,7 @@ defmodule Omni.Loop do
     state = %{
       state
       | messages: state.messages ++ [response.message],
-        usage: Usage.add(state.usage, response.usage),
+        usage: Usage.add(state.usage, response.turn.usage),
         raws: state.raws ++ (response.raw || [])
     }
 
@@ -257,22 +273,36 @@ defmodule Omni.Loop do
   # -- Response building --
 
   defp build_final_response(state, last_step_response) do
+    turn =
+      Turn.new(
+        id: state.turn_id,
+        parent: state.turn_parent,
+        messages: state.messages,
+        usage: state.usage
+      )
+
     %{
       last_step_response
-      | messages: state.messages,
-        usage: state.usage,
+      | turn: turn,
         raw: if(state.raw?, do: state.raws, else: nil)
     }
   end
 
   defp build_error_response(state, reason) do
+    turn =
+      Turn.new(
+        id: state.turn_id,
+        parent: state.turn_parent,
+        messages: state.messages,
+        usage: state.usage
+      )
+
     Response.new(
       message: Message.new(role: :assistant, content: []),
       model: state.model,
-      usage: state.usage,
+      turn: turn,
       stop_reason: :error,
-      error: reason,
-      messages: state.messages
+      error: reason
     )
   end
 

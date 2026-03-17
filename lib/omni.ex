@@ -51,7 +51,7 @@ defmodule Omni do
       response.message
       #=> %Omni.Message{role: :assistant, content: [%Omni.Content.Text{text: "Hello! How can..."}]}
 
-      response.usage
+      response.turn.usage
       #=> %Omni.Usage{input_tokens: 10, output_tokens: 25, total_cost: 0.0003, ...}
 
   For multi-turn conversations, build a context with a system prompt and messages:

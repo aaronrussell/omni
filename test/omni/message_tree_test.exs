@@ -1,7 +1,7 @@
 defmodule Omni.MessageTreeTest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Message, MessageTree, Usage}
+  alias Omni.{Message, MessageTree, Turn, Usage}
 
   defp msg(text), do: Message.new(text)
   defp assistant(text), do: Message.new(role: :assistant, content: text)
@@ -19,81 +19,81 @@ defmodule Omni.MessageTreeTest do
   defp example_tree do
     tree = %MessageTree{}
 
-    {0, tree} = MessageTree.push(tree, [msg("r0")], usage(10, 5))
-    {1, tree} = MessageTree.push(tree, [msg("r1"), assistant("a1")], usage(20, 10))
+    {%Turn{id: 0}, tree} = MessageTree.push(tree, [msg("r0")], usage(10, 5))
+    {%Turn{id: 1}, tree} = MessageTree.push(tree, [msg("r1"), assistant("a1")], usage(20, 10))
 
-    # Push round 2 (child of 1) — will become inactive branch
-    {2, tree} = MessageTree.push(tree, [msg("r2")], usage(30, 15))
+    # Push turn 2 (child of 1) — will become inactive branch
+    {%Turn{id: 2}, tree} = MessageTree.push(tree, [msg("r2")], usage(30, 15))
 
-    # Push round 3 (child of 2)
-    {3, tree} = MessageTree.push(tree, [msg("r3")], usage(40, 20))
+    # Push turn 3 (child of 2)
+    {%Turn{id: 3}, tree} = MessageTree.push(tree, [msg("r3")], usage(40, 20))
 
-    # Navigate back to round 1 and push round 4 (branch from 1)
+    # Navigate back to turn 1 and push turn 4 (branch from 1)
     {:ok, tree} = MessageTree.navigate(tree, 1)
-    {4, tree} = MessageTree.push(tree, [msg("r4")], usage(50, 25))
+    {%Turn{id: 4}, tree} = MessageTree.push(tree, [msg("r4")], usage(50, 25))
 
-    # Push round 5 (child of 4)
-    {5, tree} = MessageTree.push(tree, [msg("r5")], usage(60, 30))
+    # Push turn 5 (child of 4)
+    {%Turn{id: 5}, tree} = MessageTree.push(tree, [msg("r5")], usage(60, 30))
 
-    # Navigate back to round 1 and push round 6 (another branch from 1)
+    # Navigate back to turn 1 and push turn 6 (another branch from 1)
     {:ok, tree} = MessageTree.navigate(tree, 1)
-    {6, tree} = MessageTree.push(tree, [msg("r6")], usage(70, 35))
+    {%Turn{id: 6}, tree} = MessageTree.push(tree, [msg("r6")], usage(70, 35))
 
-    # Navigate to round 5 to set active path to [0, 1, 4, 5]
+    # Navigate to turn 5 to set active path to [0, 1, 4, 5]
     {:ok, tree} = MessageTree.navigate(tree, 5)
 
     tree
   end
 
   describe "push/3" do
-    test "push to empty tree creates round 0 with parent nil" do
-      {id, tree} = MessageTree.push(%MessageTree{}, [msg("hello")], usage(10, 5))
+    test "push to empty tree creates turn 0 with parent nil" do
+      {turn, tree} = MessageTree.push(%MessageTree{}, [msg("hello")], usage(10, 5))
 
-      assert id == 0
+      assert turn.id == 0
       assert tree.active_path == [0]
-      assert tree.rounds[0].parent == nil
-      assert [%Message{role: :user}] = tree.rounds[0].messages
-      assert tree.rounds[0].usage.input_tokens == 10
+      assert tree.turns[0].parent == nil
+      assert [%Message{role: :user}] = tree.turns[0].messages
+      assert tree.turns[0].usage.input_tokens == 10
     end
 
     test "push to non-empty tree sets parent to previous head" do
       {_, tree} = MessageTree.push(%MessageTree{}, [msg("first")], usage(10, 5))
-      {id, tree} = MessageTree.push(tree, [msg("second")], usage(20, 10))
+      {turn, tree} = MessageTree.push(tree, [msg("second")], usage(20, 10))
 
-      assert id == 1
-      assert tree.rounds[1].parent == 0
+      assert turn.id == 1
+      assert tree.turns[1].parent == 0
       assert tree.active_path == [0, 1]
     end
 
     test "sequential pushes build a linear chain" do
       tree = %MessageTree{}
-      {0, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
-      {1, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
-      {2, tree} = MessageTree.push(tree, [msg("c")], usage(3, 3))
+      {%Turn{id: 0}, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
+      {%Turn{id: 1}, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
+      {%Turn{id: 2}, tree} = MessageTree.push(tree, [msg("c")], usage(3, 3))
 
       assert tree.active_path == [0, 1, 2]
-      assert tree.rounds[0].parent == nil
-      assert tree.rounds[1].parent == 0
-      assert tree.rounds[2].parent == 1
+      assert tree.turns[0].parent == nil
+      assert tree.turns[1].parent == 0
+      assert tree.turns[2].parent == 1
     end
 
     test "assigns sequential IDs based on map size" do
       tree = %MessageTree{}
-      {0, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
-      {1, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
+      {%Turn{id: 0}, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
+      {%Turn{id: 1}, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
 
       # Navigate back and branch — next ID is still 2 (map_size)
       {:ok, tree} = MessageTree.navigate(tree, 0)
-      {2, _tree} = MessageTree.push(tree, [msg("c")], usage(3, 3))
+      {%Turn{id: 2}, _tree} = MessageTree.push(tree, [msg("c")], usage(3, 3))
     end
   end
 
   describe "navigate/2" do
-    test "navigate to existing round sets active path" do
+    test "navigate to existing turn sets active path" do
       tree = %MessageTree{}
-      {0, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
-      {1, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
-      {2, tree} = MessageTree.push(tree, [msg("c")], usage(3, 3))
+      {%Turn{id: 0}, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
+      {%Turn{id: 1}, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
+      {%Turn{id: 2}, tree} = MessageTree.push(tree, [msg("c")], usage(3, 3))
 
       {:ok, tree} = MessageTree.navigate(tree, 1)
 
@@ -101,9 +101,9 @@ defmodule Omni.MessageTreeTest do
       assert MessageTree.head(tree) == 1
     end
 
-    test "navigate to root round" do
+    test "navigate to root turn" do
       tree = %MessageTree{}
-      {0, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
+      {%Turn{id: 0}, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
       {_, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
 
       {:ok, tree} = MessageTree.navigate(tree, 0)
@@ -111,29 +111,29 @@ defmodule Omni.MessageTreeTest do
       assert tree.active_path == [0]
     end
 
-    test "navigate to non-existent round returns error" do
+    test "navigate to non-existent turn returns error" do
       assert {:error, :not_found} = MessageTree.navigate(%MessageTree{}, 99)
     end
 
     test "navigate then push creates a branch" do
       tree = %MessageTree{}
-      {0, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
-      {1, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
+      {%Turn{id: 0}, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
+      {%Turn{id: 1}, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
 
       {:ok, tree} = MessageTree.navigate(tree, 0)
-      {2, tree} = MessageTree.push(tree, [msg("c")], usage(3, 3))
+      {%Turn{id: 2}, tree} = MessageTree.push(tree, [msg("c")], usage(3, 3))
 
-      # Round 2 branches from round 0
-      assert tree.rounds[2].parent == 0
+      # Turn 2 branches from turn 0
+      assert tree.turns[2].parent == 0
       assert tree.active_path == [0, 2]
 
-      # Both round 1 and round 2 are children of round 0
+      # Both turn 1 and turn 2 are children of turn 0
       assert MapSet.new(MessageTree.children(tree, 0)) == MapSet.new([1, 2])
     end
   end
 
   describe "clear/1" do
-    test "clears active path but preserves rounds" do
+    test "clears active path but preserves turns" do
       tree = %MessageTree{}
       {_, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
       {_, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
@@ -141,7 +141,7 @@ defmodule Omni.MessageTreeTest do
       tree = MessageTree.clear(tree)
 
       assert tree.active_path == []
-      assert map_size(tree.rounds) == 2
+      assert map_size(tree.turns) == 2
     end
 
     test "push after clear creates a new root" do
@@ -149,9 +149,9 @@ defmodule Omni.MessageTreeTest do
       {_, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
 
       tree = MessageTree.clear(tree)
-      {1, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
+      {%Turn{id: 1}, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
 
-      assert tree.rounds[1].parent == nil
+      assert tree.turns[1].parent == nil
       assert tree.active_path == [1]
     end
 
@@ -159,7 +159,7 @@ defmodule Omni.MessageTreeTest do
       tree = MessageTree.clear(%MessageTree{})
 
       assert tree.active_path == []
-      assert tree.rounds == %{}
+      assert tree.turns == %{}
     end
   end
 
@@ -203,7 +203,7 @@ defmodule Omni.MessageTreeTest do
   end
 
   describe "usage/1" do
-    test "sums usage across all rounds in the tree" do
+    test "sums usage across all turns in the tree" do
       tree = %MessageTree{}
       {_, tree} = MessageTree.push(tree, [msg("a")], usage(10, 5))
       {_, tree} = MessageTree.push(tree, [msg("b")], usage(20, 10))
@@ -217,7 +217,7 @@ defmodule Omni.MessageTreeTest do
     test "includes inactive branches" do
       tree = example_tree()
 
-      # All 7 rounds: 10 + 20 + 30 + 40 + 50 + 60 + 70 = 280
+      # All 7 turns: 10 + 20 + 30 + 40 + 50 + 60 + 70 = 280
       assert MessageTree.usage(tree).input_tokens == 280
     end
 
@@ -229,22 +229,22 @@ defmodule Omni.MessageTreeTest do
     end
   end
 
-  describe "round_count/1" do
+  describe "turn_count/1" do
     test "returns length of active path" do
       tree = %MessageTree{}
       {_, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
       {_, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
 
-      assert MessageTree.round_count(tree) == 2
+      assert MessageTree.turn_count(tree) == 2
     end
 
     test "returns 0 for empty tree" do
-      assert MessageTree.round_count(%MessageTree{}) == 0
+      assert MessageTree.turn_count(%MessageTree{}) == 0
     end
   end
 
   describe "head/1" do
-    test "returns last round ID in active path" do
+    test "returns last turn ID in active path" do
       tree = %MessageTree{}
       {_, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
       {_, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
@@ -257,27 +257,27 @@ defmodule Omni.MessageTreeTest do
     end
   end
 
-  describe "get_round/2" do
-    test "returns round data for existing ID" do
+  describe "get_turn/2" do
+    test "returns turn data for existing ID" do
       {_, tree} = MessageTree.push(%MessageTree{}, [msg("hello")], usage(10, 5))
 
-      round = MessageTree.get_round(tree, 0)
+      turn = MessageTree.get_turn(tree, 0)
 
-      assert round.parent == nil
-      assert round.usage.input_tokens == 10
-      assert [%Message{}] = round.messages
+      assert turn.parent == nil
+      assert turn.usage.input_tokens == 10
+      assert [%Message{}] = turn.messages
     end
 
     test "returns nil for non-existent ID" do
-      assert MessageTree.get_round(%MessageTree{}, 99) == nil
+      assert MessageTree.get_turn(%MessageTree{}, 99) == nil
     end
   end
 
   describe "children/2" do
-    test "returns child round IDs" do
+    test "returns child turn IDs" do
       tree = example_tree()
 
-      # Round 1 has children 2, 4, 6
+      # Turn 1 has children 2, 4, 6
       children = MessageTree.children(tree, 1)
       assert children == [2, 4, 6]
     end
@@ -299,10 +299,10 @@ defmodule Omni.MessageTreeTest do
   end
 
   describe "siblings/2" do
-    test "returns sibling round IDs excluding self" do
+    test "returns sibling turn IDs excluding self" do
       tree = example_tree()
 
-      # Rounds 2, 4, 6 are all children of round 1
+      # Turns 2, 4, 6 are all children of turn 1
       assert MessageTree.siblings(tree, 2) == [4, 6]
       assert MessageTree.siblings(tree, 4) == [2, 6]
       assert MessageTree.siblings(tree, 6) == [2, 4]
@@ -318,26 +318,26 @@ defmodule Omni.MessageTreeTest do
 
     test "handles root-level siblings" do
       tree = %MessageTree{}
-      {0, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
+      {%Turn{id: 0}, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
 
       tree = MessageTree.clear(tree)
-      {1, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
+      {%Turn{id: 1}, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
 
       tree = MessageTree.clear(tree)
-      {2, tree} = MessageTree.push(tree, [msg("c")], usage(3, 3))
+      {%Turn{id: 2}, tree} = MessageTree.push(tree, [msg("c")], usage(3, 3))
 
       assert MessageTree.siblings(tree, 0) == [1, 2]
       assert MessageTree.siblings(tree, 1) == [0, 2]
       assert MessageTree.siblings(tree, 2) == [0, 1]
     end
 
-    test "returns empty list for non-existent round" do
+    test "returns empty list for non-existent turn" do
       assert MessageTree.siblings(%MessageTree{}, 99) == []
     end
   end
 
   describe "path_to/2" do
-    test "returns root-first path for existing round" do
+    test "returns root-first path for existing turn" do
       tree = example_tree()
 
       assert {:ok, [0, 1, 4, 5]} = MessageTree.path_to(tree, 5)
@@ -345,11 +345,11 @@ defmodule Omni.MessageTreeTest do
       assert {:ok, [0, 1, 6]} = MessageTree.path_to(tree, 6)
     end
 
-    test "returns error for non-existent round" do
+    test "returns error for non-existent turn" do
       assert {:error, :not_found} = MessageTree.path_to(%MessageTree{}, 99)
     end
 
-    test "path to root round is just the root" do
+    test "path to root turn is just the root" do
       tree = example_tree()
 
       assert {:ok, [0]} = MessageTree.path_to(tree, 0)
@@ -365,13 +365,13 @@ defmodule Omni.MessageTreeTest do
 
     test "returns multiple roots after clear + push cycles" do
       tree = %MessageTree{}
-      {0, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
+      {%Turn{id: 0}, tree} = MessageTree.push(tree, [msg("a")], usage(1, 1))
 
       tree = MessageTree.clear(tree)
-      {1, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
+      {%Turn{id: 1}, tree} = MessageTree.push(tree, [msg("b")], usage(2, 2))
 
       tree = MessageTree.clear(tree)
-      {2, tree} = MessageTree.push(tree, [msg("c")], usage(3, 3))
+      {%Turn{id: 2}, tree} = MessageTree.push(tree, [msg("c")], usage(3, 3))
 
       assert MessageTree.roots(tree) == [0, 1, 2]
     end
@@ -382,10 +382,10 @@ defmodule Omni.MessageTreeTest do
   end
 
   describe "Enumerable" do
-    test "Enum.map yields {id, round} tuples for active path" do
+    test "Enum.map yields {id, turn} tuples for active path" do
       tree = example_tree()
 
-      result = Enum.map(tree, fn {id, _round} -> id end)
+      result = Enum.map(tree, fn {id, _turn} -> id end)
 
       assert result == [0, 1, 4, 5]
     end
@@ -400,21 +400,21 @@ defmodule Omni.MessageTreeTest do
       assert Enum.to_list(%MessageTree{}) == []
     end
 
-    test "iteration yields full round data" do
+    test "iteration yields full turn data" do
       tree = %MessageTree{}
       {_, tree} = MessageTree.push(tree, [msg("hello")], usage(10, 5))
 
-      [{id, round}] = Enum.to_list(tree)
+      [{id, turn}] = Enum.to_list(tree)
 
       assert id == 0
-      assert round.parent == nil
-      assert round.usage.input_tokens == 10
+      assert turn.parent == nil
+      assert turn.usage.input_tokens == 10
     end
 
     test "iterates only the active path" do
       tree = example_tree()
 
-      # Active path is [0, 1, 4, 5] — should not see rounds 2, 3, 6
+      # Active path is [0, 1, 4, 5] — should not see turns 2, 3, 6
       ids = Enum.map(tree, fn {id, _} -> id end)
       assert ids == [0, 1, 4, 5]
       refute 2 in ids
@@ -427,23 +427,23 @@ defmodule Omni.MessageTreeTest do
     test "full tree structure matches spec" do
       tree = example_tree()
 
-      # 7 rounds total
-      assert map_size(tree.rounds) == 7
+      # 7 turns total
+      assert map_size(tree.turns) == 7
 
       # Active path is [0, 1, 4, 5]
       assert tree.active_path == [0, 1, 4, 5]
 
       # Parent pointers
-      assert tree.rounds[0].parent == nil
-      assert tree.rounds[1].parent == 0
-      assert tree.rounds[2].parent == 1
-      assert tree.rounds[3].parent == 2
-      assert tree.rounds[4].parent == 1
-      assert tree.rounds[5].parent == 4
-      assert tree.rounds[6].parent == 1
+      assert tree.turns[0].parent == nil
+      assert tree.turns[1].parent == 0
+      assert tree.turns[2].parent == 1
+      assert tree.turns[3].parent == 2
+      assert tree.turns[4].parent == 1
+      assert tree.turns[5].parent == 4
+      assert tree.turns[6].parent == 1
     end
 
-    test "navigate to round 3 shows that branch" do
+    test "navigate to turn 3 shows that branch" do
       tree = example_tree()
 
       {:ok, tree} = MessageTree.navigate(tree, 3)
@@ -459,7 +459,7 @@ defmodule Omni.MessageTreeTest do
       assert texts == ["r0", "r1", "a1", "r2", "r3"]
     end
 
-    test "navigate back to round 5 restores original path" do
+    test "navigate back to turn 5 restores original path" do
       tree = example_tree()
 
       {:ok, tree} = MessageTree.navigate(tree, 3)
@@ -468,15 +468,15 @@ defmodule Omni.MessageTreeTest do
       assert tree.active_path == [0, 1, 4, 5]
     end
 
-    test "usage sums all rounds regardless of active path" do
+    test "usage sums all turns regardless of active path" do
       tree = example_tree()
 
-      # All 7 rounds: 10 + 20 + 30 + 40 + 50 + 60 + 70 = 280
+      # All 7 turns: 10 + 20 + 30 + 40 + 50 + 60 + 70 = 280
       assert MessageTree.usage(tree).input_tokens == 280
 
       {:ok, tree} = MessageTree.navigate(tree, 3)
 
-      # Navigation doesn't change total usage — still all 7 rounds
+      # Navigation doesn't change total usage — still all 7 turns
       assert MessageTree.usage(tree).input_tokens == 280
     end
   end

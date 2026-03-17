@@ -25,6 +25,7 @@ The core idea: an agent is a process that holds a model, a conversation tree, to
 - Not a multi-agent orchestration system -- that sits above the agent
 - Not a memory/RAG system -- that's a separate concern
 - Not a replacement for `stream_text`/`generate_text` -- those remain the stateless API
+- Not a persistence/storage system -- that's an application concern (agent events carry enough context for external persistence)
 
 ---
 
@@ -164,18 +165,17 @@ Agent state is split into two structs: a public `%Omni.Agent.State{}` passed to 
 
 ### Public state (`Omni.Agent.State`)
 
-The public state is a 10-field struct. User-defined state is split into `meta` (serializable, persisted by storage) and `private` (runtime, not persisted).
+The public state is a 9-field struct. User-defined state is split into `meta` (user metadata) and `private` (runtime, not persisted).
 
 ```elixir
 defmodule Omni.Agent.State do
   defstruct [
-    :session_id,                      # String.t() — unique session identifier
     :model,                           # %Model{} — the agent's model
     :opts,                            # keyword — agent-level default inference opts
     system: nil,                      # String.t() | nil — system prompt
     tools: [],                        # [Tool.t()] — available tools
     tree: %MessageTree{},             # %MessageTree{} — conversation tree
-    meta: %{},                        # serializable user data (persisted by storage)
+    meta: %{},                        # user metadata (title, tags, custom domain data)
     private: %{},                     # runtime state (PIDs, refs — not persisted)
     status: :idle,                    # :idle | :running | :paused
     step: 0                           # current step counter within the active round
@@ -185,14 +185,14 @@ end
 
 The fields have two logical tiers:
 
-- **Configuration** — `model`, `system`, `tools`, and `opts` are set at `start_link` and changeable via `configure/2,3` (idle only). `opts` holds agent-level inference defaults (`:temperature`, `:max_tokens`, `:max_steps`, etc.).
-- **Session state** — `session_id`, `tree`, `meta`, `private`, `status`, and `step` change during operation. `tree` holds the full conversation history as a `%MessageTree{}`. `meta` is serializable user data. `private` is runtime state. `step` resets per prompt round.
+- **Configuration** — `model`, `system`, `tools`, and `opts` are set at `start_link` and changeable via `set_state/2,3` (idle only). `opts` holds agent-level inference defaults (`:temperature`, `:max_tokens`, `:max_steps`, etc.).
+- **Session state** — `tree`, `meta`, `private`, `status`, and `step` change during operation. `tree` holds the full conversation history as a `%MessageTree{}`. `meta` is user metadata. `private` is runtime state. `step` resets per prompt round.
 
 All callbacks receive this public `%State{}` struct. Users can read any field and primarily read/write `meta` and `private`. The framework manages the other fields.
 
 Note: `tree` reflects the committed state — it only includes messages from completed prompt rounds. In-progress messages are tracked internally and are not visible in `tree` until the round completes. See "Context management" section.
 
-Usage is not cached on state — `Agent.usage/1` computes it via `MessageTree.usage/1`, which sums all rounds in the tree.
+Usage is not cached on state — `Agent.usage/1` computes it via `MessageTree.usage/1`, which sums all turns in the tree.
 
 ### Internal server state (`Omni.Agent.Server`)
 
@@ -232,9 +232,7 @@ defstruct [
 
 ### Usage accumulation
 
-Usage is not cached on `%State{}`. Each step's usage accumulates into `server.pending_usage` during a round. On round commit, `pending_usage` is stored in the `MessageTree` round via `push/3`. `Agent.usage/1` computes the total via `MessageTree.usage/1`, which sums all rounds in the tree — including inactive branches (total API spend, not just the active conversation path).
-
-`Agent.clear/1` replaces the tree with a fresh `%MessageTree{}`, so `usage/1` returns `%Usage{}` after clear.
+Usage is not cached on `%State{}`. Each step's usage accumulates into `server.pending_usage` during a round. On round commit, `pending_usage` is stored in the `MessageTree` turn via `push/3`. `Agent.usage/1` computes the total via `MessageTree.usage/1`, which sums all turns in the tree — including inactive branches (total API spend, not just the active conversation path).
 
 ### What the state does NOT store
 
@@ -263,13 +261,12 @@ Agent.prompt(agent, content, opts \\ [])           # send prompt / steer
 Agent.resume(agent, decision)                      # resume from tool approval pause
 Agent.cancel(agent)                                # abort and rollback
 
-# Configuration (idle only)
-Agent.configure(agent, opts)                       # → :ok | {:error, ...}
-Agent.configure(agent, field, updater_fn)          # → :ok | {:error, ...}
+# State management (idle only)
+Agent.set_state(agent, opts)                       # → :ok | {:error, ...}
+Agent.set_state(agent, field, value_or_fun)        # → :ok | {:error, ...}
 
 # Navigation (idle only)
-Agent.navigate(agent, round_id)                    # → {:ok, %MessageTree{}} | {:error, ...}
-Agent.clear(agent)                                 # → {:ok, session_id} | {:error, :running}
+Agent.navigate(agent, turn_id)                     # → {:ok, %MessageTree{}} | {:error, ...}
 
 # Listener
 Agent.listen(agent, pid)                           # → :ok | {:error, :running}
@@ -279,10 +276,6 @@ Agent.get_state(agent)                             # → %State{}
 Agent.get_state(agent, :model)                     # → %Model{}
 Agent.get_state(agent, :status)                    # → :idle | :running | :paused
 Agent.usage(agent)                                 # → %Usage{}
-
-# Tool management (idle only)
-Agent.add_tools(agent, tools)                      # → :ok | {:error, :running}
-Agent.remove_tools(agent, tool_names)              # → :ok | {:error, :running}
 ```
 
 ### prompt/2,3
@@ -336,24 +329,25 @@ Aborts the current operation. Kills any running Step/Executor/Tool Tasks, discar
 
 Works when `:running` or `:paused`. Returns `{:error, :idle}` if already idle.
 
-### clear/1
+### set_state/2
 
 ```elixir
-{:ok, new_session_id} = Agent.clear(agent)
+Agent.set_state(agent, system: "Be concise.", opts: [temperature: 0.7])
+Agent.set_state(agent, tree: %MessageTree{})
+Agent.set_state(agent, tools: [SearchTool.new(), FetchTool.new()])
 ```
 
-Starts a new session. Generates a new session ID and replaces the tree with a fresh `%MessageTree{}`. Preserves system prompt, tools, model, opts, meta, and private. Returns `{:ok, new_session_id}`. Only valid when `:idle`; returns `{:error, :running}` otherwise.
+Replaces agent configuration fields. Accepts: `:model`, `:system`, `:tools`, `:tree`, `:opts`, `:meta`. All values are replaced, not merged. Atomic — if model resolution fails, no changes are applied. Idle only.
 
-This is distinct from `navigate/2`: navigating moves the cursor within the same session and tree. `clear/1` creates a clean slate with a new session ID.
-
-### add_tools/2, remove_tools/2
+### set_state/3
 
 ```elixir
-:ok = Agent.add_tools(agent, [NewTool.new()])
-:ok = Agent.remove_tools(agent, ["old_tool"])
+Agent.set_state(agent, :system, "Be concise.")
+Agent.set_state(agent, :opts, fn opts -> Keyword.merge(opts, temperature: 0.7) end)
+Agent.set_state(agent, :meta, fn meta -> Map.put(meta, :title, "Research") end)
 ```
 
-Modify the agent's tool set. Only valid when the agent is `:idle` — returns `{:error, :running}` if the agent is running or paused. This avoids race conditions with in-progress tool execution.
+Replaces or transforms a single field. When the third argument is a 1-arity function, it receives the current value and returns the new value. When it's a plain value, it replaces directly. Same settable fields as `set_state/2`. Idle only.
 
 ### Listener
 
@@ -369,7 +363,7 @@ Agent.listen(agent, self())
 
 The listener starts as `nil` after `start_link`. The first `prompt/3` call sets the caller as the listener if none has been explicitly set. After that, the listener persists across prompt rounds until explicitly changed via `listen/2`.
 
-`listen/2` returns `:ok` when idle, `{:error, :running}` otherwise — same idle-only constraint as `add_tools/remove_tools`. This avoids mid-round listener changes and the ambiguity of who receives in-flight events.
+`listen/2` returns `:ok` when idle, `{:error, :running}` otherwise — same idle-only constraint as `set_state/2,3`. This avoids mid-round listener changes and the ambiguity of who receives in-flight events.
 
 Typical patterns:
 
@@ -415,6 +409,8 @@ All events from the agent follow the format `{:agent, agent_pid, event_type, eve
 SR events `:done` and `:error` are not forwarded — they are internal to the step. The agent emits its own `:done` and `:error` events at the prompt round level. `:retry` is emitted when `handle_error` returns `{:retry, state}` — it carries the error reason and signals that a new step will follow. `:error` is always terminal (round is over).
 
 **Turn boundaries:** `:turn` fires after each intermediate turn (where `handle_stop` returned `{:continue, ...}`). `:done` fires after the final turn. The last turn gets `:done`, not `:turn` — no doubling up. A simple chatbot (one turn per prompt) never sees `:turn`, only `:done`.
+
+`:turn` and `:done` events carry a `%Response{}` with a `%Turn{}` struct (`response.turn`) containing the turn's `id`, `parent`, `messages`, and `usage`. For `:done`, the Turn is committed to the tree. For `:turn`, it's a partial Turn with the same id/parent (pre-computed) but only the messages accumulated so far. External listeners can use this to reconstruct the conversation tree for persistence without the agent needing to know about storage.
 
 ```
 # Simple chatbot (1 turn, no tools)
@@ -884,7 +880,7 @@ The agent does not commit messages to the tree until a prompt round completes su
 
 - `state.tree` = the committed conversation tree, only updated atomically on completion
 - Step Tasks receive a transient `%Context{}` built from tree messages + pending messages
-- On `:done`: `MessageTree.push(tree, pending_messages, pending_usage)` commits the round
+- On `:done`: `MessageTree.push(tree, pending_messages, pending_usage)` commits the turn
 - On cancel: pending messages and pending usage are discarded, tree unchanged
 
 This means the tree is always in a consistent state — no orphaned tool use blocks, no consecutive user messages, no partial turns.
@@ -895,7 +891,7 @@ This means the tree is always in a consistent state — no orphaned tool use blo
 
 1. Kills any running Step/Executor/Tool Tasks
 2. Discards all pending messages and pending usage
-3. Tree is unchanged — only committed rounds persist
+3. Tree is unchanged — only committed turns persist
 4. Agent returns to `:idle`
 5. Listener receives `{:agent, pid, :cancelled, nil}`
 

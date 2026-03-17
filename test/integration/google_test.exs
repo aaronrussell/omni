@@ -36,8 +36,8 @@ defmodule Integration.GoogleTest do
       assert resp.stop_reason == :stop
       assert resp.message.role == :assistant
       assert %Omni.Model{} = resp.model
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
+      assert resp.turn.usage.input_tokens > 0
+      assert resp.turn.usage.output_tokens > 0
       assert [%Text{text: text}] = resp.message.content
       assert is_binary(text) and byte_size(text) > 0
     end
@@ -68,7 +68,7 @@ defmodule Integration.GoogleTest do
 
       assert resp.stop_reason == :tool_use
       assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
+      assert resp.turn.usage.input_tokens > 0
       assert tool_use = Enum.find(resp.message.content, &match?(%ToolUse{}, &1))
       assert is_binary(tool_use.name) and tool_use.name == "get_weather"
       assert is_map(tool_use.input)
@@ -88,7 +88,7 @@ defmodule Integration.GoogleTest do
 
       assert resp.stop_reason == :stop
       assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
+      assert resp.turn.usage.input_tokens > 0
 
       thinking = Enum.filter(resp.message.content, &match?(%Thinking{}, &1))
       assert length(thinking) > 0
@@ -139,8 +139,8 @@ defmodule Integration.GoogleTest do
       assert {:ok, %Response{} = resp} = StreamingResponse.complete(sr)
       assert resp.stop_reason == :stop
       assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
+      assert resp.turn.usage.input_tokens > 0
+      assert resp.turn.usage.output_tokens > 0
       assert [%Text{text: text}] = resp.message.content
       assert byte_size(text) > 0
     end

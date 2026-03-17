@@ -23,7 +23,7 @@ defmodule Live.AnthropicTest do
     truncated = String.replace(truncated, "\n", " ")
 
     IO.puts(
-      "[anthropic] text: \"#{truncated}\" (stop: #{resp.stop_reason}, in: #{resp.usage.input_tokens}, out: #{resp.usage.output_tokens})"
+      "[anthropic] text: \"#{truncated}\" (stop: #{resp.stop_reason}, in: #{resp.turn.usage.input_tokens}, out: #{resp.turn.usage.output_tokens})"
     )
   end
 
