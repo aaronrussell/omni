@@ -78,8 +78,14 @@ defmodule Omni.Dialects.OpenAICompletions do
     [{:message, message}]
   end
 
-  def handle_event(%{"choices" => [%{"delta" => %{"tool_calls" => [tool_call | _]}}]} = event)
-      when is_map_key(tool_call, "id") do
+  def handle_event(
+        %{
+          "choices" => [
+            %{"delta" => %{"tool_calls" => [%{"function" => %{"name" => name}} = tool_call | _]}}
+          ]
+        } = event
+      )
+      when is_binary(name) do
     message =
       case event do
         %{"model" => model_id} -> [{:message, %{model: model_id}}]
@@ -93,7 +99,7 @@ defmodule Omni.Dialects.OpenAICompletions do
            type: :tool_use,
            index: tool_call["index"] || 0,
            id: tool_call["id"],
-           name: tool_call["function"]["name"]
+           name: name
          }}
       ]
   end

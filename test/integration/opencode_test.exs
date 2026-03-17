@@ -2,7 +2,7 @@ defmodule Integration.OpenCodeTest do
   use ExUnit.Case, async: true
 
   alias Omni.{Provider, Response}
-  alias Omni.Content.Text
+  alias Omni.Content.{Text, ToolUse}
 
   setup_all do
     Provider.load([:opencode])
@@ -13,6 +13,7 @@ defmodule Integration.OpenCodeTest do
   @oair_fixture "test/support/fixtures/sse/opencode_text_oair.sse"
   @oaic_fixture "test/support/fixtures/sse/opencode_text_oaic.sse"
   @google_fixture "test/support/fixtures/sse/opencode_text_google.sse"
+  @kimi_tool_use_fixture "test/support/fixtures/cases/opencode_kimi-k2-5_tool_use.sse"
 
   defp stub_fixture(stub_name, fixture_path) do
     Req.Test.stub(stub_name, fn conn ->
@@ -91,6 +92,22 @@ defmodule Integration.OpenCodeTest do
       assert resp.turn.usage.output_tokens > 0
       assert [%Text{text: text}] = resp.message.content
       assert is_binary(text) and byte_size(text) > 0
+    end
+
+    test "tool_use returns tool name and input when provider sends id on every chunk" do
+      stub_fixture(:oc_kimi_tool, @kimi_tool_use_fixture)
+
+      assert {:ok, %Response{} = resp} =
+               Omni.generate_text(model("kimi-k2.5"), "What's the weather in London?",
+                 api_key: "test-key",
+                 max_steps: 1,
+                 plug: {Req.Test, :oc_kimi_tool}
+               )
+
+      assert resp.stop_reason == :tool_use
+      assert [%Text{}, %ToolUse{} = tool_use] = resp.message.content
+      assert tool_use.name == "get_weather"
+      assert tool_use.input == %{"location" => "London"}
     end
 
     test "model has the correct dialect" do

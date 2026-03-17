@@ -14,7 +14,7 @@ defmodule Omni.Turn do
 
   alias Omni.{Message, Usage}
 
-  defstruct [id: 0, parent: nil, messages: [], usage: %Usage{}]
+  defstruct id: 0, parent: nil, messages: [], usage: %Usage{}
 
   @typedoc "A conversation turn."
   @type t :: %__MODULE__{
