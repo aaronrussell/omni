@@ -45,6 +45,7 @@ defmodule Omni.MixProject do
       source_url: @source_url,
       homepage_url: @source_url,
       extras: ["CHANGELOG.md"],
+      skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
       groups_for_modules: [
         Agents: ~r/^Omni\.Agent/,
         Data: [
