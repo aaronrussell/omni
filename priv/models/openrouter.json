@@ -616,6 +616,26 @@
     "reasoning": true
   },
   {
+    "cache_read_cost": 0.025,
+    "cache_write_cost": 0.083,
+    "context_size": 1048576,
+    "dialect": null,
+    "id": "google/gemini-3.1-flash-lite-preview",
+    "input_cost": 0.25,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Gemini 3.1 Flash Lite Preview",
+    "output_cost": 1.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 1048576,
@@ -1992,6 +2012,46 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": null,
+    "id": "openrouter/healer-alpha",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 64000,
+    "name": "Healer Alpha",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "dialect": null,
+    "id": "openrouter/hunter-alpha",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 64000,
+    "name": "Hunter Alpha",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
     "context_size": 1840000,
     "dialect": null,
     "id": "openrouter/sherlock-dash-alpha",
@@ -2749,6 +2809,25 @@
     "max_output_tokens": 30000,
     "name": "Grok 4.1 Fast",
     "output_cost": 0.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0.2,
+    "cache_write_cost": 0,
+    "context_size": 2000000,
+    "dialect": null,
+    "id": "x-ai/grok-4.20-beta",
+    "input_cost": 2,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 30000,
+    "name": "Grok 4.20 Beta",
+    "output_cost": 6,
     "output_modalities": [
       "text"
     ],

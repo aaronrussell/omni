@@ -33,7 +33,7 @@ models = %{
   #:openai => "gpt-5-mini",
   #:google => "gemini-3-flash-preview",
   #:openrouter => "openai/gpt-4o-mini",
-  :opencode => "gpt-5.2"
+  #:opencode => "kimi-k2.5"
 }
 
 for provider <- Map.keys(models) do

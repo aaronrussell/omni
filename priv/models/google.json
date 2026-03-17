@@ -337,12 +337,12 @@
     "reasoning": true
   },
   {
-    "cache_read_cost": 0.05,
-    "cache_write_cost": 0,
+    "cache_read_cost": 0.025,
+    "cache_write_cost": 1,
     "context_size": 1048576,
     "dialect": "google_gemini",
     "id": "gemini-3.1-flash-lite-preview",
-    "input_cost": 0.5,
+    "input_cost": 0.25,
     "input_modalities": [
       "text",
       "image",
@@ -350,7 +350,7 @@
     ],
     "max_output_tokens": 65536,
     "name": "Gemini 3.1 Flash Lite Preview",
-    "output_cost": 3,
+    "output_cost": 1.5,
     "output_modalities": [
       "text"
     ],

@@ -406,6 +406,24 @@
     "cache_write_cost": 0,
     "context_size": 262144,
     "dialect": "openai_completions",
+    "id": "nemotron-3-super",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "nemotron-3-super",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": "openai_completions",
     "id": "qwen3-coder-next",
     "input_cost": 0,
     "input_modalities": [

@@ -342,7 +342,7 @@
   {
     "cache_read_cost": 0.5,
     "cache_write_cost": 6.25,
-    "context_size": 200000,
+    "context_size": 1000000,
     "dialect": "anthropic_messages",
     "id": "claude-opus-4-6",
     "input_cost": 5,
@@ -442,7 +442,7 @@
   {
     "cache_read_cost": 0.3,
     "cache_write_cost": 3.75,
-    "context_size": 200000,
+    "context_size": 1000000,
     "dialect": "anthropic_messages",
     "id": "claude-sonnet-4-6",
     "input_cost": 3,
