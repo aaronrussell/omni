@@ -135,6 +135,5 @@ The `context/` directory contains detailed design documents. This CLAUDE.md prov
 
 - **`context/design.md`** — Full architecture reference covering: top-level API, models and data loading, providers (behaviour, callbacks, config, auth), dialects (behaviour, callbacks, option validation), messages and content blocks, streaming pipeline (SSE/NDJSON, deltas, StreamingResponse), tools (struct, schema, modules, execution), and request flow.
 - **`context/agent.md`** — Agent system: GenServer architecture, public API (`prompt`, `set_state`, `navigate`, `usage`), lifecycle callbacks (`init`, `handle_tool_call`, `handle_tool_result`, `handle_stop`, `handle_error`, `terminate`), process model (Step/Executor/Tool Tasks), pause/resume, prompt queuing/steering, tree management, and the completion tool pattern.
-- **`context/sessions.md`** — Session persistence design: MessageTree (Layer 1, complete), agent state restructure (Layer 2, complete). Serialization (Layer 3, future).
 - **`context/roadmap.md`** — Pre-v1 checklist and future work.
 - **`context/provider-apis.md`** — Provider API documentation URLs (fetch on demand when working on a specific provider/dialect).
