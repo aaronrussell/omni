@@ -10,11 +10,9 @@ defmodule Omni.Response do
 
     * `:model` — the `%Model{}` that handled the request
     * `:message` — the assistant's response message (the last assistant message)
-    * `:turn` — `%Turn{}` containing all messages from this generation and their
-      cumulative token usage. For single-step calls, `turn.messages` is
-      `[response.message]`. For multi-step tool loops, it includes assistant
-      and tool-result messages from every step. The `turn.id` and `turn.parent`
-      position the turn within a conversation tree
+    * `:messages` — all messages from this generation. For single-step calls,
+      `[response.message]`. For multi-step tool loops, includes assistant and
+      tool-result messages from every step
     * `:output` — validated, decoded map when the `:output` option was set
     * `:stop_reason` — why generation ended: `:stop` (natural completion),
       `:length` (token limit reached), `:tool_use` (model invoked a tool),
@@ -22,23 +20,25 @@ defmodule Omni.Response do
     * `:error` — error description when `stop_reason` is `:error`, otherwise `nil`
     * `:raw` — list of `{%Req.Request{}, %Req.Response{}}` tuples when `:raw`
       was set (one per generation step)
+    * `:usage` — cumulative `%Usage{}` token counts and costs for this generation
 
   """
 
-  alias Omni.{Message, Model, Turn}
+  alias Omni.{Message, Model, Usage}
 
   @enforce_keys [:message, :model, :stop_reason]
-  defstruct [:message, :model, :stop_reason, :error, :raw, :output, turn: %Turn{}]
+  defstruct [:model, :message, :output, :stop_reason, :error, :raw, messages: [], usage: %Usage{}]
 
   @typedoc "A generation response envelope."
   @type t :: %__MODULE__{
-          message: Message.t(),
           model: Model.t(),
-          turn: Turn.t(),
+          message: Message.t(),
+          messages: [Message.t()],
+          output: map() | list() | nil,
           stop_reason: stop_reason(),
           error: String.t() | nil,
           raw: [{Req.Request.t(), Req.Response.t()}] | nil,
-          output: map() | list() | nil
+          usage: Usage.t()
         }
 
   @typedoc "Why generation ended."

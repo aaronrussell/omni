@@ -20,6 +20,8 @@ defmodule Omni.Agent.State do
     * `:tree` — `%MessageTree{}` containing the full conversation tree. Only
       includes messages from completed prompt rounds — in-progress messages
       are not visible here until the round finishes
+    * `:usage` — cumulative `%Usage{}` across the entire session, including
+      abandoned branches. Accumulates automatically every step; read-only
     * `:meta` — user metadata map (title, tags, custom domain data). Set initial
       values via `:meta` start option, update via `set_state/2,3`
     * `:private` — runtime state (PIDs, ETS refs, closures). Not persisted.
@@ -31,7 +33,7 @@ defmodule Omni.Agent.State do
       callbacks (e.g. rejecting tools after a threshold)
   """
 
-  alias Omni.{MessageTree, Model, Tool}
+  alias Omni.{MessageTree, Model, Tool, Usage}
 
   @typedoc "The public agent state passed to all callbacks."
   @type t :: %__MODULE__{
@@ -39,6 +41,7 @@ defmodule Omni.Agent.State do
           system: String.t() | nil,
           tools: [Tool.t()],
           tree: MessageTree.t(),
+          usage: Usage.t(),
           opts: keyword(),
           meta: map(),
           private: map(),
@@ -52,6 +55,7 @@ defmodule Omni.Agent.State do
     system: nil,
     tools: [],
     tree: %MessageTree{},
+    usage: %Usage{},
     meta: %{},
     private: %{},
     status: :idle,

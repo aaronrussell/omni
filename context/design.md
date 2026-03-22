@@ -797,7 +797,9 @@ defmodule Omni.Response do
     :usage,         # %Usage{} -- token counts and computed costs
     :stop_reason,   # :stop | :length | :tool_use | :error
     :error,         # nil | {:stream_error, String.t()}
-    :raw            # nil | {%Req.Request{}, %Req.Response{}}
+    :raw,           # nil | {%Req.Request{}, %Req.Response{}}
+    messages: [],   # [%Message{}] -- all messages from multi-step generation (populated by Loop)
+    output: nil     # nil | map -- validated/decoded structured output
   ]
 end
 ```

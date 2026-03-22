@@ -165,7 +165,7 @@ Agent state is split into two structs: a public `%Omni.Agent.State{}` passed to 
 
 ### Public state (`Omni.Agent.State`)
 
-The public state is a 9-field struct. User-defined state is split into `meta` (user metadata) and `private` (runtime, not persisted).
+The public state is a 10-field struct. User-defined state is split into `meta` (user metadata) and `private` (runtime, not persisted).
 
 ```elixir
 defmodule Omni.Agent.State do
@@ -175,6 +175,7 @@ defmodule Omni.Agent.State do
     system: nil,                      # String.t() | nil — system prompt
     tools: [],                        # [Tool.t()] — available tools
     tree: %MessageTree{},             # %MessageTree{} — conversation tree
+    usage: %Usage{},                  # %Usage{} — cumulative session usage
     meta: %{},                        # user metadata (title, tags, custom domain data)
     private: %{},                     # runtime state (PIDs, refs — not persisted)
     status: :idle,                    # :idle | :running | :paused
@@ -186,13 +187,13 @@ end
 The fields have two logical tiers:
 
 - **Configuration** — `model`, `system`, `tools`, and `opts` are set at `start_link` and changeable via `set_state/2,3` (idle only). `opts` holds agent-level inference defaults (`:temperature`, `:max_tokens`, `:max_steps`, etc.).
-- **Session state** — `tree`, `meta`, `private`, `status`, and `step` change during operation. `tree` holds the full conversation history as a `%MessageTree{}`. `meta` is user metadata. `private` is runtime state. `step` resets per prompt round.
+- **Session state** — `tree`, `usage`, `meta`, `private`, `status`, and `step` change during operation. `tree` holds the full conversation history as a `%MessageTree{}`. `usage` tracks cumulative token usage across all prompt rounds. `meta` is user metadata. `private` is runtime state. `step` resets per prompt round.
 
 All callbacks receive this public `%State{}` struct. Users can read any field and primarily read/write `meta` and `private`. The framework manages the other fields.
 
 Note: `tree` reflects the committed state — it only includes messages from completed prompt rounds. In-progress messages are tracked internally and are not visible in `tree` until the round completes. See "Context management" section.
 
-Usage is not cached on state — `Agent.usage/1` computes it via `MessageTree.usage/1`, which sums all turns in the tree.
+Usage is tracked on `state.usage` as a cumulative `%Usage{}` for the session. `Agent.usage/1` reads from state directly.
 
 ### Internal server state (`Omni.Agent.Server`)
 
@@ -228,11 +229,11 @@ defstruct [
 ]
 ```
 
-`pending_messages` and `pending_usage` accumulate together during a round and are both reset by `reset_round/1`. On round commit, they are passed to `MessageTree.push/3`.
+`pending_messages` and `pending_usage` accumulate together during a round and are both reset by `reset_round/1`. On round commit, each pending message is pushed individually to the tree via `MessageTree.push/2`, and `pending_usage` is added to `state.usage`.
 
 ### Usage accumulation
 
-Usage is not cached on `%State{}`. Each step's usage accumulates into `server.pending_usage` during a round. On round commit, `pending_usage` is stored in the `MessageTree` turn via `push/3`. `Agent.usage/1` computes the total via `MessageTree.usage/1`, which sums all turns in the tree — including inactive branches (total API spend, not just the active conversation path).
+Each step's usage accumulates into `server.pending_usage` during a round. On round commit, `pending_usage` is added to `state.usage` via `Usage.add/2`. `Agent.usage/1` reads `state.usage` directly — cumulative across all prompt rounds, including inactive branches (total API spend, not just the active conversation path).
 
 ### What the state does NOT store
 
@@ -266,7 +267,7 @@ Agent.set_state(agent, opts)                       # → :ok | {:error, ...}
 Agent.set_state(agent, field, value_or_fun)        # → :ok | {:error, ...}
 
 # Navigation (idle only)
-Agent.navigate(agent, turn_id)                     # → {:ok, %MessageTree{}} | {:error, ...}
+Agent.navigate(agent, message_id)                   # → {:ok, %MessageTree{}} | {:error, ...}
 
 # Listener
 Agent.listen(agent, pid)                           # → :ok | {:error, :running}
@@ -410,7 +411,7 @@ SR events `:done` and `:error` are not forwarded — they are internal to the st
 
 **Turn boundaries:** `:turn` fires after each intermediate turn (where `handle_stop` returned `{:continue, ...}`). `:done` fires after the final turn. The last turn gets `:done`, not `:turn` — no doubling up. A simple chatbot (one turn per prompt) never sees `:turn`, only `:done`.
 
-`:turn` and `:done` events carry a `%Response{}` with a `%Turn{}` struct (`response.turn`) containing the turn's `id`, `parent`, `messages`, and `usage`. For `:done`, the Turn is committed to the tree. For `:turn`, it's a partial Turn with the same id/parent (pre-computed) but only the messages accumulated so far. External listeners can use this to reconstruct the conversation tree for persistence without the agent needing to know about storage.
+`:turn` and `:done` events carry a `%Response{}` with `response.messages` (the messages from this generation) and `response.usage` (cumulative usage). For `:done`, the messages are committed to the tree. For `:turn`, the messages are the ones accumulated so far. External listeners can use the message list to reconstruct the conversation for persistence without the agent needing to know about storage.
 
 ```
 # Simple chatbot (1 turn, no tools)
@@ -880,7 +881,7 @@ The agent does not commit messages to the tree until a prompt round completes su
 
 - `state.tree` = the committed conversation tree, only updated atomically on completion
 - Step Tasks receive a transient `%Context{}` built from tree messages + pending messages
-- On `:done`: `MessageTree.push(tree, pending_messages, pending_usage)` commits the turn
+- On `:done`: each pending message is pushed to the tree via `MessageTree.push/2`, and `pending_usage` is added to `state.usage`
 - On cancel: pending messages and pending usage are discarded, tree unchanged
 
 This means the tree is always in a consistent state — no orphaned tool use blocks, no consecutive user messages, no partial turns.
@@ -891,7 +892,7 @@ This means the tree is always in a consistent state — no orphaned tool use blo
 
 1. Kills any running Step/Executor/Tool Tasks
 2. Discards all pending messages and pending usage
-3. Tree is unchanged — only committed turns persist
+3. Tree is unchanged — only committed messages persist
 4. Agent returns to `:idle`
 5. Listener receives `{:agent, pid, :cancelled, nil}`
 

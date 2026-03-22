@@ -75,7 +75,7 @@ defmodule Integration.StructuredOutputTest do
       assert resp.stop_reason == :stop
       assert resp.output == %{city: "London", temperature: 18}
       # 3 messages: assistant (bad), user (retry), assistant (good)
-      assert length(resp.turn.messages) == 3
+      assert length(resp.messages) == 3
     end
   end
 
@@ -92,7 +92,7 @@ defmodule Integration.StructuredOutputTest do
 
       assert resp.output == nil
       # 1 original + 3 retries = 4 assistant + 3 user = 7 messages
-      assert length(resp.turn.messages) == 7
+      assert length(resp.messages) == 7
     end
   end
 
@@ -108,7 +108,7 @@ defmodule Integration.StructuredOutputTest do
                )
 
       assert resp.output == %{city: "London", temperature: 18}
-      assert length(resp.turn.messages) == 3
+      assert length(resp.messages) == 3
     end
   end
 
@@ -126,7 +126,7 @@ defmodule Integration.StructuredOutputTest do
       assert resp.output == nil
       assert resp.stop_reason == :length
       # Only 1 message, no retry
-      assert length(resp.turn.messages) == 1
+      assert length(resp.messages) == 1
     end
   end
 

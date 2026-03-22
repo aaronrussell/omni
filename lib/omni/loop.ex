@@ -27,7 +27,6 @@ defmodule Omni.Loop do
     Schema,
     StreamingResponse,
     Tool,
-    Turn,
     Usage
   }
 
@@ -48,8 +47,6 @@ defmodule Omni.Loop do
     {raw?, opts} = Keyword.pop(opts, :raw, false)
     {max_steps, opts} = Keyword.pop(opts, :max_steps, :infinity)
     {tool_timeout, opts} = Keyword.pop(opts, :tool_timeout, 30_000)
-    {turn_id, opts} = Keyword.pop(opts, :turn_id, 0)
-    {turn_parent, opts} = Keyword.pop(opts, :turn_parent, nil)
     cancel_ref = make_ref()
 
     state = %{
@@ -66,9 +63,7 @@ defmodule Omni.Loop do
       raws: [],
       usage: %Usage{},
       output_schema: opts[:output],
-      output_retries: 0,
-      turn_id: turn_id,
-      turn_parent: turn_parent
+      output_retries: 0
     }
 
     with {:ok, sr} <- step(state) do
@@ -120,7 +115,7 @@ defmodule Omni.Loop do
     state = %{
       state
       | messages: state.messages ++ [response.message],
-        usage: Usage.add(state.usage, response.turn.usage),
+        usage: Usage.add(state.usage, response.usage),
         raws: state.raws ++ (response.raw || [])
     }
 
@@ -273,36 +268,22 @@ defmodule Omni.Loop do
   # -- Response building --
 
   defp build_final_response(state, last_step_response) do
-    turn =
-      Turn.new(
-        id: state.turn_id,
-        parent: state.turn_parent,
-        messages: state.messages,
-        usage: state.usage
-      )
-
     %{
       last_step_response
-      | turn: turn,
+      | messages: state.messages,
+        usage: state.usage,
         raw: if(state.raw?, do: state.raws, else: nil)
     }
   end
 
   defp build_error_response(state, reason) do
-    turn =
-      Turn.new(
-        id: state.turn_id,
-        parent: state.turn_parent,
-        messages: state.messages,
-        usage: state.usage
-      )
-
     Response.new(
-      message: Message.new(role: :assistant, content: []),
       model: state.model,
-      turn: turn,
+      message: Message.new(role: :assistant, content: []),
+      messages: state.messages,
       stop_reason: :error,
-      error: reason
+      error: reason,
+      usage: state.usage
     )
   end
 

@@ -21,7 +21,7 @@ defmodule Omni.Agent.Server do
 
   use GenServer
 
-  alias Omni.{Context, Message, MessageTree, Model, Response, Tool, Turn, Usage}
+  alias Omni.{Context, Message, MessageTree, Model, Response, Tool, Usage}
   alias Omni.Agent.State
   alias Omni.Content.{ToolResult, ToolUse}
 
@@ -181,16 +181,12 @@ defmodule Omni.Agent.Server do
     {:reply, :ok, %{server | listener: pid}}
   end
 
-  def handle_call(:usage, _from, server) do
-    {:reply, MessageTree.usage(server.state.tree), server}
-  end
-
   def handle_call(
-        {:navigate, turn_id},
+        {:navigate, node_id},
         _from,
         %__MODULE__{state: %{status: :idle}} = server
       ) do
-    case MessageTree.navigate(server.state.tree, turn_id) do
+    case MessageTree.navigate(server.state.tree, node_id) do
       {:ok, tree} ->
         new_state = %{server.state | tree: tree}
         {:reply, {:ok, tree}, %{server | state: new_state}}
@@ -352,7 +348,7 @@ defmodule Omni.Agent.Server do
 
   defp handle_step_complete(response, server) do
     pending = server.pending_messages ++ [response.message]
-    pending_usage = Usage.add(server.pending_usage, response.turn.usage)
+    pending_usage = Usage.add(server.pending_usage, response.usage)
 
     server = %{
       server
@@ -502,15 +498,7 @@ defmodule Omni.Agent.Server do
   end
 
   defp continue_turn(prompt, response, server) do
-    partial_turn =
-      Turn.new(
-        id: map_size(server.state.tree.turns),
-        parent: MessageTree.head(server.state.tree),
-        messages: server.pending_messages,
-        usage: server.pending_usage
-      )
-
-    response = %{response | turn: partial_turn}
+    response = %{response | messages: server.pending_messages, usage: server.pending_usage}
 
     notify(server, :turn, response)
     user_message = Message.new(role: :user, content: prompt)
@@ -519,12 +507,15 @@ defmodule Omni.Agent.Server do
   end
 
   defp commit_and_done(response, server) do
-    {turn, tree} =
-      MessageTree.push(server.state.tree, server.pending_messages, server.pending_usage)
+    tree =
+      Enum.reduce(server.pending_messages, server.state.tree, fn msg, tree ->
+        {_id, tree} = MessageTree.push(tree, msg)
+        tree
+      end)
 
-    response = %{response | turn: turn}
-
-    server = %{server | state: %{server.state | tree: tree}}
+    response = %{response | messages: server.pending_messages, usage: server.pending_usage}
+    new_usage = Usage.add(server.state.usage, server.pending_usage)
+    server = %{server | state: %{server.state | tree: tree, usage: new_usage}}
 
     server = reset_round(server)
     notify(server, :done, response)

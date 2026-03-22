@@ -114,9 +114,8 @@ defmodule Omni.Agent do
       {:agent, pid, :error,       reason}         # terminal error, round is over
       {:agent, pid, :cancelled,   nil}            # cancel was invoked
 
-  `:turn` and `:done` events carry a `%Response{}` with a `%Turn{}` struct
-  containing the turn's `id`, `parent`, `messages`, and `usage`. This allows
-  external listeners to reconstruct the conversation tree for persistence.
+  `:turn` and `:done` events carry a `%Response{}` with `messages` (all
+  messages from this turn) and `usage` (cumulative token usage for the turn).
   `:turn` fires after each intermediate turn (where `handle_stop` returned
   `{:continue, ...}`). `:done` fires after the final turn. A simple chatbot
   (one turn per prompt) never sees `:turn`, only `:done`.
@@ -269,10 +268,9 @@ defmodule Omni.Agent do
       end
   """
 
-  alias Omni.{MessageTree, Turn, Usage}
   alias Omni.Agent.State
   alias Omni.Content.{ToolResult, ToolUse}
-  alias Omni.Response
+  alias Omni.{MessageTree, Response}
 
   @doc """
   Called when the agent starts.
@@ -511,17 +509,6 @@ defmodule Omni.Agent do
   def get_state(agent, key) when is_atom(key), do: GenServer.call(agent, {:get_state, key})
 
   @doc """
-  Returns cumulative token usage across all turns in the conversation tree.
-
-  Computed via `MessageTree.usage/1`, which sums all turns (including
-  inactive branches). Returns `%Usage{}` for a fresh agent with no turns.
-  """
-  @spec usage(GenServer.server()) :: Usage.t()
-  def usage(agent) do
-    GenServer.call(agent, :usage)
-  end
-
-  @doc """
   Replaces agent configuration fields. Idle only. Atomic.
 
   Accepts the following keys:
@@ -568,7 +555,7 @@ defmodule Omni.Agent do
   end
 
   @doc """
-  Sets the active conversation path to the given turn.
+  Sets the active conversation path to the given node.
 
   Delegates to `MessageTree.navigate/2`. The next `prompt/3` call will
   branch from this point. Returns the updated tree for immediate UI rendering.
@@ -576,9 +563,9 @@ defmodule Omni.Agent do
   Only valid when idle. Returns `{:error, :running}` if the agent is running
   or paused.
   """
-  @spec navigate(GenServer.server(), Turn.id()) ::
+  @spec navigate(GenServer.server(), MessageTree.id()) ::
           {:ok, MessageTree.t()} | {:error, :running} | {:error, :not_found}
-  def navigate(agent, turn_id) do
-    GenServer.call(agent, {:navigate, turn_id})
+  def navigate(agent, node_id) do
+    GenServer.call(agent, {:navigate, node_id})
   end
 end

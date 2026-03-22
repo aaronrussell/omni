@@ -1,160 +1,165 @@
 defmodule Omni.MessageTree do
   @moduledoc """
-  A tree of conversation turns with a cursor pointing to the active path.
+  A tree of conversation messages with a cursor pointing to the active path.
 
-  Each turn has a unique integer ID, a parent pointer, a list of messages, and
-  a usage struct. Multiple turns can share the same parent — this is how
-  branching (regeneration, forking) works.
+  Each message has a unique integer ID and a parent pointer. Multiple messages
+  can share the same parent — this is how branching (regeneration, forking)
+  works.
 
-  The tree supports three core operations: pushing new turns, navigating to any
-  turn in the tree, and querying the active path for messages and usage.
+  The tree supports three core operations: pushing new messages, navigating to
+  any message in the tree, and querying the active path.
 
   ## Enumerable
 
-  Iterating over a `MessageTree` yields `{id, turn}` tuples for each turn in
-  the **active path**, in order. Use `tree.turns` to access the full tree
-  including inactive branches.
+  Iterating over a `MessageTree` yields `tree_node()` maps for each node
+  in the **active path**, in order. Each node has `:id`, `:parent_id`, and
+  `:message` keys. Use `tree.nodes` to access the full tree including
+  inactive branches.
   """
 
-  alias Omni.{Message, Turn, Usage}
+  alias Omni.Message
 
-  @typedoc "A tree of conversation turns with an active path cursor."
+  @typedoc "Integer node identifier, assigned sequentially by `push/2`."
+  @type id :: non_neg_integer()
+
+  @typedoc "A node in the tree: a message with its position."
+  @type tree_node :: %{id: id(), parent_id: id() | nil, message: Message.t()}
+
+  @typedoc "A tree of conversation messages with an active path cursor."
   @type t :: %__MODULE__{
-          turns: %{Turn.id() => Turn.t()},
-          active_path: [Turn.id()]
+          nodes: %{id() => tree_node()},
+          path: [id()]
         }
 
-  defstruct turns: %{}, active_path: []
+  defstruct nodes: %{}, path: []
 
   # Query
 
   @doc "Returns a flat list of all messages along the active path, in order."
   @spec messages(t()) :: [Message.t()]
-  def messages(%__MODULE__{turns: turns, active_path: path}) do
-    Enum.flat_map(path, fn id -> turns[id].messages end)
+  def messages(%__MODULE__{nodes: nodes, path: path}) do
+    Enum.map(path, fn id -> nodes[id].message end)
   end
 
-  @doc "Returns the cumulative usage across all turns in the tree."
-  @spec usage(t()) :: Usage.t()
-  def usage(%__MODULE__{turns: turns}) do
-    Map.values(turns) |> Enum.map(& &1.usage) |> Usage.sum()
+  @doc "Returns the number of messages in the active path."
+  @spec depth(t()) :: non_neg_integer()
+  def depth(%__MODULE__{path: path}), do: length(path)
+
+  @doc "Returns the ID of the last message in the active path, or `nil` if empty."
+  @spec head(t()) :: id() | nil
+  def head(%__MODULE__{path: []}), do: nil
+  def head(%__MODULE__{path: path}), do: List.last(path)
+
+  @doc "Returns the message for a given ID, or `nil` if not found."
+  @spec get_message(t(), id()) :: Message.t() | nil
+  def get_message(%__MODULE__{nodes: nodes}, id) do
+    case Map.get(nodes, id) do
+      %{message: message} -> message
+      nil -> nil
+    end
   end
-
-  @doc "Returns the number of turns in the active path."
-  @spec turn_count(t()) :: non_neg_integer()
-  def turn_count(%__MODULE__{active_path: path}), do: length(path)
-
-  @doc "Returns the ID of the last turn in the active path, or `nil` if empty."
-  @spec head(t()) :: Turn.id() | nil
-  def head(%__MODULE__{active_path: []}), do: nil
-  def head(%__MODULE__{active_path: path}), do: List.last(path)
-
-  @doc "Returns the turn data for a given ID, or `nil` if not found."
-  @spec get_turn(t(), Turn.id()) :: Turn.t() | nil
-  def get_turn(%__MODULE__{turns: turns}, id), do: Map.get(turns, id)
 
   # Mutate
 
   @doc """
-  Creates a new turn and appends it to the active path.
+  Pushes a message onto the tree and appends it to the active path.
 
-  The new turn's parent is the current `head/1` (or `nil` if the tree is
-  empty). Returns `{turn, updated_tree}`.
+  The new node's parent is the current `head/1` (or `nil` if the tree is
+  empty). Returns `{id, updated_tree}`.
   """
-  @spec push(t(), [Message.t()], Usage.t()) :: {Turn.t(), t()}
-  def push(%__MODULE__{turns: turns, active_path: path} = tree, messages, %Usage{} = usage) do
-    id = map_size(turns)
+  @spec push(t(), Message.t()) :: {id(), t()}
+  def push(%__MODULE__{nodes: nodes, path: path} = tree, %Message{} = message) do
+    id = map_size(nodes)
+    node = %{id: id, parent_id: head(tree), message: message}
+    nodes = Map.put(nodes, id, node)
 
-    turn = Turn.new(id: id, parent: head(tree), messages: messages, usage: usage)
-    turns = Map.put(turns, id, turn)
-
-    {turn, %{tree | turns: turns, active_path: path ++ [id]}}
+    {id, %{tree | nodes: nodes, path: path ++ [id]}}
   end
 
   @doc """
-  Sets the active path by walking parent pointers from `turn_id` back to root.
+  Sets the active path by walking parent pointers from `node_id` back to root.
 
-  Returns `{:error, :not_found}` if the turn ID doesn't exist in the tree.
+  Returns `{:error, :not_found}` if the node ID doesn't exist in the tree.
   """
-  @spec navigate(t(), Turn.id()) :: {:ok, t()} | {:error, :not_found}
-  def navigate(%__MODULE__{turns: turns} = tree, turn_id) do
-    case walk_to_root(turns, turn_id) do
-      {:ok, path} -> {:ok, %{tree | active_path: path}}
+  @spec navigate(t(), id()) :: {:ok, t()} | {:error, :not_found}
+  def navigate(%__MODULE__{nodes: nodes} = tree, node_id) do
+    case walk_to_root(nodes, node_id) do
+      {:ok, path} -> {:ok, %{tree | path: path}}
       {:error, :not_found} -> {:error, :not_found}
     end
   end
 
   @doc """
-  Resets the active path to `[]` but preserves all turns.
+  Resets the active path to `[]` but preserves all nodes.
 
-  A subsequent `push/3` starts a new root turn (`parent: nil`).
+  A subsequent `push/2` starts a new root node (`parent_id: nil`).
   """
   @spec clear(t()) :: t()
-  def clear(%__MODULE__{} = tree), do: %{tree | active_path: []}
+  def clear(%__MODULE__{} = tree), do: %{tree | path: []}
 
   # Introspect
 
-  @doc "Returns the IDs of all turns whose parent is the given turn."
-  @spec children(t(), Turn.id()) :: [Turn.id()]
-  def children(%__MODULE__{turns: turns}, turn_id) do
-    turns
-    |> Enum.filter(fn {_id, turn} -> turn.parent == turn_id end)
+  @doc "Returns the IDs of all nodes whose parent is the given node."
+  @spec children(t(), id()) :: [id()]
+  def children(%__MODULE__{nodes: nodes}, node_id) do
+    nodes
+    |> Enum.filter(fn {_id, node} -> node.parent_id == node_id end)
     |> Enum.map(&elem(&1, 0))
     |> Enum.sort()
   end
 
-  @doc "Returns other children of the same parent, excluding the given turn."
-  @spec siblings(t(), Turn.id()) :: [Turn.id()]
-  def siblings(%__MODULE__{turns: turns} = tree, turn_id) do
-    case Map.get(turns, turn_id) do
+  @doc "Returns other children of the same parent, excluding the given node."
+  @spec siblings(t(), id()) :: [id()]
+  def siblings(%__MODULE__{nodes: nodes} = tree, node_id) do
+    case Map.get(nodes, node_id) do
       nil ->
         []
 
-      %Turn{parent: nil} ->
-        roots(tree) -- [turn_id]
+      %{parent_id: nil} ->
+        roots(tree) -- [node_id]
 
-      %Turn{parent: parent_id} ->
-        children(tree, parent_id) -- [turn_id]
+      %{parent_id: parent_id} ->
+        children(tree, parent_id) -- [node_id]
     end
   end
 
   @doc """
-  Walks parent pointers from `turn_id` to root, returns the path in root-first order.
+  Walks parent pointers from `node_id` to root, returns the path in root-first order.
 
   Useful for UIs that need to show the full path to a specific branch point.
   """
-  @spec path_to(t(), Turn.id()) :: {:ok, [Turn.id()]} | {:error, :not_found}
-  def path_to(%__MODULE__{turns: turns}, turn_id), do: walk_to_root(turns, turn_id)
+  @spec path_to(t(), id()) :: {:ok, [id()]} | {:error, :not_found}
+  def path_to(%__MODULE__{nodes: nodes}, node_id), do: walk_to_root(nodes, node_id)
 
-  @doc "Returns IDs of all turns with `parent: nil`."
-  @spec roots(t()) :: [Turn.id()]
-  def roots(%__MODULE__{turns: turns}) do
-    turns
-    |> Enum.filter(fn {_id, turn} -> turn.parent == nil end)
+  @doc "Returns IDs of all nodes with `parent_id: nil`."
+  @spec roots(t()) :: [id()]
+  def roots(%__MODULE__{nodes: nodes}) do
+    nodes
+    |> Enum.filter(fn {_id, node} -> node.parent_id == nil end)
     |> Enum.map(&elem(&1, 0))
     |> Enum.sort()
   end
 
   # Internal
 
-  defp walk_to_root(turns, id, acc \\ [])
+  defp walk_to_root(nodes, id, acc \\ [])
 
-  defp walk_to_root(turns, id, acc) do
-    case Map.get(turns, id) do
+  defp walk_to_root(nodes, id, acc) do
+    case Map.get(nodes, id) do
       nil -> {:error, :not_found}
-      %Turn{parent: nil} -> {:ok, [id | acc]}
-      %Turn{parent: parent_id} -> walk_to_root(turns, parent_id, [id | acc])
+      %{parent_id: nil} -> {:ok, [id | acc]}
+      %{parent_id: parent_id} -> walk_to_root(nodes, parent_id, [id | acc])
     end
   end
 
   defimpl Enumerable do
     def reduce(tree, cmd, fun) do
-      tree.active_path
-      |> Enum.map(&{&1, tree.turns[&1]})
+      tree.path
+      |> Enum.map(&tree.nodes[&1])
       |> Enumerable.List.reduce(cmd, fun)
     end
 
-    def count(tree), do: {:ok, length(tree.active_path)}
+    def count(tree), do: {:ok, length(tree.path)}
     def member?(_tree, _element), do: {:error, __MODULE__}
     def slice(_tree), do: {:error, __MODULE__}
   end

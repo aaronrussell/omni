@@ -3,7 +3,7 @@ defmodule Omni.ContextTest do
 
   alias Omni.Context
   alias Omni.Content.{Text, ToolResult, ToolUse}
-  alias Omni.{Message, Response, Turn, Usage}
+  alias Omni.{Message, Response, Usage}
 
   describe "new/1" do
     test "creates from keyword list" do
@@ -103,7 +103,8 @@ defmodule Omni.ContextTest do
           message: final_msg,
           model: nil,
           stop_reason: :stop,
-          turn: Turn.new(usage: Usage.new([]), messages: [assistant_msg, tool_msg, final_msg])
+          messages: [assistant_msg, tool_msg, final_msg],
+          usage: Usage.new([])
         )
 
       ctx = Context.push(ctx, response)

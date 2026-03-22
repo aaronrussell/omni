@@ -41,7 +41,7 @@ defmodule Omni.Context do
   end
 
   def push(%__MODULE__{} = context, %Response{} = response) do
-    push(context, response.turn.messages)
+    push(context, response.messages)
   end
 
   def push(%__MODULE__{} = context, messages) when is_list(messages) do

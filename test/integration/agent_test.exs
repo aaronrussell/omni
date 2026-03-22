@@ -1,7 +1,7 @@
 defmodule Integration.AgentTest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Agent, MessageTree, Response, Turn, Usage}
+  alias Omni.{Agent, MessageTree, Response, Usage}
   alias Omni.Content.{Text, ToolResult, ToolUse}
 
   @text_fixture "test/support/fixtures/sse/anthropic_text.sse"
@@ -368,7 +368,7 @@ defmodule Integration.AgentTest do
 
       :ok = Agent.prompt(agent, "First message")
       _events = collect_events(agent)
-      usage1 = Agent.usage(agent)
+      usage1 = Agent.get_state(agent, :usage)
       assert usage1.total_tokens > 0
 
       # Need a new stub for the second request
@@ -383,13 +383,13 @@ defmodule Integration.AgentTest do
 
       :ok = Agent.prompt(agent2, "First")
       _events = collect_events(agent2)
-      first_usage = Agent.usage(agent2)
+      first_usage = Agent.get_state(agent2, :usage)
 
       # Stub a new fixture for the second call
       stub_fixture(stub_name, @text_fixture)
       :ok = Agent.prompt(agent2, "Second")
       _events = collect_events(agent2)
-      total_usage = Agent.usage(agent2)
+      total_usage = Agent.get_state(agent2, :usage)
 
       assert total_usage.total_tokens == first_usage.total_tokens * 2
     end
@@ -398,14 +398,14 @@ defmodule Integration.AgentTest do
   describe "usage/1" do
     test "returns empty usage for fresh agent" do
       {:ok, agent} = start_agent()
-      assert Agent.usage(agent) == %Usage{}
+      assert Agent.get_state(agent, :usage) == %Usage{}
     end
 
     test "returns accumulated usage after prompts" do
       {:ok, agent} = start_agent()
       :ok = Agent.prompt(agent, "Hello!")
       _events = collect_events(agent)
-      assert Agent.usage(agent).total_tokens > 0
+      assert Agent.get_state(agent, :usage).total_tokens > 0
     end
   end
 
@@ -431,8 +431,8 @@ defmodule Integration.AgentTest do
       messages_after_second = MessageTree.messages(Agent.get_state(agent, :tree))
       assert length(messages_after_second) == 4
 
-      # Navigate back to turn 0
-      {:ok, tree} = Agent.navigate(agent, 0)
+      # Navigate back to end of first turn (node 1 = assistant response)
+      {:ok, tree} = Agent.navigate(agent, 1)
       assert length(MessageTree.messages(tree)) == 2
       assert length(MessageTree.messages(Agent.get_state(agent, :tree))) == 2
     end
@@ -483,18 +483,18 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "Second")
       _events = collect_events(agent)
 
-      # Navigate back to turn 0
-      {:ok, _tree} = Agent.navigate(agent, 0)
+      # Navigate back to node 1 (end of first turn's assistant response)
+      {:ok, _tree} = Agent.navigate(agent, 1)
 
-      # Prompt creates a new branch from turn 0
+      # Prompt creates a new branch from node 1
       :ok = Agent.prompt(agent, "Alternate second")
       _events = collect_events(agent)
 
       tree = Agent.get_state(agent, :tree)
-      # Active path should be turn 0 -> new turn (not turn 1)
-      assert MessageTree.turn_count(tree) == 2
-      # Turn 0 should have two children: turn 1 and the new branch
-      assert length(MessageTree.children(tree, 0)) == 2
+      # Active path: [0, 1, new_user, new_asst]
+      assert MessageTree.depth(tree) == 4
+      # Node 1 should have two children: node 2 (original) and the new branch
+      assert length(MessageTree.children(tree, 1)) == 2
     end
   end
 
@@ -619,7 +619,8 @@ defmodule Integration.AgentTest do
 
       user_msg = Omni.Message.new(role: :user, content: "Hello")
       asst_msg = Omni.Message.new(role: :assistant, content: "Hi there")
-      {_turn, tree} = MessageTree.push(%MessageTree{}, [user_msg, asst_msg], %Usage{})
+      {_, tree} = MessageTree.push(%MessageTree{}, user_msg)
+      {_, tree} = MessageTree.push(tree, asst_msg)
 
       {:ok, agent} =
         Agent.start_link(
@@ -628,7 +629,7 @@ defmodule Integration.AgentTest do
           opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
         )
 
-      assert MessageTree.turn_count(Agent.get_state(agent, :tree)) == 1
+      assert MessageTree.depth(Agent.get_state(agent, :tree)) == 2
     end
 
     test "prompt builds on existing tree" do
@@ -637,7 +638,8 @@ defmodule Integration.AgentTest do
 
       user_msg = Omni.Message.new(role: :user, content: "Hello")
       asst_msg = Omni.Message.new(role: :assistant, content: "Hi there")
-      {_turn, tree} = MessageTree.push(%MessageTree{}, [user_msg, asst_msg], %Usage{})
+      {_, tree} = MessageTree.push(%MessageTree{}, user_msg)
+      {_, tree} = MessageTree.push(tree, asst_msg)
 
       {:ok, agent} =
         Agent.start_link(
@@ -650,29 +652,25 @@ defmodule Integration.AgentTest do
       _events = collect_events(agent)
 
       final_tree = Agent.get_state(agent, :tree)
-      assert MessageTree.turn_count(final_tree) == 2
+      assert MessageTree.depth(final_tree) == 4
 
-      # Second turn's parent should be turn 0
-      turn_1 = MessageTree.get_turn(final_tree, 1)
-      assert turn_1.parent == 0
+      # Third node's parent should be node 1 (the assistant msg)
+      assert final_tree.nodes[2].parent_id == 1
     end
   end
 
   describe "Turn on events" do
-    test "done event has Turn with correct data" do
+    test "done event has response with correct data" do
       {:ok, agent} = start_agent()
       :ok = Agent.prompt(agent, "Hello!")
       events = collect_events(agent)
 
       assert {:done, %Response{} = resp} = List.last(events)
-      assert %Turn{} = resp.turn
-      assert resp.turn.id == 0
-      assert resp.turn.parent == nil
-      assert length(resp.turn.messages) > 0
-      assert resp.turn.usage.total_tokens > 0
+      assert length(resp.messages) > 0
+      assert resp.usage.total_tokens > 0
     end
 
-    test "second prompt produces Turn with id 1, parent 0" do
+    test "second prompt produces response with messages" do
       stub_name = unique_stub_name()
       stub_sequence(stub_name, [@text_fixture, @text_fixture])
 
@@ -688,9 +686,10 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "Second")
       events = collect_events(agent)
 
-      assert {:done, %Response{} = resp} = List.last(events)
-      assert resp.turn.id == 1
-      assert resp.turn.parent == 0
+      assert {:done, %Response{}} = List.last(events)
+
+      tree = Agent.get_state(agent, :tree)
+      assert tree.nodes[1].parent_id == 0
     end
   end
 
@@ -824,7 +823,7 @@ defmodule Integration.AgentTest do
       assert Agent.get_state(agent, :tools) == []
       assert Agent.get_state(agent, :status) == :idle
       assert Agent.get_state(agent, :private) == %{}
-      assert Agent.usage(agent) == %Usage{}
+      assert Agent.get_state(agent, :usage) == %Usage{}
     end
 
     test "returns nil for unknown keys" do
@@ -1086,7 +1085,7 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "What's the weather?")
       _events = collect_events(agent)
 
-      usage = Agent.usage(agent)
+      usage = Agent.get_state(agent, :usage)
       assert usage.total_tokens > 0
       assert usage.input_tokens > 0
       assert usage.output_tokens > 0
@@ -1225,7 +1224,7 @@ defmodule Integration.AgentTest do
       :ok = Agent.prompt(agent, "Start")
       _events = collect_events(agent)
 
-      usage = Agent.usage(agent)
+      usage = Agent.get_state(agent, :usage)
       # Should be 3x a single request's usage
       assert usage.total_tokens > 0
     end

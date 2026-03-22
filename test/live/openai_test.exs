@@ -28,7 +28,7 @@ defmodule Live.OpenAITest do
     truncated = String.replace(truncated, "\n", " ")
 
     IO.puts(
-      "[openai] text: \"#{truncated}\" (stop: #{resp.stop_reason}, in: #{resp.turn.usage.input_tokens}, out: #{resp.turn.usage.output_tokens})"
+      "[openai] text: \"#{truncated}\" (stop: #{resp.stop_reason}, in: #{resp.usage.input_tokens}, out: #{resp.usage.output_tokens})"
     )
   end
 

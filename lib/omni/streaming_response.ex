@@ -66,7 +66,7 @@ defmodule Omni.StreamingResponse do
       {:error, reason, %Response{}}
   """
 
-  alias Omni.{Message, Model, Response, Turn, Usage}
+  alias Omni.{Message, Model, Response, Usage}
   alias Omni.Content.{Text, Thinking, ToolUse}
 
   import Omni.Util, only: [maybe_put: 3]
@@ -302,8 +302,7 @@ defmodule Omni.StreamingResponse do
     stop_reason = infer_stop_reason(acc)
     acc = %{acc | stop_reason: stop_reason}
     response = build_response(acc)
-    turn = %{response.turn | messages: [response.message]}
-    response = %{response | turn: turn}
+    response = %{response | messages: [response.message]}
     response = if acc.raw, do: %{response | raw: [acc.raw]}, else: response
     {:done, %{stop_reason: stop_reason}, response}
   end
@@ -448,11 +447,11 @@ defmodule Omni.StreamingResponse do
     usage = build_usage(acc.usage, acc.model)
 
     Response.new(
-      message: message,
       model: acc.model,
-      turn: Turn.new(usage: usage),
+      message: message,
       stop_reason: acc.stop_reason,
-      error: acc.error
+      error: acc.error,
+      usage: usage
     )
   end
 
