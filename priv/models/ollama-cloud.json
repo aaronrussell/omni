@@ -15,7 +15,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-11-19"
   },
   {
     "cache_read_cost": 0,
@@ -33,7 +34,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-08-21"
   },
   {
     "cache_read_cost": 0,
@@ -51,7 +53,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-06-15"
   },
   {
     "cache_read_cost": 0,
@@ -69,7 +72,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2025-12-09"
   },
   {
     "cache_read_cost": 0,
@@ -88,7 +92,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2025-12-09"
   },
   {
     "cache_read_cost": 0,
@@ -106,7 +111,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-12-17"
   },
   {
     "cache_read_cost": 0,
@@ -124,7 +130,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-09-29"
   },
   {
     "cache_read_cost": 0,
@@ -142,7 +149,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-12-22"
   },
   {
     "cache_read_cost": 0,
@@ -160,7 +168,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2026-02-11"
   },
   {
     "cache_read_cost": 0,
@@ -178,7 +187,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-08-05"
   },
   {
     "cache_read_cost": 0,
@@ -196,7 +206,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-08-05"
   },
   {
     "cache_read_cost": 0,
@@ -214,7 +225,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-11-06"
   },
   {
     "cache_read_cost": 0,
@@ -233,7 +245,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2026-01-27"
   },
   {
     "cache_read_cost": 0,
@@ -251,7 +264,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2025-07-11"
   },
   {
     "cache_read_cost": 0,
@@ -269,7 +283,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2025-10-23"
   },
   {
     "cache_read_cost": 0,
@@ -287,7 +302,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-12-23"
   },
   {
     "cache_read_cost": 0,
@@ -305,7 +321,27 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2026-02-12"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "dialect": "openai_completions",
+    "id": "minimax-m2.7",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "minimax-m2.7",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "released_at": "2026-03-18"
   },
   {
     "cache_read_cost": 0,
@@ -324,7 +360,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2024-12-01"
   },
   {
     "cache_read_cost": 0,
@@ -343,7 +380,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2024-10-22"
   },
   {
     "cache_read_cost": 0,
@@ -362,7 +400,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2024-12-01"
   },
   {
     "cache_read_cost": 0,
@@ -381,7 +420,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2025-12-02"
   },
   {
     "cache_read_cost": 0,
@@ -399,7 +439,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-12-15"
   },
   {
     "cache_read_cost": 0,
@@ -417,7 +458,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2026-03-11"
   },
   {
     "cache_read_cost": 0,
@@ -435,7 +477,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2026-02-02"
   },
   {
     "cache_read_cost": 0,
@@ -453,7 +496,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2025-07-22"
   },
   {
     "cache_read_cost": 0,
@@ -471,7 +515,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-09-15"
   },
   {
     "cache_read_cost": 0,
@@ -490,7 +535,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-09-22"
   },
   {
     "cache_read_cost": 0,
@@ -509,7 +555,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2025-09-22"
   },
   {
     "cache_read_cost": 0,
@@ -528,7 +575,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2026-02-15"
   },
   {
     "cache_read_cost": 0,
@@ -546,6 +594,7 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2025-12-06"
   }
 ]

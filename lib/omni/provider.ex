@@ -449,6 +449,7 @@ defmodule Omni.Provider do
       name: data["name"],
       provider: module,
       dialect: dialect,
+      released_at: parse_date(data["released_at"]),
       reasoning: data["reasoning"] || false,
       input_modalities: Enum.map(data["input_modalities"] || ["text"], &String.to_atom/1),
       output_modalities: Enum.map(data["output_modalities"] || ["text"], &String.to_atom/1),
@@ -460,6 +461,9 @@ defmodule Omni.Provider do
       max_output_tokens: data["max_output_tokens"] || 0
     )
   end
+
+  defp parse_date(date) when is_binary(date), do: Date.from_iso8601!(date)
+  defp parse_date(_), do: nil
 
   defmacro __using__(opts) do
     dialect = Keyword.get(opts, :dialect)

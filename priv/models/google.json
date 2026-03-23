@@ -16,7 +16,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2024-05-14"
   },
   {
     "cache_read_cost": 0.01,
@@ -35,7 +36,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2024-10-03"
   },
   {
     "cache_read_cost": 0.3125,
@@ -54,7 +56,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2024-02-15"
   },
   {
     "cache_read_cost": 0.025,
@@ -74,7 +77,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2024-12-11"
   },
   {
     "cache_read_cost": 0,
@@ -94,7 +98,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2024-12-11"
   },
   {
     "cache_read_cost": 0.075,
@@ -114,7 +119,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-03-20"
   },
   {
     "cache_read_cost": 0.025,
@@ -134,7 +140,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-06-17"
   },
   {
     "cache_read_cost": 0.025,
@@ -154,7 +161,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-06-17"
   },
   {
     "cache_read_cost": 0.025,
@@ -174,7 +182,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-09-25"
   },
   {
     "cache_read_cost": 0.0375,
@@ -194,7 +203,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-04-17"
   },
   {
     "cache_read_cost": 0.0375,
@@ -214,7 +224,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-05-20"
   },
   {
     "cache_read_cost": 0.075,
@@ -234,7 +245,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-09-25"
   },
   {
     "cache_read_cost": 0.31,
@@ -254,7 +266,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-03-20"
   },
   {
     "cache_read_cost": 0.31,
@@ -274,7 +287,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-05-06"
   },
   {
     "cache_read_cost": 0.31,
@@ -294,7 +308,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-06-05"
   },
   {
     "cache_read_cost": 0.05,
@@ -314,7 +329,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-12-17"
   },
   {
     "cache_read_cost": 0.2,
@@ -334,7 +350,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-11-18"
   },
   {
     "cache_read_cost": 0.025,
@@ -354,7 +371,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2026-03-03"
   },
   {
     "cache_read_cost": 0.2,
@@ -374,7 +392,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2026-02-19"
   },
   {
     "cache_read_cost": 0.2,
@@ -394,7 +413,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2026-02-19"
   },
   {
     "cache_read_cost": 0.075,
@@ -414,7 +434,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-09-25"
   },
   {
     "cache_read_cost": 0.025,
@@ -434,7 +455,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-09-25"
   },
   {
     "cache_read_cost": 0,
@@ -453,7 +475,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-09-01"
   },
   {
     "cache_read_cost": 0,
@@ -471,6 +494,7 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-06-17"
   }
 ]

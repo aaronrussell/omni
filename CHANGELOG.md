@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+
+- **`released_at` on `%Model{}`** — optional `Date.t()` field populated from models.dev release date data. Enables filtering models by release date.
+- **New models** — GPT-5.4 Mini and GPT-5.4 Nano added to model data.
+
 ### Removed
 
 - **Agent extracted** — `Omni.Agent`, `Omni.Agent.*`, and `Omni.MessageTree` have been extracted into the standalone [`omni_agent`](https://github.com/aaronrussell/omni_agent) package. This package is now purely the stateless LLM API layer.

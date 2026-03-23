@@ -15,7 +15,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-05-16"
   },
   {
     "cache_read_cost": 0,
@@ -33,7 +34,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2023-11-06"
   },
   {
     "cache_read_cost": 0,
@@ -52,7 +54,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2023-11-06"
   },
   {
     "cache_read_cost": 0.5,
@@ -71,7 +74,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2025-04-14"
   },
   {
     "cache_read_cost": 0.1,
@@ -90,7 +94,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2025-04-14"
   },
   {
     "cache_read_cost": 0.03,
@@ -109,7 +114,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2025-04-14"
   },
   {
     "cache_read_cost": 1.25,
@@ -128,7 +134,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2024-05-13"
   },
   {
     "cache_read_cost": 0,
@@ -147,7 +154,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2024-05-13"
   },
   {
     "cache_read_cost": 1.25,
@@ -166,7 +174,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2024-08-06"
   },
   {
     "cache_read_cost": 1.25,
@@ -185,7 +194,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2024-11-20"
   },
   {
     "cache_read_cost": 0.08,
@@ -204,7 +214,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": false
+    "reasoning": false,
+    "released_at": "2024-07-18"
   },
   {
     "cache_read_cost": 0.125,
@@ -223,7 +234,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-08-07"
   },
   {
     "cache_read_cost": 0.125,
@@ -242,7 +254,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-09-15"
   },
   {
     "cache_read_cost": 0.025,
@@ -261,7 +274,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-08-07"
   },
   {
     "cache_read_cost": 0.005,
@@ -280,7 +294,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-08-07"
   },
   {
     "cache_read_cost": 0,
@@ -299,7 +314,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-10-06"
   },
   {
     "cache_read_cost": 0.13,
@@ -318,7 +334,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-11-13"
   },
   {
     "cache_read_cost": 0.125,
@@ -337,7 +354,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-11-13"
   },
   {
     "cache_read_cost": 0.125,
@@ -356,7 +374,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-11-13"
   },
   {
     "cache_read_cost": 0.125,
@@ -375,7 +394,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-11-13"
   },
   {
     "cache_read_cost": 0.025,
@@ -394,7 +414,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-11-13"
   },
   {
     "cache_read_cost": 0.175,
@@ -413,7 +434,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-12-11"
   },
   {
     "cache_read_cost": 0.175,
@@ -432,7 +454,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-12-11"
   },
   {
     "cache_read_cost": 0.175,
@@ -452,7 +475,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-12-11"
   },
   {
     "cache_read_cost": 0,
@@ -471,7 +495,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-12-11"
   },
   {
     "cache_read_cost": 0.175,
@@ -491,7 +516,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2026-02-05"
   },
   {
     "cache_read_cost": 0.175,
@@ -511,7 +537,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2026-02-05"
   },
   {
     "cache_read_cost": 0.25,
@@ -531,7 +558,48 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2026-03-05"
+  },
+  {
+    "cache_read_cost": 0.075,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "dialect": "openai_responses",
+    "id": "gpt-5.4-mini",
+    "input_cost": 0.75,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.4 mini",
+    "output_cost": 4.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "released_at": "2026-03-17"
+  },
+  {
+    "cache_read_cost": 0.02,
+    "cache_write_cost": 0,
+    "context_size": 400000,
+    "dialect": "openai_responses",
+    "id": "gpt-5.4-nano",
+    "input_cost": 0.2,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.4 nano",
+    "output_cost": 1.25,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "released_at": "2026-03-17"
   },
   {
     "cache_read_cost": 0,
@@ -550,7 +618,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2026-03-05"
   },
   {
     "cache_read_cost": 7.5,
@@ -569,7 +638,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2024-12-05"
   },
   {
     "cache_read_cost": 0,
@@ -588,7 +658,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-03-19"
   },
   {
     "cache_read_cost": 0.5,
@@ -607,7 +678,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-04-16"
   },
   {
     "cache_read_cost": 2.5,
@@ -626,7 +698,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2024-06-26"
   },
   {
     "cache_read_cost": 0.55,
@@ -644,7 +717,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2024-12-20"
   },
   {
     "cache_read_cost": 0,
@@ -663,7 +737,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-06-10"
   },
   {
     "cache_read_cost": 0.28,
@@ -682,7 +757,8 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2025-04-16"
   },
   {
     "cache_read_cost": 0.5,
@@ -701,6 +777,7 @@
     "output_modalities": [
       "text"
     ],
-    "reasoning": true
+    "reasoning": true,
+    "released_at": "2024-06-26"
   }
 ]
