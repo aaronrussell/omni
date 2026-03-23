@@ -17,14 +17,9 @@ defmodule Omni.Content.AttachmentTest do
       assert %Attachment{source: {:base64, "abc123"}, media_type: "image/jpeg"} = attachment
     end
 
-    test "opts defaults to empty map" do
+    test "meta defaults to empty map" do
       attachment = Attachment.new(source: {:url, "https://example.com"}, media_type: "image/png")
-      assert attachment.opts == %{}
-    end
-
-    test "description defaults to nil" do
-      attachment = Attachment.new(source: {:url, "https://example.com"}, media_type: "image/png")
-      assert attachment.description == nil
+      assert attachment.meta == %{}
     end
 
     test "raises on unknown keys" do

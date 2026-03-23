@@ -12,6 +12,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Changed
 
+- **`%Attachment{}`** — removed unused `description` field. Renamed `opts` to `meta` — an application-layer map that dialects do not read or send to providers (e.g. for filenames or display labels).
 - **`%Response{}`** — `turn` field replaced by `messages` (list), `usage` (`%Usage{}`), and `node_ids` (list of tree node IDs, used by `omni_agent`). `:message` is now optional. Added `:cancelled` stop_reason.
 - **`Context.push/3`** — reads `response.messages` instead of `response.turn.messages`.
 - **Loop** — `:turn_id` and `:turn_parent` options removed. Response fields set directly.

@@ -1109,7 +1109,7 @@ Represents a model's reasoning/thinking output. The `signature` field is used by
 
 ```elixir
 defmodule Omni.Content.Attachment do
-  defstruct [:source, :media_type, :description, opts: %{}]
+  defstruct [:source, :media_type, meta: %{}]
 end
 ```
 
@@ -1129,14 +1129,13 @@ defp encode_source({:url, url}), do: %{"type" => "url", "url" => url}
 
 The `media_type` field uses the technically correct "media type" terminology (per IANA) rather than the colloquial "MIME type". This also aligns with Anthropic's API field naming.
 
-The `description` field provides alt text or a description of the content. The `opts` map holds provider-specific options (e.g. OpenAI's image `detail` parameter) without polluting the struct with fields that only apply to one provider.
+The `meta` map is an application-layer field that Omni's dialects do not read or send to providers. It provides a place for applications to associate their own data with attachments — for example, filenames or display labels in a UI.
 
 ```elixir
 # Image with URL
 %Attachment{
   source: {:url, "https://example.com/chart.png"},
-  media_type: "image/png",
-  description: "Q3 revenue chart"
+  media_type: "image/png"
 }
 
 # PDF from base64
@@ -1145,11 +1144,11 @@ The `description` field provides alt text or a description of the content. The `
   media_type: "application/pdf"
 }
 
-# Image with provider-specific options
+# Image with application metadata
 %Attachment{
   source: {:base64, image_data},
   media_type: "image/jpeg",
-  opts: %{detail: "high"}
+  meta: %{filename: "photo.jpg"}
 }
 ```
 
@@ -1219,7 +1218,7 @@ The `is_error` boolean flag tells the model the tool use failed. The error detai
 |-------|--------|------------|
 | `Content.Text` | text, signature | User and assistant messages |
 | `Content.Thinking` | text, signature | Assistant messages |
-| `Content.Attachment` | source, media_type, description, opts | User messages (and tool results) |
+| `Content.Attachment` | source, media_type, meta | User messages (and tool results) |
 | `Content.ToolUse` | id, name, input, signature | Assistant messages |
 | `Content.ToolResult` | tool_use_id, content, is_error | User messages |
 
