@@ -1,7 +1,7 @@
 # Omni Design Document
 
-**Status:** Ready for implementation -- reviewed and refined
-**Last updated:** February 2026
+**Status:** Implemented
+**Last updated:** March 2026
 
 ---
 
@@ -1621,8 +1621,6 @@ lib/omni/
 ├── response.ex                # Response struct (message envelope with metadata)
 ├── streaming_response.ex      # StreamingResponse struct, Enumerable impl,
 │                              #   complete/1, cancel/1
-├── message_tree.ex            # Tree-structured conversation history with
-│                              #   branching, navigation, Enumerable impl
 ├── usage.ex                   # Usage struct (token counts and computed costs)
 ├── tool.ex                    # Tool struct, behaviour, use macro, execute/2
 ├── tool/

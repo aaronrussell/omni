@@ -6,24 +6,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
-### Added
+### Removed
 
-- **`Agent.retry/1`** — retry the last failed step from `:error` status. Re-runs `evaluate_head` from the current tree head. Usage accumulates across retry attempts.
-- **Agent `:error` status** — when `handle_error/2` returns `{:stop, state}`, the agent enters `:error` instead of `:idle`. The user message remains in the tree. From `:error`, callers can `retry/1`, `prompt/3` (rollback + new round), `cancel/1` (rollback + idle), `navigate/2`, or `set_state/2,3`.
-- **Active navigate** — `navigate/2` conditionally starts a round based on the target node. Navigating to a user message triggers regeneration (sibling branch). Navigating to an assistant with executable tools re-enters the tool decision phase. Navigating to a completed assistant is a passive cursor move.
-- **`MessageTree.get_node/2`** — returns the full tree node map for a given ID.
+- **Agent extracted** — `Omni.Agent`, `Omni.Agent.*`, and `Omni.MessageTree` have been extracted into the standalone [`omni_agent`](https://github.com/aaronrussell/omni_agent) package. This package is now purely the stateless LLM API layer.
 
 ### Changed
 
-- **`%Turn{}` struct removed** — "turn" remains as a concept (user message through final assistant response) but is no longer a data type. The struct and module are deleted.
-- **MessageTree: message-per-node with tree nodes** — each node is now a `%{id, parent_id, message, stop_reason}` map wrapping a single `%Message{}`, replacing the previous `%Turn{}` per-node design. `push/2,3` accepts an optional `stop_reason` for assistant messages. Renamed: `turn_count/1` → `depth/1`, `get_turn/2` → `get_message/2`. Struct fields: `turns` → `nodes`, `active_path` → `path`. `Enumerable` yields tree node maps. `usage/1` removed — the tree is purely structural.
-- **`%Response{}`** — `turn` field replaced by `messages` (list), `usage` (`%Usage{}`), and `node_ids` (list of tree node IDs, set for agent events). `:message` is now optional (`nil` for `:cancelled`/`:error` agent events). Added `:cancelled` stop_reason.
-- **Agent: incremental tree commits** — messages are pushed to the tree as produced during a round, replacing the batch-commit-on-done pattern. `state.tree` in callbacks reflects the in-progress conversation. `pending_messages` replaced by `round_origin_id` + `round_message_ids`.
-- **Agent: `evaluate_head` state machine** — a single function examines the tree head and decides the next action (spawn step, tool decision phase, or handle_stop), replacing scattered decision logic across multiple functions.
-- **Agent: cancel rollback** — `cancel/1` rolls back the tree to the pre-round state. Round messages remain as inactive branches. Emits `{:cancelled, %Response{stop_reason: :cancelled}}` instead of `{:cancelled, nil}`.
-- **Agent: `:error` status on failure** — `handle_error/2` returning `{:stop, state}` now enters `:error` status instead of `:idle`. The `:error` event still carries the bare reason term.
-- **Agent: `navigate/2`** — returns `:ok` instead of `{:ok, tree}`. Error for running/paused changed from `{:error, :running}` to `{:error, :not_idle}`. Also valid from `:error` status.
-- **Agent usage tracking** — cumulative usage now lives on `state.usage`, accumulated automatically each step. `Agent.usage/1` removed in favour of `Agent.get_state(agent, :usage)`.
+- **`%Response{}`** — `turn` field replaced by `messages` (list), `usage` (`%Usage{}`), and `node_ids` (list of tree node IDs, used by `omni_agent`). `:message` is now optional. Added `:cancelled` stop_reason.
 - **`Context.push/3`** — reads `response.messages` instead of `response.turn.messages`.
 - **Loop** — `:turn_id` and `:turn_parent` options removed. Response fields set directly.
 

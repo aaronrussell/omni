@@ -12,19 +12,21 @@ Omni is an Elixir library for interacting with LLM APIs across multiple provider
 
 The relationship: ~4-5 dialects, ~20-30 providers (most speaking one dialect, though multi-model gateways like OpenCode Zen use multiple), hundreds of models (each belonging to one provider). The dialect is stored on each `%Model{}` struct, so dispatch is always per-model. All requests are streaming-first; `generate_text` is built on top of `stream_text`.
 
+The agent system (`Omni.Agent`) lives in a separate package — [`omni_agent`](https://github.com/aaronrussell/omni_agent). This package is purely the stateless LLM API layer.
+
 See the [Context Documents](#context-documents) section for when and how to use the detailed design docs.
 
 ## Build & Development Commands
 
 ```bash
-mix compile              # Compile the project
-mix test                 # Run all tests
-mix test --include live  # Run all tests including live API tests (needs API keys)
-mix test path/to/test.exs           # Run a single test file
-mix test path/to/test.exs:42       # Run a specific test (line number)
-mix format               # Format all code
-mix format --check-formatted       # Check formatting without changing files
-mix models.get           # Fetch model data from models.dev into priv/models/
+mix compile                   # Compile the project
+mix test                      # Run all tests
+mix test --include live       # Run all tests including live API tests (needs API keys)
+mix test path/to/test.exs     # Run a single test file
+mix test path/to/test.exs:42  # Run a specific test (line number)
+mix format                    # Format all code
+mix format --check-formatted  # Check formatting without changing files
+mix models.get                # Fetch model data from models.dev into priv/models/
 ```
 
 `mix models.get` fetches model catalogs from [models.dev](https://models.dev) for each provider listed in its `@providers` attribute. It filters out deprecated models and those without tool use support. The JSON files in `priv/models/` are checked into the repo — run this task manually when model data needs refreshing.
@@ -40,19 +42,19 @@ mix models.get           # Fetch model data from models.dev into priv/models/
 
 ### Key design patterns
 
-- **Streaming-first**: Every LLM request uses streaming HTTP via Req's `into: :self` async mode. The event pipeline is composed as a lazy `Stream`: format parsing (SSE or NDJSON, selected by response content-type) → `Request.parse_event/2` (dialect `handle_event/1` + provider `modify_events/2`) → delta tuples. `parse_event` returns a list of `{type, map}` tuples (4 generic types: `:message`, `:block_start`, `:block_delta`, `:error`), so the pipeline uses `Stream.flat_map/2`. `StreamingResponse.new/2` takes raw delta events and keyword opts (`model`, `cancel`, `raw`), building the full consumer event pipeline at construction time via `Stream.transform/5`. The struct holds two fields: `stream` (the pipeline) and `cancel` (an opaque zero-arity function). Model and raw HTTP data are baked into the transform closure, not stored on the struct. Its `Enumerable` implementation delegates directly to the pipeline, yielding `{event_type, data, partial_response}` tuples (where `data` is a map for most events, a `%ToolResult{}` for `:tool_result`, or a bare term for `:error`). Key functions: `on/3` (register side-effect handler for an event type, returns new StreamingResponse — pipeline-composable), `text_stream/1` (stream of text delta binaries), `complete/1` (consume to final `%Response{}`), `cancel/1` (invoke cancel function). `Stream.transform/5`'s `last_fun` handles finalization — `:done` is only emitted when a stop reason was received; streams that end without one (connection drop, truncation) emit `{:error, :incomplete_stream}` instead, and explicit `:error` deltas also suppress `:done`. No spawned process — Req/Finch manage the connection.
+- **Streaming-first**: Every LLM request uses streaming HTTP via Req's `into: :self` async mode. The event pipeline is a lazy `Stream`: format parsing (SSE or NDJSON) → `Request.parse_event/2` (dialect `handle_event/1` + provider `modify_events/2`) → delta tuples. `StreamingResponse.new/2` builds the consumer pipeline via `Stream.transform/5`. The struct holds `stream` (the pipeline) and `cancel` (a zero-arity function). `Enumerable` yields `{event_type, data, partial_response}` tuples. Key functions: `on/3` (pipeline-composable side-effect handler), `text_stream/1`, `complete/1`, `cancel/1`. `:done` is only emitted when a stop reason was received; incomplete streams emit `{:error, :incomplete_stream}`.
 
-- **Models are data, not modules**: `%Model{}` structs are loaded from `priv/models/*.json` at startup into `:persistent_term` (keyed per provider). Models carry direct module references to their provider and dialect. The dialect is stored on the model, not derived from the provider at runtime — this enables multi-dialect providers where different models use different wire formats.
+- **Models are data, not modules**: `%Model{}` structs are loaded from `priv/models/*.json` at startup into `:persistent_term`. Models carry direct module references to their provider and dialect — the dialect is on the model, not derived from the provider, enabling multi-dialect providers.
 
-- **Request building separated from execution**: `Request.build/3` takes Omni types (model, context, opts), validates options via Peri, and returns a `%Req.Request{}` via dialect + provider composition. `Request.stream/3` executes the request and returns a `StreamingResponse`. The dialect does heavy transformation (Omni types ↔ native JSON). The provider optionally modifies dialect output for service-specific quirks via `modify_body/3` (request body, context, opts) and `modify_events/2` (response).
+- **Request building separated from execution**: `Request.build/3` validates options via Peri and returns a `%Req.Request{}` via dialect + provider composition. `Request.stream/3` executes and returns a `StreamingResponse`. The dialect transforms Omni types ↔ native JSON. The provider optionally modifies via `modify_body/3` and `modify_events/2`.
 
-- **Two message roles only**: `:user` and `:assistant`. No `:tool` role — tool results are `Content.ToolResult` blocks inside user messages. Role differences are expressed through content blocks, not message types.
+- **Two message roles only**: `:user` and `:assistant`. No `:tool` role — tool results are `Content.ToolResult` blocks inside user messages.
 
-- **Recursive stream loop**: `Omni.Loop` handles tool auto-execution and structured output validation via recursive `Stream.flat_map`. `stream_text/3` always delegates to `Loop.stream/3`. Each step's SR events pass through to the consumer; when `:done` arrives, the flat_map callback checks the response, executes tools in parallel via `Tool.Runner.run/3` if needed, emits synthetic `{:tool_result, %ToolResult{}, response}` events, and either recursively builds the next step's stream or emits the final `:done` with accumulated messages and usage set directly on the response (`response.messages`, `response.usage`). Single lazy pipeline — all SR infrastructure (`on/3`, `complete/1`, `text_stream/1`, `cancel/1`) works unchanged. `all_executable?/2` breaks the loop when any tool has a `nil` handler (schema-only), returning the response to the user for manual handling. Hallucinated tool names produce error `ToolResult`s sent back to the model. `:max_steps` option (default `:infinity`) caps rounds; `max_steps: 1` opts out of auto-looping. `:tool_timeout` (default `30_000` ms) sets the per-tool execution timeout passed to `Tool.Runner`. When `:output` is set, the loop validates the final response text against the schema (JSON decode + Schema validation) and retries up to 3 times on failure, skipping retry on `:length` stop reason. On success, `response.output` holds the validated/decoded map.
+- **Recursive stream loop**: `Omni.Loop` handles tool auto-execution and structured output validation via recursive `Stream.flat_map`. `stream_text/3` always delegates to `Loop.stream/3`. Tools execute in parallel via `Tool.Runner.run/3`. `:max_steps` (default `:infinity`) caps rounds. When `:output` is set, the loop validates against the schema and retries up to 3 times on failure.
 
-- **Single validation pass**: `Request.validate/2` merges the universal `@schema` (on `Omni.Request`) with `dialect.option_schema()`, does a three-tier config merge (provider config ← app config ← call-site opts), rejects unknown keys, and validates via Peri — all in one pass before any callbacks run. Config keys use `:any` type; inference keys are strictly typed. `:timeout` defaults to 300,000ms and maps to Req's `receive_timeout`.
+- **Single validation pass**: `Request.validate/2` merges universal + dialect option schemas, does a three-tier config merge (provider config ← app config ← call-site opts), and validates via Peri in one pass.
 
-### Module layout (target structure)
+### Module layout
 
 ```
 lib/omni.ex                         # Top-level API: generate_text, stream_text, get_model
@@ -63,7 +65,6 @@ lib/omni/
 ├── message.ex                      # Message struct (role, content blocks, timestamp)
 ├── response.ex                     # Response struct (wraps Message + metadata)
 ├── streaming_response.ex           # StreamingResponse + Enumerable impl
-├── message_tree.ex                 # Tree-structured conversation history (branching, navigation)
 ├── usage.ex                        # Usage struct (tokens + computed costs)
 ├── tool.ex                         # Tool struct, behaviour, use macro
 ├── tool/runner.ex                  # Parallel tool execution (ToolUse → ToolResult)
@@ -74,8 +75,6 @@ lib/omni/
 ├── parsers/ndjson.ex               # NDJSON stream parser (Ollama)
 ├── request.ex                      # Request orchestration (build, stream, validate, parse_event)
 ├── loop.ex                         # Recursive stream loop (tool auto-execution)
-├── agent.ex                        # Agent behaviour, use macro, public API
-├── agent/{state,server,step,executor}.ex  # Agent internals
 ├── provider.ex                     # Provider behaviour + shared utilities + dialect registry
 ├── providers/{anthropic,openai,ollama,open_code,...}.ex
 ├── dialect.ex                      # Dialect behaviour + string→module registry
@@ -86,57 +85,46 @@ lib/omni/
 
 - All public API functions return `{:ok, result} | {:error, reason}` tuples.
 - Content blocks are separate structs under `Omni.Content` — pattern match on struct name, not a type field.
-- Providers use `use Omni.Provider` with an optional `:dialect` option. Single-dialect providers pass `dialect: Module` — the macro generates `dialect/0` returning that module and defaults for all optional callbacks. Multi-dialect providers (gateways like OpenCode Zen) omit `:dialect` — `dialect/0` returns `nil`, and each model gets its dialect from the `"dialect"` field in the JSON data file, resolved via `Omni.Dialect.get!/1`. In `Provider.load_models/2`, the provider's declared dialect takes priority; when `nil`, the JSON dialect is used. Provider IDs are assigned in the application config, not on the module. Built-in providers are registered in `@builtin_providers` (a static `%{id => module}` map in `Omni.Provider`). Not all built-in providers are loaded by default — `@default_providers` in `Omni.Application` controls what loads at startup (OpenRouter, Ollama, and OpenCode Zen are opt-in). Users override via `config :omni, :providers, [:anthropic, :openai, custom: MyApp.Custom]`. Shorthand atoms are looked up in the built-in map; custom providers use `{id, Module}` tuples. `Provider.load/1` loads providers into `:persistent_term` on demand and merges with existing entries, so it can be called multiple times safely. Models are stored in `:persistent_term` keyed as `{Omni, provider_id}`. A reverse mapping (`{Omni, :provider_ids}` → `%{module => atom_id}`) is maintained alongside for `Model.to_ref/1`.
-- Provider `config/0` returns `%{base_url, auth_header, api_key, headers}`. The `api_key` value is a `resolve_auth/1` term — typically `{:system, "ENV_VAR"}`. When `:auth_header` is omitted, the default `authenticate/2` sends a Bearer token on `"authorization"`. When set (e.g. `"x-api-key"`), the raw key is sent on that header instead.
-- API key resolution order (three-tier): explicit `:api_key` opt at call site → `config :omni, ProviderModule, api_key: ...` app config → provider's `config()` default. All three accept the same value types: literal string, `{:system, "ENV"}`, or `{Mod, :fun, args}` MFA tuple.
-- Tool modules use `use Omni.Tool, name: "string", description: "string"` — generates `new/0,1` constructors. Import `Omni.Schema` inside the `schema/0` callback (not at module level, not auto-imported by `use Omni.Tool`).
-- The term is "tool use", not "tool call" (aligns with Anthropic's API, used consistently throughout).
+- Providers use `use Omni.Provider` with an optional `:dialect` option. Single-dialect providers pass `dialect: Module`. Multi-dialect providers omit it — each model gets its dialect from the JSON data file via `Omni.Dialect.get!/1`. Provider IDs are assigned in application config, not on the module. Built-in providers are in `@builtin_providers` on `Omni.Provider`; `@default_providers` in `Omni.Application` controls startup loading. Users override via `config :omni, :providers`. Models are stored in `:persistent_term` keyed as `{Omni, provider_id}`.
+- Provider `config/0` returns `%{base_url, auth_header, api_key, headers}`. API key resolution: call-site `:api_key` opt → app config → provider default. Accepts literal string, `{:system, "ENV"}`, or `{Mod, :fun, args}`.
+- Tool modules use `use Omni.Tool, name: "string", description: "string"`. Import `Omni.Schema` inside the `schema/0` callback, not at module level.
+- The term is "tool use", not "tool call" (aligns with Anthropic's API).
 - Attachment sources use tagged tuples: `{:base64, data}` or `{:url, url_string}`.
-- `Message.private` is a `%{}` map for provider-specific opaque round-trip data (named after Req's `private` convention). Dialects/providers write to it during parsing, read during encoding. Users pass it through untouched. Flat atom keys, no namespacing.
-- Content blocks may carry a `signature` field (cross-provider concept for round-trip integrity tokens). `Thinking.redacted_data` holds Anthropic's encrypted redacted thinking blob — when present, `text` is `nil` and nothing should be rendered. Provider-specific data that doesn't change block semantics goes in `Message.private`, not on content blocks.
-- Struct constructors (`new/1`) return bare structs and do not validate field values. Validation happens once at the API boundary (Peri schemas in the top-level `generate_text`/`stream_text` path). Constructors may normalize for convenience (e.g. string → `[%Text{}]`) but not reject bad data.
-- `Omni.Schema` builder functions preserve property keys as-is — atom keys stay atoms, string keys stay strings. Do not stringify keys; JSON serialisation handles that on the wire. Snake_case option keywords are normalized to camelCase JSON Schema keywords (e.g. `min_length:` → `minLength`). `Omni.Schema.validate/2` converts schemas to Peri internally for validation.
-- `Tool.execute/2` validates and casts input via Peri before calling the handler. Peri maps string-keyed LLM input back to the key types in the schema, so handlers use `input.city` (atom access) when the schema uses atom keys. Direct handler calls bypass validation/casting.
-- Supported modalities are defined on `Omni.Model` (source of truth). Input: `:text`, `:image`, `:pdf`. Output: `:text`. The `Model.new/1` constructor filters modalities to the supported set (normalization). The mix task also filters and rejects models that lack text input.
-- Structured output (`:output` option) wire format is dialect-specific: Anthropic uses `output_config.format` with `json_schema` and adds `additionalProperties: false` for object schemas; OpenAI Completions uses `response_format` with `strict: true`; OpenAI Responses uses `text.format` with `strict: true`; Google Gemini uses `generationConfig.responseMimeType` + `responseSchema` (no `additionalProperties` — Google doesn't support it); Ollama uses `format` with the JSON schema directly (no wrapper). Each dialect applies its own strictness mechanism rather than a shared pre-processing step.
-- Anthropic's `AnthropicMessages` dialect has an `@adaptive_prefixes` module attribute listing model ID prefixes that support adaptive thinking (vs budget-based). This list must be updated manually when new Anthropic model families are released.
-- `doc/` is ExDoc output (gitignored). `context/` contains detailed design documents (see [Context Documents](#context-documents)).
-- `%Response{}` carries `messages` (list of messages from the generation), `usage` (cumulative `%Usage{}`), and optionally `node_ids` (list of tree node IDs corresponding to `messages`, set for agent events). `stop_reason` includes `:cancelled` for agent cancel events. `:message` is optional — `nil` for `:cancelled`/`:error` events with no assistant response.
-- `%MessageTree{}` stores tree nodes keyed by integer ID in `tree.nodes`. Each node is a `%{id, parent_id, message, stop_reason}` map wrapping a `%Message{}`. `push/2,3` accepts an optional `stop_reason` for assistant messages and returns `{id, updated_tree}`. `Message` has no `node` field — tree position metadata lives in the tree node, not on the message. `messages/1` extracts bare `%Message{}` structs for LLM context. `get_node/2` returns the full tree node. `Enumerable` yields tree node maps along the active path. A "turn" is a conceptual grouping (user message through final assistant response), not a data type.
-- The agent uses incremental tree commits — messages are pushed to the tree as they're produced during a round, not batched at the end. `state.tree` in callbacks reflects the in-progress conversation. A single `evaluate_head` function examines the tree head and decides the next action: user message → spawn step, assistant with executable tools → tool decision phase, assistant without → handle_stop. Cancel rolls back the tree to `round_origin_id` (the pre-round head). Round tracking uses `round_origin_id` and `round_message_ids` (list of node IDs pushed during the round).
-- Agent statuses: `:idle` (head is assistant or nil, ready for prompt/navigate), `:running` (actively generating), `:paused` (waiting for tool approval), `:error` (step failed, user message at head, can retry/prompt/cancel/navigate/set_state). `retry/1` re-runs `evaluate_head` from `:error` status. `prompt/3` from `:error` rolls back and starts fresh.
-- `navigate/2` returns `:ok` and conditionally starts a round: user message → regeneration (sibling branch), assistant with tools → re-execute, completed assistant → passive cursor move (no round). Only valid from `:idle` or `:error`.
-- Lifecycle-boundary events `:done`, `:turn`, and `:cancelled` carry a `%Response{}` with `node_ids`. `:error` carries the bare error reason term (the agent stays in `:error` status — inspect the tree via `get_state` if needed). Non-lifecycle events (`:tool_result`, `:pause`, `:retry`, streaming) are unchanged.
-- The agent's public API for mutating configuration is `set_state/2` (keyword list, replaces by key, atomic) and `set_state/3` (single field + value or function). Settable fields: `:model`, `:system`, `:tools`, `:tree`, `:opts`, `:meta`. The agent has no `session_id` — session identity is an application concern. Storage/persistence is not built into the agent; events carry enough context (`node_ids` on `:done` and `:turn` events) for external listeners to persist.
+- `Message.private` is a `%{}` map for provider-specific opaque round-trip data. Dialects/providers write during parsing, read during encoding. Flat atom keys.
+- Content blocks may carry a `signature` field (round-trip integrity tokens). `Thinking.redacted_data` holds Anthropic's encrypted redacted thinking — when present, `text` is `nil`. Provider-specific data goes in `Message.private`, not on content blocks.
+- Struct constructors (`new/1`) return bare structs without validation. Validation happens once at the API boundary via Peri schemas.
+- `Omni.Schema` preserves property key types as-is. Snake_case option keywords normalize to camelCase JSON Schema keywords.
+- `Tool.execute/2` validates and casts input via Peri before calling the handler — string-keyed LLM input maps back to schema key types.
+- Supported modalities defined on `Omni.Model`. Input: `:text`, `:image`, `:pdf`. Output: `:text`.
+- Structured output wire format is dialect-specific. Each dialect applies its own strictness mechanism.
+- `%Response{}` carries `messages`, `usage`, and optional `node_ids` (used by the `omni_agent` package). `stop_reason` includes `:cancelled` (also agent-specific). `:message` is optional.
 
 ## Testing
 
 Tests are organized in four layers, none of which require API keys except live tests:
 
-1. **Unit tests** (`test/omni/`) — pure logic, no HTTP. SSE and NDJSON parser tests pass plain lists of binary chunks. Provider tests inspect `%Req.Request{}` structs without executing them. Dialect tests verify `handle_event/1` and `handle_body/3` in isolation.
-2. **Integration tests** (`test/integration/`) — use `Req.Test.stub/2` with a plug to simulate HTTP responses. One file per provider (anthropic, openai, google, openrouter, ollama) plus `error_test.exs` for cross-cutting error/edge cases. All tests go through the top-level `Omni.generate_text/3` and `Omni.stream_text/3` API. Use `Omni.get_model/2` for model resolution. Assertions are loose/structural (no specific strings or token counts) since fixtures are real API recordings that may be regenerated.
-3. **Live tests** (`test/live/`) — tagged `@moduletag :live`, excluded by default. Run with `mix test --include live`. One file per provider with text, tool use, and thinking tests. Require API keys via environment variables (e.g. `ANTHROPIC_API_KEY`). Ollama live tests require a local Ollama instance. Use `direnv` with a `.envrc` file (gitignored).
-4. **Capture helper** — `Omni.Test.Capture.record/5` in `test/support/capture.ex` records real API responses as fixture files.
+1. **Unit tests** (`test/omni/`) — pure logic, no HTTP. Parser, provider, and dialect tests in isolation.
+2. **Integration tests** (`test/integration/`) — use `Req.Test.stub/2` with a plug to simulate HTTP. One file per provider plus `error_test.exs`. All go through the top-level API. Assertions are loose/structural since fixtures are real API recordings.
+3. **Live tests** (`test/live/`) — tagged `@moduletag :live`, excluded by default. Run with `mix test --include live`. Require API keys via environment variables.
+4. **Capture helper** — `Omni.Test.Capture.record/5` records real API responses as fixture files.
 
-**Fixtures:** SSE fixtures (`test/support/fixtures/sse/`) and NDJSON fixtures (`test/support/fixtures/ndjson/`) are real API recordings, committed so CI never needs API keys. Synthetic fixtures (`test/support/fixtures/synthetic/`) are hand-crafted SSE data for controlled error/edge case scenarios — tests can assert exact values.
+**Fixtures:** SSE and NDJSON fixtures are real API recordings in `test/support/fixtures/`. Synthetic fixtures are hand-crafted for controlled error/edge case scenarios.
 
 `test/support/` is compiled in the test environment via `elixirc_paths`.
 
 ## Documentation
 
 - All public modules must have a `@moduledoc`. Internal/private modules use `@moduledoc false`.
-- All public types must have a `@typedoc`. Keep it on one line unless the type is complex enough to warrant further explanation.
-- All public functions must have a `@doc`. One sentence is fine if the function is self-explanatory; add more detail for complex behaviour. Rely on `@spec` for types — don't repeat type info in prose.
-- Document options when a function accepts them (keyword lists, maps with known keys).
-- Only add examples for important top-level API functions or where behaviour is non-obvious.
+- All public types must have a `@typedoc`. Keep it on one line unless complex.
+- All public functions must have a `@doc`. Rely on `@spec` for types — don't repeat in prose.
+- Document options when a function accepts them.
 - Private functions (`defp`) do not need `@doc` annotations.
-- Tone: practical over theoretical, concise, example-driven for key APIs. Lead with what you do, not what things are. No hedging ("Returns a response" not "This function is used to return a response").
+- Tone: practical, concise, example-driven. Lead with what you do, not what things are.
 
 ## Context Documents
 
 The `context/` directory contains detailed design documents. This CLAUDE.md provides sufficient context for most tasks — consult the design docs when working in depth on a specific subsystem.
 
-- **`context/design.md`** — Full architecture reference covering: top-level API, models and data loading, providers (behaviour, callbacks, config, auth), dialects (behaviour, callbacks, option validation), messages and content blocks, streaming pipeline (SSE/NDJSON, deltas, StreamingResponse), tools (struct, schema, modules, execution), and request flow.
-- **`context/agent.md`** — Agent system: GenServer architecture, public API (`prompt`, `set_state`, `navigate`, `usage`), lifecycle callbacks (`init`, `handle_tool_call`, `handle_tool_result`, `handle_stop`, `handle_error`, `terminate`), process model (Step/Executor/Tool Tasks), pause/resume, prompt queuing/steering, tree management, and the completion tool pattern.
-- **`context/roadmap.md`** — Pre-v1 checklist and future work.
+- **`context/design.md`** — Full architecture reference: top-level API, models, providers, dialects, messages and content blocks, streaming pipeline, tools, and request flow.
+- **`context/roadmap.md`** — Future work.
 - **`context/provider-apis.md`** — Provider API documentation URLs (fetch on demand when working on a specific provider/dialect).

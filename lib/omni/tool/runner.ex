@@ -6,7 +6,7 @@ defmodule Omni.Tool.Runner do
   corresponding tools concurrently, and returns `ToolResult` content blocks
   ready to be placed in a user message.
 
-  Omni's generation loop and agent use this internally, but it's also useful
+  Omni's generation loop uses this internally, but it's also useful
   when you handle tool execution yourself — for example, with schema-only
   tools where the loop breaks and hands `ToolUse` blocks back to you:
 

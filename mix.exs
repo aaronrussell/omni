@@ -32,10 +32,12 @@ defmodule Omni.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:ex_doc, "~> 0.40.1", only: :dev, runtime: false, warn_if_outdated: true},
       {:peri, "~> 0.6.2"},
-      {:plug, "~> 1.0", only: :test},
-      {:req, "~> 0.5.17"}
+      {:req, "~> 0.5.17"},
+
+      # dev dependencies
+      {:ex_doc, "~> 0.40.1", only: :dev, runtime: false, warn_if_outdated: true},
+      {:plug, "~> 1.0", only: :test}
     ]
   end
 
@@ -68,7 +70,7 @@ defmodule Omni.MixProject do
 
   defp pkg do
     [
-      description: "Universal Elixir client for LLM APIs. Text generation, tool use, and agents.",
+      description: "Universal Elixir client for LLM APIs. Streaming text generation, tool use, and structured output.",
       licenses: ["Apache-2.0"],
       maintainers: ["Aaron Russell"],
       files: ~w(lib priv/models .formatter.exs mix.exs CHANGELOG.md LICENSE README.md),

@@ -6,8 +6,8 @@
 ![License](https://img.shields.io/github/license/aaronrussell/omni?color=informational)
 ![Build Status](https://img.shields.io/github/actions/workflow/status/aaronrussell/omni/elixir.yml?branch=main)
 
-Universal Elixir client for LLM APIs.
-Text generation, tool use, and agents.
+**Universal Elixir client for LLM APIs.**
+Streaming text generation, tool use, and structured output.
 
 ## Features
 
@@ -15,7 +15,6 @@ Text generation, tool use, and agents.
 - **Streaming-first** — all requests stream by default; `generate_text` is built on `stream_text`
 - **Tool use** — define tools with schemas and handlers; the loop auto-executes and feeds results back
 - **Structured output** — JSON Schema validation with constrained decoding and automatic retries
-- **Agents** — stateful, multi-turn GenServer with lifecycle callbacks, tool approval, and pause/resume
 - **Extensible** — add custom providers by implementing a behaviour
 
 ## Installation
@@ -62,6 +61,21 @@ response.message
 #=> %Omni.Message{role: :assistant, content: [%Omni.Content.Text{text: "Hello! How can..."}]}
 ```
 
+For multi-turn conversations, build a context with a system prompt and messages:
+
+```elixir
+context = Omni.context(
+  system: "You are a helpful assistant.",
+  messages: [
+    Omni.message(role: :user, content: "What is Elixir?"),
+    Omni.message(role: :assistant, content: "Elixir is a functional programming language..."),
+    Omni.message(role: :user, content: "How does it handle concurrency?")
+  ]
+)
+
+{:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-4-5-20250514"}, context)
+```
+
 ### Streaming
 
 `stream_text` returns a `StreamingResponse` that you consume with event handlers:
@@ -75,10 +89,38 @@ response.message
   |> Omni.StreamingResponse.complete()
 ```
 
+For simple cases where you just need the text chunks:
+
+```elixir
+stream
+|> Omni.StreamingResponse.text_stream()
+|> Enum.each(&IO.write/1)
+```
+
+### Structured output
+
+Pass a schema via the `:output` option to get validated, decoded output:
+
+```elixir
+schema = Omni.Schema.object(%{
+  name: Omni.Schema.string(description: "The capital city"),
+  population: Omni.Schema.integer(description: "Approximate population")
+}, required: [:name, :population])
+
+{:ok, response} =
+  Omni.generate_text(
+    {:anthropic, "claude-sonnet-4-5-20250514"},
+    "What is the capital of France?",
+    output: schema
+  )
+
+response.output
+#=> %{name: "Paris", population: 2161000}
+```
+
 ### Tool use
 
-Define tools with schemas and handlers — the loop automatically executes tool
-uses and feeds results back to the model:
+Define tools with schemas and handlers — the loop automatically executes tool uses and feeds results back to the model:
 
 ```elixir
 weather_tool = Omni.tool(
@@ -98,25 +140,6 @@ context = Omni.context(
 
 {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-4-5-20250514"}, context)
 ```
-
-### Agents
-
-Wrap the generation loop in a supervised process with lifecycle callbacks:
-
-```elixir
-{:ok, agent} = Omni.Agent.start_link(model: {:anthropic, "claude-sonnet-4-5-20250514"})
-:ok = Omni.Agent.prompt(agent, "Hello!")
-
-# Events arrive as process messages
-receive do
-  {:agent, ^agent, :text_delta, %{delta: text}} -> IO.write(text)
-  {:agent, ^agent, :done, response} -> IO.puts("\nDone!")
-end
-```
-
-Define a callback module with `use Omni.Agent` to customize behaviour —
-control tool approval, handle stop reasons, manage state across turns, and
-more. See the `Omni.Agent` documentation for the full callback API.
 
 ## Documentation
 

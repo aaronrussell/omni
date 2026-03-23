@@ -4,17 +4,17 @@ defmodule Omni do
 
   ![License](https://img.shields.io/github/license/aaronrussell/omni?color=informational)
 
-  Universal Elixir client for LLM APIs. Text generation, tool use, and agents.
+  Universal Elixir client for LLM APIs. Streaming text generation, tool use, and structured output.
 
-  Omni provides a single API for text generation that works with Anthropic,
-  OpenAI, Google Gemini, and OpenRouter. All requests are streaming-first —
-  `generate_text/3` is built on top of `stream_text/3`.
+  Omni provides a single API for text generation that works with many LLM
+  providers. All requests are streaming-first — `generate_text/3` is built on
+  top of `stream_text/3`.
 
   ## Setup
 
   Add Omni to your dependencies:
 
-      {:omni, "~> 1.0"}
+      {:omni, "~> 1.1"}
 
   Each built-in provider reads its API key from a standard environment variable
   by default — if your keys are set, no configuration is needed:
@@ -42,7 +42,7 @@ defmodule Omni do
 
       config :omni, :providers, [:anthropic, :openai, :openrouter]
 
-  ## Generating text
+  ## Text generation
 
   The simplest way to use Omni — pass a model tuple and a string:
 
@@ -111,9 +111,10 @@ defmodule Omni do
   text is validated against the schema and decoded into `response.output`,
   with automatic retries on validation failure.
 
-  ## Tools
+  ## Tool use
 
-  Define inline tools with `Omni.tool/1`:
+  Define tools with schemas and handlers — the loop automatically executes tool
+  uses and feeds results back to the model:
 
       weather_tool = Omni.tool(
         name: "get_weather",
@@ -136,18 +137,6 @@ defmodule Omni do
   results back to the model until it produces a final text response.
 
   For reusable tools with validation, define a tool module — see `Omni.Tool`.
-
-  ## Agents
-
-  For stateful, multi-turn conversations, `Omni.Agent` wraps the generation
-  loop in a GenServer with lifecycle callbacks:
-
-      {:ok, agent} = Omni.Agent.start_link(model: {:anthropic, "claude-sonnet-4-5-20250514"})
-      :ok = Omni.Agent.prompt(agent, "Hello!")
-
-  The calling process receives `{:agent, pid, type, data}` messages as the
-  agent streams its response. See `Omni.Agent` for the full callback API,
-  event types, and tool approval workflows.
 
   ## Providers
 
