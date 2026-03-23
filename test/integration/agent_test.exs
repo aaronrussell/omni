@@ -266,11 +266,11 @@ defmodule Integration.AgentTest do
       {:agent, ^agent_pid, :done, response} ->
         Enum.reverse([{:done, response} | acc])
 
-      {:agent, ^agent_pid, :error, reason} ->
-        Enum.reverse([{:error, reason} | acc])
+      {:agent, ^agent_pid, :error, response} ->
+        Enum.reverse([{:error, response} | acc])
 
-      {:agent, ^agent_pid, :cancelled, nil} ->
-        Enum.reverse([{:cancelled, nil} | acc])
+      {:agent, ^agent_pid, :cancelled, response} ->
+        Enum.reverse([{:cancelled, response} | acc])
 
       {:agent, ^agent_pid, :pause, tool_use} ->
         Enum.reverse([{:pause, tool_use} | acc])
@@ -351,8 +351,9 @@ defmodule Integration.AgentTest do
       :ok = Agent.cancel(agent)
 
       events = collect_events(agent, 2000)
-      assert {:cancelled, nil} = List.last(events)
+      assert {:cancelled, %Response{stop_reason: :cancelled}} = List.last(events)
       assert Agent.get_state(agent, :status) == :idle
+      # First prompt cancel: tree rolled back to empty (origin was nil)
       assert MessageTree.messages(Agent.get_state(agent, :tree)) == []
     end
 
@@ -432,9 +433,9 @@ defmodule Integration.AgentTest do
       assert length(messages_after_second) == 4
 
       # Navigate back to end of first turn (node 1 = assistant response)
-      {:ok, tree} = Agent.navigate(agent, 1)
+      :ok = Agent.navigate(agent, 1)
+      tree = Agent.get_state(agent, :tree)
       assert length(MessageTree.messages(tree)) == 2
-      assert length(MessageTree.messages(Agent.get_state(agent, :tree))) == 2
     end
 
     test "returns error for non-existent turn" do
@@ -462,7 +463,7 @@ defmodule Integration.AgentTest do
 
       :ok = Agent.prompt(agent, "Hello!")
       Process.sleep(50)
-      assert {:error, :running} = Agent.navigate(agent, 0)
+      assert {:error, :not_idle} = Agent.navigate(agent, 0)
       Agent.cancel(agent)
       _events = collect_events(agent, 2000)
     end
@@ -484,7 +485,7 @@ defmodule Integration.AgentTest do
       _events = collect_events(agent)
 
       # Navigate back to node 1 (end of first turn's assistant response)
-      {:ok, _tree} = Agent.navigate(agent, 1)
+      :ok = Agent.navigate(agent, 1)
 
       # Prompt creates a new branch from node 1
       :ok = Agent.prompt(agent, "Alternate second")
@@ -655,7 +656,7 @@ defmodule Integration.AgentTest do
       assert MessageTree.depth(final_tree) == 4
 
       # Third node's parent should be node 1 (the assistant msg)
-      assert final_tree.nodes[2].node.parent_id == 1
+      assert final_tree.nodes[2].parent_id == 1
     end
   end
 
@@ -689,7 +690,7 @@ defmodule Integration.AgentTest do
       assert {:done, %Response{}} = List.last(events)
 
       tree = Agent.get_state(agent, :tree)
-      assert tree.nodes[1].node.parent_id == 0
+      assert tree.nodes[1].parent_id == 0
     end
   end
 
@@ -1035,8 +1036,9 @@ defmodule Integration.AgentTest do
       :ok = Agent.cancel(agent)
 
       events = collect_events(agent, 2000)
-      assert {:cancelled, nil} = List.last(events)
+      assert {:cancelled, %Response{stop_reason: :cancelled}} = List.last(events)
       assert Agent.get_state(agent, :status) == :idle
+      # First prompt cancel: tree rolled back to empty (origin was nil)
       assert MessageTree.messages(Agent.get_state(agent, :tree)) == []
     end
   end
@@ -1125,7 +1127,7 @@ defmodule Integration.AgentTest do
       events = collect_events(agent)
 
       assert {:error, _reason} = List.last(events)
-      assert Agent.get_state(agent, :status) == :idle
+      assert Agent.get_state(agent, :status) == :error
     end
 
     test "custom {:retry, state} retries and succeeds on second attempt" do
@@ -1160,7 +1162,7 @@ defmodule Integration.AgentTest do
 
       # After retrying once and failing again, should emit :error
       assert {:error, _reason} = List.last(events)
-      assert Agent.get_state(agent, :status) == :idle
+      assert Agent.get_state(agent, :status) == :error
       assert Agent.get_state(agent, :private).retries == 1
     end
   end
@@ -1509,8 +1511,9 @@ defmodule Integration.AgentTest do
 
       :ok = Agent.cancel(agent)
       events = collect_events(agent, 2000)
-      assert {:cancelled, nil} = List.last(events)
+      assert {:cancelled, %Response{stop_reason: :cancelled}} = List.last(events)
       assert Agent.get_state(agent, :status) == :idle
+      # First prompt cancel: tree rolled back to empty (origin was nil)
       assert MessageTree.messages(Agent.get_state(agent, :tree)) == []
     end
 
@@ -1669,6 +1672,202 @@ defmodule Integration.AgentTest do
 
       # Default handle_error returns {:stop, state} — agent emits :error
       assert_receive {:agent, ^agent, :error, {:step_crashed, :test_crash}}, 2000
+    end
+  end
+
+  # -- Error status and retry --
+
+  describe "error status" do
+    test "retry from :error re-runs evaluate_head and succeeds" do
+      stub_name = unique_stub_name()
+      # First call fails, second succeeds (after retry)
+      stub_error_then_success(stub_name, @text_fixture)
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      events = collect_events(agent)
+
+      assert {:error, _reason} = List.last(events)
+      assert Agent.get_state(agent, :status) == :error
+
+      # Retry should succeed
+      :ok = Agent.retry(agent)
+      events = collect_events(agent)
+
+      assert {:done, %Response{stop_reason: :stop}} = List.last(events)
+      assert Agent.get_state(agent, :status) == :idle
+    end
+
+    test "retry when not :error returns {:error, :not_error}" do
+      {:ok, agent} = start_agent()
+      assert {:error, :not_error} = Agent.retry(agent)
+    end
+
+    test "prompt from :error rolls back and starts fresh" do
+      stub_name = unique_stub_name()
+      stub_error(stub_name)
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      events = collect_events(agent)
+      assert {:error, _reason} = List.last(events)
+      assert Agent.get_state(agent, :status) == :error
+
+      # Prompt from :error rolls back and starts a new round
+      stub_fixture(stub_name, @text_fixture)
+      :ok = Agent.prompt(agent, "Try this instead!")
+      events = collect_events(agent)
+
+      assert {:done, %Response{stop_reason: :stop}} = List.last(events)
+      assert Agent.get_state(agent, :status) == :idle
+      # Tree should only have the successful round's messages
+      messages = MessageTree.messages(Agent.get_state(agent, :tree))
+      assert length(messages) == 2
+    end
+
+    test "cancel from :error rolls back and goes idle" do
+      stub_name = unique_stub_name()
+      stub_error(stub_name)
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      events = collect_events(agent)
+      assert {:error, _reason} = List.last(events)
+
+      :ok = Agent.cancel(agent)
+      events = collect_events(agent, 2000)
+      assert {:cancelled, %Response{stop_reason: :cancelled}} = List.last(events)
+      assert Agent.get_state(agent, :status) == :idle
+      assert MessageTree.messages(Agent.get_state(agent, :tree)) == []
+    end
+
+    test "set_state from :error is allowed" do
+      stub_name = unique_stub_name()
+      stub_error(stub_name)
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      _events = collect_events(agent)
+      assert Agent.get_state(agent, :status) == :error
+
+      assert :ok = Agent.set_state(agent, system: "New system")
+      assert Agent.get_state(agent, :system) == "New system"
+    end
+  end
+
+  # -- Active navigate --
+
+  describe "active navigate" do
+    test "navigate to user message triggers regeneration" do
+      stub_name = unique_stub_name()
+      stub_sequence(stub_name, [@text_fixture, @text_fixture, @text_fixture])
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      _events = collect_events(agent)
+
+      # Navigate to user message (node 0) — should trigger regeneration
+      :ok = Agent.navigate(agent, 0)
+      events = collect_events(agent)
+
+      assert {:done, %Response{stop_reason: :stop}} = List.last(events)
+
+      # Node 0 should now have two children (original assistant + new branch)
+      tree = Agent.get_state(agent, :tree)
+      assert length(MessageTree.children(tree, 0)) == 2
+    end
+
+    test "navigate to completed assistant is passive (no events)" do
+      stub_name = unique_stub_name()
+      stub_sequence(stub_name, [@text_fixture, @text_fixture])
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "First")
+      _events = collect_events(agent)
+      :ok = Agent.prompt(agent, "Second")
+      _events = collect_events(agent)
+
+      # Navigate back to node 1 (assistant) — passive, no round starts
+      :ok = Agent.navigate(agent, 1)
+      assert Agent.get_state(agent, :status) == :idle
+      assert MessageTree.head(Agent.get_state(agent, :tree)) == 1
+    end
+
+    test "navigate to user creates sibling branch" do
+      stub_name = unique_stub_name()
+      stub_sequence(stub_name, [@text_fixture, @text_fixture])
+
+      {:ok, agent} =
+        Agent.start_link(
+          model: model(),
+          listener: self(),
+          opts: [api_key: "test-key", plug: {Req.Test, stub_name}]
+        )
+
+      :ok = Agent.prompt(agent, "Hello!")
+      _events = collect_events(agent)
+
+      tree_before = Agent.get_state(agent, :tree)
+      original_assistant_id = MessageTree.head(tree_before)
+
+      # Navigate to user msg (node 0) — regenerate
+      :ok = Agent.navigate(agent, 0)
+      events = collect_events(agent)
+      assert {:done, %Response{}} = List.last(events)
+
+      tree = Agent.get_state(agent, :tree)
+      # Should have 2 children of node 0 (original + new)
+      children = MessageTree.children(tree, 0)
+      assert length(children) == 2
+      # Active path should go through the new branch, not the original
+      refute MessageTree.head(tree) == original_assistant_id
+    end
+
+    test "done response includes node_ids" do
+      {:ok, agent} = start_agent()
+      :ok = Agent.prompt(agent, "Hello!")
+      events = collect_events(agent)
+
+      assert {:done, %Response{node_ids: node_ids}} = List.last(events)
+      assert is_list(node_ids)
+      assert length(node_ids) == 2
+      assert [0, 1] = node_ids
     end
   end
 end

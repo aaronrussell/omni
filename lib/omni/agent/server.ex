@@ -6,18 +6,18 @@ defmodule Omni.Agent.Server do
   #   prompt/3 ──► ROUND START
   #   │
   #   ├─ Turn 1
-  #   │   ├─ Step 1: spawn_step ──► LLM request ──► handle_step_complete
+  #   │   ├─ evaluate_head ──► user msg ──► spawn_step ──► handle_step_complete
   #   │   │   └─ tool_use? ──► handle_tool_decision_phase ──► spawn_executor
-  #   │   ├─ Step 2: spawn_step ──► LLM request ──► handle_step_complete
+  #   │   ├─ evaluate_head ──► user msg ──► spawn_step ──► handle_step_complete
   #   │   │   └─ tool_use? ──► ...repeat...
-  #   │   └─ Step N: no tool_use ──► finalize_turn ──► handle_stop
+  #   │   └─ evaluate_head ──► assistant (no tools) ──► finalize_turn ──► handle_stop
   #   │       └─ {:continue, prompt} ──► :turn event
   #   │
   #   ├─ Turn 2 (same structure)
   #   │   └─ ...
   #   │
   #   └─ Final turn: handle_stop returns {:stop, _}
-  #       └─ commit_and_done ──► :done event ──► ROUND END
+  #       └─ complete_round ──► :done event ──► ROUND END
 
   use GenServer
 
@@ -35,12 +35,14 @@ defmodule Omni.Agent.Server do
     :tool_timeout,
 
     # Round lifecycle (set when a prompt starts, cleared by reset_round)
-    # pending_messages: buffered messages for this round, committed to tree on :done
+    # round_origin_id: tree head ID before the round started (for rollback)
+    # round_message_ids: list of node IDs pushed during this round
     # pending_usage: accumulated usage for the current round across all steps
     # prompt_opts: merged opts for the current round (state.opts + call-site opts)
     # next_prompt: staged {content, opts} tuple for the next round, set when
     #   prompt/3 is called while running/paused
-    pending_messages: [],
+    round_origin_id: nil,
+    round_message_ids: [],
     pending_usage: %Usage{},
     prompt_opts: [],
     next_prompt: nil,
@@ -114,18 +116,21 @@ defmodule Omni.Agent.Server do
         %__MODULE__{state: %{status: :idle}} = server
       ) do
     server = if server.listener == nil, do: %{server | listener: from_pid}, else: server
+    server = start_round(content, opts, server)
+    {:reply, :ok, server}
+  end
 
-    user_message = Message.new(role: :user, content: content)
-    prompt_opts = Keyword.merge(server.state.opts, opts)
+  def handle_call(
+        {:prompt, content, opts},
+        {from_pid, _},
+        %__MODULE__{state: %{status: :error}} = server
+      ) do
+    server = if server.listener == nil, do: %{server | listener: from_pid}, else: server
 
-    server = %{
-      server
-      | state: %{server.state | status: :running, step: 0},
-        pending_messages: [user_message],
-        prompt_opts: prompt_opts
-    }
-
-    server = spawn_step(server)
+    # Rollback to round_origin_id, then start fresh
+    server = rollback_tree(server)
+    server = reset_round(server)
+    server = start_round(content, opts, server)
     {:reply, :ok, server}
   end
 
@@ -168,7 +173,7 @@ defmodule Omni.Agent.Server do
   end
 
   def handle_call(:cancel, _from, %__MODULE__{state: %{status: status}} = server)
-      when status in [:running, :paused] do
+      when status in [:running, :paused, :error] do
     server = do_cancel(server)
     {:reply, :ok, server}
   end
@@ -177,19 +182,58 @@ defmodule Omni.Agent.Server do
     {:reply, {:error, :idle}, server}
   end
 
-  def handle_call({:listen, pid}, _from, %__MODULE__{state: %{status: :idle}} = server) do
+  def handle_call(:retry, _from, %__MODULE__{state: %{status: :error}} = server) do
+    server = %{server | state: %{server.state | status: :running}}
+    server = evaluate_head(server)
+    {:reply, :ok, server}
+  end
+
+  def handle_call(:retry, _from, server) do
+    {:reply, {:error, :not_error}, server}
+  end
+
+  def handle_call({:listen, pid}, _from, %__MODULE__{state: %{status: status}} = server)
+      when status in [:idle, :error] do
     {:reply, :ok, %{server | listener: pid}}
   end
 
   def handle_call(
         {:navigate, node_id},
         _from,
-        %__MODULE__{state: %{status: :idle}} = server
-      ) do
+        %__MODULE__{state: %{status: status}} = server
+      )
+      when status in [:idle, :error] do
+    # If navigating from :error, reset the failed round first
+    server =
+      if status == :error do
+        rollback_tree(server) |> reset_round()
+      else
+        server
+      end
+
     case MessageTree.navigate(server.state.tree, node_id) do
       {:ok, tree} ->
-        new_state = %{server.state | tree: tree}
-        {:reply, {:ok, tree}, %{server | state: new_state}}
+        server = %{server | state: %{server.state | tree: tree}}
+        head_id = MessageTree.head(tree)
+        node = MessageTree.get_node(tree, head_id)
+
+        if should_start_round?(node, server.state.tools) do
+          origin_id = navigate_origin_id(node)
+          prompt_opts = Keyword.merge(server.state.opts, [])
+
+          server = %{
+            server
+            | state: %{server.state | tree: tree, status: :running, step: 0},
+              round_origin_id: origin_id,
+              round_message_ids: [],
+              prompt_opts: prompt_opts
+          }
+
+          server = evaluate_head(server)
+          {:reply, :ok, server}
+        else
+          {:reply, :ok, server}
+        end
 
       {:error, :not_found} ->
         {:reply, {:error, :not_found}, server}
@@ -201,8 +245,9 @@ defmodule Omni.Agent.Server do
   def handle_call(
         {:set_state, opts},
         _from,
-        %__MODULE__{state: %{status: :idle}} = server
-      ) do
+        %__MODULE__{state: %{status: status}} = server
+      )
+      when status in [:idle, :error] do
     case apply_set_state(server.state, opts) do
       {:ok, new_state} -> {:reply, :ok, %{server | state: new_state}}
       {:error, _} = error -> {:reply, error, server}
@@ -214,9 +259,9 @@ defmodule Omni.Agent.Server do
   def handle_call(
         {:set_state, field, value_or_fun},
         _from,
-        %__MODULE__{state: %{status: :idle}} = server
+        %__MODULE__{state: %{status: status}} = server
       )
-      when field in @settable_fields do
+      when status in [:idle, :error] and field in @settable_fields do
     new_value =
       if is_function(value_or_fun, 1),
         do: value_or_fun.(Map.get(server.state, field)),
@@ -234,14 +279,15 @@ defmodule Omni.Agent.Server do
   def handle_call(
         {:set_state, field, _value_or_fun},
         _from,
-        %__MODULE__{state: %{status: :idle}} = server
-      ) do
+        %__MODULE__{state: %{status: status}} = server
+      )
+      when status in [:idle, :error] do
     {:reply, {:error, {:invalid_field, field}}, server}
   end
 
   # Catch-all for mutating ops while running or paused
   def handle_call({:listen, _}, _from, server), do: {:reply, {:error, :running}, server}
-  def handle_call({:navigate, _}, _from, server), do: {:reply, {:error, :running}, server}
+  def handle_call({:navigate, _}, _from, server), do: {:reply, {:error, :not_idle}, server}
   def handle_call({:set_state, _}, _from, server), do: {:reply, {:error, :running}, server}
   def handle_call({:set_state, _, _}, _from, server), do: {:reply, {:error, :running}, server}
 
@@ -272,7 +318,7 @@ defmodule Omni.Agent.Server do
         {:noreply, spawn_step(%{server | state: new_state})}
 
       {:stop, new_state} ->
-        server = reset_round(%{server | state: new_state})
+        server = %{server | state: %{new_state | status: :error}}
         notify(server, :error, reason)
         {:noreply, server}
     end
@@ -289,7 +335,7 @@ defmodule Omni.Agent.Server do
         {:noreply, spawn_step(%{server | state: new_state})}
 
       {:stop, new_state} ->
-        server = reset_round(%{server | state: new_state})
+        server = %{server | state: %{new_state | status: :error}}
         notify(server, :error, error)
         {:noreply, server}
     end
@@ -304,8 +350,9 @@ defmodule Omni.Agent.Server do
 
   def handle_info({:EXIT, pid, reason}, %{executor_task: {pid, _}} = server)
       when reason not in [:normal, :killed] do
-    server = reset_round(server)
-    notify(server, :error, {:executor_crashed, reason})
+    error = {:executor_crashed, reason}
+    server = %{server | executor_task: nil, state: %{server.state | status: :error}}
+    notify(server, :error, error)
     {:noreply, server}
   end
 
@@ -318,6 +365,58 @@ defmodule Omni.Agent.Server do
   @impl GenServer
   def terminate(reason, server) do
     call_terminate(server.module, reason, server.state)
+  end
+
+  # -- Round start --
+
+  defp start_round(content, opts, server) do
+    user_message = Message.new(role: :user, content: content)
+    prompt_opts = Keyword.merge(server.state.opts, opts)
+    origin_id = MessageTree.head(server.state.tree)
+
+    {id, tree} = MessageTree.push(server.state.tree, user_message)
+
+    %{
+      server
+      | state: %{server.state | status: :running, step: 0, tree: tree},
+        round_origin_id: origin_id,
+        round_message_ids: [id],
+        prompt_opts: prompt_opts
+    }
+    |> evaluate_head()
+  end
+
+  # -- evaluate_head: unified state machine --
+
+  defp evaluate_head(server) do
+    if max_steps_reached?(server) do
+      finalize_turn(server.last_response, server)
+    else
+      head_id = MessageTree.head(server.state.tree)
+      node = MessageTree.get_node(server.state.tree, head_id)
+
+      cond do
+        node.message.role == :user ->
+          spawn_step(server)
+
+        has_executable_tools?(node.message, server.state.tools) ->
+          tool_uses = extract_tool_uses(node.message.content)
+          handle_tool_decision_phase(tool_uses, server)
+
+        true ->
+          finalize_turn(server.last_response, server)
+      end
+    end
+  end
+
+  defp has_executable_tools?(message, tools) do
+    tool_uses = extract_tool_uses(message.content)
+    tool_map = build_tool_map(tools)
+
+    tool_uses != [] and
+      not Enum.any?(tool_uses, fn tool_use ->
+        match?(%Tool{handler: nil}, Map.get(tool_map, tool_use.name))
+      end)
   end
 
   # -- Step execution --
@@ -335,7 +434,7 @@ defmodule Omni.Agent.Server do
   end
 
   defp build_context(server) do
-    messages = MessageTree.messages(server.state.tree) ++ server.pending_messages
+    messages = MessageTree.messages(server.state.tree)
 
     %Context{
       system: server.state.system,
@@ -347,26 +446,22 @@ defmodule Omni.Agent.Server do
   # -- Step completion --
 
   defp handle_step_complete(response, server) do
-    pending = server.pending_messages ++ [response.message]
     pending_usage = Usage.add(server.pending_usage, response.usage)
+
+    # Push assistant message to tree with stop_reason
+    {id, tree} =
+      MessageTree.push(server.state.tree, response.message, response.stop_reason)
 
     server = %{
       server
-      | pending_messages: pending,
+      | state: %{server.state | tree: tree},
+        round_message_ids: server.round_message_ids ++ [id],
         step_task: nil,
         last_response: response,
         pending_usage: pending_usage
     }
 
-    tool_uses = extract_tool_uses(response.message.content)
-
-    # Schema-only tools need manual handling — return to user via finalize_turn.
-    # Hallucinated names pass through and get error results from Tool.Runner.
-    if tool_uses != [] and not any_schema_only?(tool_uses, server.state.tools) do
-      handle_tool_decision_phase(tool_uses, server)
-    else
-      finalize_turn(response, server)
-    end
+    evaluate_head(server)
   end
 
   # -- Tool decision phase --
@@ -449,15 +544,17 @@ defmodule Omni.Agent.Server do
         end
       end)
 
-    # Build user message with all tool results, append to pending
+    # Build user message with all tool results, push to tree
     user_message = Message.new(role: :user, content: final_results)
-    server = %{server | pending_messages: server.pending_messages ++ [user_message]}
+    {id, tree} = MessageTree.push(server.state.tree, user_message)
 
-    if max_steps_reached?(server) do
-      finalize_turn(server.last_response, server)
-    else
-      spawn_step(server)
-    end
+    server = %{
+      server
+      | state: %{server.state | tree: tree},
+        round_message_ids: server.round_message_ids ++ [id]
+    }
+
+    evaluate_head(server)
   end
 
   # -- Finalize turn --
@@ -469,16 +566,16 @@ defmodule Omni.Agent.Server do
 
         cond do
           max_steps_reached?(server) ->
-            commit_and_done(response, server)
+            complete_round(response, server)
 
           server.next_prompt != nil ->
             {content, opts} = server.next_prompt
             prompt_opts = Keyword.merge(server.state.opts, opts)
             server = %{server | next_prompt: nil, prompt_opts: prompt_opts}
-            continue_turn(content, response, server)
+            continue_turn(content, server)
 
           true ->
-            continue_turn(prompt, response, server)
+            continue_turn(prompt, server)
         end
 
       {:stop, new_state} ->
@@ -489,34 +586,36 @@ defmodule Omni.Agent.Server do
             {content, opts} = server.next_prompt
             prompt_opts = Keyword.merge(server.state.opts, opts)
             server = %{server | next_prompt: nil, prompt_opts: prompt_opts}
-            continue_turn(content, response, server)
+            continue_turn(content, server)
 
           true ->
-            commit_and_done(response, server)
+            complete_round(response, server)
         end
     end
   end
 
-  defp continue_turn(prompt, response, server) do
-    response = %{response | messages: server.pending_messages, usage: server.pending_usage}
-
+  defp continue_turn(prompt, server) do
+    response = build_round_response(server)
     notify(server, :turn, response)
+
+    # Push continuation user message to tree
     user_message = Message.new(role: :user, content: prompt)
-    server = %{server | pending_messages: server.pending_messages ++ [user_message]}
-    spawn_step(server)
+    {id, tree} = MessageTree.push(server.state.tree, user_message)
+
+    server = %{
+      server
+      | state: %{server.state | tree: tree},
+        round_message_ids: server.round_message_ids ++ [id]
+    }
+
+    evaluate_head(server)
   end
 
-  defp commit_and_done(response, server) do
-    {stamped_messages, tree} =
-      Enum.map_reduce(server.pending_messages, server.state.tree, fn msg, tree ->
-        {id, tree} = MessageTree.push(tree, msg)
-        {tree.nodes[id], tree}
-      end)
-
-    response = %{response | messages: stamped_messages, usage: server.pending_usage}
+  defp complete_round(_response, server) do
     new_usage = Usage.add(server.state.usage, server.pending_usage)
-    server = %{server | state: %{server.state | tree: tree, usage: new_usage}}
+    server = %{server | state: %{server.state | usage: new_usage}}
 
+    response = build_round_response(server)
     server = reset_round(server)
     notify(server, :done, response)
     server
@@ -528,13 +627,85 @@ defmodule Omni.Agent.Server do
     kill_task(server.step_task)
     kill_task(server.executor_task)
 
+    response = build_cancel_response(server)
+    server = rollback_tree(server)
+    server = reset_round(server)
+    notify(server, :cancelled, response)
     server
-    |> reset_round()
-    |> tap(&notify(&1, :cancelled, nil))
   end
 
   defp kill_task(nil), do: :ok
   defp kill_task({pid, _ref}), do: Process.exit(pid, :kill)
+
+  # -- Navigate helpers --
+
+  defp should_start_round?(node, tools) do
+    node.message.role == :user or has_executable_tools?(node.message, tools)
+  end
+
+  defp navigate_origin_id(node) do
+    if node.message.role == :user do
+      node.parent_id
+    else
+      node.id
+    end
+  end
+
+  # -- Tree rollback --
+
+  defp rollback_tree(server) do
+    tree =
+      case server.round_origin_id do
+        nil ->
+          MessageTree.clear(server.state.tree)
+
+        origin_id ->
+          {:ok, tree} = MessageTree.navigate(server.state.tree, origin_id)
+          tree
+      end
+
+    %{server | state: %{server.state | tree: tree}}
+  end
+
+  # -- Response builders --
+
+  defp build_round_response(server) do
+    messages = round_messages(server)
+    last_assistant = find_last_assistant(messages)
+
+    %Response{
+      model: server.state.model,
+      message: last_assistant,
+      messages: messages,
+      node_ids: server.round_message_ids,
+      stop_reason: if(server.last_response, do: server.last_response.stop_reason, else: :stop),
+      usage: server.pending_usage
+    }
+  end
+
+  defp build_cancel_response(server) do
+    messages = round_messages(server)
+    last_assistant = find_last_assistant(messages)
+
+    %Response{
+      model: server.state.model,
+      message: last_assistant,
+      messages: messages,
+      node_ids: server.round_message_ids,
+      stop_reason: :cancelled,
+      usage: server.pending_usage
+    }
+  end
+
+  defp round_messages(server) do
+    Enum.map(server.round_message_ids, &server.state.tree.nodes[&1].message)
+  end
+
+  defp find_last_assistant(messages) do
+    messages
+    |> Enum.reverse()
+    |> Enum.find(&(&1.role == :assistant))
+  end
 
   # -- set_state --
 
@@ -590,7 +761,8 @@ defmodule Omni.Agent.Server do
         step_task: nil,
         executor_task: nil,
         rejected_results: [],
-        pending_messages: [],
+        round_origin_id: nil,
+        round_message_ids: [],
         next_prompt: nil,
         prompt_opts: [],
         last_response: nil,
@@ -608,14 +780,6 @@ defmodule Omni.Agent.Server do
 
   defp extract_tool_uses(content) do
     Enum.filter(content, &match?(%ToolUse{}, &1))
-  end
-
-  defp any_schema_only?(tool_uses, tools) do
-    tool_map = build_tool_map(tools)
-
-    Enum.any?(tool_uses, fn tool_use ->
-      match?(%Tool{handler: nil}, Map.get(tool_map, tool_use.name))
-    end)
   end
 
   defp build_tool_map(tools) do

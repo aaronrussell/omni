@@ -26,14 +26,25 @@ defmodule Omni.Response do
 
   alias Omni.{Message, Model, Usage}
 
-  @enforce_keys [:message, :model, :stop_reason]
-  defstruct [:model, :message, :output, :stop_reason, :error, :raw, messages: [], usage: %Usage{}]
+  @enforce_keys [:model, :stop_reason]
+  defstruct [
+    :model,
+    :message,
+    :output,
+    :stop_reason,
+    :error,
+    :raw,
+    messages: [],
+    node_ids: nil,
+    usage: %Usage{}
+  ]
 
   @typedoc "A generation response envelope."
   @type t :: %__MODULE__{
           model: Model.t(),
-          message: Message.t(),
+          message: Message.t() | nil,
           messages: [Message.t()],
+          node_ids: [non_neg_integer()] | nil,
           output: map() | list() | nil,
           stop_reason: stop_reason(),
           error: String.t() | nil,
@@ -42,7 +53,7 @@ defmodule Omni.Response do
         }
 
   @typedoc "Why generation ended."
-  @type stop_reason :: :stop | :length | :tool_use | :refusal | :error
+  @type stop_reason :: :stop | :length | :tool_use | :refusal | :error | :cancelled
 
   @doc "Creates a new response struct from a keyword list or map."
   @spec new(Enumerable.t()) :: t()

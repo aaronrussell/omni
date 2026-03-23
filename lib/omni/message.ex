@@ -11,10 +11,8 @@ defmodule Omni.Message do
 
   alias Omni.Content.{Text, Thinking, Attachment, ToolUse, ToolResult}
 
-  alias Omni.MessageTree
-
   @enforce_keys [:role]
-  defstruct [:role, content: [], timestamp: nil, private: %{}, node: nil]
+  defstruct [:role, content: [], timestamp: nil, private: %{}]
 
   @typedoc "Any content block that can appear in a message."
   @type content :: Text.t() | Thinking.t() | Attachment.t() | ToolUse.t() | ToolResult.t()
@@ -24,8 +22,7 @@ defmodule Omni.Message do
           role: :user | :assistant,
           content: [content()],
           timestamp: DateTime.t(),
-          private: map(),
-          node: MessageTree.tree_node() | nil
+          private: map()
         }
 
   @doc """

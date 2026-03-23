@@ -178,7 +178,7 @@ defmodule Omni.Agent.State do
     usage: %Usage{},                  # %Usage{} — cumulative session usage
     meta: %{},                        # user metadata (title, tags, custom domain data)
     private: %{},                     # runtime state (PIDs, refs — not persisted)
-    status: :idle,                    # :idle | :running | :paused
+    status: :idle,                    # :idle | :running | :paused | :error
     step: 0                           # current step counter within the active round
   ]
 end
@@ -191,7 +191,7 @@ The fields have two logical tiers:
 
 All callbacks receive this public `%State{}` struct. Users can read any field and primarily read/write `meta` and `private`. The framework manages the other fields.
 
-Note: `tree` reflects the committed state — it only includes messages from completed prompt rounds. In-progress messages are tracked internally and are not visible in `tree` until the round completes. See "Context management" section.
+Note: `tree` reflects the in-progress conversation — messages are pushed incrementally during a round, so callbacks see the full conversation including the current round's messages.
 
 Usage is tracked on `state.usage` as a cumulative `%Usage{}` for the session. `Agent.usage/1` reads from state directly.
 
@@ -210,7 +210,8 @@ defstruct [
   :tool_timeout,                      # timeout — per-agent tool execution timeout
 
   # Round lifecycle (reset per prompt round)
-  pending_messages: [],               # in-progress message accumulator
+  round_origin_id: nil,               # tree head ID before the round started (for rollback)
+  round_message_ids: [],              # list of node IDs pushed during this round
   pending_usage: %Usage{},            # accumulated usage for current round
   prompt_opts: [],                    # per-round merged opts
   next_prompt: nil,                   # staged prompt (steering)
@@ -229,7 +230,7 @@ defstruct [
 ]
 ```
 
-`pending_messages` and `pending_usage` accumulate together during a round and are both reset by `reset_round/1`. On round commit, each pending message is pushed individually to the tree via `MessageTree.push/2`, and `pending_usage` is added to `state.usage`.
+Messages are pushed to the tree incrementally as they're produced during a round. `round_origin_id` records the tree head before the round started (for rollback on cancel/error). `round_message_ids` tracks all node IDs pushed during the round (for building event payloads). `pending_usage` accumulates usage across steps and is added to `state.usage` on round completion.
 
 ### Usage accumulation
 
@@ -258,16 +259,17 @@ Omni.Agent.start_link(opts)                        # no custom module
 Omni.Agent.start_link(module, opts)                # with callback module
 
 # Interaction
-Agent.prompt(agent, content, opts \\ [])           # send prompt / steer
+Agent.prompt(agent, content, opts \\ [])           # send prompt / steer / retry-with-different
 Agent.resume(agent, decision)                      # resume from tool approval pause
 Agent.cancel(agent)                                # abort and rollback
+Agent.retry(agent)                                 # retry from :error status
 
-# State management (idle only)
+# State management (idle or error only)
 Agent.set_state(agent, opts)                       # → :ok | {:error, ...}
 Agent.set_state(agent, field, value_or_fun)        # → :ok | {:error, ...}
 
-# Navigation (idle only)
-Agent.navigate(agent, message_id)                   # → {:ok, %MessageTree{}} | {:error, ...}
+# Navigation (idle or error only)
+Agent.navigate(agent, node_id)                     # → :ok | {:error, ...}
 
 # Listener
 Agent.listen(agent, pid)                           # → :ok | {:error, :running}
@@ -275,7 +277,7 @@ Agent.listen(agent, pid)                           # → :ok | {:error, :running
 # Inspection
 Agent.get_state(agent)                             # → %State{}
 Agent.get_state(agent, :model)                     # → %Model{}
-Agent.get_state(agent, :status)                    # → :idle | :running | :paused
+Agent.get_state(agent, :status)                    # → :idle | :running | :paused | :error
 Agent.usage(agent)                                 # → %Usage{}
 ```
 
@@ -310,6 +312,7 @@ Behaviour depends on agent status:
 
 - **Idle**: starts working immediately. Events arrive as process messages to the listener.
 - **Running or Paused**: the prompt is staged as a pending prompt. At the next turn boundary, the pending prompt overrides `handle_stop`'s decision (see "Prompt queuing"). Calling `prompt/3` again replaces the staged prompt — last-one-wins. The caller is assumed to be the same entity updating its intent.
+- **Error**: rolls back to the pre-round state, then starts a new round with the given content. "Try this instead."
 
 ### resume/2
 
@@ -326,9 +329,9 @@ Only valid when the agent is `:paused` (from `handle_tool_call` returning `{:pau
 Agent.cancel(agent)
 ```
 
-Aborts the current operation. Kills any running Step/Executor/Tool Tasks, discards pending messages, tree unchanged. The agent returns to `:idle`. See "Context management" section below.
+Aborts the current operation. Kills any running Step/Executor/Tool Tasks, rolls back the tree to the pre-round state (`round_origin_id`), and emits `{:agent, pid, :cancelled, %Response{stop_reason: :cancelled}}`. The round's messages remain as inactive branches accessible via navigation.
 
-Works when `:running` or `:paused`. Returns `{:error, :idle}` if already idle.
+Works when `:running`, `:paused`, or `:error`. Returns `{:error, :idle}` if already idle.
 
 ### set_state/2
 
@@ -398,20 +401,20 @@ All events from the agent follow the format `{:agent, agent_pid, event_type, eve
 {:agent, pid, :turn, %Response{}}             # intermediate turn complete, agent continuing
 {:agent, pid, :done, %Response{}}             # prompt round complete
 {:agent, pid, :pause, %ToolUse{}}             # waiting for tool approval
-{:agent, pid, :cancelled, nil}                # cancel was invoked
+{:agent, pid, :cancelled, %Response{}}        # cancel was invoked, tree rolled back
 {:agent, pid, :retry, reason}                # non-terminal error, agent retrying step
-{:agent, pid, :error, reason}                # terminal error, round is over
+{:agent, pid, :error, reason}                # terminal error, agent in :error status
 ```
 
 **SR pass-through events** are forwarded from the Step Task as the LLM streams its response. The partial `%Response{}` from `StreamingResponse` is stripped — the listener doesn't need the accumulating state on every delta. The completed response arrives with `:turn` or `:done`.
 
-**Agent-level events** are emitted by the GenServer itself. The 4th element is whatever type is natural for the event — structs for `:tool_result`, `:turn`, `:done`, `:pause`; `nil` for `:cancelled`; a bare term for `:error`.
+**Agent-level events** are emitted by the GenServer itself. `:done`, `:turn`, and `:cancelled` carry a `%Response{}` with `node_ids` (tree IDs for the round's messages). `:error` carries the bare error reason term — the agent stays in `:error` status and the tree is not rolled back, so the reason is what's actionable. `:retry` also carries a bare reason. `:tool_result` carries `%ToolResult{}`, `:pause` carries `%ToolUse{}`.
 
 SR events `:done` and `:error` are not forwarded — they are internal to the step. The agent emits its own `:done` and `:error` events at the prompt round level. `:retry` is emitted when `handle_error` returns `{:retry, state}` — it carries the error reason and signals that a new step will follow. `:error` is always terminal (round is over).
 
 **Turn boundaries:** `:turn` fires after each intermediate turn (where `handle_stop` returned `{:continue, ...}`). `:done` fires after the final turn. The last turn gets `:done`, not `:turn` — no doubling up. A simple chatbot (one turn per prompt) never sees `:turn`, only `:done`.
 
-`:turn` and `:done` events carry a `%Response{}` with `response.messages` (the messages from this generation) and `response.usage` (cumulative usage). For `:done`, the messages are committed to the tree. For `:turn`, the messages are the ones accumulated so far. External listeners can use the message list to reconstruct the conversation for persistence without the agent needing to know about storage.
+`:turn`, `:done`, and `:cancelled` events carry a `%Response{}` with `response.messages` (all messages from the round), `response.node_ids` (corresponding tree node IDs), and `response.usage` (cumulative usage). Messages are already in the tree (incremental commits). External listeners can use `node_ids` to correlate with the tree for persistence. `:error` carries the bare error reason term.
 
 ```
 # Simple chatbot (1 turn, no tools)
@@ -671,6 +674,10 @@ end
 
 Default: `{:stop, state}` (surface the error to the caller).
 
+When `{:stop, state}` is returned, the agent enters `:error` status (not `:idle`). The user message is already in the tree. The caller can `retry/1` to re-run the step, `prompt/3` to rollback and try different content, `cancel/1` to rollback and go idle, or `navigate/2` to abandon the failed round.
+
+When `{:retry, state}` is returned, the agent stays `:running` and retries the same step immediately. Usage accumulates across retry attempts.
+
 Use cases: retry logic for transient failures, fallback to a different model, error reporting.
 
 Note: HTTP-level retries (429, 529, etc.) should be handled by Req middleware before reaching the agent. `handle_error` is for errors that survive the middleware layer.
@@ -817,7 +824,7 @@ When hit: `handle_stop` still fires (for bookkeeping), but if it returns `{:cont
 
 There is no separate `max_turns` option. External control covers turn-level intervention:
 
-- `Agent.cancel/1` -- hard stop with rollback
+- `Agent.cancel/1` -- hard stop with tree rollback
 - `Agent.prompt/3` -- steering at the next turn boundary ("stop what you're doing")
 - User-defined turn tracking in `private` via `handle_stop` for custom policies
 
@@ -875,28 +882,76 @@ This replaces the need for a separate `Agent.pause/1` function. External interve
 
 ## Context management
 
-### Lazy tree updates
+### Incremental tree commits
 
-The agent does not commit messages to the tree until a prompt round completes successfully. During the loop, in-progress messages (the user's prompt, assistant responses, tool results) are tracked in `server.pending_messages`. A transient `%Context{}` is built on demand for each step via `build_context/1`, combining `MessageTree.messages(state.tree)` with `pending_messages`.
+Messages are pushed to the tree as they're produced during a round, not batched at the end. Each operation pushes a message and records the ID:
 
-- `state.tree` = the committed conversation tree, only updated atomically on completion
-- Step Tasks receive a transient `%Context{}` built from tree messages + pending messages
-- On `:done`: each pending message is pushed to the tree via `MessageTree.push/2`, and `pending_usage` is added to `state.usage`
-- On cancel: pending messages and pending usage are discarded, tree unchanged
+- `prompt/3` → push user message to tree
+- Step completes → push assistant message to tree (with stop_reason)
+- Tools executed → push tool result user message to tree
+- `{:continue, prompt}` → push continuation user message to tree
 
-This means the tree is always in a consistent state — no orphaned tool use blocks, no consecutive user messages, no partial turns.
+`build_context/1` reads directly from `MessageTree.messages(state.tree)` — no pending buffer. `state.tree` in callbacks reflects the in-progress conversation.
+
+### Round tracking
+
+The server tracks the current round with two fields:
+
+- `round_origin_id` — the tree head ID before the round started (or `nil` if tree was empty). Used for rollback on cancel/error.
+- `round_message_ids` — list of node IDs pushed during this round. Used to collect messages for event payloads.
+
+### evaluate_head state machine
+
+A single `evaluate_head/1` function examines the tree head and decides the next action:
+
+| Tree head | Action |
+|---|---|
+| User message | Spawn step (generate next response) |
+| Assistant message with executable tool uses | Enter tool decision phase |
+| Assistant message without executable tool uses | Call `handle_stop` callback |
+
+All operations funnel through `evaluate_head`: prompt pushes a user message then calls it, step completion pushes an assistant message then calls it, tool execution pushes results then calls it.
 
 ### Cancel semantics
 
 `Agent.cancel/1` aborts the current operation:
 
 1. Kills any running Step/Executor/Tool Tasks
-2. Discards all pending messages and pending usage
-3. Tree is unchanged — only committed messages persist
+2. Builds an incomplete `%Response{stop_reason: :cancelled}` with round messages and node_ids
+3. Rolls back the tree to `round_origin_id` (or clears if `nil`)
 4. Agent returns to `:idle`
-5. Listener receives `{:agent, pid, :cancelled, nil}`
+5. Listener receives `{:agent, pid, :cancelled, %Response{}}`
 
-Cancel works at any point during the loop — mid-stream, mid-tool-execution, mid-callback — and always produces a clean state. No special handling needed per cancellation point.
+Round messages remain as inactive branches in the tree — accessible via navigation but not on the active path. The agent returns to a known-good state where the head is an assistant message or nil.
+
+### Error recovery
+
+When a step fails and `handle_error/2` returns `{:stop, state}`:
+
+- The user message is already in the tree (incremental commits)
+- The agent enters `:error` status (not `:idle`)
+- Listener receives `{:agent, pid, :error, reason}` with the bare error term
+- Round tracking (`round_origin_id`, `round_message_ids`) is preserved for retry
+
+From `:error` status, the caller can:
+
+- `retry/1` — re-run `evaluate_head` from the current head (user message → new step)
+- `prompt/3` — rollback to `round_origin_id`, start a new round with different content
+- `cancel/1` — rollback to `round_origin_id`, go idle
+- `navigate/2` — abandon the failed round, navigate elsewhere
+- `set_state/2,3` — change model/API key before retrying
+
+### Active navigate
+
+`navigate/2` moves the tree cursor and conditionally starts a round:
+
+| Navigate target | What happens |
+|---|---|
+| User message | Starts a round. `evaluate_head` → spawn step. **Regeneration.** |
+| Assistant with executable tool uses | Starts a round. `evaluate_head` → tool decision phase. |
+| Assistant without executable tool uses | **No round.** Passive cursor move, agent stays idle. |
+
+Navigate returns `:ok`. Whether a round starts depends on the target — if it does, events arrive asynchronously. Only valid from `:idle` or `:error` status.
 
 ---
 

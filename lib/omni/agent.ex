@@ -111,14 +111,17 @@ defmodule Omni.Agent do
       {:agent, pid, :done,        %Response{}}    # prompt round complete
       {:agent, pid, :pause,       %ToolUse{}}     # waiting for tool approval
       {:agent, pid, :retry,       reason}         # non-terminal error, agent retrying
-      {:agent, pid, :error,       reason}         # terminal error, round is over
-      {:agent, pid, :cancelled,   nil}            # cancel was invoked
+      {:agent, pid, :error,       reason}         # terminal error, agent in :error status
+      {:agent, pid, :cancelled,   %Response{}}    # cancel was invoked, tree rolled back
 
-  `:turn` and `:done` events carry a `%Response{}` with `messages` (all
-  messages from this turn) and `usage` (cumulative token usage for the turn).
-  `:turn` fires after each intermediate turn (where `handle_stop` returned
-  `{:continue, ...}`). `:done` fires after the final turn. A simple chatbot
-  (one turn per prompt) never sees `:turn`, only `:done`.
+  `:turn`, `:done`, and `:cancelled` events carry a `%Response{}` with
+  `messages` (all messages from the round) and `node_ids` (tree IDs for
+  those messages). `:turn` fires after each intermediate turn (where
+  `handle_stop` returned `{:continue, ...}`). `:done` fires after the final
+  turn. `:cancelled` fires after `cancel/1` with `stop_reason: :cancelled`.
+  `:error` fires after `handle_error/2` returns `{:stop, state}` and carries
+  the bare error reason term. A simple chatbot (one turn per prompt) never
+  sees `:turn`, only `:done`.
 
   ## Tools and the agent loop
 
@@ -443,6 +446,8 @@ defmodule Omni.Agent do
     * **Idle** — starts a new prompt round immediately.
     * **Running or paused** — stages the content for the next turn boundary,
       overriding `handle_stop`'s decision. See "Prompt queuing" in the moduledoc.
+    * **Error** — rolls back to the round origin, then starts a new round
+      with the given content. "Try this instead."
   """
   @spec prompt(GenServer.server(), term(), keyword()) :: :ok
   def prompt(agent, content, opts \\ []) do
@@ -469,15 +474,31 @@ defmodule Omni.Agent do
   @doc """
   Cancels the current prompt round.
 
-  Kills any running tasks, discards all in-progress messages, and leaves the
-  conversation tree unchanged. The listener receives
-  `{:agent, pid, :cancelled, nil}`.
+  Kills any running tasks, rolls back the tree to the pre-round state, and
+  emits `{:agent, pid, :cancelled, %Response{stop_reason: :cancelled}}`.
+  Round messages remain as inactive branches accessible via navigation.
+
+  Also valid from `:error` status — rolls back and goes idle.
 
   Returns `{:error, :idle}` if the agent is already idle.
   """
   @spec cancel(GenServer.server()) :: :ok | {:error, :idle}
   def cancel(agent) do
     GenServer.call(agent, :cancel)
+  end
+
+  @doc """
+  Retries the last failed step.
+
+  Only valid when the agent is in `:error` status (after `handle_error/2`
+  returned `{:stop, state}`). Re-runs `evaluate_head` from the current tree
+  head. Usage accumulates across retry attempts.
+
+  Returns `{:error, :not_error}` if the agent is not in error status.
+  """
+  @spec retry(GenServer.server()) :: :ok | {:error, :not_error}
+  def retry(agent) do
+    GenServer.call(agent, :retry)
   end
 
   @doc """
@@ -555,16 +576,25 @@ defmodule Omni.Agent do
   end
 
   @doc """
-  Sets the active conversation path to the given node.
+  Moves the tree cursor to the given node and conditionally starts a round.
 
-  Delegates to `MessageTree.navigate/2`. The next `prompt/3` call will
-  branch from this point. Returns the updated tree for immediate UI rendering.
+  Behaviour depends on the target node:
 
-  Only valid when idle. Returns `{:error, :running}` if the agent is running
-  or paused.
+    * **User message** — starts a round. The agent generates a new response,
+      creating a sibling branch. This is how regeneration works.
+    * **Assistant with executable tool uses** — starts a round. The agent
+      re-enters the tool decision phase from that point.
+    * **Assistant without executable tool uses** — passive cursor move. The
+      agent stays idle. Call `prompt/3` to continue from this point.
+
+  Only valid when idle or in error status. Returns `:ok` on success — if a
+  round starts, events arrive asynchronously. Use `get_state/2` to inspect
+  the tree after a passive navigate.
+
+  Returns `{:error, :not_idle}` if the agent is running or paused.
   """
   @spec navigate(GenServer.server(), MessageTree.id()) ::
-          {:ok, MessageTree.t()} | {:error, :running} | {:error, :not_found}
+          :ok | {:error, :not_idle} | {:error, :not_found}
   def navigate(agent, node_id) do
     GenServer.call(agent, {:navigate, node_id})
   end

@@ -17,9 +17,9 @@ defmodule Omni.Agent.State do
 
   **Session** — change during operation:
 
-    * `:tree` — `%MessageTree{}` containing the full conversation tree. Only
-      includes messages from completed prompt rounds — in-progress messages
-      are not visible here until the round finishes
+    * `:tree` — `%MessageTree{}` containing the full conversation tree.
+      Messages are pushed incrementally during a round, so the tree reflects
+      the in-progress conversation including the current round's messages
     * `:usage` — cumulative `%Usage{}` across the entire session, including
       abandoned branches. Accumulates automatically every step; read-only
     * `:meta` — user metadata map (title, tags, custom domain data). Set initial
@@ -27,7 +27,7 @@ defmodule Omni.Agent.State do
     * `:private` — runtime state (PIDs, ETS refs, closures). Not persisted.
       Set initial values in `init/1`, update in any callback via
       `%{state | private: ...}`
-    * `:status` — `:idle`, `:running`, or `:paused`
+    * `:status` — `:idle`, `:running`, `:paused`, or `:error`
     * `:step` — current step counter within the active prompt round. Resets
       to `0` when a new round begins. Useful for step-based policies in
       callbacks (e.g. rejecting tools after a threshold)
@@ -45,7 +45,7 @@ defmodule Omni.Agent.State do
           opts: keyword(),
           meta: map(),
           private: map(),
-          status: :idle | :running | :paused,
+          status: :idle | :running | :paused | :error,
           step: non_neg_integer()
         }
 

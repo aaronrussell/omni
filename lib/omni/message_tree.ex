@@ -2,32 +2,37 @@ defmodule Omni.MessageTree do
   @moduledoc """
   A tree of conversation messages with a cursor pointing to the active path.
 
-  Each message has a unique integer ID and a parent pointer. Multiple messages
-  can share the same parent — this is how branching (regeneration, forking)
-  works.
+  Each node wraps a `%Message{}` with tree metadata: a unique integer ID, a
+  parent pointer, and an optional stop reason. Multiple nodes can share the
+  same parent — this is how branching (regeneration, forking) works.
 
   The tree supports three core operations: pushing new messages, navigating to
-  any message in the tree, and querying the active path.
+  any node in the tree, and querying the active path.
 
   ## Enumerable
 
-  Iterating over a `MessageTree` yields `%Message{}` structs for each node
-  in the **active path**, in order. Each message's `node` field carries its
-  `:id` and `:parent_id`. Use `tree.nodes` to access the full tree including
-  inactive branches.
+  Iterating over a `MessageTree` yields tree node maps for each node in the
+  **active path**, in order. Each node has `.id`, `.parent_id`, `.message`,
+  and `.stop_reason`. Use `messages/1` to get bare messages for LLM context.
   """
 
   alias Omni.Message
+  alias Omni.Response
 
   @typedoc "Integer node identifier, assigned sequentially by `push/2`."
   @type id :: non_neg_integer()
 
-  @typedoc "Tree position metadata stamped onto a message's `node` field."
-  @type tree_node :: %{id: id(), parent_id: id() | nil}
+  @typedoc "A tree node wrapping a message with tree metadata."
+  @type tree_node :: %{
+          id: id(),
+          parent_id: id() | nil,
+          message: Message.t(),
+          stop_reason: Response.stop_reason() | nil
+        }
 
   @typedoc "A tree of conversation messages with an active path cursor."
   @type t :: %__MODULE__{
-          nodes: %{id() => Message.t()},
+          nodes: %{id() => tree_node()},
           path: [id()]
         }
 
@@ -38,7 +43,7 @@ defmodule Omni.MessageTree do
   @doc "Returns a flat list of all messages along the active path, in order."
   @spec messages(t()) :: [Message.t()]
   def messages(%__MODULE__{nodes: nodes, path: path}) do
-    Enum.map(path, fn id -> nodes[id] end)
+    Enum.map(path, fn id -> nodes[id].message end)
   end
 
   @doc "Returns the number of messages in the active path."
@@ -52,22 +57,37 @@ defmodule Omni.MessageTree do
 
   @doc "Returns the message for a given ID, or `nil` if not found."
   @spec get_message(t(), id()) :: Message.t() | nil
-  def get_message(%__MODULE__{nodes: nodes}, id), do: Map.get(nodes, id)
+  def get_message(%__MODULE__{nodes: nodes}, id) do
+    case Map.get(nodes, id) do
+      nil -> nil
+      node -> node.message
+    end
+  end
+
+  @doc "Returns the full tree node for a given ID, or `nil` if not found."
+  @spec get_node(t(), id()) :: tree_node() | nil
+  def get_node(%__MODULE__{nodes: nodes}, id), do: Map.get(nodes, id)
 
   # Mutate
 
   @doc """
   Pushes a message onto the tree and appends it to the active path.
 
-  Stamps the message's `node` field with its assigned `:id` and `:parent_id`.
-  The parent is the current `head/1` (or `nil` if the tree is empty).
-  Returns `{id, updated_tree}`.
+  An optional `stop_reason` can be provided for assistant messages (from the
+  `Response` that produced them). Returns `{id, updated_tree}`.
   """
-  @spec push(t(), Message.t()) :: {id(), t()}
-  def push(%__MODULE__{nodes: nodes, path: path} = tree, %Message{} = message) do
+  @spec push(t(), Message.t(), Response.stop_reason() | nil) :: {id(), t()}
+  def push(%__MODULE__{nodes: nodes, path: path} = tree, %Message{} = message, stop_reason \\ nil) do
     id = map_size(nodes)
-    message = %{message | node: %{id: id, parent_id: head(tree)}}
-    nodes = Map.put(nodes, id, message)
+
+    node = %{
+      id: id,
+      parent_id: head(tree),
+      message: message,
+      stop_reason: stop_reason
+    }
+
+    nodes = Map.put(nodes, id, node)
 
     {id, %{tree | nodes: nodes, path: path ++ [id]}}
   end
@@ -99,7 +119,7 @@ defmodule Omni.MessageTree do
   @spec children(t(), id()) :: [id()]
   def children(%__MODULE__{nodes: nodes}, node_id) do
     nodes
-    |> Enum.filter(fn {_id, msg} -> msg.node.parent_id == node_id end)
+    |> Enum.filter(fn {_id, node} -> node.parent_id == node_id end)
     |> Enum.map(&elem(&1, 0))
     |> Enum.sort()
   end
@@ -111,10 +131,10 @@ defmodule Omni.MessageTree do
       nil ->
         []
 
-      %{node: %{parent_id: nil}} ->
+      %{parent_id: nil} ->
         roots(tree) -- [node_id]
 
-      %{node: %{parent_id: parent_id}} ->
+      %{parent_id: parent_id} ->
         children(tree, parent_id) -- [node_id]
     end
   end
@@ -131,7 +151,7 @@ defmodule Omni.MessageTree do
   @spec roots(t()) :: [id()]
   def roots(%__MODULE__{nodes: nodes}) do
     nodes
-    |> Enum.filter(fn {_id, msg} -> msg.node.parent_id == nil end)
+    |> Enum.filter(fn {_id, node} -> node.parent_id == nil end)
     |> Enum.map(&elem(&1, 0))
     |> Enum.sort()
   end
@@ -143,8 +163,8 @@ defmodule Omni.MessageTree do
   defp walk_to_root(nodes, id, acc) do
     case Map.get(nodes, id) do
       nil -> {:error, :not_found}
-      %{node: %{parent_id: nil}} -> {:ok, [id | acc]}
-      %{node: %{parent_id: parent_id}} -> walk_to_root(nodes, parent_id, [id | acc])
+      %{parent_id: nil} -> {:ok, [id | acc]}
+      %{parent_id: parent_id} -> walk_to_root(nodes, parent_id, [id | acc])
     end
   end
 
