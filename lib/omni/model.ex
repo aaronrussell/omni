@@ -21,9 +21,9 @@ defmodule Omni.Model do
     * `:output_modalities` — supported output types (`:text`)
     * `:input_cost` — USD cost per million input tokens
     * `:output_cost` — USD cost per million output tokens
-    * `:released_at` — date the model was released (from models.dev)
     * `:cache_read_cost` — USD cost per million cached input tokens (read)
     * `:cache_write_cost` — USD cost per million cached input tokens (write)
+    * `:release_date` — date the model was released (from models.dev)
 
   ## Looking up models
 
@@ -73,7 +73,7 @@ defmodule Omni.Model do
     :name,
     :provider,
     :dialect,
-    :released_at,
+    :release_date,
     context_size: 0,
     max_output_tokens: 0,
     reasoning: false,
@@ -106,7 +106,6 @@ defmodule Omni.Model do
           name: String.t(),
           provider: module(),
           dialect: module(),
-          released_at: Date.t() | nil,
           context_size: non_neg_integer(),
           max_output_tokens: non_neg_integer(),
           reasoning: boolean(),
@@ -115,7 +114,8 @@ defmodule Omni.Model do
           input_cost: number(),
           output_cost: number(),
           cache_read_cost: number(),
-          cache_write_cost: number()
+          cache_write_cost: number(),
+          release_date: Date.t() | nil
         }
 
   @doc false

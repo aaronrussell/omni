@@ -8,19 +8,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
-- **`released_at` on `%Model{}`** — optional `Date.t()` field populated from models.dev release date data. Enables filtering models by release date.
+- **`release_date` on `%Model{}`** — optional `Date.t()` field populated from models.dev release date data. Enables filtering models by release date.
 - **New models** — GPT-5.4 Mini and GPT-5.4 Nano added to model data.
 
 ### Removed
 
 - **Agent extracted** — `Omni.Agent`, `Omni.Agent.*`, and `Omni.MessageTree` have been extracted into the standalone [`omni_agent`](https://github.com/aaronrussell/omni_agent) package. This package is now purely the stateless LLM API layer.
+- **`%Turn{}` struct removed** - `Loop` `:turn_id` and `:turn_parent` options removed.
 
 ### Changed
 
 - **`%Attachment{}`** — removed unused `description` field. Renamed `opts` to `meta` — an application-layer map that dialects do not read or send to providers (e.g. for filenames or display labels).
 - **`%Response{}`** — `turn` field replaced by `messages` (list), `usage` (`%Usage{}`), and `node_ids` (list of tree node IDs, used by `omni_agent`). `:message` is now optional. Added `:cancelled` stop_reason.
-- **`Context.push/3`** — reads `response.messages` instead of `response.turn.messages`.
-- **Loop** — `:turn_id` and `:turn_parent` options removed. Response fields set directly.
 
 ## [1.1.0] - 2026-03-06
 

@@ -17,7 +17,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2024-05-14"
+    "release_date": "2024-05-14"
   },
   {
     "cache_read_cost": 0.01,
@@ -37,7 +37,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2024-10-03"
+    "release_date": "2024-10-03"
   },
   {
     "cache_read_cost": 0.3125,
@@ -57,7 +57,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2024-02-15"
+    "release_date": "2024-02-15"
   },
   {
     "cache_read_cost": 0.025,
@@ -78,7 +78,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2024-12-11"
+    "release_date": "2024-12-11"
   },
   {
     "cache_read_cost": 0,
@@ -99,7 +99,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2024-12-11"
+    "release_date": "2024-12-11"
   },
   {
     "cache_read_cost": 0.075,
@@ -120,7 +120,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-03-20"
+    "release_date": "2025-03-20"
   },
   {
     "cache_read_cost": 0.025,
@@ -141,7 +141,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-06-17"
+    "release_date": "2025-06-17"
   },
   {
     "cache_read_cost": 0.025,
@@ -162,7 +162,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-06-17"
+    "release_date": "2025-06-17"
   },
   {
     "cache_read_cost": 0.025,
@@ -183,7 +183,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-25"
+    "release_date": "2025-09-25"
   },
   {
     "cache_read_cost": 0.0375,
@@ -204,7 +204,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-04-17"
+    "release_date": "2025-04-17"
   },
   {
     "cache_read_cost": 0.0375,
@@ -225,7 +225,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-05-20"
+    "release_date": "2025-05-20"
   },
   {
     "cache_read_cost": 0.075,
@@ -246,7 +246,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-25"
+    "release_date": "2025-09-25"
   },
   {
     "cache_read_cost": 0.31,
@@ -267,7 +267,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-03-20"
+    "release_date": "2025-03-20"
   },
   {
     "cache_read_cost": 0.31,
@@ -288,7 +288,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-05-06"
+    "release_date": "2025-05-06"
   },
   {
     "cache_read_cost": 0.31,
@@ -309,7 +309,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-06-05"
+    "release_date": "2025-06-05"
   },
   {
     "cache_read_cost": 0.05,
@@ -330,7 +330,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-12-17"
+    "release_date": "2025-12-17"
   },
   {
     "cache_read_cost": 0.2,
@@ -351,7 +351,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-11-18"
+    "release_date": "2025-11-18"
   },
   {
     "cache_read_cost": 0.025,
@@ -372,7 +372,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-03-03"
+    "release_date": "2026-03-03"
   },
   {
     "cache_read_cost": 0.2,
@@ -393,7 +393,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-02-19"
+    "release_date": "2026-02-19"
   },
   {
     "cache_read_cost": 0.2,
@@ -414,7 +414,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-02-19"
+    "release_date": "2026-02-19"
   },
   {
     "cache_read_cost": 0.075,
@@ -435,7 +435,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-25"
+    "release_date": "2025-09-25"
   },
   {
     "cache_read_cost": 0.025,
@@ -456,7 +456,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-25"
+    "release_date": "2025-09-25"
   },
   {
     "cache_read_cost": 0,
@@ -476,7 +476,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-01"
+    "release_date": "2025-09-01"
   },
   {
     "cache_read_cost": 0,
@@ -495,6 +495,6 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-06-17"
+    "release_date": "2025-06-17"
   }
 ]

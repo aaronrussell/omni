@@ -18,7 +18,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2024-10-22"
+    "release_date": "2024-10-22"
   },
   {
     "cache_read_cost": 1.5,
@@ -39,7 +39,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-02-19"
+    "release_date": "2025-02-19"
   },
   {
     "cache_read_cost": 0.1,
@@ -60,7 +60,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-10-15"
+    "release_date": "2025-10-15"
   },
   {
     "cache_read_cost": 1.5,
@@ -81,7 +81,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-05-22"
+    "release_date": "2025-05-22"
   },
   {
     "cache_read_cost": 1.5,
@@ -102,7 +102,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-05"
+    "release_date": "2025-08-05"
   },
   {
     "cache_read_cost": 0.5,
@@ -123,7 +123,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-11-24"
+    "release_date": "2025-11-24"
   },
   {
     "cache_read_cost": 0.5,
@@ -144,7 +144,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-02-05"
+    "release_date": "2026-02-05"
   },
   {
     "cache_read_cost": 0.3,
@@ -165,7 +165,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-05-22"
+    "release_date": "2025-05-22"
   },
   {
     "cache_read_cost": 0.3,
@@ -186,7 +186,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-29"
+    "release_date": "2025-09-29"
   },
   {
     "cache_read_cost": 0.3,
@@ -206,7 +206,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-02-17"
+    "release_date": "2026-02-17"
   },
   {
     "cache_read_cost": 0,
@@ -225,7 +225,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2026-01-28"
+    "release_date": "2026-01-28"
   },
   {
     "cache_read_cost": 0,
@@ -244,7 +244,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2026-01-28"
+    "release_date": "2026-01-28"
   },
   {
     "cache_read_cost": 0,
@@ -263,7 +263,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-02-13"
+    "release_date": "2025-02-13"
   },
   {
     "cache_read_cost": 0,
@@ -282,7 +282,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-02-13"
+    "release_date": "2025-02-13"
   },
   {
     "cache_read_cost": 0,
@@ -301,7 +301,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-21"
+    "release_date": "2025-08-21"
   },
   {
     "cache_read_cost": 0,
@@ -320,7 +320,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-05-29"
+    "release_date": "2025-05-29"
   },
   {
     "cache_read_cost": 0,
@@ -339,7 +339,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-01-20"
+    "release_date": "2025-01-20"
   },
   {
     "cache_read_cost": 0,
@@ -358,7 +358,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-22"
+    "release_date": "2025-09-22"
   },
   {
     "cache_read_cost": 0,
@@ -377,7 +377,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-22"
+    "release_date": "2025-09-22"
   },
   {
     "cache_read_cost": 0,
@@ -396,7 +396,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-12-01"
+    "release_date": "2025-12-01"
   },
   {
     "cache_read_cost": 0,
@@ -415,7 +415,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-12-01"
+    "release_date": "2025-12-01"
   },
   {
     "cache_read_cost": 0.025,
@@ -436,7 +436,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2024-12-11"
+    "release_date": "2024-12-11"
   },
   {
     "cache_read_cost": 0,
@@ -456,7 +456,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2024-12-11"
+    "release_date": "2024-12-11"
   },
   {
     "cache_read_cost": 0.0375,
@@ -477,7 +477,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-07-17"
+    "release_date": "2025-07-17"
   },
   {
     "cache_read_cost": 0.025,
@@ -498,7 +498,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-06-17"
+    "release_date": "2025-06-17"
   },
   {
     "cache_read_cost": 0.025,
@@ -519,7 +519,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-25"
+    "release_date": "2025-09-25"
   },
   {
     "cache_read_cost": 0.031,
@@ -540,7 +540,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-25"
+    "release_date": "2025-09-25"
   },
   {
     "cache_read_cost": 0.31,
@@ -561,7 +561,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-03-20"
+    "release_date": "2025-03-20"
   },
   {
     "cache_read_cost": 0.31,
@@ -582,7 +582,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-05-06"
+    "release_date": "2025-05-06"
   },
   {
     "cache_read_cost": 0.31,
@@ -603,7 +603,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-06-05"
+    "release_date": "2025-06-05"
   },
   {
     "cache_read_cost": 0.05,
@@ -624,7 +624,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-12-17"
+    "release_date": "2025-12-17"
   },
   {
     "cache_read_cost": 0,
@@ -645,7 +645,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-11-18"
+    "release_date": "2025-11-18"
   },
   {
     "cache_read_cost": 0.025,
@@ -666,7 +666,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-03-03"
+    "release_date": "2026-03-03"
   },
   {
     "cache_read_cost": 0,
@@ -687,7 +687,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-02-19"
+    "release_date": "2026-02-19"
   },
   {
     "cache_read_cost": 0,
@@ -708,7 +708,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-02-19"
+    "release_date": "2026-02-19"
   },
   {
     "cache_read_cost": 0,
@@ -728,7 +728,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-03-12"
+    "release_date": "2025-03-12"
   },
   {
     "cache_read_cost": 0,
@@ -748,7 +748,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-03-12"
+    "release_date": "2025-03-12"
   },
   {
     "cache_read_cost": 0.025,
@@ -767,7 +767,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-06-26"
+    "release_date": "2025-06-26"
   },
   {
     "cache_read_cost": 0.025,
@@ -786,7 +786,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-03-04"
+    "release_date": "2026-03-04"
   },
   {
     "cache_read_cost": 0.025,
@@ -805,7 +805,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-04-30"
+    "release_date": "2025-04-30"
   },
   {
     "cache_read_cost": 0,
@@ -824,7 +824,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-11-10"
+    "release_date": "2025-11-10"
   },
   {
     "cache_read_cost": 0,
@@ -843,7 +843,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2024-12-06"
+    "release_date": "2024-12-06"
   },
   {
     "cache_read_cost": 0,
@@ -863,7 +863,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-04-05"
+    "release_date": "2025-04-05"
   },
   {
     "cache_read_cost": 0,
@@ -882,7 +882,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-04-21"
+    "release_date": "2025-04-21"
   },
   {
     "cache_read_cost": 0,
@@ -902,7 +902,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-01-15"
+    "release_date": "2025-01-15"
   },
   {
     "cache_read_cost": 0,
@@ -921,7 +921,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-06-17"
+    "release_date": "2025-06-17"
   },
   {
     "cache_read_cost": 0.28,
@@ -940,7 +940,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-10-23"
+    "release_date": "2025-10-23"
   },
   {
     "cache_read_cost": 0,
@@ -959,7 +959,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-12-23"
+    "release_date": "2025-12-23"
   },
   {
     "cache_read_cost": 0.03,
@@ -978,7 +978,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-02-12"
+    "release_date": "2026-02-12"
   },
   {
     "cache_read_cost": 0.06,
@@ -997,7 +997,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-03-18"
+    "release_date": "2026-03-18"
   },
   {
     "cache_read_cost": 0,
@@ -1016,7 +1016,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-08-01"
+    "release_date": "2025-08-01"
   },
   {
     "cache_read_cost": 0,
@@ -1035,7 +1035,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-09-12"
+    "release_date": "2025-09-12"
   },
   {
     "cache_read_cost": 0,
@@ -1054,7 +1054,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-09-12"
+    "release_date": "2025-09-12"
   },
   {
     "cache_read_cost": 0,
@@ -1073,7 +1073,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-07-10"
+    "release_date": "2025-07-10"
   },
   {
     "cache_read_cost": 0,
@@ -1092,7 +1092,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-05-07"
+    "release_date": "2025-05-07"
   },
   {
     "cache_read_cost": 0,
@@ -1111,7 +1111,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-05-21"
+    "release_date": "2025-05-21"
   },
   {
     "cache_read_cost": 0,
@@ -1130,7 +1130,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-07-10"
+    "release_date": "2025-07-10"
   },
   {
     "cache_read_cost": 0,
@@ -1149,7 +1149,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2024-05-27"
+    "release_date": "2024-05-27"
   },
   {
     "cache_read_cost": 0,
@@ -1169,7 +1169,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-05-07"
+    "release_date": "2025-05-07"
   },
   {
     "cache_read_cost": 0,
@@ -1189,7 +1189,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-08-12"
+    "release_date": "2025-08-12"
   },
   {
     "cache_read_cost": 0,
@@ -1208,7 +1208,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2024-07-19"
+    "release_date": "2024-07-19"
   },
   {
     "cache_read_cost": 0,
@@ -1228,7 +1228,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-03-17"
+    "release_date": "2025-03-17"
   },
   {
     "cache_read_cost": 0,
@@ -1248,7 +1248,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-06-20"
+    "release_date": "2025-06-20"
   },
   {
     "cache_read_cost": 0,
@@ -1268,7 +1268,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-06-20"
+    "release_date": "2025-06-20"
   },
   {
     "cache_read_cost": 0,
@@ -1287,7 +1287,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-06-16"
+    "release_date": "2025-06-16"
   },
   {
     "cache_read_cost": 0,
@@ -1306,7 +1306,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-07-11"
+    "release_date": "2025-07-11"
   },
   {
     "cache_read_cost": 0,
@@ -1325,7 +1325,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-09-05"
+    "release_date": "2025-09-05"
   },
   {
     "cache_read_cost": 0,
@@ -1344,7 +1344,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-09-05"
+    "release_date": "2025-09-05"
   },
   {
     "cache_read_cost": 0.15,
@@ -1363,7 +1363,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-11-06"
+    "release_date": "2025-11-06"
   },
   {
     "cache_read_cost": 0.1,
@@ -1383,7 +1383,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-01-27"
+    "release_date": "2026-01-27"
   },
   {
     "cache_read_cost": 0,
@@ -1402,7 +1402,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-07-11"
+    "release_date": "2025-07-11"
   },
   {
     "cache_read_cost": 0,
@@ -1421,7 +1421,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-02-28"
+    "release_date": "2025-02-28"
   },
   {
     "cache_read_cost": 0,
@@ -1440,7 +1440,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-25"
+    "release_date": "2025-08-25"
   },
   {
     "cache_read_cost": 0,
@@ -1459,7 +1459,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-25"
+    "release_date": "2025-08-25"
   },
   {
     "cache_read_cost": 0,
@@ -1478,7 +1478,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-12-14"
+    "release_date": "2025-12-14"
   },
   {
     "cache_read_cost": 0,
@@ -1497,7 +1497,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-03-11"
+    "release_date": "2026-03-11"
   },
   {
     "cache_read_cost": 0,
@@ -1516,7 +1516,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-03-11"
+    "release_date": "2026-03-11"
   },
   {
     "cache_read_cost": 0,
@@ -1536,7 +1536,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-10-28"
+    "release_date": "2025-10-28"
   },
   {
     "cache_read_cost": 0,
@@ -1555,7 +1555,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-18"
+    "release_date": "2025-08-18"
   },
   {
     "cache_read_cost": 0,
@@ -1574,7 +1574,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-05"
+    "release_date": "2025-09-05"
   },
   {
     "cache_read_cost": 0.5,
@@ -1594,7 +1594,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-04-14"
+    "release_date": "2025-04-14"
   },
   {
     "cache_read_cost": 0.1,
@@ -1614,7 +1614,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-04-14"
+    "release_date": "2025-04-14"
   },
   {
     "cache_read_cost": 0.08,
@@ -1634,7 +1634,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2024-07-18"
+    "release_date": "2024-07-18"
   },
   {
     "cache_read_cost": 0,
@@ -1654,7 +1654,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-07"
+    "release_date": "2025-08-07"
   },
   {
     "cache_read_cost": 0.125,
@@ -1674,7 +1674,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-15"
+    "release_date": "2025-09-15"
   },
   {
     "cache_read_cost": 1.25,
@@ -1695,7 +1695,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-10-14"
+    "release_date": "2025-10-14"
   },
   {
     "cache_read_cost": 0,
@@ -1715,7 +1715,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-07"
+    "release_date": "2025-08-07"
   },
   {
     "cache_read_cost": 0,
@@ -1735,7 +1735,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-07"
+    "release_date": "2025-08-07"
   },
   {
     "cache_read_cost": 0,
@@ -1755,7 +1755,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-10-06"
+    "release_date": "2025-10-06"
   },
   {
     "cache_read_cost": 0.125,
@@ -1775,7 +1775,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-11-13"
+    "release_date": "2025-11-13"
   },
   {
     "cache_read_cost": 0.125,
@@ -1795,7 +1795,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-11-13"
+    "release_date": "2025-11-13"
   },
   {
     "cache_read_cost": 0.125,
@@ -1815,7 +1815,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-11-13"
+    "release_date": "2025-11-13"
   },
   {
     "cache_read_cost": 0.11,
@@ -1835,7 +1835,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-11-13"
+    "release_date": "2025-11-13"
   },
   {
     "cache_read_cost": 0.025,
@@ -1855,7 +1855,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-11-13"
+    "release_date": "2025-11-13"
   },
   {
     "cache_read_cost": 0.175,
@@ -1875,7 +1875,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-12-11"
+    "release_date": "2025-12-11"
   },
   {
     "cache_read_cost": 0.175,
@@ -1895,7 +1895,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-12-11"
+    "release_date": "2025-12-11"
   },
   {
     "cache_read_cost": 0.175,
@@ -1915,7 +1915,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-01-14"
+    "release_date": "2026-01-14"
   },
   {
     "cache_read_cost": 0,
@@ -1935,7 +1935,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-12-11"
+    "release_date": "2025-12-11"
   },
   {
     "cache_read_cost": 0.175,
@@ -1956,7 +1956,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-02-24"
+    "release_date": "2026-02-24"
   },
   {
     "cache_read_cost": 0.25,
@@ -1977,7 +1977,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-03-05"
+    "release_date": "2026-03-05"
   },
   {
     "cache_read_cost": 7.5e-8,
@@ -1998,7 +1998,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-03-17"
+    "release_date": "2026-03-17"
   },
   {
     "cache_read_cost": 2.0e-8,
@@ -2019,7 +2019,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2026-03-17"
+    "release_date": "2026-03-17"
   },
   {
     "cache_read_cost": 30,
@@ -2040,7 +2040,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-03-05"
+    "release_date": "2026-03-05"
   },
   {
     "cache_read_cost": 0,
@@ -2059,7 +2059,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-05"
+    "release_date": "2025-08-05"
   },
   {
     "cache_read_cost": 0,
@@ -2078,7 +2078,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-05"
+    "release_date": "2025-08-05"
   },
   {
     "cache_read_cost": 0,
@@ -2097,7 +2097,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-05"
+    "release_date": "2025-08-05"
   },
   {
     "cache_read_cost": 0,
@@ -2116,7 +2116,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-05"
+    "release_date": "2025-08-05"
   },
   {
     "cache_read_cost": 0,
@@ -2135,7 +2135,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-05"
+    "release_date": "2025-08-05"
   },
   {
     "cache_read_cost": 0,
@@ -2154,7 +2154,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-10-29"
+    "release_date": "2025-10-29"
   },
   {
     "cache_read_cost": 0.28,
@@ -2174,7 +2174,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-04-16"
+    "release_date": "2025-04-16"
   },
   {
     "cache_read_cost": 0,
@@ -2193,7 +2193,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-02-09"
+    "release_date": "2026-02-09"
   },
   {
     "cache_read_cost": 0,
@@ -2213,7 +2213,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-02-01"
+    "release_date": "2026-02-01"
   },
   {
     "cache_read_cost": 0,
@@ -2234,7 +2234,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-03-11"
+    "release_date": "2026-03-11"
   },
   {
     "cache_read_cost": 0,
@@ -2255,7 +2255,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-03-11"
+    "release_date": "2026-03-11"
   },
   {
     "cache_read_cost": 0,
@@ -2275,7 +2275,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-11-15"
+    "release_date": "2025-11-15"
   },
   {
     "cache_read_cost": 0,
@@ -2295,7 +2295,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-11-15"
+    "release_date": "2025-11-15"
   },
   {
     "cache_read_cost": 0,
@@ -2314,7 +2314,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-01-15"
+    "release_date": "2025-01-15"
   },
   {
     "cache_read_cost": 0,
@@ -2334,7 +2334,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2024-08-28"
+    "release_date": "2024-08-28"
   },
   {
     "cache_read_cost": 0,
@@ -2354,7 +2354,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-03-24"
+    "release_date": "2025-03-24"
   },
   {
     "cache_read_cost": 0,
@@ -2374,7 +2374,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-02-01"
+    "release_date": "2025-02-01"
   },
   {
     "cache_read_cost": 0,
@@ -2393,7 +2393,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-04-28"
+    "release_date": "2025-04-28"
   },
   {
     "cache_read_cost": 0,
@@ -2412,7 +2412,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-04-28"
+    "release_date": "2025-04-28"
   },
   {
     "cache_read_cost": 0,
@@ -2431,7 +2431,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-04-28"
+    "release_date": "2025-04-28"
   },
   {
     "cache_read_cost": 0,
@@ -2450,7 +2450,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-07-25"
+    "release_date": "2025-07-25"
   },
   {
     "cache_read_cost": 0,
@@ -2469,7 +2469,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-04-28"
+    "release_date": "2025-04-28"
   },
   {
     "cache_read_cost": 0,
@@ -2488,7 +2488,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-07-29"
+    "release_date": "2025-07-29"
   },
   {
     "cache_read_cost": 0,
@@ -2507,7 +2507,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-07-29"
+    "release_date": "2025-07-29"
   },
   {
     "cache_read_cost": 0,
@@ -2526,7 +2526,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-04-28"
+    "release_date": "2025-04-28"
   },
   {
     "cache_read_cost": 0,
@@ -2545,7 +2545,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-04-28"
+    "release_date": "2025-04-28"
   },
   {
     "cache_read_cost": 0,
@@ -2564,7 +2564,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-04-30"
+    "release_date": "2025-04-30"
   },
   {
     "cache_read_cost": 0,
@@ -2583,7 +2583,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-04-28"
+    "release_date": "2025-04-28"
   },
   {
     "cache_read_cost": 0,
@@ -2602,7 +2602,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-07-23"
+    "release_date": "2025-07-23"
   },
   {
     "cache_read_cost": 0,
@@ -2621,7 +2621,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-07-31"
+    "release_date": "2025-07-31"
   },
   {
     "cache_read_cost": 0,
@@ -2640,7 +2640,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-07-23"
+    "release_date": "2025-07-23"
   },
   {
     "cache_read_cost": 0,
@@ -2659,7 +2659,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-07-23"
+    "release_date": "2025-07-23"
   },
   {
     "cache_read_cost": 0,
@@ -2678,7 +2678,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-07-23"
+    "release_date": "2025-07-23"
   },
   {
     "cache_read_cost": 0,
@@ -2697,7 +2697,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-05"
+    "release_date": "2025-09-05"
   },
   {
     "cache_read_cost": 0,
@@ -2716,7 +2716,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-09-11"
+    "release_date": "2025-09-11"
   },
   {
     "cache_read_cost": 0,
@@ -2735,7 +2735,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-09-11"
+    "release_date": "2025-09-11"
   },
   {
     "cache_read_cost": 0,
@@ -2754,7 +2754,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-11"
+    "release_date": "2025-09-11"
   },
   {
     "cache_read_cost": 0,
@@ -2774,7 +2774,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-02-16"
+    "release_date": "2026-02-16"
   },
   {
     "cache_read_cost": 0,
@@ -2794,7 +2794,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-02-16"
+    "release_date": "2026-02-16"
   },
   {
     "cache_read_cost": 0,
@@ -2813,7 +2813,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-03-05"
+    "release_date": "2025-03-05"
   },
   {
     "cache_read_cost": 0,
@@ -2832,7 +2832,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-03-12"
+    "release_date": "2025-03-12"
   },
   {
     "cache_read_cost": 0,
@@ -2851,7 +2851,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-05-25"
+    "release_date": "2025-05-25"
   },
   {
     "cache_read_cost": 0.02,
@@ -2870,7 +2870,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-01-29"
+    "release_date": "2026-01-29"
   },
   {
     "cache_read_cost": 0,
@@ -2889,7 +2889,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-01-29"
+    "release_date": "2026-01-29"
   },
   {
     "cache_read_cost": 0,
@@ -2908,7 +2908,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-04-17"
+    "release_date": "2025-04-17"
   },
   {
     "cache_read_cost": 0,
@@ -2927,7 +2927,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-11-26"
+    "release_date": "2025-11-26"
   },
   {
     "cache_read_cost": 0.75,
@@ -2946,7 +2946,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-02-17"
+    "release_date": "2025-02-17"
   },
   {
     "cache_read_cost": 0.75,
@@ -2965,7 +2965,7 @@
       "text"
     ],
     "reasoning": false,
-    "released_at": "2025-02-17"
+    "release_date": "2025-02-17"
   },
   {
     "cache_read_cost": 0.075,
@@ -2984,7 +2984,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-02-17"
+    "release_date": "2025-02-17"
   },
   {
     "cache_read_cost": 0.075,
@@ -3003,7 +3003,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-02-17"
+    "release_date": "2025-02-17"
   },
   {
     "cache_read_cost": 0.75,
@@ -3022,7 +3022,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-07-09"
+    "release_date": "2025-07-09"
   },
   {
     "cache_read_cost": 0.05,
@@ -3042,7 +3042,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-19"
+    "release_date": "2025-08-19"
   },
   {
     "cache_read_cost": 0.05,
@@ -3062,7 +3062,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-11-19"
+    "release_date": "2025-11-19"
   },
   {
     "cache_read_cost": 0.2,
@@ -3082,7 +3082,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-03-12"
+    "release_date": "2026-03-12"
   },
   {
     "cache_read_cost": 0.02,
@@ -3101,7 +3101,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-26"
+    "release_date": "2025-08-26"
   },
   {
     "cache_read_cost": 0.01,
@@ -3120,7 +3120,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-12-14"
+    "release_date": "2025-12-14"
   },
   {
     "cache_read_cost": 0,
@@ -3140,7 +3140,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-03-18"
+    "release_date": "2026-03-18"
   },
   {
     "cache_read_cost": 0,
@@ -3159,7 +3159,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-03-18"
+    "release_date": "2026-03-18"
   },
   {
     "cache_read_cost": 0,
@@ -3178,7 +3178,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-07-28"
+    "release_date": "2025-07-28"
   },
   {
     "cache_read_cost": 0,
@@ -3197,7 +3197,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-07-28"
+    "release_date": "2025-07-28"
   },
   {
     "cache_read_cost": 0,
@@ -3217,7 +3217,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-08-11"
+    "release_date": "2025-08-11"
   },
   {
     "cache_read_cost": 0.11,
@@ -3236,7 +3236,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-30"
+    "release_date": "2025-09-30"
   },
   {
     "cache_read_cost": 0.11,
@@ -3255,7 +3255,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-09-30"
+    "release_date": "2025-09-30"
   },
   {
     "cache_read_cost": 0.11,
@@ -3274,7 +3274,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2025-12-22"
+    "release_date": "2025-12-22"
   },
   {
     "cache_read_cost": 0,
@@ -3293,7 +3293,7 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-01-19"
+    "release_date": "2026-01-19"
   },
   {
     "cache_read_cost": 0.2,
@@ -3312,6 +3312,6 @@
       "text"
     ],
     "reasoning": true,
-    "released_at": "2026-02-12"
+    "release_date": "2026-02-12"
   }
 ]

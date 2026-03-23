@@ -8,7 +8,7 @@ defmodule Mix.Tasks.Models.Get do
 
   Each supported provider gets a JSON file containing an array of model objects
   with fields matching the `Omni.Model` struct: `id`, `name`, `reasoning`,
-  `released_at`, `dialect`, `input_modalities`, `output_modalities`,
+  `release_date`, `dialect`, `input_modalities`, `output_modalities`,
   `input_cost`, `output_cost`, `cache_read_cost`, `cache_write_cost`,
   `context_size`, and `max_output_tokens`.
 
@@ -107,7 +107,7 @@ defmodule Mix.Tasks.Models.Get do
       "id" => model["id"],
       "name" => model["name"],
       "reasoning" => model["reasoning"] || false,
-      "released_at" => model["release_date"],
+      "release_date" => model["release_date"],
       "dialect" => dialect,
       "input_modalities" =>
         filter_modalities(get_in(model, ["modalities", "input"]), @supported_input_modalities),

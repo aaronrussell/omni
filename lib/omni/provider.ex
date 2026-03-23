@@ -449,7 +449,7 @@ defmodule Omni.Provider do
       name: data["name"],
       provider: module,
       dialect: dialect,
-      released_at: parse_date(data["released_at"]),
+      release_date: parse_date(data["release_date"]),
       reasoning: data["reasoning"] || false,
       input_modalities: Enum.map(data["input_modalities"] || ["text"], &String.to_atom/1),
       output_modalities: Enum.map(data["output_modalities"] || ["text"], &String.to_atom/1),
