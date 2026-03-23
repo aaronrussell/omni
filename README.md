@@ -1,6 +1,6 @@
 # Omni
 
-![Omni](https://raw.githubusercontent.com/aaronrussell/omni/main/media/poster.png)
+![Omni](https://raw.githubusercontent.com/aaronrussell/omni/main/media/poster.webp)
 
 ![Hex.pm](https://img.shields.io/hexpm/v/omni?color=informational)
 ![License](https://img.shields.io/github/license/aaronrussell/omni?color=informational)
@@ -24,7 +24,7 @@ Add Omni to your dependencies:
 ```elixir
 def deps do
   [
-    {:omni, "~> 1.0"}
+    {:omni, "~> 1.2"}
   ]
 end
 ```

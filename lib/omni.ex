@@ -1,6 +1,6 @@
 defmodule Omni do
   @moduledoc """
-  ![Omni](https://raw.githubusercontent.com/aaronrussell/omni/main/media/poster.png)
+  ![Omni](https://raw.githubusercontent.com/aaronrussell/omni/main/media/poster.webp)
 
   ![License](https://img.shields.io/github/license/aaronrussell/omni?color=informational)
 
@@ -14,7 +14,7 @@ defmodule Omni do
 
   Add Omni to your dependencies:
 
-      {:omni, "~> 1.1"}
+      {:omni, "~> 1.2"}
 
   Each built-in provider reads its API key from a standard environment variable
   by default — if your keys are set, no configuration is needed:

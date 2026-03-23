@@ -1,7 +1,7 @@
 defmodule Omni.MixProject do
   use Mix.Project
 
-  @version "1.1.0"
+  @version "1.2.0"
   @source_url "https://github.com/aaronrussell/omni"
 
   def project do
@@ -49,7 +49,6 @@ defmodule Omni.MixProject do
       extras: ["CHANGELOG.md"],
       skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
       groups_for_modules: [
-        Agents: ~r/^Omni\.Agent/,
         Data: [
           ~r/Omni\.Content\..+$/,
           Omni.Context,
