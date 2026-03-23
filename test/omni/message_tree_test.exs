@@ -50,8 +50,8 @@ defmodule Omni.MessageTreeTest do
 
       assert id == 0
       assert tree.path == [0]
-      assert tree.nodes[0].parent_id == nil
-      assert %Message{role: :user} = tree.nodes[0].message
+      assert tree.nodes[0].node.parent_id == nil
+      assert %Message{role: :user} = tree.nodes[0]
     end
 
     test "push to non-empty tree sets parent to previous head" do
@@ -59,7 +59,7 @@ defmodule Omni.MessageTreeTest do
       {id, tree} = MessageTree.push(tree, msg("second"))
 
       assert id == 1
-      assert tree.nodes[1].parent_id == 0
+      assert tree.nodes[1].node.parent_id == 0
       assert tree.path == [0, 1]
     end
 
@@ -70,9 +70,9 @@ defmodule Omni.MessageTreeTest do
       {2, tree} = MessageTree.push(tree, msg("c"))
 
       assert tree.path == [0, 1, 2]
-      assert tree.nodes[0].parent_id == nil
-      assert tree.nodes[1].parent_id == 0
-      assert tree.nodes[2].parent_id == 1
+      assert tree.nodes[0].node.parent_id == nil
+      assert tree.nodes[1].node.parent_id == 0
+      assert tree.nodes[2].node.parent_id == 1
     end
 
     test "assigns sequential IDs based on map size" do
@@ -122,7 +122,7 @@ defmodule Omni.MessageTreeTest do
       {2, tree} = MessageTree.push(tree, msg("c"))
 
       # Node 2 branches from node 0
-      assert tree.nodes[2].parent_id == 0
+      assert tree.nodes[2].node.parent_id == 0
       assert tree.path == [0, 2]
 
       # Both node 1 and node 2 are children of node 0
@@ -149,7 +149,7 @@ defmodule Omni.MessageTreeTest do
       tree = MessageTree.clear(tree)
       {1, tree} = MessageTree.push(tree, msg("b"))
 
-      assert tree.nodes[1].parent_id == nil
+      assert tree.nodes[1].node.parent_id == nil
       assert tree.path == [1]
     end
 
@@ -349,10 +349,10 @@ defmodule Omni.MessageTreeTest do
   end
 
   describe "Enumerable" do
-    test "Enum.map yields nodes for active path" do
+    test "Enum.map yields messages for active path" do
       tree = example_tree()
 
-      result = Enum.map(tree, fn %{id: id} -> id end)
+      result = Enum.map(tree, fn %Message{node: %{id: id}} -> id end)
 
       assert result == [0, 1, 2, 3, 6, 7]
     end
@@ -367,22 +367,22 @@ defmodule Omni.MessageTreeTest do
       assert Enum.to_list(%MessageTree{}) == []
     end
 
-    test "iteration yields full node data" do
+    test "iteration yields messages with node data" do
       tree = %MessageTree{}
       {_, tree} = MessageTree.push(tree, msg("hello"))
 
-      [node] = Enum.to_list(tree)
+      [message] = Enum.to_list(tree)
 
-      assert node.id == 0
-      assert node.parent_id == nil
-      assert %Message{role: :user} = node.message
+      assert %Message{role: :user} = message
+      assert message.node.id == 0
+      assert message.node.parent_id == nil
     end
 
     test "iterates only the active path" do
       tree = example_tree()
 
       # Active path is [0, 1, 2, 3, 6, 7] — should not see nodes 4, 5, 8
-      ids = Enum.map(tree, fn %{id: id} -> id end)
+      ids = Enum.map(tree, fn %Message{node: %{id: id}} -> id end)
       assert ids == [0, 1, 2, 3, 6, 7]
       refute 4 in ids
       refute 5 in ids
@@ -401,15 +401,15 @@ defmodule Omni.MessageTreeTest do
       assert tree.path == [0, 1, 2, 3, 6, 7]
 
       # Parent pointers
-      assert tree.nodes[0].parent_id == nil
-      assert tree.nodes[1].parent_id == 0
-      assert tree.nodes[2].parent_id == 1
-      assert tree.nodes[3].parent_id == 2
-      assert tree.nodes[4].parent_id == 3
-      assert tree.nodes[5].parent_id == 4
-      assert tree.nodes[6].parent_id == 3
-      assert tree.nodes[7].parent_id == 6
-      assert tree.nodes[8].parent_id == 3
+      assert tree.nodes[0].node.parent_id == nil
+      assert tree.nodes[1].node.parent_id == 0
+      assert tree.nodes[2].node.parent_id == 1
+      assert tree.nodes[3].node.parent_id == 2
+      assert tree.nodes[4].node.parent_id == 3
+      assert tree.nodes[5].node.parent_id == 4
+      assert tree.nodes[6].node.parent_id == 3
+      assert tree.nodes[7].node.parent_id == 6
+      assert tree.nodes[8].node.parent_id == 3
     end
 
     test "navigate to node 5 shows that branch" do

@@ -655,7 +655,7 @@ defmodule Integration.AgentTest do
       assert MessageTree.depth(final_tree) == 4
 
       # Third node's parent should be node 1 (the assistant msg)
-      assert final_tree.nodes[2].parent_id == 1
+      assert final_tree.nodes[2].node.parent_id == 1
     end
   end
 
@@ -689,7 +689,7 @@ defmodule Integration.AgentTest do
       assert {:done, %Response{}} = List.last(events)
 
       tree = Agent.get_state(agent, :tree)
-      assert tree.nodes[1].parent_id == 0
+      assert tree.nodes[1].node.parent_id == 0
     end
   end
 

@@ -507,13 +507,13 @@ defmodule Omni.Agent.Server do
   end
 
   defp commit_and_done(response, server) do
-    tree =
-      Enum.reduce(server.pending_messages, server.state.tree, fn msg, tree ->
-        {_id, tree} = MessageTree.push(tree, msg)
-        tree
+    {stamped_messages, tree} =
+      Enum.map_reduce(server.pending_messages, server.state.tree, fn msg, tree ->
+        {id, tree} = MessageTree.push(tree, msg)
+        {tree.nodes[id], tree}
       end)
 
-    response = %{response | messages: server.pending_messages, usage: server.pending_usage}
+    response = %{response | messages: stamped_messages, usage: server.pending_usage}
     new_usage = Usage.add(server.state.usage, server.pending_usage)
     server = %{server | state: %{server.state | tree: tree, usage: new_usage}}
 

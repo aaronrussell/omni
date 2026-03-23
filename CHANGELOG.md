@@ -8,10 +8,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Changed
 
-- **MessageTree: message-per-node** — each node in the tree is now a single message (with `id`, `parent_id`, and `message`), replacing the previous turn-per-node design where each node bundled multiple messages. This enables branching at any message, not just at turn boundaries — a prerequisite for regeneration.
+- **MessageTree: message-per-node** — each node in the tree is now a `%Message{}` struct, replacing the previous turn-per-node design where each node bundled multiple messages. This enables branching at any message, not just at turn boundaries — a prerequisite for regeneration.
+- **Message `node` field** — messages gain an optional `node` field (`%{id, parent_id}`) stamped by `MessageTree.push/2`. Messages outside a tree have `node: nil`. This makes messages self-describing — UIs can read tree position directly from response messages.
 - **`%Turn{}` struct removed** — "turn" remains as a concept (user message through final assistant response) but is no longer a data type. The struct and module are deleted.
-- **`%Response{}`** — `turn` field replaced by `messages` (list) and `usage` (`%Usage{}`), accessed directly as `response.messages` and `response.usage`.
-- **`MessageTree` API** — `push/2` takes a single message and returns `{id, tree}`. Renamed: `turn_count/1` → `depth/1`, `get_turn/2` → `get_message/2`. Struct field: `turns` → `nodes`, `active_path` → `path`. Node maps carry `id`, `parent_id`, and `message`. Enumerable yields node maps. `usage/1` removed — the tree is purely structural.
+- **`%Response{}`** — `turn` field replaced by `messages` (list) and `usage` (`%Usage{}`), accessed directly as `response.messages` and `response.usage`. Agent `:done` events carry stamped messages with node positions.
+- **`MessageTree` API** — `push/2` takes a single message and returns `{id, tree}`. Renamed: `turn_count/1` → `depth/1`, `get_turn/2` → `get_message/2`. Struct fields: `turns` → `nodes` (`%{id => Message.t()}`), `active_path` → `path`. Enumerable yields `%Message{}` structs. `usage/1` removed — the tree is purely structural.
 - **Agent usage tracking** — cumulative usage now lives on `state.usage`, accumulated automatically each step. `Agent.usage/1` removed in favour of `Agent.get_state(agent, :usage)`.
 - **`Context.push/3`** — reads `response.messages` instead of `response.turn.messages`.
 - **Loop** — `:turn_id` and `:turn_parent` options removed. Response fields set directly.
