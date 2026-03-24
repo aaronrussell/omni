@@ -32,7 +32,7 @@ defmodule Omni.Dialects.GoogleGemini do
 
   @impl true
   def handle_path(%Model{id: model_id}, opts) do
-    v = if opts[:beta], do: "v1beta", else: "v1"
+    v = if opts[:beta] || opts[:output], do: "v1beta", else: "v1"
     "/#{v}/models/#{model_id}:streamGenerateContent?alt=sse"
   end
 

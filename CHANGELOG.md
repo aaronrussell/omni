@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Fixed
+
+- **Google Gemini structured output** — auto-upgrade to `v1beta` API when `:output` is set, fixing 400 errors caused by `responseMimeType`/`responseSchema` fields not existing in `v1`.
+
+## [1.2.0] - 2026-03-23
+
 ### Added
 
 - **`release_date` on `%Model{}`** — optional `Date.t()` field populated from models.dev release date data. Enables filtering models by release date.
@@ -66,6 +72,7 @@ Complete rewrite of Omni as a production-ready, multi-provider LLM client for El
 
 *Versions 0.1.0 and 0.1.1, released in 2024, were early prototypes with a different architecture. Version 1.0 is a complete rewrite and is not compatible with 0.1.x.*
 
-[Unreleased]: https://github.com/aaronrussell/omni/compare/v1.1.0...HEAD
+[Unreleased]: https://github.com/aaronrussell/omni/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/aaronrussell/omni/releases/tag/v1.2.0
 [1.1.0]: https://github.com/aaronrussell/omni/releases/tag/v1.1.0
 [1.0.0]: https://github.com/aaronrussell/omni/releases/tag/v1.0.0

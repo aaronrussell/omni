@@ -34,6 +34,12 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       path = GoogleGemini.handle_path(@model, %{beta: true})
       assert path == "/v1beta/models/gemini-2.0-flash-lite:streamGenerateContent?alt=sse"
     end
+
+    test "uses v1beta path when output is set" do
+      schema = %{type: "object", properties: %{city: %{type: "string"}}}
+      path = GoogleGemini.handle_path(@model, %{output: schema})
+      assert path == "/v1beta/models/gemini-2.0-flash-lite:streamGenerateContent?alt=sse"
+    end
   end
 
   describe "handle_body/3" do
