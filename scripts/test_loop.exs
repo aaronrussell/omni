@@ -36,8 +36,6 @@ weather_tool =
     handler: fn input -> Map.get(weather_map, input[:city]) end
   )
 
-
-
 context =
   Context.new(
     messages: [Message.new("What's the current time and weather in London and New York?")],
