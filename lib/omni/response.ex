@@ -35,7 +35,6 @@ defmodule Omni.Response do
     :error,
     :raw,
     messages: [],
-    node_ids: nil,
     usage: %Usage{}
   ]
 
@@ -44,7 +43,6 @@ defmodule Omni.Response do
           model: Model.t(),
           message: Message.t() | nil,
           messages: [Message.t()],
-          node_ids: [non_neg_integer()] | nil,
           output: map() | list() | nil,
           stop_reason: stop_reason(),
           error: String.t() | nil,

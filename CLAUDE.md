@@ -97,7 +97,7 @@ lib/omni/
 - `Tool.execute/2` validates and casts input via Peri before calling the handler — string-keyed LLM input maps back to schema key types.
 - Supported modalities defined on `Omni.Model`. Input: `:text`, `:image`, `:pdf`. Output: `:text`.
 - Structured output wire format is dialect-specific. Each dialect applies its own strictness mechanism.
-- `%Response{}` carries `messages`, `usage`, and optional `node_ids` (used by the `omni_agent` package). `stop_reason` includes `:cancelled` (also agent-specific). `:message` is optional.
+- `%Response{}` carries `messages`, `usage`, and `stop_reason` (includes `:cancelled`). `:message` is optional.
 
 ## Testing
 
