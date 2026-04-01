@@ -29,6 +29,45 @@ defmodule Omni.ToolTest do
     def call(_input), do: raise("boom")
   end
 
+  defmodule CallbackOnlyTool do
+    use Omni.Tool
+
+    @impl Omni.Tool
+    def name, do: "callback_only"
+
+    @impl Omni.Tool
+    def description, do: "Defined via callbacks"
+
+    @impl Omni.Tool
+    def schema, do: Omni.Schema.object(%{x: Omni.Schema.integer()}, required: [:x])
+
+    @impl Omni.Tool
+    def call(input), do: input.x
+  end
+
+  defmodule DynamicDescriptionTool do
+    use Omni.Tool, name: "dynamic", description: "Base description"
+
+    @impl Omni.Tool
+    def schema, do: Omni.Schema.object(%{x: Omni.Schema.integer()}, required: [:x])
+
+    @impl Omni.Tool
+    def init(opts), do: opts
+
+    @impl Omni.Tool
+    def description(opts) do
+      base = description()
+
+      case opts[:extra] do
+        nil -> base
+        extra -> base <> "\n\n" <> extra
+      end
+    end
+
+    @impl Omni.Tool
+    def call(input, _opts), do: input.x
+  end
+
   describe "new/1" do
     test "creates from keyword list" do
       tool = Tool.new(name: "test", description: "A test tool", input_schema: %{})
@@ -96,6 +135,37 @@ defmodule Omni.ToolTest do
       assert_raise ArithmeticError, fn ->
         tool.handler.(%{x: 5})
       end
+    end
+  end
+
+  describe "callback-only tool" do
+    test "new/0 builds a tool struct from callback implementations" do
+      tool = CallbackOnlyTool.new()
+
+      assert %Tool{name: "callback_only", description: "Defined via callbacks"} = tool
+      assert is_function(tool.handler, 1)
+    end
+
+    test "handler executes call/1" do
+      tool = CallbackOnlyTool.new()
+      assert tool.handler.(%{x: 42}) == 42
+    end
+  end
+
+  describe "dynamic description" do
+    test "default description/1 delegates to description/0" do
+      tool = StatelessTool.new()
+      assert tool.description == "Adds one to x"
+    end
+
+    test "description/1 can incorporate init state" do
+      tool = DynamicDescriptionTool.new(extra: "Only recent results.")
+      assert tool.description == "Base description\n\nOnly recent results."
+    end
+
+    test "description/1 falls back to base when state has no extra" do
+      tool = DynamicDescriptionTool.new([])
+      assert tool.description == "Base description"
     end
   end
 

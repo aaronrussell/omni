@@ -91,13 +91,79 @@ defmodule Omni.Tool do
       schema = Omni.Schema.object(%{query: Omni.Schema.string()}, required: [:query])
       tool = Omni.tool(name: "search", description: "Web search", input_schema: schema)
 
+  ## Dynamic descriptions
+
+  When a tool's description needs to include runtime context — for example,
+  environment details or configuration injected at construction time — override
+  `description/1`. It receives the state returned by `init/1`:
+
+      defmodule MyApp.Tools.Search do
+        use Omni.Tool, name: "search", description: "Searches the knowledge base"
+
+        def schema do
+          import Omni.Schema
+          object(%{query: string()}, required: [:query])
+        end
+
+        @impl Omni.Tool
+        def description(opts) do
+          base = description()
+          case Keyword.get(opts, :extra) do
+            nil -> base
+            extra -> base <> "\n\n" <> extra
+          end
+        end
+
+        def init(opts), do: opts
+
+        def call(input, _opts) do
+          KnowledgeBase.search(input.query)
+        end
+      end
+
+      # Base description
+      tool = MyApp.Tools.Search.new()
+      tool.description
+      #=> "Searches the knowledge base"
+
+      # With extra context
+      tool = MyApp.Tools.Search.new(extra: "Only return results from 2024.")
+      tool.description
+      #=> "Searches the knowledge base\n\nOnly return results from 2024."
+
+  The default `description/1` delegates to `description/0`, so existing tools
+  are unaffected.
+
+  ## Callbacks as an alternative to options
+
+  The `name:` and `description:` options on `use Omni.Tool` are convenient
+  shorthand, but both are optional. You can omit them and implement `name/0`
+  and `description/0` as callbacks directly:
+
+      defmodule MyApp.Tools.Ping do
+        use Omni.Tool
+
+        @impl Omni.Tool
+        def name, do: "ping"
+
+        @impl Omni.Tool
+        def description, do: "Returns pong"
+
+        def schema, do: Omni.Schema.object(%{})
+        def call(_input), do: "pong"
+      end
+
+  If you omit an option without implementing the callback, the compiler will
+  warn about the missing callback.
+
   ## How execution works
 
   Calling `new/0` or `new/1` on a tool module:
 
   1. Calls `init/1` with the given argument (defaults to `nil`)
-  2. Calls `schema/0` to capture the input schema
-  3. Returns a `%Tool{}` struct with a handler closure bound to the init state
+  2. Calls `description/1` with the init state to resolve the description
+  3. Calls `schema/0` to capture the input schema
+  4. Returns a `%Tool{}` struct with a handler closure bound to the init state
 
   When the model invokes the tool, `execute/2` validates the LLM's
   string-keyed input against the schema (via `Omni.Schema.validate/2`), casts
@@ -163,6 +229,35 @@ defmodule Omni.Tool do
   end
 
   @doc """
+  Returns the tool's name.
+
+  Defaults to the `name:` value passed to `use Omni.Tool`. Override this
+  callback to provide the name directly when omitting the option.
+  """
+  @callback name() :: String.t()
+
+  @doc """
+  Returns the tool's base description.
+
+  Defaults to the `description:` value passed to `use Omni.Tool`. Override
+  this callback to provide the description directly when omitting the option.
+  """
+  @callback description() :: String.t()
+
+  @doc """
+  Returns the tool's description, optionally incorporating runtime state.
+
+  Called by `new/1` with the state returned by `init/1`. The default
+  implementation delegates to `description/0`, ignoring state. Override this
+  when the description needs runtime context — for example, appending
+  environment-specific prompt fragments.
+
+  See the "Dynamic descriptions" section in the module documentation for an
+  example.
+  """
+  @callback description(state :: term()) :: String.t()
+
+  @doc """
   Returns a JSON Schema map describing the tool's input parameters.
 
   The return value is a plain map following JSON Schema conventions — you can
@@ -209,17 +304,40 @@ defmodule Omni.Tool do
   @callback call(input :: map(), state :: term()) :: term()
 
   defmacro __using__(opts) do
-    name = Keyword.fetch!(opts, :name)
-    description = Keyword.fetch!(opts, :description)
+    name = Keyword.get(opts, :name)
+    description = Keyword.get(opts, :description)
+
+    name_default =
+      if name do
+        quote do
+          @impl Omni.Tool
+          @doc false
+          def name, do: unquote(name)
+        end
+      end
+
+    description_default =
+      if description do
+        quote do
+          @impl Omni.Tool
+          @doc false
+          def description, do: unquote(description)
+        end
+      end
+
+    overridable =
+      [{:init, 1}, {:call, 1}, {:call, 2}, {:description, 1}] ++
+        if(name, do: [{:name, 0}], else: []) ++
+        if(description, do: [{:description, 0}], else: [])
 
     quote do
       @behaviour Omni.Tool
 
-      @doc false
-      def name, do: unquote(name)
+      unquote(name_default)
+      unquote(description_default)
 
-      @doc false
-      def description, do: unquote(description)
+      @impl Omni.Tool
+      def description(_state), do: description()
 
       @impl Omni.Tool
       def init(_params), do: nil
@@ -236,13 +354,13 @@ defmodule Omni.Tool do
 
         %Omni.Tool{
           name: name(),
-          description: description(),
+          description: description(state),
           input_schema: schema(),
           handler: fn input -> call(input, state) end
         }
       end
 
-      defoverridable init: 1, call: 1, call: 2
+      defoverridable unquote(overridable)
     end
   end
 end

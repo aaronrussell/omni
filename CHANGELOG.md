@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+
+- **Dynamic tool descriptions** — Override `description/1` to incorporate `init/1` state into the tool description at construction time.
+
 ### Fixed
 
 - **Google Gemini structured output** — auto-upgrade to `v1beta` API when `:output` is set, fixing 400 errors caused by `responseMimeType`/`responseSchema` fields not existing in `v1`.

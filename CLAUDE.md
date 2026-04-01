@@ -87,7 +87,7 @@ lib/omni/
 - Content blocks are separate structs under `Omni.Content` — pattern match on struct name, not a type field.
 - Providers use `use Omni.Provider` with an optional `:dialect` option. Single-dialect providers pass `dialect: Module`. Multi-dialect providers omit it — each model gets its dialect from the JSON data file via `Omni.Dialect.get!/1`. Provider IDs are assigned in application config, not on the module. Built-in providers are in `@builtin_providers` on `Omni.Provider`; `@default_providers` in `Omni.Application` controls startup loading. Users override via `config :omni, :providers`. Models are stored in `:persistent_term` keyed as `{Omni, provider_id}`.
 - Provider `config/0` returns `%{base_url, auth_header, api_key, headers}`. API key resolution: call-site `:api_key` opt → app config → provider default. Accepts literal string, `{:system, "ENV"}`, or `{Mod, :fun, args}`.
-- Tool modules use `use Omni.Tool, name: "string", description: "string"`. Import `Omni.Schema` inside the `schema/0` callback, not at module level.
+- Tool modules use `use Omni.Tool, name: "string", description: "string"`. The `name:` and `description:` options are optional — omit them to implement `name/0` and `description/0` as callbacks directly. Override `description/1` to incorporate `init/1` state into the description. Import `Omni.Schema` inside the `schema/0` callback, not at module level.
 - The term is "tool use", not "tool call" (aligns with Anthropic's API).
 - Attachment sources use tagged tuples: `{:base64, data}` or `{:url, url_string}`.
 - `Message.private` is a `%{}` map for provider-specific opaque round-trip data. Dialects/providers write during parsing, read during encoding. Flat atom keys.

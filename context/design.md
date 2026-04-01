@@ -997,7 +997,7 @@ defmodule MyWeatherTool do
 end
 ```
 
-The `use` macro generates `name/0` and `description/0` functions from the provided values (available for introspection but not hand-written), and generates `new/0` and `new/1` constructors that produce a `%Tool{}` struct:
+The `name:` and `description:` options are optional shorthand — when provided, the macro generates default `name/0` and `description/0` callbacks. When omitted, the module must implement `name/0` and `description/0` as callbacks directly. The macro also generates `new/0` and `new/1` constructors that produce a `%Tool{}` struct:
 
 ```elixir
 tool = MyWeatherTool.new()
@@ -1011,7 +1011,7 @@ def new(args \\ nil) do
   state = init(args)
   %Tool{
     name: name(),
-    description: description(),
+    description: description(state),
     input_schema: schema(),
     handler: fn input -> call(input, state) end
   }
@@ -1049,6 +1049,10 @@ tool = AgeTool.new(%{"joe" => 42, "alice" => 37})
 The `init/1` callback is the place to validate and fail early -- at tool construction time rather than mid-conversation when the model tries to use the tool.
 
 For stateless tools, `call/2` has a default implementation that delegates to `call/1`, so authors can ignore opts entirely.
+
+### Dynamic descriptions
+
+`description/1` receives the state from `init/1` and returns the description used in the `%Tool{}` struct. The default delegates to `description/0`. Override it to inject runtime context into the tool's description — for example, appending environment-specific prompt fragments that the model should consider when deciding to use the tool.
 
 ### Tool execution
 
