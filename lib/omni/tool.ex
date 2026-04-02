@@ -337,10 +337,10 @@ defmodule Omni.Tool do
       unquote(description_default)
 
       @impl Omni.Tool
-      def description(_state), do: description()
+      def init(params), do: params
 
       @impl Omni.Tool
-      def init(_params), do: nil
+      def description(_state), do: description()
 
       @impl Omni.Tool
       def call(_input), do: raise("#{__MODULE__} must implement call/1 or call/2")
@@ -349,7 +349,7 @@ defmodule Omni.Tool do
       def call(input, _state), do: call(input)
 
       @doc "Builds a `%Omni.Tool{}` struct with a bound handler."
-      def new(params \\ nil) do
+      def new(params \\ []) do
         state = init(params)
 
         %Omni.Tool{
