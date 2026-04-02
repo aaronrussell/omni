@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [1.2.1] - 2026-04-02
+
 ### Added
 
 - **Dynamic tool descriptions** — Override `description/1` to incorporate `init/1` state into the tool description at construction time.

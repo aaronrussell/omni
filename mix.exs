@@ -1,7 +1,7 @@
 defmodule Omni.MixProject do
   use Mix.Project
 
-  @version "1.2.0"
+  @version "1.2.1"
   @source_url "https://github.com/aaronrussell/omni"
 
   def project do
@@ -70,7 +70,8 @@ defmodule Omni.MixProject do
 
   defp pkg do
     [
-      description: "Universal Elixir client for LLM APIs. Streaming text generation, tool use, and structured output.",
+      description:
+        "Universal Elixir client for LLM APIs. Streaming text generation, tool use, and structured output.",
       licenses: ["Apache-2.0"],
       maintainers: ["Aaron Russell"],
       files: ~w(lib priv/models .formatter.exs mix.exs CHANGELOG.md LICENSE README.md),
