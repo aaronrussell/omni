@@ -78,7 +78,8 @@ Complete rewrite of Omni as a production-ready, multi-provider LLM client for El
 
 *Versions 0.1.0 and 0.1.1, released in 2024, were early prototypes with a different architecture. Version 1.0 is a complete rewrite and is not compatible with 0.1.x.*
 
-[Unreleased]: https://github.com/aaronrussell/omni/compare/v1.2.0...HEAD
+[Unreleased]: https://github.com/aaronrussell/omni/compare/v1.2.1...HEAD
+[1.2.1]: https://github.com/aaronrussell/omni/releases/tag/v1.2.1
 [1.2.0]: https://github.com/aaronrussell/omni/releases/tag/v1.2.0
 [1.1.0]: https://github.com/aaronrussell/omni/releases/tag/v1.1.0
 [1.0.0]: https://github.com/aaronrussell/omni/releases/tag/v1.0.0
