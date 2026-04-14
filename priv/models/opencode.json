@@ -248,6 +248,25 @@
     "release_date": "2026-02-11"
   },
   {
+    "cache_read_cost": 0.26,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "dialect": "openai_completions",
+    "id": "glm-5.1",
+    "input_cost": 1.4,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "GLM-5.1",
+    "output_cost": 4.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-07"
+  },
+  {
     "cache_read_cost": 0.107,
     "cache_write_cost": 0,
     "context_size": 400000,
@@ -573,46 +592,6 @@
     "release_date": "2026-01-27"
   },
   {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 262144,
-    "dialect": "openai_completions",
-    "id": "mimo-v2-omni-free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text",
-      "image",
-      "pdf"
-    ],
-    "max_output_tokens": 64000,
-    "name": "MiMo V2 Omni Free",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2026-03-18"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 1048576,
-    "dialect": "openai_completions",
-    "id": "mimo-v2-pro-free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 64000,
-    "name": "MiMo V2 Pro Free",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2026-03-18"
-  },
-  {
     "cache_read_cost": 0.06,
     "cache_write_cost": 0,
     "context_size": 204800,
@@ -653,7 +632,7 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 1000000,
+    "context_size": 204800,
     "dialect": "openai_completions",
     "id": "nemotron-3-super-free",
     "input_cost": 0,

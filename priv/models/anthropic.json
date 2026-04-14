@@ -105,27 +105,6 @@
     "release_date": "2025-02-19"
   },
   {
-    "cache_read_cost": 0.3,
-    "cache_write_cost": 3.75,
-    "context_size": 200000,
-    "dialect": "anthropic_messages",
-    "id": "claude-3-7-sonnet-latest",
-    "input_cost": 3,
-    "input_modalities": [
-      "text",
-      "image",
-      "pdf"
-    ],
-    "max_output_tokens": 64000,
-    "name": "Claude Sonnet 3.7 (latest)",
-    "output_cost": 15,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-02-19"
-  },
-  {
     "cache_read_cost": 0.03,
     "cache_write_cost": 0.3,
     "context_size": 200000,

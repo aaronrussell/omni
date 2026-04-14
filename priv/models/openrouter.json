@@ -230,6 +230,25 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": null,
+    "id": "arcee-ai/trinity-large-thinking",
+    "input_cost": 0.22,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 80000,
+    "name": "Trinity Large Thinking",
+    "output_cost": 0.85,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-01"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
     "context_size": 131072,
     "dialect": null,
     "id": "arcee-ai/trinity-mini:free",
@@ -245,44 +264,6 @@
     ],
     "reasoning": false,
     "release_date": "2026-01-28"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 32768,
-    "dialect": null,
-    "id": "cognitivecomputations/dolphin3.0-mistral-24b",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 8192,
-    "name": "Dolphin3.0 Mistral 24B",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-02-13"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 32768,
-    "dialect": null,
-    "id": "cognitivecomputations/dolphin3.0-r1-mistral-24b",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 8192,
-    "name": "Dolphin3.0 R1 Mistral 24B",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-02-13"
   },
   {
     "cache_read_cost": 0,
@@ -306,35 +287,16 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 131072,
+    "context_size": 64000,
     "dialect": null,
-    "id": "deepseek/deepseek-r1-0528-qwen3-8b:free",
-    "input_cost": 0,
+    "id": "deepseek/deepseek-r1",
+    "input_cost": 0.7,
     "input_modalities": [
       "text"
     ],
-    "max_output_tokens": 131072,
-    "name": "Deepseek R1 0528 Qwen3 8B (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-05-29"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 163840,
-    "dialect": null,
-    "id": "deepseek/deepseek-r1:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 163840,
-    "name": "R1 (free)",
-    "output_cost": 0,
+    "max_output_tokens": 16000,
+    "name": "DeepSeek: R1",
+    "output_cost": 2.5,
     "output_modalities": [
       "text"
     ],
@@ -432,26 +394,6 @@
     "max_output_tokens": 8192,
     "name": "Gemini 2.0 Flash",
     "output_cost": 0.4,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2024-12-11"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 1048576,
-    "dialect": null,
-    "id": "google/gemini-2.0-flash-exp:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text",
-      "image"
-    ],
-    "max_output_tokens": 1048576,
-    "name": "Gemini 2.0 Flash Experimental (free)",
-    "output_cost": 0,
     "output_modalities": [
       "text"
     ],
@@ -751,6 +693,86 @@
     "release_date": "2025-03-12"
   },
   {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": null,
+    "id": "google/gemma-4-26b-a4b-it",
+    "input_cost": 0.13,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Gemma 4 26B A4B",
+    "output_cost": 0.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-03"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": null,
+    "id": "google/gemma-4-26b-a4b-it:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Gemma 4 26B A4B (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-03"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": null,
+    "id": "google/gemma-4-31b-it",
+    "input_cost": 0.14,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Gemma 4 31B",
+    "output_cost": 0.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-02"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": null,
+    "id": "google/gemma-4-31b-it:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Gemma 4 31B (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-02"
+  },
+  {
     "cache_read_cost": 0.025,
     "cache_write_cost": 0,
     "context_size": 128000,
@@ -810,25 +832,6 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 256000,
-    "dialect": null,
-    "id": "kwaipilot/kat-coder-pro:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 65536,
-    "name": "Kat Coder Pro (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-11-10"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
     "context_size": 131072,
     "dialect": null,
     "id": "meta-llama/llama-3.3-70b-instruct:free",
@@ -844,45 +847,6 @@
     ],
     "reasoning": false,
     "release_date": "2024-12-06"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 64000,
-    "dialect": null,
-    "id": "meta-llama/llama-4-scout:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text",
-      "image"
-    ],
-    "max_output_tokens": 64000,
-    "name": "Llama 4 Scout (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-04-05"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 163840,
-    "dialect": null,
-    "id": "microsoft/mai-ds-r1:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 163840,
-    "name": "MAI DS R1 (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-04-21"
   },
   {
     "cache_read_cost": 0,
@@ -981,6 +945,25 @@
     "release_date": "2026-02-12"
   },
   {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "dialect": null,
+    "id": "minimax/minimax-m2.5:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "MiniMax M2.5 (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-02-12"
+  },
+  {
     "cache_read_cost": 0.06,
     "cache_write_cost": 0.375,
     "context_size": 204800,
@@ -1040,25 +1023,6 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 262144,
-    "dialect": null,
-    "id": "mistralai/devstral-2512:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 262144,
-    "name": "Devstral 2 2512 (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-09-12"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
     "context_size": 131072,
     "dialect": null,
     "id": "mistralai/devstral-medium-2507",
@@ -1097,25 +1061,6 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 32768,
-    "dialect": null,
-    "id": "mistralai/devstral-small-2505:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 32768,
-    "name": "Devstral Small 2505 (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-05-21"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
     "context_size": 131072,
     "dialect": null,
     "id": "mistralai/devstral-small-2507",
@@ -1131,25 +1076,6 @@
     ],
     "reasoning": false,
     "release_date": "2025-07-10"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 32768,
-    "dialect": null,
-    "id": "mistralai/mistral-7b-instruct:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 32768,
-    "name": "Mistral 7B Instruct (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2024-05-27"
   },
   {
     "cache_read_cost": 0,
@@ -1194,21 +1120,22 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 131072,
+    "context_size": 262144,
     "dialect": null,
-    "id": "mistralai/mistral-nemo:free",
-    "input_cost": 0,
+    "id": "mistralai/mistral-small-2603",
+    "input_cost": 0.15,
     "input_modalities": [
-      "text"
+      "text",
+      "image"
     ],
-    "max_output_tokens": 131072,
-    "name": "Mistral Nemo (free)",
-    "output_cost": 0,
+    "max_output_tokens": 262144,
+    "name": "Mistral Small 4",
+    "output_cost": 0.6,
     "output_modalities": [
       "text"
     ],
-    "reasoning": false,
-    "release_date": "2024-07-19"
+    "reasoning": true,
+    "release_date": "2026-03-16"
   },
   {
     "cache_read_cost": 0,
@@ -1249,45 +1176,6 @@
     ],
     "reasoning": false,
     "release_date": "2025-06-20"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 96000,
-    "dialect": null,
-    "id": "mistralai/mistral-small-3.2-24b-instruct:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text",
-      "image"
-    ],
-    "max_output_tokens": 96000,
-    "name": "Mistral Small 3.2 24B (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-06-20"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 131072,
-    "dialect": null,
-    "id": "moonshotai/kimi-dev-72b:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 131072,
-    "name": "Kimi Dev 72b (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-06-16"
   },
   {
     "cache_read_cost": 0,
@@ -1409,25 +1297,6 @@
     "cache_write_cost": 0,
     "context_size": 131072,
     "dialect": null,
-    "id": "nousresearch/deephermes-3-llama-3-8b-preview",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 8192,
-    "name": "DeepHermes 3 Llama 3 8B Preview",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-02-28"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 131072,
-    "dialect": null,
     "id": "nousresearch/hermes-4-405b",
     "input_cost": 1,
     "input_modalities": [
@@ -1504,7 +1373,7 @@
     "cache_write_cost": 0,
     "context_size": 262144,
     "dialect": null,
-    "id": "nvidia/nemotron-3-super-120b-a12b-free",
+    "id": "nvidia/nemotron-3-super-120b-a12b:free",
     "input_cost": 0,
     "input_modalities": [
       "text"
@@ -2179,21 +2048,21 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 128000,
+    "context_size": 262144,
     "dialect": null,
-    "id": "openrouter/aurora-alpha",
+    "id": "openrouter/elephant-alpha",
     "input_cost": 0,
     "input_modalities": [
       "text"
     ],
-    "max_output_tokens": 50000,
-    "name": "Aurora Alpha",
+    "max_output_tokens": 32768,
+    "name": "Elephant (free)",
     "output_cost": 0,
     "output_modalities": [
       "text"
     ],
     "reasoning": true,
-    "release_date": "2026-02-09"
+    "release_date": "2026-04-13"
   },
   {
     "cache_read_cost": 0,
@@ -2218,88 +2087,6 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 262144,
-    "dialect": null,
-    "id": "openrouter/healer-alpha",
-    "input_cost": 0,
-    "input_modalities": [
-      "text",
-      "image",
-      "pdf"
-    ],
-    "max_output_tokens": 64000,
-    "name": "Healer Alpha",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2026-03-11"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 1048576,
-    "dialect": null,
-    "id": "openrouter/hunter-alpha",
-    "input_cost": 0,
-    "input_modalities": [
-      "text",
-      "image",
-      "pdf"
-    ],
-    "max_output_tokens": 64000,
-    "name": "Hunter Alpha",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2026-03-11"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 1840000,
-    "dialect": null,
-    "id": "openrouter/sherlock-dash-alpha",
-    "input_cost": 0,
-    "input_modalities": [
-      "text",
-      "image"
-    ],
-    "max_output_tokens": 0,
-    "name": "Sherlock Dash Alpha",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-11-15"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 1840000,
-    "dialect": null,
-    "id": "openrouter/sherlock-think-alpha",
-    "input_cost": 0,
-    "input_modalities": [
-      "text",
-      "image"
-    ],
-    "max_output_tokens": 0,
-    "name": "Sherlock Think Alpha",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-11-15"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
     "context_size": 131072,
     "dialect": null,
     "id": "prime-intellect/intellect-3",
@@ -2315,85 +2102,6 @@
     ],
     "reasoning": true,
     "release_date": "2025-01-15"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 32768,
-    "dialect": null,
-    "id": "qwen/qwen-2.5-vl-7b-instruct:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text",
-      "image"
-    ],
-    "max_output_tokens": 32768,
-    "name": "Qwen2.5-VL 7B Instruct (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2024-08-28"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 8192,
-    "dialect": null,
-    "id": "qwen/qwen2.5-vl-32b-instruct:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text",
-      "image"
-    ],
-    "max_output_tokens": 8192,
-    "name": "Qwen2.5 VL 32B Instruct (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-03-24"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 32768,
-    "dialect": null,
-    "id": "qwen/qwen2.5-vl-72b-instruct:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text",
-      "image"
-    ],
-    "max_output_tokens": 32768,
-    "name": "Qwen2.5 VL 72B Instruct (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-02-01"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 40960,
-    "dialect": null,
-    "id": "qwen/qwen3-14b:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 40960,
-    "name": "Qwen3 14B (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-04-28"
   },
   {
     "cache_read_cost": 0,
@@ -2419,25 +2127,6 @@
     "cache_write_cost": 0,
     "context_size": 262144,
     "dialect": null,
-    "id": "qwen/qwen3-235b-a22b-07-25:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 131072,
-    "name": "Qwen3 235B A22B Instruct 2507 (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-04-28"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 262144,
-    "dialect": null,
     "id": "qwen/qwen3-235b-a22b-thinking-2507",
     "input_cost": 0.078,
     "input_modalities": [
@@ -2451,25 +2140,6 @@
     ],
     "reasoning": true,
     "release_date": "2025-07-25"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 131072,
-    "dialect": null,
-    "id": "qwen/qwen3-235b-a22b:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 131072,
-    "name": "Qwen3 235B A22B (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-04-28"
   },
   {
     "cache_read_cost": 0,
@@ -2514,44 +2184,6 @@
     "cache_write_cost": 0,
     "context_size": 40960,
     "dialect": null,
-    "id": "qwen/qwen3-30b-a3b:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 40960,
-    "name": "Qwen3 30B A3B (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-04-28"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 40960,
-    "dialect": null,
-    "id": "qwen/qwen3-32b:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 40960,
-    "name": "Qwen3 32B (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-04-28"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 40960,
-    "dialect": null,
     "id": "qwen/qwen3-4b:free",
     "input_cost": 0,
     "input_modalities": [
@@ -2565,25 +2197,6 @@
     ],
     "reasoning": true,
     "release_date": "2025-04-30"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 40960,
-    "dialect": null,
-    "id": "qwen/qwen3-8b:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 40960,
-    "name": "Qwen3 8B (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-04-28"
   },
   {
     "cache_read_cost": 0,
@@ -2781,6 +2394,26 @@
     "cache_write_cost": 0,
     "context_size": 1000000,
     "dialect": null,
+    "id": "qwen/qwen3.5-flash-02-23",
+    "input_cost": 0.065,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Qwen: Qwen3.5-Flash",
+    "output_cost": 0.26,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-02-25"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1000000,
+    "dialect": null,
     "id": "qwen/qwen3.5-plus-02-15",
     "input_cost": 0.4,
     "input_modalities": [
@@ -2799,59 +2432,22 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 32768,
+    "context_size": 1000000,
     "dialect": null,
-    "id": "qwen/qwq-32b:free",
-    "input_cost": 0,
+    "id": "qwen/qwen3.6-plus",
+    "input_cost": 0.325,
     "input_modalities": [
-      "text"
+      "text",
+      "image"
     ],
-    "max_output_tokens": 32768,
-    "name": "QwQ 32B (free)",
-    "output_cost": 0,
+    "max_output_tokens": 65536,
+    "name": "Qwen3.6 Plus",
+    "output_cost": 1.95,
     "output_modalities": [
       "text"
     ],
     "reasoning": true,
-    "release_date": "2025-03-05"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 32768,
-    "dialect": null,
-    "id": "rekaai/reka-flash-3",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 8192,
-    "name": "Reka Flash 3",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-03-12"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 32768,
-    "dialect": null,
-    "id": "sarvamai/sarvam-m:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 32768,
-    "name": "Sarvam-M (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-05-25"
+    "release_date": "2026-04-02"
   },
   {
     "cache_read_cost": 0.02,
@@ -2871,63 +2467,6 @@
     ],
     "reasoning": true,
     "release_date": "2026-01-29"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 256000,
-    "dialect": null,
-    "id": "stepfun/step-3.5-flash:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 256000,
-    "name": "Step 3.5 Flash (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2026-01-29"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 32768,
-    "dialect": null,
-    "id": "thudm/glm-z1-32b:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 32768,
-    "name": "GLM Z1 32B (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-04-17"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 163840,
-    "dialect": null,
-    "id": "tngtech/tng-r1t-chimera:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 163840,
-    "name": "R1T Chimera (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-11-26"
   },
   {
     "cache_read_cost": 0.75,
@@ -3123,7 +2662,7 @@
     "release_date": "2025-12-14"
   },
   {
-    "cache_read_cost": 0,
+    "cache_read_cost": 0.08,
     "cache_write_cost": 0,
     "context_size": 262144,
     "dialect": null,
@@ -3143,7 +2682,7 @@
     "release_date": "2026-03-18"
   },
   {
-    "cache_read_cost": 0,
+    "cache_read_cost": 0.2,
     "cache_write_cost": 0,
     "context_size": 1048576,
     "dialect": null,
@@ -3313,5 +2852,43 @@
     ],
     "reasoning": true,
     "release_date": "2026-02-12"
+  },
+  {
+    "cache_read_cost": 0.192,
+    "cache_write_cost": 0,
+    "context_size": 202752,
+    "dialect": null,
+    "id": "z-ai/glm-5-turbo",
+    "input_cost": 0.96,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "GLM-5-Turbo",
+    "output_cost": 3.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-03-16"
+  },
+  {
+    "cache_read_cost": 0.26,
+    "cache_write_cost": 0,
+    "context_size": 202752,
+    "dialect": null,
+    "id": "z-ai/glm-5.1",
+    "input_cost": 1.4,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "GLM-5.1",
+    "output_cost": 4.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-07"
   }
 ]

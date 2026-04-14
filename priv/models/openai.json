@@ -66,7 +66,8 @@
     "input_cost": 2,
     "input_modalities": [
       "text",
-      "image"
+      "image",
+      "pdf"
     ],
     "max_output_tokens": 32768,
     "name": "GPT-4.1",
@@ -86,7 +87,8 @@
     "input_cost": 0.4,
     "input_modalities": [
       "text",
-      "image"
+      "image",
+      "pdf"
     ],
     "max_output_tokens": 32768,
     "name": "GPT-4.1 mini",
@@ -126,7 +128,8 @@
     "input_cost": 2.5,
     "input_modalities": [
       "text",
-      "image"
+      "image",
+      "pdf"
     ],
     "max_output_tokens": 16384,
     "name": "GPT-4o",
@@ -206,7 +209,8 @@
     "input_cost": 0.15,
     "input_modalities": [
       "text",
-      "image"
+      "image",
+      "pdf"
     ],
     "max_output_tokens": 16384,
     "name": "GPT-4o mini",
@@ -501,6 +505,26 @@
   {
     "cache_read_cost": 0.175,
     "cache_write_cost": 0,
+    "context_size": 128000,
+    "dialect": "openai_responses",
+    "id": "gpt-5.3-chat-latest",
+    "input_cost": 1.75,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 16384,
+    "name": "GPT-5.3 Chat (latest)",
+    "output_cost": 14,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2026-03-03"
+  },
+  {
+    "cache_read_cost": 0.175,
+    "cache_write_cost": 0,
     "context_size": 400000,
     "dialect": "openai_responses",
     "id": "gpt-5.3-codex",
@@ -630,7 +654,8 @@
     "input_cost": 15,
     "input_modalities": [
       "text",
-      "image"
+      "image",
+      "pdf"
     ],
     "max_output_tokens": 100000,
     "name": "o1",
@@ -670,7 +695,8 @@
     "input_cost": 2,
     "input_modalities": [
       "text",
-      "image"
+      "image",
+      "pdf"
     ],
     "max_output_tokens": 100000,
     "name": "o3",

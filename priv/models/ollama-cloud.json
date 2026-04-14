@@ -103,7 +103,8 @@
     "id": "gemini-3-flash-preview",
     "input_cost": 0,
     "input_modalities": [
-      "text"
+      "text",
+      "image"
     ],
     "max_output_tokens": 65536,
     "name": "gemini-3-flash-preview",
@@ -113,6 +114,26 @@
     ],
     "reasoning": true,
     "release_date": "2025-12-17"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": "openai_completions",
+    "id": "gemma4:31b",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "gemma4:31b",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-02"
   },
   {
     "cache_read_cost": 0,
@@ -170,6 +191,25 @@
     ],
     "reasoning": true,
     "release_date": "2026-02-11"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 202752,
+    "dialect": "openai_completions",
+    "id": "glm-5.1",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "glm-5.1",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-03-27"
   },
   {
     "cache_read_cost": 0,

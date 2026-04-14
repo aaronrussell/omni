@@ -496,5 +496,65 @@
     ],
     "reasoning": true,
     "release_date": "2025-06-17"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "google_gemini",
+    "id": "gemma-3-27b-it",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Gemma 3 27B",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-03-12"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 256000,
+    "dialect": "google_gemini",
+    "id": "gemma-4-26b-it",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Gemma 4 26B",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-02"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 256000,
+    "dialect": "google_gemini",
+    "id": "gemma-4-31b-it",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Gemma 4 31B",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-02"
   }
 ]
