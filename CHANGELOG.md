@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+
+- **`Omni.Codec`** — lossless encode/decode of `Message`, content blocks, and `Usage` to JSON-safe maps for downstream persistence layers. Opaque fields (`Message.private`, `Attachment.meta`) and arbitrary terms round-trip via base64-encoded ETF with safe decoding.
+- **Updated model catalog** — refreshed model data across Anthropic, Google, Ollama Cloud, OpenAI, OpenCode, and OpenRouter.
+
 ## [1.2.1] - 2026-04-02
 
 ### Added
