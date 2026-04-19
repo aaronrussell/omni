@@ -10,6 +10,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - **`Omni.Codec`** — lossless encode/decode of `Message`, content blocks, and `Usage` to JSON-safe maps for downstream persistence layers. Opaque fields (`Message.private`, `Attachment.meta`) and arbitrary terms round-trip via base64-encoded ETF with safe decoding.
 - **Updated model catalog** — refreshed model data across Anthropic, Google, Ollama Cloud, OpenAI, OpenCode, and OpenRouter.
+- **New `:xhigh` thinking level** — slotted between `:high` and `:max`. Maps directly to `"xhigh"` on Anthropic adaptive and OpenAI reasoning models, with graceful downgrades elsewhere.
+- **Claude Opus 4.7 support** — routes through the adaptive thinking path, strips non-default `temperature`/`top_p`/`top_k` unconditionally (4.7 now rejects them), and sends `display: "summarized"` on adaptive requests so thinking text continues to stream back.
+- **Gemini 3 thinking** — shifted mapping onto `thinkingLevel` (`:low → "minimal"` … `:max → "high"`) so the provider's full range is addressable. Gemini 2.5 models continue to use `thinkingBudget` with sensible level → integer mappings.
 
 ## [1.2.1] - 2026-04-02
 

@@ -49,29 +49,56 @@ defmodule Omni.Dialects.GoogleGemini do
   end
 
   # Thinking
+  #
+  # Gemini 3 models use thinkingLevel with its own 4-level scale
+  # (minimal/low/medium/high). Omni levels shift down so that :low → "minimal"
+  # exposes the provider's floor and :xhigh/:max both cap at Gemini's "high".
+  #
+  # Gemini 2.5 (and older) models only accept thinkingBudget as an integer.
+  # Levels map to token allowances; :max uses -1 (dynamic) to let the model
+  # self-manage.
 
   defp encode_thinking(_model, nil), do: nil
   defp encode_thinking(%Model{reasoning: false}, _thinking), do: nil
   defp encode_thinking(_model, false), do: %{"thinkingConfig" => %{"thinkingBudget" => 0}}
 
-  defp encode_thinking(_model, level) when is_atom(level) do
-    %{"thinkingConfig" => %{"thinkingLevel" => level_string(level), "includeThoughts" => true}}
+  defp encode_thinking(model, level) when is_atom(level) do
+    if gemini_3_model?(model) do
+      %{"thinkingConfig" => %{"thinkingLevel" => gemini3_level(level), "includeThoughts" => true}}
+    else
+      %{
+        "thinkingConfig" => %{
+          "thinkingBudget" => level_to_budget(level),
+          "includeThoughts" => true
+        }
+      }
+    end
   end
 
   defp encode_thinking(_model, %{budget: budget}) when is_integer(budget) do
     %{"thinkingConfig" => %{"thinkingBudget" => budget, "includeThoughts" => true}}
   end
 
-  defp encode_thinking(_model, %{} = opts) do
-    level = Map.get(opts, :effort, :high)
-    %{"thinkingConfig" => %{"thinkingLevel" => level_string(level), "includeThoughts" => true}}
+  defp encode_thinking(model, %{} = opts) do
+    encode_thinking(model, Map.get(opts, :effort, :high))
   end
 
-  defp level_string(:low), do: "low"
-  defp level_string(:medium), do: "medium"
-  defp level_string(:high), do: "high"
-  # Gemini's highest thinking level is "high" — :max downgrades silently.
-  defp level_string(:max), do: "high"
+  defp gemini_3_model?(%Model{id: "gemini-3" <> _}), do: true
+  defp gemini_3_model?(_), do: false
+
+  defp gemini3_level(:low), do: "minimal"
+  defp gemini3_level(:medium), do: "low"
+  defp gemini3_level(:high), do: "medium"
+  defp gemini3_level(:xhigh), do: "high"
+  defp gemini3_level(:max), do: "high"
+
+  defp level_to_budget(:low), do: 2048
+  defp level_to_budget(:medium), do: 4096
+  defp level_to_budget(:high), do: 8192
+  defp level_to_budget(:xhigh), do: 16384
+  # -1 enables Gemini's "dynamic thinking": the model picks a budget up to its
+  # per-variant ceiling (Pro 32768, Flash/Lite 24576). Universal across 2.5.
+  defp level_to_budget(:max), do: -1
 
   # Output schema
 

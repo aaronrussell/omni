@@ -472,7 +472,13 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
     test "effort levels map correctly, :max maps to xhigh" do
       context = Context.new("Hello")
 
-      for {level, expected} <- [low: "low", medium: "medium", high: "high", max: "xhigh"] do
+      for {level, expected} <- [
+            low: "low",
+            medium: "medium",
+            high: "high",
+            xhigh: "xhigh",
+            max: "xhigh"
+          ] do
         body = OpenAICompletions.handle_body(@reasoning_model, context, %{thinking: level})
 
         assert body["reasoning_effort"] == expected,

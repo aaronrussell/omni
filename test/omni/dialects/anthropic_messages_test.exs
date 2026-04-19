@@ -385,6 +385,15 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
                       reasoning: true
                     )
 
+    @opus_47_model Model.new(
+                     id: "claude-opus-4-7",
+                     name: "Claude Opus 4.7",
+                     provider: Omni.Providers.Anthropic,
+                     dialect: AnthropicMessages,
+                     max_output_tokens: 128_000,
+                     reasoning: true
+                   )
+
     test "thinking: :high with non-4.6 model uses manual format" do
       context = Context.new("Hello")
 
@@ -407,15 +416,34 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
           max_tokens: 4096
         })
 
-      assert body["thinking"] == %{"type" => "adaptive"}
+      assert body["thinking"] == %{"type" => "adaptive", "display" => "summarized"}
       assert body["output_config"] == %{"effort" => "high"}
       assert body["max_tokens"] == 4096
+    end
+
+    test "thinking: :high with Opus 4.7 uses adaptive format" do
+      context = Context.new("Hello")
+
+      body =
+        AnthropicMessages.handle_body(@opus_47_model, context, %{
+          thinking: :high,
+          max_tokens: 4096
+        })
+
+      assert body["thinking"] == %{"type" => "adaptive", "display" => "summarized"}
+      assert body["output_config"] == %{"effort" => "high"}
     end
 
     test "effort levels map to correct budgets in manual mode" do
       context = Context.new("Hello")
 
-      for {level, expected_budget} <- [low: 1024, medium: 4096, high: 16384, max: 32768] do
+      for {level, expected_budget} <- [
+            low: 1024,
+            medium: 4096,
+            high: 16384,
+            xhigh: 24576,
+            max: 32768
+          ] do
         body =
           AnthropicMessages.handle_body(@reasoning_model, context, %{
             thinking: level,
@@ -432,11 +460,11 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
     test "effort levels map to correct effort strings in adaptive mode" do
       context = Context.new("Hello")
 
-      for level <- [:low, :medium, :high, :max] do
+      for level <- [:low, :medium, :high, :xhigh, :max] do
         body =
           AnthropicMessages.handle_body(@adaptive_model, context, %{thinking: level})
 
-        assert body["thinking"] == %{"type" => "adaptive"}
+        assert body["thinking"] == %{"type" => "adaptive", "display" => "summarized"}
         assert body["output_config"]["effort"] == to_string(level)
       end
     end
@@ -467,6 +495,31 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       body =
         AnthropicMessages.handle_body(@reasoning_model, context, %{
           thinking: :high,
+          temperature: 0.7,
+          max_tokens: 4096
+        })
+
+      refute Map.has_key?(body, "temperature")
+    end
+
+    test "Opus 4.7 strips temperature even when thinking is off" do
+      context = Context.new("Hello")
+
+      body =
+        AnthropicMessages.handle_body(@opus_47_model, context, %{
+          temperature: 0.7,
+          max_tokens: 4096
+        })
+
+      refute Map.has_key?(body, "temperature")
+    end
+
+    test "Opus 4.7 strips temperature even when thinking is disabled" do
+      context = Context.new("Hello")
+
+      body =
+        AnthropicMessages.handle_body(@opus_47_model, context, %{
+          thinking: false,
           temperature: 0.7,
           max_tokens: 4096
         })

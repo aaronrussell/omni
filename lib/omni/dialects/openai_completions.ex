@@ -53,6 +53,7 @@ defmodule Omni.Dialects.OpenAICompletions do
   defp effort_string(:low), do: "low"
   defp effort_string(:medium), do: "medium"
   defp effort_string(:high), do: "high"
+  defp effort_string(:xhigh), do: "xhigh"
   defp effort_string(:max), do: "xhigh"
 
   # Output schema

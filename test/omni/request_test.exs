@@ -218,6 +218,13 @@ defmodule Omni.RequestTest do
       assert opts[:thinking] == :high
     end
 
+    test "thinking accepts :xhigh effort" do
+      model = make_model()
+
+      {:ok, opts} = Request.validate(model, thinking: :xhigh)
+      assert opts[:thinking] == :xhigh
+    end
+
     test "thinking accepts keyword list (converted to map by Peri)" do
       model = make_model()
 

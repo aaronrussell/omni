@@ -16,7 +16,11 @@ defmodule Omni.Dialects.AnthropicMessages do
 
   # Models that support adaptive thinking (type: "adaptive" + output_config.effort)
   # instead of budget-based thinking. Maintained manually as new models are released.
-  @adaptive_prefixes ["claude-opus-4-6", "claude-sonnet-4-6"]
+  @adaptive_prefixes ["claude-opus-4-6", "claude-sonnet-4-6", "claude-opus-4-7"]
+
+  # Models that reject non-default sampling parameters (temperature/top_p/top_k).
+  # Opus 4.7 returns a 400 on any non-default value, even when thinking is off.
+  @strict_sampling_prefixes ["claude-opus-4-7"]
 
   @impl true
   def option_schema, do: %{max_tokens: {:integer, {:default, 4096}}}
@@ -37,7 +41,7 @@ defmodule Omni.Dialects.AnthropicMessages do
 
     body
     |> maybe_put("system", encode_system(context.system, cache))
-    |> maybe_put("temperature", opts[:temperature])
+    |> maybe_put("temperature", sampling_temperature(model, opts))
     |> maybe_put("metadata", opts[:metadata])
     |> maybe_put("tools", encode_tools(context.tools, cache))
     |> apply_thinking(model, opts[:thinking])
@@ -156,7 +160,7 @@ defmodule Omni.Dialects.AnthropicMessages do
 
     if adaptive_model?(model) do
       body
-      |> Map.put("thinking", %{"type" => "adaptive"})
+      |> Map.put("thinking", %{"type" => "adaptive", "display" => "summarized"})
       |> Map.put("output_config", %{"effort" => to_string(level)})
     else
       budget = budget || effort_to_budget(level)
@@ -172,9 +176,18 @@ defmodule Omni.Dialects.AnthropicMessages do
     Enum.any?(@adaptive_prefixes, &String.starts_with?(id, &1))
   end
 
+  defp strict_sampling_model?(%Model{id: id}) do
+    Enum.any?(@strict_sampling_prefixes, &String.starts_with?(id, &1))
+  end
+
+  defp sampling_temperature(model, opts) do
+    if strict_sampling_model?(model), do: nil, else: opts[:temperature]
+  end
+
   defp effort_to_budget(:low), do: 1024
   defp effort_to_budget(:medium), do: 4096
   defp effort_to_budget(:high), do: 16384
+  defp effort_to_budget(:xhigh), do: 24576
   defp effort_to_budget(:max), do: 32768
 
   # Output schema

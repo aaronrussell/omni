@@ -450,7 +450,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
     end
   end
 
-  describe "handle_body/3 thinking" do
+  describe "handle_body/3 thinking — Gemini 2.5 (budget path)" do
     @reasoning_model Model.new(
                        id: "gemini-2.5-flash-preview",
                        name: "Gemini 2.5 Flash Preview",
@@ -460,12 +460,12 @@ defmodule Omni.Dialects.GoogleGeminiTest do
                        reasoning: true
                      )
 
-    test "thinking: :high sets thinkingConfig with high level" do
+    test "thinking: :high sets thinkingBudget" do
       context = Context.new("Hello")
       body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: :high})
 
       assert body["generationConfig"]["thinkingConfig"] == %{
-               "thinkingLevel" => "high",
+               "thinkingBudget" => 8192,
                "includeThoughts" => true
              }
     end
@@ -478,20 +478,27 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       refute Map.has_key?(body, "thinkingConfig")
     end
 
-    test "effort levels map correctly, :max caps to high" do
+    test "effort levels map to budget integers, :max uses dynamic (-1)" do
       context = Context.new("Hello")
 
-      for {level, expected} <- [low: "low", medium: "medium", high: "high", max: "high"] do
+      for {level, expected} <- [
+            low: 2048,
+            medium: 4096,
+            high: 8192,
+            xhigh: 16384,
+            max: -1
+          ] do
         body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: level})
 
-        assert body["generationConfig"]["thinkingConfig"]["thinkingLevel"] == expected,
-               "expected #{expected} for level #{level}"
+        assert body["generationConfig"]["thinkingConfig"]["thinkingBudget"] == expected,
+               "expected budget #{expected} for level #{level}"
 
         assert body["generationConfig"]["thinkingConfig"]["includeThoughts"] == true
+        refute Map.has_key?(body["generationConfig"]["thinkingConfig"], "thinkingLevel")
       end
     end
 
-    test "explicit budget sets thinkingBudget instead of thinkingLevel" do
+    test "explicit budget sets thinkingBudget directly" do
       context = Context.new("Hello")
 
       body =
@@ -523,6 +530,64 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       body = GoogleGemini.handle_body(@reasoning_model, context, %{})
 
       refute Map.has_key?(body, "thinkingConfig")
+    end
+  end
+
+  describe "handle_body/3 thinking — Gemini 3 (level path, shifted)" do
+    @gemini3_model Model.new(
+                     id: "gemini-3-pro-preview",
+                     name: "Gemini 3 Pro Preview",
+                     provider: Omni.Providers.Google,
+                     dialect: GoogleGemini,
+                     max_output_tokens: 8192,
+                     reasoning: true
+                   )
+
+    test "effort levels shift down onto Gemini's 4-level scale" do
+      context = Context.new("Hello")
+
+      for {level, expected} <- [
+            low: "minimal",
+            medium: "low",
+            high: "medium",
+            xhigh: "high",
+            max: "high"
+          ] do
+        body = GoogleGemini.handle_body(@gemini3_model, context, %{thinking: level})
+
+        assert body["generationConfig"]["thinkingConfig"]["thinkingLevel"] == expected,
+               "expected #{expected} for level #{level}"
+
+        assert body["generationConfig"]["thinkingConfig"]["includeThoughts"] == true
+        refute Map.has_key?(body["generationConfig"]["thinkingConfig"], "thinkingBudget")
+      end
+    end
+
+    test "effort map form uses the same shifted mapping" do
+      context = Context.new("Hello")
+
+      body = GoogleGemini.handle_body(@gemini3_model, context, %{thinking: %{effort: :max}})
+
+      assert body["generationConfig"]["thinkingConfig"]["thinkingLevel"] == "high"
+    end
+
+    test "explicit budget still wins on Gemini 3" do
+      context = Context.new("Hello")
+
+      body =
+        GoogleGemini.handle_body(@gemini3_model, context, %{
+          thinking: %{effort: :high, budget: 4096}
+        })
+
+      assert body["generationConfig"]["thinkingConfig"]["thinkingBudget"] == 4096
+      refute Map.has_key?(body["generationConfig"]["thinkingConfig"], "thinkingLevel")
+    end
+
+    test "thinking: false sets thinkingBudget to 0" do
+      context = Context.new("Hello")
+      body = GoogleGemini.handle_body(@gemini3_model, context, %{thinking: false})
+
+      assert body["generationConfig"]["thinkingConfig"] == %{"thinkingBudget" => 0}
     end
   end
 

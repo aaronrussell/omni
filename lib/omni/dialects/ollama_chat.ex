@@ -56,6 +56,7 @@ defmodule Omni.Dialects.OllamaChat do
 
   defp encode_thinking(_model, %{} = _opts), do: true
 
+  defp level_string(:xhigh), do: "high"
   defp level_string(:max), do: "high"
   defp level_string(level), do: Atom.to_string(level)
 

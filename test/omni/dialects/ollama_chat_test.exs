@@ -224,6 +224,7 @@ defmodule Omni.Dialects.OllamaChatTest do
       assert OllamaChat.handle_body(gpt_oss, context, %{thinking: :low})["think"] == "low"
       assert OllamaChat.handle_body(gpt_oss, context, %{thinking: :medium})["think"] == "medium"
       assert OllamaChat.handle_body(gpt_oss, context, %{thinking: :high})["think"] == "high"
+      assert OllamaChat.handle_body(gpt_oss, context, %{thinking: :xhigh})["think"] == "high"
       assert OllamaChat.handle_body(gpt_oss, context, %{thinking: :max})["think"] == "high"
     end
 

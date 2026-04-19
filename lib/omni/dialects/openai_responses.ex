@@ -125,6 +125,7 @@ defmodule Omni.Dialects.OpenAIResponses do
   defp effort_string(:low), do: "low"
   defp effort_string(:medium), do: "medium"
   defp effort_string(:high), do: "high"
+  defp effort_string(:xhigh), do: "xhigh"
   defp effort_string(:max), do: "xhigh"
 
   # Input encoding — flat-maps messages into a mixed array
