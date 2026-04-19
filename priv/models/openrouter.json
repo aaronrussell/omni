@@ -147,6 +147,27 @@
     "release_date": "2026-02-05"
   },
   {
+    "cache_read_cost": 0.5,
+    "cache_write_cost": 6.25,
+    "context_size": 1000000,
+    "dialect": null,
+    "id": "anthropic/claude-opus-4.7",
+    "input_cost": 5,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 128000,
+    "name": "Claude Opus 4.7",
+    "output_cost": 25,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-16"
+  },
+  {
     "cache_read_cost": 0.3,
     "cache_write_cost": 3.75,
     "context_size": 200000,
@@ -245,25 +266,6 @@
     ],
     "reasoning": true,
     "release_date": "2026-04-01"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 131072,
-    "dialect": null,
-    "id": "arcee-ai/trinity-mini:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 131072,
-    "name": "Trinity Mini",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2026-01-28"
   },
   {
     "cache_read_cost": 0,
@@ -777,25 +779,6 @@
     "cache_write_cost": 0,
     "context_size": 128000,
     "dialect": null,
-    "id": "inception/mercury",
-    "input_cost": 0.25,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 32000,
-    "name": "Mercury",
-    "output_cost": 0.75,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-06-26"
-  },
-  {
-    "cache_read_cost": 0.025,
-    "cache_write_cost": 0,
-    "context_size": 128000,
-    "dialect": null,
     "id": "inception/mercury-2",
     "input_cost": 0.25,
     "input_modalities": [
@@ -809,25 +792,6 @@
     ],
     "reasoning": true,
     "release_date": "2026-03-04"
-  },
-  {
-    "cache_read_cost": 0.025,
-    "cache_write_cost": 0,
-    "context_size": 128000,
-    "dialect": null,
-    "id": "inception/mercury-coder",
-    "input_cost": 0.25,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 32000,
-    "name": "Mercury Coder",
-    "output_cost": 0.75,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-04-30"
   },
   {
     "cache_read_cost": 0,
@@ -1272,25 +1236,6 @@
     ],
     "reasoning": true,
     "release_date": "2026-01-27"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 32800,
-    "dialect": null,
-    "id": "moonshotai/kimi-k2:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 32800,
-    "name": "Kimi K2 (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-07-11"
   },
   {
     "cache_read_cost": 0,
@@ -2182,25 +2127,6 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 40960,
-    "dialect": null,
-    "id": "qwen/qwen3-4b:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 40960,
-    "name": "Qwen3 4B (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-04-30"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
     "context_size": 262144,
     "dialect": null,
     "id": "qwen/qwen3-coder",
@@ -2279,25 +2205,6 @@
     "cache_write_cost": 0,
     "context_size": 262144,
     "dialect": null,
-    "id": "qwen/qwen3-coder:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 66536,
-    "name": "Qwen3 Coder 480B A35B Instruct (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-07-23"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 262144,
-    "dialect": null,
     "id": "qwen/qwen3-max",
     "input_cost": 1.2,
     "input_modalities": [
@@ -2325,25 +2232,6 @@
     "max_output_tokens": 262144,
     "name": "Qwen3 Next 80B A3B Instruct",
     "output_cost": 1.4,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-09-11"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 262144,
-    "dialect": null,
-    "id": "qwen/qwen3-next-80b-a3b-instruct:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 262144,
-    "name": "Qwen3 Next 80B A3B Instruct (free)",
-    "output_cost": 0,
     "output_modalities": [
       "text"
     ],

@@ -35,6 +35,7 @@ defmodule Mix.Tasks.Models.Get do
     "@ai-sdk/anthropic" => "anthropic_messages",
     "@ai-sdk/openai" => "openai_responses",
     "@ai-sdk/openai-compatible" => "openai_completions",
+    "@ai-sdk/alibaba" => "openai_completions",
     "@ai-sdk/google" => "google_gemini"
   }
 
