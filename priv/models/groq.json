@@ -1,0 +1,193 @@
+[
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": null,
+    "id": "groq/compound",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Compound",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-09-04"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": null,
+    "id": "groq/compound-mini",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Compound Mini",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-09-04"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": null,
+    "id": "llama-3.1-8b-instant",
+    "input_cost": 0.05,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "Llama 3.1 8B Instant",
+    "output_cost": 0.08,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2024-07-23"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": null,
+    "id": "llama-3.3-70b-versatile",
+    "input_cost": 0.59,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Llama 3.3 70B Versatile",
+    "output_cost": 0.79,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2024-12-06"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": null,
+    "id": "meta-llama/llama-4-scout-17b-16e-instruct",
+    "input_cost": 0.11,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Llama 4 Scout 17B",
+    "output_cost": 0.34,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-04-05"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": null,
+    "id": "moonshotai/kimi-k2-instruct-0905",
+    "input_cost": 1,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 16384,
+    "name": "Kimi K2 Instruct 0905",
+    "output_cost": 3,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-09-05"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": null,
+    "id": "openai/gpt-oss-120b",
+    "input_cost": 0.15,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "GPT OSS 120B",
+    "output_cost": 0.6,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-08-05"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": null,
+    "id": "openai/gpt-oss-20b",
+    "input_cost": 0.075,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "GPT OSS 20B",
+    "output_cost": 0.3,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-08-05"
+  },
+  {
+    "cache_read_cost": 0.037,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": null,
+    "id": "openai/gpt-oss-safeguard-20b",
+    "input_cost": 0.075,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Safety GPT OSS 20B",
+    "output_cost": 0.3,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-03-05"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": null,
+    "id": "qwen/qwen3-32b",
+    "input_cost": 0.29,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 40960,
+    "name": "Qwen3 32B",
+    "output_cost": 0.59,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2024-12-23"
+  }
+]

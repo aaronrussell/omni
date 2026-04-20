@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
+- **Groq provider** — opt-in built-in provider speaking the OpenAI Chat Completions dialect. Normalises Groq's per-family `reasoning_effort` quirks: clamps `:xhigh`/`:max` to `"high"` on `openai/gpt-oss-*` models, and rewrites any positive effort to `"default"` on `qwen/qwen3-32b` (which only accepts `"none"` or `"default"`).
 - **`Omni.Codec`** — lossless encode/decode of `Message`, content blocks, and `Usage` to JSON-safe maps for downstream persistence layers. Opaque fields (`Message.private`, `Attachment.meta`) and arbitrary terms round-trip via base64-encoded ETF with safe decoding.
 - **Updated model catalog** — refreshed model data across Anthropic, Google, Ollama Cloud, OpenAI, OpenCode, and OpenRouter.
 - **New `:xhigh` thinking level** — slotted between `:high` and `:max`. Maps directly to `"xhigh"` on Anthropic adaptive and OpenAI reasoning models, with graceful downgrades elsewhere.

@@ -8,6 +8,9 @@ https://platform.claude.com/docs/en/api/messages/create.md
 ## Google Gemini
 https://ai.google.dev/api/generate-content.md.txt
 
+## Groq
+https://console.groq.com/docs/api-reference.md
+
 ## OpenAI Chat Completions
 https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create/index.md
 

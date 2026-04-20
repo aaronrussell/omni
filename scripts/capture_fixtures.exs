@@ -1,7 +1,7 @@
 alias Omni.Test.Capture
 
 # Load additional providers
-Omni.Provider.load([:opencode, :openrouter])
+Omni.Provider.load([:groq, :opencode, :openrouter])
 
 fixture_dir = "test/support/fixtures/sse"
 
@@ -32,6 +32,7 @@ models = %{
   #:anthropic => "claude-haiku-4-5",
   #:openai => "gpt-5-mini",
   #:google => "gemini-3-flash-preview",
+  #:groq => "openai/gpt-oss-20b",
   #:openrouter => "openai/gpt-4o-mini",
   #:opencode => "kimi-k2.5"
 }

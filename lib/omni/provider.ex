@@ -203,6 +203,7 @@ defmodule Omni.Provider do
   @builtin_providers %{
     anthropic: Omni.Providers.Anthropic,
     google: Omni.Providers.Google,
+    groq: Omni.Providers.Groq,
     ollama: Omni.Providers.Ollama,
     openai: Omni.Providers.OpenAI,
     opencode: Omni.Providers.OpenCode,
