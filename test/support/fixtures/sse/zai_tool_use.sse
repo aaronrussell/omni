@@ -1,0 +1,28 @@
+data: {"id":"20260421024554c43accd5ca1345d5","created":1776710754,"object":"chat.completion.chunk","model":"glm-4.7-flash","choices":[{"index":0,"delta":{"role":"assistant","content":"I"}}]}
+
+data: {"id":"20260421024554c43accd5ca1345d5","created":1776710754,"object":"chat.completion.chunk","model":"glm-4.7-flash","choices":[{"index":0,"delta":{"role":"assistant","content":"'ll"}}]}
+
+data: {"id":"20260421024554c43accd5ca1345d5","created":1776710754,"object":"chat.completion.chunk","model":"glm-4.7-flash","choices":[{"index":0,"delta":{"role":"assistant","content":" check"}}]}
+
+data: {"id":"20260421024554c43accd5ca1345d5","created":1776710754,"object":"chat.completion.chunk","model":"glm-4.7-flash","choices":[{"index":0,"delta":{"role":"assistant","content":" the"}}]}
+
+data: {"id":"20260421024554c43accd5ca1345d5","created":1776710754,"object":"chat.completion.chunk","model":"glm-4.7-flash","choices":[{"index":0,"delta":{"role":"assistant","content":" current"}}]}
+
+data: {"id":"20260421024554c43accd5ca1345d5","created":1776710754,"object":"chat.completion.chunk","model":"glm-4.7-flash","choices":[{"index":0,"delta":{"role":"assistant","content":" weather"}}]}
+
+data: {"id":"20260421024554c43accd5ca1345d5","created":1776710754,"object":"chat.completion.chunk","model":"glm-4.7-flash","choices":[{"index":0,"delta":{"role":"assistant","content":" in"}}]}
+
+data: {"id":"20260421024554c43accd5ca1345d5","created":1776710754,"object":"chat.completion.chunk","model":"glm-4.7-flash","choices":[{"index":0,"delta":{"role":"assistant","content":" London"}}]}
+
+data: {"id":"20260421024554c43accd5ca1345d5","created":1776710754,"object":"chat.completion.chunk","model":"glm-4.7-flash","choices":[{"index":0,"delta":{"role":"assistant","content":" for"}}]}
+
+data: {"id":"20260421024554c43accd5ca1345d5","created":1776710754,"object":"chat.completion.chunk","model":"glm-4.7-flash","choices":[{"index":0,"delta":{"role":"assistant","content":" you"}}]}
+
+data: {"id":"20260421024554c43accd5ca1345d5","created":1776710754,"object":"chat.completion.chunk","model":"glm-4.7-flash","choices":[{"index":0,"delta":{"role":"assistant","content":"."}}]}
+
+data: {"id":"20260421024554c43accd5ca1345d5","created":1776710754,"object":"chat.completion.chunk","model":"glm-4.7-flash","choices":[{"index":0,"delta":{"tool_calls":[{"id":"call_db50fd38d00549cfb3d82283","index":0,"type":"function","function":{"name":"get_weather","arguments":"{\"location\":\"London\"}"}}]}}]}
+
+data: {"id":"20260421024554c43accd5ca1345d5","created":1776710754,"object":"chat.completion.chunk","model":"glm-4.7-flash","choices":[{"index":0,"finish_reason":"tool_calls","delta":{"role":"assistant","content":""}}],"usage":{"prompt_tokens":174,"completion_tokens":22,"total_tokens":196,"prompt_tokens_details":{"cached_tokens":44},"completion_tokens_details":{"reasoning_tokens":0}}}
+
+data: [DONE]
+

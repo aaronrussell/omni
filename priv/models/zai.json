@@ -1,0 +1,253 @@
+[
+  {
+    "cache_read_cost": 0.11,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "glm-4.5",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 98304,
+    "name": "GLM-4.5",
+    "output_cost": 2.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-07-28"
+  },
+  {
+    "cache_read_cost": 0.03,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "glm-4.5-air",
+    "input_cost": 0.2,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 98304,
+    "name": "GLM-4.5-Air",
+    "output_cost": 1.1,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-07-28"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "glm-4.5-flash",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 98304,
+    "name": "GLM-4.5-Flash",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-07-28"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 64000,
+    "dialect": "openai_completions",
+    "id": "glm-4.5v",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 16384,
+    "name": "GLM-4.5V",
+    "output_cost": 1.8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-08-11"
+  },
+  {
+    "cache_read_cost": 0.11,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "dialect": "openai_completions",
+    "id": "glm-4.6",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "GLM-4.6",
+    "output_cost": 2.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-09-30"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 128000,
+    "dialect": "openai_completions",
+    "id": "glm-4.6v",
+    "input_cost": 0.3,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 32768,
+    "name": "GLM-4.6V",
+    "output_cost": 0.9,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-12-08"
+  },
+  {
+    "cache_read_cost": 0.11,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "dialect": "openai_completions",
+    "id": "glm-4.7",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "GLM-4.7",
+    "output_cost": 2.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-12-22"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "dialect": "openai_completions",
+    "id": "glm-4.7-flash",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "GLM-4.7-Flash",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-01-19"
+  },
+  {
+    "cache_read_cost": 0.01,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "dialect": "openai_completions",
+    "id": "glm-4.7-flashx",
+    "input_cost": 0.07,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "GLM-4.7-FlashX",
+    "output_cost": 0.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-01-19"
+  },
+  {
+    "cache_read_cost": 0.2,
+    "cache_write_cost": 0,
+    "context_size": 204800,
+    "dialect": "openai_completions",
+    "id": "glm-5",
+    "input_cost": 1,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "GLM-5",
+    "output_cost": 3.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-02-11"
+  },
+  {
+    "cache_read_cost": 0.24,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "dialect": "openai_completions",
+    "id": "glm-5-turbo",
+    "input_cost": 1.2,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "GLM-5-Turbo",
+    "output_cost": 4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-03-16"
+  },
+  {
+    "cache_read_cost": 0.26,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "dialect": "openai_completions",
+    "id": "glm-5.1",
+    "input_cost": 1.4,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "GLM-5.1",
+    "output_cost": 4.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-03-27"
+  },
+  {
+    "cache_read_cost": 0.24,
+    "cache_write_cost": 0,
+    "context_size": 200000,
+    "dialect": "openai_completions",
+    "id": "glm-5v-turbo",
+    "input_cost": 1.2,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 131072,
+    "name": "glm-5v-turbo",
+    "output_cost": 4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-01"
+  }
+]

@@ -28,6 +28,7 @@ defmodule Omni do
   | OpenAI | `OPENAI_API_KEY` |
   | OpenCode | `OPENCODE_API_KEY` |
   | OpenRouter | `OPENROUTER_API_KEY` |
+  | Z.ai | `ZAI_API_KEY` |
 
   To override a key — for example, to use a different variable name or load
   from a vault at runtime — use per-provider application config:
@@ -142,7 +143,8 @@ defmodule Omni do
   ## Providers
 
   Omni ships with built-in providers for Anthropic, OpenAI, Google, Groq,
-  OpenRouter, and OpenCode Zen. Each provider is paired with one or more dialects that
+  OpenRouter, Z.ai, and OpenCode Zen. Each provider is paired with one or more
+  dialects that
   handle wire format translation — most providers use a single dialect, while
   multi-model gateways like OpenCode Zen use different dialects per model.
 

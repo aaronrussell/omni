@@ -11,7 +11,7 @@ Streaming text generation, tool use, and structured output.
 
 ## Features
 
-- **Multi-provider** — Anthropic, OpenAI, Google Gemini, Groq, and OpenRouter out of the box
+- **Multi-provider** — Anthropic, OpenAI, Google Gemini, Groq, OpenRouter, and Z.ai out of the box
 - **Streaming-first** — all requests stream by default; `generate_text` is built on `stream_text`
 - **Tool use** — define tools with schemas and handlers; the loop auto-executes and feeds results back
 - **Structured output** — JSON Schema validation with constrained decoding and automatic retries
@@ -41,6 +41,7 @@ by default — if your keys are set, no configuration is needed:
 | OpenAI | `OPENAI_API_KEY` |
 | OpenCode | `OPENCODE_API_KEY` |
 | OpenRouter | `OPENROUTER_API_KEY` |
+| Z.ai | `ZAI_API_KEY` |
 
 Anthropic, OpenAI, and Google are loaded by default. To add others or limit
 what loads at startup:

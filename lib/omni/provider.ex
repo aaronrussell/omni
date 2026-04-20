@@ -207,7 +207,8 @@ defmodule Omni.Provider do
     ollama: Omni.Providers.Ollama,
     openai: Omni.Providers.OpenAI,
     opencode: Omni.Providers.OpenCode,
-    openrouter: Omni.Providers.OpenRouter
+    openrouter: Omni.Providers.OpenRouter,
+    zai: Omni.Providers.Zai
   }
 
   @doc """
