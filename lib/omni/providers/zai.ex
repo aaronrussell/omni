@@ -70,9 +70,15 @@ defmodule Omni.Providers.Zai do
 
   @impl true
   def modify_body(body, _context, _opts) do
-    normalize_reasoning_effort(body)
+    body
+    |> normalize_reasoning_effort()
+    |> reshape_file_attachments()
   end
 
+  # Z.ai's `clear_thinking` defaults to true — prior-turn `reasoning_content`
+  # is dropped on each request. We follow the default; round-tripping would
+  # mean rebuilding history from Thinking blocks via position-based pairing
+  # against the encoded wire messages, which is brittle for a speculative win.
   defp normalize_reasoning_effort(%{"reasoning_effort" => "none"} = body) do
     body
     |> Map.put("thinking", %{"type" => "disabled"})
@@ -86,4 +92,25 @@ defmodule Omni.Providers.Zai do
   end
 
   defp normalize_reasoning_effort(body), do: body
+
+  # Z.ai expects file attachments as `{"type": "file_url", "file_url": ...}`
+  # rather than the OpenAI Completions `{"type": "file", "file": ...}` shape.
+  defp reshape_file_attachments(%{"messages" => messages} = body) do
+    Map.put(body, "messages", Enum.map(messages, &reshape_message_content/1))
+  end
+
+  defp reshape_file_attachments(body), do: body
+
+  defp reshape_message_content(%{"role" => "user", "content" => content} = msg)
+       when is_list(content) do
+    Map.put(msg, "content", Enum.map(content, &reshape_block/1))
+  end
+
+  defp reshape_message_content(msg), do: msg
+
+  defp reshape_block(%{"type" => "file", "file" => %{"file_data" => data}}) do
+    %{"type" => "file_url", "file_url" => %{"url" => data}}
+  end
+
+  defp reshape_block(block), do: block
 end

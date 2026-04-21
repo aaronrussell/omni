@@ -595,6 +595,32 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert [{:message, %{stop_reason: :stop}}] = OpenAICompletions.handle_event(event)
     end
 
+    test "Z.ai sensitive finish_reason maps to :refusal" do
+      event = %{
+        "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "sensitive"}]
+      }
+
+      assert [{:message, %{stop_reason: :refusal}}] = OpenAICompletions.handle_event(event)
+    end
+
+    test "Z.ai model_context_window_exceeded finish_reason maps to :length" do
+      event = %{
+        "choices" => [
+          %{"index" => 0, "delta" => %{}, "finish_reason" => "model_context_window_exceeded"}
+        ]
+      }
+
+      assert [{:message, %{stop_reason: :length}}] = OpenAICompletions.handle_event(event)
+    end
+
+    test "Z.ai network_error finish_reason maps to :error" do
+      event = %{
+        "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "network_error"}]
+      }
+
+      assert [{:message, %{stop_reason: :error}}] = OpenAICompletions.handle_event(event)
+    end
+
     test "message with usage from final chunk" do
       event = %{
         "choices" => [],

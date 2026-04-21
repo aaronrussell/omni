@@ -50,7 +50,7 @@ defmodule Omni.Providers.ZaiTest do
     end
   end
 
-  describe "modify_body/3" do
+  describe "modify_body/3 — reasoning_effort" do
     test "translates reasoning_effort=none to thinking disabled" do
       body = %{"model" => "glm-4.7-flash", "reasoning_effort" => "none"}
 
@@ -79,6 +79,67 @@ defmodule Omni.Providers.ZaiTest do
       result = Zai.modify_body(body, %Omni.Context{}, %{})
 
       assert result == body
+    end
+  end
+
+  describe "modify_body/3 — file attachments" do
+    test "rewrites file blocks to file_url shape" do
+      body = %{
+        "model" => "glm-4.7-flash",
+        "messages" => [
+          %{
+            "role" => "user",
+            "content" => [
+              %{"type" => "text", "text" => "Summarise"},
+              %{
+                "type" => "file",
+                "file" => %{"file_data" => "data:application/pdf;base64,JVBERi0..."}
+              }
+            ]
+          }
+        ]
+      }
+
+      result = Zai.modify_body(body, %Omni.Context{}, %{})
+
+      [%{"content" => [text, file]}] = result["messages"]
+      assert text == %{"type" => "text", "text" => "Summarise"}
+
+      assert file == %{
+               "type" => "file_url",
+               "file_url" => %{"url" => "data:application/pdf;base64,JVBERi0..."}
+             }
+    end
+
+    test "leaves image_url and text blocks untouched" do
+      body = %{
+        "model" => "glm-4.7-flash",
+        "messages" => [
+          %{
+            "role" => "user",
+            "content" => [
+              %{"type" => "text", "text" => "Hi"},
+              %{"type" => "image_url", "image_url" => %{"url" => "https://example.com/img.png"}}
+            ]
+          }
+        ]
+      }
+
+      result = Zai.modify_body(body, %Omni.Context{}, %{})
+
+      assert [%{"content" => content}] = result["messages"]
+      assert content == hd(body["messages"])["content"]
+    end
+
+    test "passes through messages with string content" do
+      body = %{
+        "model" => "glm-4.7-flash",
+        "messages" => [%{"role" => "user", "content" => "Hello"}]
+      }
+
+      result = Zai.modify_body(body, %Omni.Context{}, %{})
+
+      assert result["messages"] == body["messages"]
     end
   end
 end

@@ -19,3 +19,6 @@ https://developers.openai.com/api/reference/resources/responses/methods/create/i
 
 ## OpenRouter - OpenAI Completions compatible
 https://openrouter.ai/docs/api/api-reference/chat/send-chat-completion-request.md
+
+## Z.ai
+https://docs.z.ai/api-reference/llm/chat-completion.md

@@ -311,5 +311,13 @@ defmodule Omni.Dialects.OpenAICompletions do
   defp normalize_stop_reason("tool_calls"), do: :tool_use
   defp normalize_stop_reason("content_filter"), do: :refusal
   defp normalize_stop_reason("function_call"), do: :tool_use
+
+  # Non-standard finish_reason values emitted by Z.ai's GLM models. Mapped
+  # here rather than in the provider to keep stop-reason normalisation in one
+  # place — modify_events would have to re-walk the event to rewrite them.
+  defp normalize_stop_reason("sensitive"), do: :refusal
+  defp normalize_stop_reason("model_context_window_exceeded"), do: :length
+  defp normalize_stop_reason("network_error"), do: :error
+
   defp normalize_stop_reason(_), do: :stop
 end
