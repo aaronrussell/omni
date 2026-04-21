@@ -103,7 +103,9 @@ defmodule Omni.Providers.Zai do
   # Z.ai doesn't support `response_format: {type: "json_schema"}`. Instead it
   # needs `{type: "json_object"}` with the schema described in the system prompt.
   defp normalize_structured_output(
-         %{"response_format" => %{"type" => "json_schema", "json_schema" => %{"schema" => schema}}} =
+         %{
+           "response_format" => %{"type" => "json_schema", "json_schema" => %{"schema" => schema}}
+         } =
            body
        ) do
     instruction =
@@ -116,8 +118,11 @@ defmodule Omni.Providers.Zai do
 
   defp normalize_structured_output(body), do: body
 
-  defp append_system_instruction(%{"messages" => [%{"role" => "system"} = system | rest]} = body, instruction) do
-    system = Map.update!(system, "content", & &1 <> "\n\n" <> instruction)
+  defp append_system_instruction(
+         %{"messages" => [%{"role" => "system"} = system | rest]} = body,
+         instruction
+       ) do
+    system = Map.update!(system, "content", &(&1 <> "\n\n" <> instruction))
     Map.put(body, "messages", [system | rest])
   end
 

@@ -56,7 +56,7 @@ defmodule Omni.Providers.OpenCode do
 
   @impl true
   def build_url(path, opts) do
-	  opts.base_url <> String.replace(path, "/v1beta", "/v1")
+    opts.base_url <> String.replace(path, "/v1beta", "/v1")
   end
 
   # Zen mirrors each upstream API's auth scheme — the required header depends

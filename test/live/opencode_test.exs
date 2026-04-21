@@ -3,10 +3,10 @@ defmodule Live.OpenCodeTest do
 
   @moduletag :live
 
-  #@model {:opencode, "claude-haiku-4-5"}
-  #@model {:opencode, "gemini-3-flash"}
+  # @model {:opencode, "claude-haiku-4-5"}
+  # @model {:opencode, "gemini-3-flash"}
   @model {:opencode, "gpt-5.4-nano"}
-  #@model {:opencode, "kimi-k2.5"}
+  # @model {:opencode, "kimi-k2.5"}
 
   setup_all do
     Omni.Provider.load([:opencode])

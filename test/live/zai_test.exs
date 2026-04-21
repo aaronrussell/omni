@@ -43,7 +43,7 @@ defmodule Live.ZaiTest do
     LiveTests.vision_image({:zai, "glm-4.6v-flash"})
   end
 
-  #test "vision (pdf)" do
+  # test "vision (pdf)" do
   #  LiveTests.vision_pdf({:zai, "glm-5v-turbo"})
-  #end
+  # end
 end

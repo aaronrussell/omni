@@ -31,7 +31,8 @@ defmodule LiveTests do
     {model, label} = resolve(model)
     opts = Keyword.put_new(opts, :thinking, :low)
 
-    assert {:ok, %Response{} = resp} = Omni.generate_text(model, "What is the tallest building in Swindon?", opts)
+    assert {:ok, %Response{} = resp} =
+             Omni.generate_text(model, "What is the tallest building in Swindon?", opts)
 
     assert resp.stop_reason in [:stop, :length]
 
@@ -95,10 +96,14 @@ defmodule LiveTests do
   def structured_output(model, opts \\ []) do
     {model, label} = resolve(model)
 
-    schema = Schema.object(%{
-      name: Schema.string(),
-      color: Schema.string()
-    }, required: [:name, :color])
+    schema =
+      Schema.object(
+        %{
+          name: Schema.string(),
+          color: Schema.string()
+        },
+        required: [:name, :color]
+      )
 
     opts = Keyword.put(opts, :output, schema)
 
