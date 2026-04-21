@@ -83,9 +83,7 @@ defmodule Omni.Providers.Zai do
   end
 
   # Z.ai's `clear_thinking` defaults to true — prior-turn `reasoning_content`
-  # is dropped on each request. We follow the default; round-tripping would
-  # mean rebuilding history from Thinking blocks via position-based pairing
-  # against the encoded wire messages, which is brittle for a speculative win.
+  # is dropped on each request.
   defp normalize_reasoning_effort(%{"reasoning_effort" => "none"} = body) do
     body
     |> Map.put("thinking", %{"type" => "disabled"})

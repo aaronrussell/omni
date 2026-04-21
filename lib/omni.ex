@@ -24,6 +24,7 @@ defmodule Omni do
   | Anthropic | `ANTHROPIC_API_KEY` |
   | Google | `GEMINI_API_KEY` |
   | Groq | `GROQ_API_KEY` |
+  | Moonshot AI | `MOONSHOT_API_KEY` |
   | Ollama Cloud | `OLLAMA_API_KEY` |
   | OpenAI | `OPENAI_API_KEY` |
   | OpenCode | `OPENCODE_API_KEY` |
@@ -142,10 +143,9 @@ defmodule Omni do
 
   ## Providers
 
-  Omni ships with built-in providers for Anthropic, OpenAI, Google, Groq,
-  OpenRouter, Z.ai, and OpenCode Zen. Each provider is paired with one or more
-  dialects that
-  handle wire format translation — most providers use a single dialect, while
+  Omni ships with built-in providers for all of the services listed in the
+  table above. Each provider is paired with one or more dialects that handle
+  wire format translation — most providers use a single dialect, while
   multi-model gateways like OpenCode Zen use different dialects per model.
 
   Models are referenced as `{provider_id, model_id}` tuples. To list available

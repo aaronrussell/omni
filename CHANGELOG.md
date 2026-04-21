@@ -10,6 +10,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - **Z.ai structured output** — rewrites `json_schema` response format to `json_object` with the schema appended to the system prompt, working around Z.ai's lack of native JSON Schema support.
 - **Z.ai provider** — opt-in built-in provider speaking the OpenAI Chat Completions dialect. Rewrites the dialect's `/v1/` path to Z.ai's `/v4/` endpoint, and translates the standard `:thinking` option onto Z.ai's `thinking: %{type: "enabled" | "disabled"}` parameter (effort levels are flattened to on/off — Z.ai exposes no granularity).
+- **Moonshot AI provider** — opt-in built-in provider for Moonshot's Kimi models, speaking the OpenAI Chat Completions dialect. Translates the standard `:thinking` option onto Moonshot's `thinking: %{type: "enabled" | "disabled"}` parameter.
 - **Groq provider** — opt-in built-in provider speaking the OpenAI Chat Completions dialect. Normalises Groq's per-family `reasoning_effort` quirks: clamps `:xhigh`/`:max` to `"high"` on `openai/gpt-oss-*` models, and rewrites any positive effort to `"default"` on `qwen/qwen3-32b` (which only accepts `"none"` or `"default"`).
 - **`Omni.Codec`** — lossless encode/decode of `Message`, content blocks, and `Usage` to JSON-safe maps for downstream persistence layers. Opaque fields (`Message.private`, `Attachment.meta`) and arbitrary terms round-trip via base64-encoded ETF with safe decoding.
 - **Updated model catalog** — refreshed model data across Anthropic, Google, Ollama Cloud, OpenAI, OpenCode, and OpenRouter.

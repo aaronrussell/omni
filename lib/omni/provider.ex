@@ -204,6 +204,7 @@ defmodule Omni.Provider do
     anthropic: Omni.Providers.Anthropic,
     google: Omni.Providers.Google,
     groq: Omni.Providers.Groq,
+    moonshot: Omni.Providers.Moonshot,
     ollama: Omni.Providers.Ollama,
     openai: Omni.Providers.OpenAI,
     opencode: Omni.Providers.OpenCode,
@@ -464,6 +465,7 @@ defmodule Omni.Provider do
     )
   end
 
+  defp parse_date(<<_::binary-size(7)>> = date), do: Date.from_iso8601!(date <> "-01")
   defp parse_date(date) when is_binary(date), do: Date.from_iso8601!(date)
   defp parse_date(_), do: nil
 

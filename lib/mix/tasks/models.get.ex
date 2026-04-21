@@ -31,6 +31,7 @@ defmodule Mix.Tasks.Models.Get do
     "anthropic",
     "google",
     "groq",
+    "moonshotai",
     "ollama-cloud",
     "openai",
     "opencode",

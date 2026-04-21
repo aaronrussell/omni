@@ -1,7 +1,7 @@
 alias Omni.Test.Capture
 
 # Load additional providers
-Omni.Provider.load([:groq, :opencode, :openrouter, :zai])
+Omni.Provider.load([:groq, :moonshot, :opencode, :openrouter, :zai])
 
 fixture_dir = "test/support/fixtures/sse"
 
@@ -33,9 +33,10 @@ models = %{
   #:openai => "gpt-5-mini",
   #:google => "gemini-3-flash-preview",
   #:groq => "openai/gpt-oss-20b",
+  :moonshot => "kimi-k2.6"
   #:openrouter => "openai/gpt-4o-mini",
   #:opencode => "kimi-k2.5",
-  :zai => "glm-4.7-flash"
+  #:zai => "glm-4.7-flash"
 }
 
 for provider <- Map.keys(models) do

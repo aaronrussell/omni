@@ -11,7 +11,7 @@ Streaming text generation, tool use, and structured output.
 
 ## Features
 
-- **Multi-provider** — Anthropic, OpenAI, Google Gemini, Groq, OpenRouter, and Z.ai out of the box
+- **Multi-provider** — supports many LLM providers out of the box (see table below)
 - **Streaming-first** — all requests stream by default; `generate_text` is built on `stream_text`
 - **Tool use** — define tools with schemas and handlers; the loop auto-executes and feeds results back
 - **Structured output** — JSON Schema validation with constrained decoding and automatic retries
@@ -37,6 +37,7 @@ by default — if your keys are set, no configuration is needed:
 | Anthropic | `ANTHROPIC_API_KEY` |
 | Google | `GEMINI_API_KEY` |
 | Groq | `GROQ_API_KEY` |
+| Moonshot AI | `MOONSHOT_API_KEY` |
 | Ollama Cloud | `OLLAMA_API_KEY` |
 | OpenAI | `OPENAI_API_KEY` |
 | OpenCode | `OPENCODE_API_KEY` |

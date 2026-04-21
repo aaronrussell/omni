@@ -1,0 +1,137 @@
+[
+  {
+    "cache_read_cost": 0.15,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "kimi-k2-0711-preview",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 16384,
+    "name": "Kimi K2 0711",
+    "output_cost": 2.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-07-14"
+  },
+  {
+    "cache_read_cost": 0.15,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": "openai_completions",
+    "id": "kimi-k2-0905-preview",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Kimi K2 0905",
+    "output_cost": 2.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-09-05"
+  },
+  {
+    "cache_read_cost": 0.15,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": "openai_completions",
+    "id": "kimi-k2-thinking",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Kimi K2 Thinking",
+    "output_cost": 2.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-11-06"
+  },
+  {
+    "cache_read_cost": 0.15,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": "openai_completions",
+    "id": "kimi-k2-thinking-turbo",
+    "input_cost": 1.15,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Kimi K2 Thinking Turbo",
+    "output_cost": 8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-11-06"
+  },
+  {
+    "cache_read_cost": 0.6,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": "openai_completions",
+    "id": "kimi-k2-turbo-preview",
+    "input_cost": 2.4,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Kimi K2 Turbo",
+    "output_cost": 10,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-09-05"
+  },
+  {
+    "cache_read_cost": 0.1,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": "openai_completions",
+    "id": "kimi-k2.5",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Kimi K2.5",
+    "output_cost": 3,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-01"
+  },
+  {
+    "cache_read_cost": 0.16,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": "openai_completions",
+    "id": "kimi-k2.6",
+    "input_cost": 0.95,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Kimi K2.6",
+    "output_cost": 4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-21"
+  }
+]
