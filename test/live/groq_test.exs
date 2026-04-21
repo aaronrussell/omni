@@ -1,9 +1,14 @@
-defmodule Live.AnthropicTest do
+defmodule Live.GroqTest do
   use ExUnit.Case, async: false
 
   @moduletag :live
 
-  @model {:anthropic, "claude-haiku-4-5"}
+  @model {:groq, "openai/gpt-oss-20b"}
+
+  setup_all do
+    Omni.Provider.load([:groq])
+    :ok
+  end
 
   test "text generation" do
     LiveTests.text_generation(@model)
@@ -22,14 +27,6 @@ defmodule Live.AnthropicTest do
   end
 
   test "vision (image)" do
-    LiveTests.vision_image(@model)
-  end
-
-  test "vision (pdf)" do
-    LiveTests.vision_pdf(@model)
-  end
-
-  test "roundtrip" do
-    LiveTests.roundtrip(@model)
+    LiveTests.vision_image({:groq, "meta-llama/llama-4-scout-17b-16e-instruct"})
   end
 end

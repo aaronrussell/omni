@@ -13,31 +13,14 @@ defmodule Omni.Dialects.GoogleGeminiTest do
            max_output_tokens: 8192
          )
 
-  describe "option_schema/0" do
-    test "includes beta option defaulting to false" do
-      assert %{beta: {:boolean, {:default, false}}} = GoogleGemini.option_schema()
-    end
-  end
-
   describe "handle_path/2" do
     test "embeds model ID in path" do
       path = GoogleGemini.handle_path(@model, %{})
       assert path =~ "gemini-2.0-flash-lite"
     end
 
-    test "defaults to v1 path" do
+    test "uses v1beta path" do
       path = GoogleGemini.handle_path(@model, %{})
-      assert path == "/v1/models/gemini-2.0-flash-lite:streamGenerateContent?alt=sse"
-    end
-
-    test "uses v1beta path when beta is true" do
-      path = GoogleGemini.handle_path(@model, %{beta: true})
-      assert path == "/v1beta/models/gemini-2.0-flash-lite:streamGenerateContent?alt=sse"
-    end
-
-    test "uses v1beta path when output is set" do
-      schema = %{type: "object", properties: %{city: %{type: "string"}}}
-      path = GoogleGemini.handle_path(@model, %{output: schema})
       assert path == "/v1beta/models/gemini-2.0-flash-lite:streamGenerateContent?alt=sse"
     end
   end

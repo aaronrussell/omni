@@ -63,9 +63,15 @@ defmodule Omni.Dialects.OpenAICompletions do
   defp encode_output(schema) do
     %{
       "type" => "json_schema",
-      "json_schema" => %{"name" => "output", "strict" => true, "schema" => schema}
+      "json_schema" => %{"name" => "output", "strict" => true, "schema" => apply_strict(schema)}
     }
   end
+
+  defp apply_strict(%{type: "object"} = schema) do
+    Omni.Schema.update(schema, additional_properties: false)
+  end
+
+  defp apply_strict(schema), do: schema
 
   # Parse events — OpenAI sends homogeneous `chat.completion.chunk` objects
 
@@ -93,16 +99,20 @@ defmodule Omni.Dialects.OpenAICompletions do
         _ -> []
       end
 
+    index = tool_call["index"] || 0
+
+    args_delta =
+      case tool_call["function"]["arguments"] do
+        args when is_binary(args) and args != "" ->
+          [{:block_delta, %{type: :tool_use, index: index, delta: args}}]
+
+        _ ->
+          []
+      end
+
     message ++
-      [
-        {:block_start,
-         %{
-           type: :tool_use,
-           index: tool_call["index"] || 0,
-           id: tool_call["id"],
-           name: name
-         }}
-      ]
+      [{:block_start, %{type: :tool_use, index: index, id: tool_call["id"], name: name}}] ++
+      args_delta
   end
 
   def handle_event(%{"choices" => [%{"delta" => %{"tool_calls" => [tool_call | _]}}]}) do

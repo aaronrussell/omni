@@ -46,6 +46,12 @@ defmodule Omni.Providers.Zai do
   reasoning is either on or it isn't. Reasoning content streams back as
   `reasoning_content`, which the Completions dialect already parses into
   thinking blocks.
+
+  ## Structured output
+
+  Z.ai doesn't support `response_format: {type: "json_schema"}`. When the
+  `:output` option is set, this provider rewrites the request to use
+  `{type: "json_object"}` and appends the JSON Schema to the system prompt.
   """
 
   use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
@@ -72,6 +78,7 @@ defmodule Omni.Providers.Zai do
   def modify_body(body, _context, _opts) do
     body
     |> normalize_reasoning_effort()
+    |> normalize_structured_output()
     |> reshape_file_attachments()
   end
 
@@ -92,6 +99,31 @@ defmodule Omni.Providers.Zai do
   end
 
   defp normalize_reasoning_effort(body), do: body
+
+  # Z.ai doesn't support `response_format: {type: "json_schema"}`. Instead it
+  # needs `{type: "json_object"}` with the schema described in the system prompt.
+  defp normalize_structured_output(
+         %{"response_format" => %{"type" => "json_schema", "json_schema" => %{"schema" => schema}}} =
+           body
+       ) do
+    instruction =
+      "Respond with JSON matching this schema:\n```json\n#{JSON.encode!(schema)}\n```"
+
+    body
+    |> Map.put("response_format", %{"type" => "json_object"})
+    |> append_system_instruction(instruction)
+  end
+
+  defp normalize_structured_output(body), do: body
+
+  defp append_system_instruction(%{"messages" => [%{"role" => "system"} = system | rest]} = body, instruction) do
+    system = Map.update!(system, "content", & &1 <> "\n\n" <> instruction)
+    Map.put(body, "messages", [system | rest])
+  end
+
+  defp append_system_instruction(%{"messages" => messages} = body, instruction) do
+    Map.put(body, "messages", [%{"role" => "system", "content" => instruction} | messages])
+  end
 
   # Z.ai expects file attachments as `{"type": "file_url", "file_url": ...}`
   # rather than the OpenAI Completions `{"type": "file", "file": ...}` shape.

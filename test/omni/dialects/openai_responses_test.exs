@@ -656,7 +656,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       assert format["type"] == "json_schema"
       assert format["name"] == "output"
       assert format["strict"] == true
-      assert format["schema"] == schema
+      assert format["schema"] == Map.put(schema, :additionalProperties, false)
     end
 
     test "no output omits text key" do

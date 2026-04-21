@@ -54,6 +54,11 @@ defmodule Omni.Providers.OpenCode do
     end
   end
 
+  @impl true
+  def build_url(path, opts) do
+	  opts.base_url <> String.replace(path, "/v1beta", "/v1")
+  end
+
   # Zen mirrors each upstream API's auth scheme — the required header depends
   # on which dialect (and therefore which URL path) the model uses.
   defp auth_for_path("/zen/v1/messages" <> _, key), do: {"x-api-key", key}

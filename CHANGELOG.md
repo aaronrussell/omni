@@ -8,6 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
+- **Z.ai structured output** — rewrites `json_schema` response format to `json_object` with the schema appended to the system prompt, working around Z.ai's lack of native JSON Schema support.
 - **Z.ai provider** — opt-in built-in provider speaking the OpenAI Chat Completions dialect. Rewrites the dialect's `/v1/` path to Z.ai's `/v4/` endpoint, and translates the standard `:thinking` option onto Z.ai's `thinking: %{type: "enabled" | "disabled"}` parameter (effort levels are flattened to on/off — Z.ai exposes no granularity).
 - **Groq provider** — opt-in built-in provider speaking the OpenAI Chat Completions dialect. Normalises Groq's per-family `reasoning_effort` quirks: clamps `:xhigh`/`:max` to `"high"` on `openai/gpt-oss-*` models, and rewrites any positive effort to `"default"` on `qwen/qwen3-32b` (which only accepts `"none"` or `"default"`).
 - **`Omni.Codec`** — lossless encode/decode of `Message`, content blocks, and `Usage` to JSON-safe maps for downstream persistence layers. Opaque fields (`Message.private`, `Attachment.meta`) and arbitrary terms round-trip via base64-encoded ETF with safe decoding.
@@ -15,6 +16,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 - **New `:xhigh` thinking level** — slotted between `:high` and `:max`. Maps directly to `"xhigh"` on Anthropic adaptive and OpenAI reasoning models, with graceful downgrades elsewhere.
 - **Claude Opus 4.7 support** — routes through the adaptive thinking path, strips non-default `temperature`/`top_p`/`top_k` unconditionally (4.7 now rejects them), and sends `display: "summarized"` on adaptive requests so thinking text continues to stream back.
 - **Gemini 3 thinking** — shifted mapping onto `thinkingLevel` (`:low → "minimal"` … `:max → "high"`) so the provider's full range is addressable. Gemini 2.5 models continue to use `thinkingBudget` with sensible level → integer mappings.
+- **Standardised live test suite** — extracted shared test helpers into `LiveTests` module covering text generation, thinking, tool use, structured output, image/PDF vision, and roundtrip. All 8 providers (Anthropic, Google, OpenAI, OpenRouter, OpenCode, Ollama, Groq, Z.ai) run through the same assertions.
+
+### Fixed
+
+- **OpenAI Completions tool call parsing** — arguments were silently dropped when a provider sent tool name and arguments in a single streaming event (affected Groq and Z.ai).
+- **OpenAI structured output** — both Completions and Responses dialects now apply `additionalProperties: false` on object schemas, fixing 400 errors from OpenAI's strict mode requirement.
+- **OpenAI Responses PDF attachments** — added missing `filename` field on `input_file` content blocks, fixing 400 errors when sending PDF attachments.
+- **Google Gemini signature-only thinking** — `thoughtSignature` with empty text now attaches the signature to the text block instead of creating a phantom thinking block.
+- **Groq reasoning format** — `reasoning_format: "parsed"` is now only sent when reasoning effort is set, avoiding errors on non-reasoning models.
+- **Google Gemini API version** — hardcoded `v1beta` path prefix, as many features (structured output, thinking) require the beta API.
 
 ## [1.2.1] - 2026-04-02
 

@@ -801,7 +801,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert body["response_format"]["type"] == "json_schema"
       assert json_schema["name"] == "output"
       assert json_schema["strict"] == true
-      assert json_schema["schema"] == schema
+      assert json_schema["schema"] == Map.put(schema, :additionalProperties, false)
     end
 
     test "no output omits response_format" do

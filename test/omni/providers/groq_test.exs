@@ -37,12 +37,12 @@ defmodule Omni.Providers.GroqTest do
   end
 
   describe "modify_body/3" do
-    test "always sets reasoning_format to raw" do
+    test "does not set reasoning_format when no reasoning effort" do
       body = %{"model" => "llama-3.3-70b-versatile"}
 
       result = Groq.modify_body(body, %Omni.Context{}, %{})
 
-      assert result["reasoning_format"] == "parsed"
+      refute Map.has_key?(result, "reasoning_format")
     end
 
     test "clamps xhigh to high on gpt-oss models" do

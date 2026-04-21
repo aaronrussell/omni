@@ -196,15 +196,15 @@ defmodule Omni.Dialects.AnthropicMessages do
 
   defp apply_output(body, schema) do
     existing = Map.get(body, "output_config", %{})
-    format = %{"type" => "json_schema", "schema" => maybe_put_strict(schema)}
+    format = %{"type" => "json_schema", "schema" => apply_strict(schema)}
     Map.put(body, "output_config", Map.put(existing, "format", format))
   end
 
-  defp maybe_put_strict(%{type: "object"} = schema) do
+  defp apply_strict(%{type: "object"} = schema) do
     Omni.Schema.update(schema, additional_properties: false)
   end
 
-  defp maybe_put_strict(schema), do: schema
+  defp apply_strict(schema), do: schema
 
   # System encoding
 

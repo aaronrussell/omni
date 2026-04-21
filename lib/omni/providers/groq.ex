@@ -62,9 +62,7 @@ defmodule Omni.Providers.Groq do
 
   @impl true
   def modify_body(body, _context, _opts) do
-    body
-    |> Map.put("reasoning_format", "parsed")
-    |> normalize_reasoning_effort()
+    normalize_reasoning_effort(body)
   end
 
   # GPT-OSS rejects xhigh and max; clamp to the model's max ("high")
@@ -72,7 +70,9 @@ defmodule Omni.Providers.Groq do
          %{"reasoning_effort" => effort, "model" => "openai/gpt-oss" <> _} = body
        )
        when effort in ["xhigh", "max"] do
-    Map.put(body, "reasoning_effort", "high")
+    body
+    |> Map.put("reasoning_effort", "high")
+    |> Map.put("reasoning_format", "parsed")
   end
 
   # Qwen only accepts "none" or "default", so any positive level becomes "default"
@@ -80,7 +80,9 @@ defmodule Omni.Providers.Groq do
          %{"reasoning_effort" => effort, "model" => "qwen/qwen3-32b"} = body
        )
        when effort in ["low", "medium", "high", "xhigh"] do
-    Map.put(body, "reasoning_effort", "default")
+    body
+    |> Map.put("reasoning_effort", "default")
+    |> Map.put("reasoning_format", "parsed")
   end
 
   defp normalize_reasoning_effort(body), do: body

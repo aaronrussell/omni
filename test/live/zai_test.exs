@@ -1,26 +1,27 @@
-defmodule Live.OllamaTest do
+defmodule Live.ZaiTest do
   use ExUnit.Case, async: false
 
   @moduletag :live
+  @moduletag timeout: 120_000
 
   setup_all do
-    Omni.Provider.load([:ollama])
+    Omni.Provider.load([:zai])
 
-    model =
+    vision_model =
       Omni.Model.new(
-        id: "gemma4:latest",
-        name: "gemma4:latest",
-        provider: Omni.Providers.Ollama,
-        dialect: Omni.Dialects.OllamaChat,
+        id: "glm-4.6v-flash",
+        name: "glm-4.6v-flash",
+        provider: Omni.Providers.Zai,
+        dialect: Omni.Dialects.OpenAICompletions,
         input_modalities: [:text, :image],
         reasoning: true
       )
 
-    Omni.Model.put(:ollama, model)
+    Omni.Model.put(:zai, vision_model)
     :ok
   end
 
-  @model {:ollama, "gemma4:latest"}
+  @model {:zai, "glm-4.5-flash"}
 
   test "text generation" do
     LiveTests.text_generation(@model)
@@ -39,6 +40,10 @@ defmodule Live.OllamaTest do
   end
 
   test "vision (image)" do
-    LiveTests.vision_image(@model)
+    LiveTests.vision_image({:zai, "glm-4.6v-flash"})
   end
+
+  #test "vision (pdf)" do
+  #  LiveTests.vision_pdf({:zai, "glm-5v-turbo"})
+  #end
 end

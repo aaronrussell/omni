@@ -1,26 +1,17 @@
-defmodule Live.OllamaTest do
+defmodule Live.OpenCodeTest do
   use ExUnit.Case, async: false
 
   @moduletag :live
 
+  #@model {:opencode, "claude-haiku-4-5"}
+  #@model {:opencode, "gemini-3-flash"}
+  @model {:opencode, "gpt-5.4-nano"}
+  #@model {:opencode, "kimi-k2.5"}
+
   setup_all do
-    Omni.Provider.load([:ollama])
-
-    model =
-      Omni.Model.new(
-        id: "gemma4:latest",
-        name: "gemma4:latest",
-        provider: Omni.Providers.Ollama,
-        dialect: Omni.Dialects.OllamaChat,
-        input_modalities: [:text, :image],
-        reasoning: true
-      )
-
-    Omni.Model.put(:ollama, model)
+    Omni.Provider.load([:opencode])
     :ok
   end
-
-  @model {:ollama, "gemma4:latest"}
 
   test "text generation" do
     LiveTests.text_generation(@model)
@@ -40,5 +31,13 @@ defmodule Live.OllamaTest do
 
   test "vision (image)" do
     LiveTests.vision_image(@model)
+  end
+
+  test "vision (pdf)" do
+    LiveTests.vision_pdf(@model)
+  end
+
+  test "roundtrip" do
+    LiveTests.roundtrip(@model)
   end
 end

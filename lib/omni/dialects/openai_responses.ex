@@ -25,7 +25,8 @@ defmodule Omni.Dialects.OpenAIResponses do
     body = %{
       "model" => model.id,
       "stream" => true,
-      "input" => encode_input(context.messages)
+      "input" => encode_input(context.messages),
+      "store" => false
     }
 
     body
@@ -49,10 +50,16 @@ defmodule Omni.Dialects.OpenAIResponses do
         "type" => "json_schema",
         "name" => "output",
         "strict" => true,
-        "schema" => schema
+        "schema" => apply_strict(schema)
       }
     }
   end
+
+  defp apply_strict(%{type: "object"} = schema) do
+    Omni.Schema.update(schema, additional_properties: false)
+  end
+
+  defp apply_strict(schema), do: schema
 
   # Parse events — OpenAI Responses sends named events with "type" field
 
@@ -216,12 +223,22 @@ defmodule Omni.Dialects.OpenAIResponses do
   end
 
   defp encode_content(%Attachment{source: {:base64, data}, media_type: mt}) do
-    %{"type" => "input_file", "file_data" => "data:#{mt};base64,#{data}"}
+    %{
+      "type" => "input_file",
+      "filename" => filename_from_media_type(mt),
+      "file_data" => "data:#{mt};base64,#{data}"
+    }
   end
 
   defp encode_content(%Attachment{source: {:url, url}}) do
     %{"type" => "input_file", "file_url" => url}
   end
+
+  defp filename_from_media_type("application/pdf"), do: "document.pdf"
+  defp filename_from_media_type("application/xml"), do: "document.xml"
+  defp filename_from_media_type("text/plain"), do: "document.txt"
+  defp filename_from_media_type("text/" <> sub), do: "document.#{sub}"
+  defp filename_from_media_type(mt), do: "file.#{mt |> String.split("/") |> List.last()}"
 
   # Tool encoding — flattened format (no "function" wrapper)
 
