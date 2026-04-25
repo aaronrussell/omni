@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+
+- **Updated model catalog** — refreshed across all providers, including GPT-5.5 and Deepseek v4 (OpenRouter).
+
 ## [1.3.0] - 2026-04-21
 
 ### Added

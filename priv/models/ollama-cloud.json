@@ -126,7 +126,7 @@
       "text",
       "image"
     ],
-    "max_output_tokens": 8192,
+    "max_output_tokens": 262144,
     "name": "gemma4:31b",
     "output_cost": 0,
     "output_modalities": [
