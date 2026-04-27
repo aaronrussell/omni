@@ -34,6 +34,7 @@ by default — if your keys are set, no configuration is needed:
 
 | Provider | Environment variable |
 | --- | --- |
+| Alibaba | `DASHSCOPE_API_KEY` |
 | Anthropic | `ANTHROPIC_API_KEY` |
 | Google | `GEMINI_API_KEY` |
 | Groq | `GROQ_API_KEY` |

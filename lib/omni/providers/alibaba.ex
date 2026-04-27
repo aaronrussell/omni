@@ -25,6 +25,24 @@ defmodule Omni.Providers.Alibaba do
   Any key from the provider's `config/0` can be overridden: `:api_key`,
   `:base_url`. See `Omni.Provider` for details.
 
+  ## Regions
+
+  Defaults to the International (Singapore) endpoint. To use a different
+  region, override `:base_url`:
+
+      config :omni, Omni.Providers.Alibaba,
+        base_url: "https://dashscope-us.aliyuncs.com/compatible-mode"
+
+  Available regions:
+
+  | Region                | Base URL                                                            |
+  |-----------------------|---------------------------------------------------------------------|
+  | International (Singapore) | `https://dashscope-intl.aliyuncs.com/compatible-mode`           |
+  | US (Virginia)         | `https://dashscope-us.aliyuncs.com/compatible-mode`                 |
+  | Germany (Frankfurt)   | `https://{WorkspaceId}.eu-central-1.maas.aliyuncs.com/compatible-mode` |
+  | China (Beijing)       | `https://dashscope.aliyuncs.com/compatible-mode`                    |
+  | China (Hong Kong)     | `https://cn-hongkong.dashscope.aliyuncs.com/compatible-mode`        |
+
   ## Reasoning
 
   The `:thinking` option is supported. Effort levels map to token budgets
