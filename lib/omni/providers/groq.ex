@@ -27,22 +27,10 @@ defmodule Omni.Providers.Groq do
 
   ## Reasoning
 
-  Groq exposes reasoning content via the `reasoning` field on streaming
-  deltas, which the Completions dialect already parses into thinking blocks.
-  Reasoning is requested in `"parsed"` format so chain-of-thought stays
-  separated from the final answer.
-
-  Reasoning effort support is per-model, and Groq's accepted values diverge
-  from the rest of the ecosystem. This provider normalises the common cases
-  so the standard `:thinking` option works across model families:
-
-    * **`openai/gpt-oss-*`** — accepts `:low`, `:medium`, `:high`. `:xhigh`
-      and `:max` are clamped to `"high"` (Groq rejects them).
-    * **`qwen/qwen3-32b`** — only accepts `"none"` or `"default"`. Any
-      positive effort level is rewritten to `"default"` so the model still
-      reasons; `thinking: false` passes through as `"none"`.
-
-  Other reasoning-capable models pass effort values through unchanged.
+  The `:thinking` option is supported. Accepted effort levels vary by model
+  family — this provider normalises values so the standard option works
+  across all Groq-hosted reasoning models. In practice, `:xhigh` and `:max`
+  may be clamped to the model's maximum supported level.
   """
 
   use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions

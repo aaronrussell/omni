@@ -1,15 +1,14 @@
-defmodule Live.MoonshotTest do
+defmodule Live.AlibabaTest do
   use ExUnit.Case, async: false
 
   @moduletag :live
   @moduletag timeout: 120_000
 
-  setup_all do
-    Omni.Provider.load([:moonshot])
-    :ok
-  end
+  @model {:alibaba, "qwen3.6-plus"}
 
-  @model {:moonshot, "kimi-k2.6"}
+  setup_all do
+    Omni.Provider.load([:alibaba])
+  end
 
   test "text generation" do
     LiveTests.text_generation(@model, thinking: false)
@@ -28,7 +27,7 @@ defmodule Live.MoonshotTest do
   end
 
   test "vision (image)" do
-    LiveTests.vision_image(@model)
+    LiveTests.vision_image(@model, thinking: false)
   end
 
   test "vision (pdf)" do

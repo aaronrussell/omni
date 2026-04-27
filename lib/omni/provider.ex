@@ -201,6 +201,7 @@ defmodule Omni.Provider do
   alias Omni.Model
 
   @builtin_providers %{
+    alibaba: Omni.Providers.Alibaba,
     anthropic: Omni.Providers.Anthropic,
     google: Omni.Providers.Google,
     groq: Omni.Providers.Groq,

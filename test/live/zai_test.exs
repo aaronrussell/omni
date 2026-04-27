@@ -43,7 +43,14 @@ defmodule Live.ZaiTest do
     LiveTests.vision_image({:zai, "glm-4.6v-flash"})
   end
 
-  # test "vision (pdf)" do
-  #  LiveTests.vision_pdf({:zai, "glm-5v-turbo"})
-  # end
+  test "vision (pdf)" do
+    LiveTests.vision_pdf(@model)
+  rescue
+    e in ExUnit.AssertionError ->
+      assert match?({:error, {:unsupported_modality, :pdf}}, e.right)
+  end
+
+  test "roundtrip" do
+    LiveTests.roundtrip(@model)
+  end
 end

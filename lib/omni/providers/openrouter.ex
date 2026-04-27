@@ -25,10 +25,10 @@ defmodule Omni.Providers.OpenRouter do
   Any key from the provider's `config/0` can be overridden: `:api_key`,
   `:base_url`. See `Omni.Provider` for details.
 
-  OpenRouter wraps reasoning model output in a `reasoning_details` format
-  rather than standard thinking blocks. This is handled automatically —
-  reasoning data round-trips through `Omni.Message.private` in multi-turn
-  conversations without any special handling.
+  ## Reasoning
+
+  The `:thinking` option is supported. Reasoning data round-trips
+  automatically in multi-turn conversations without any special handling.
   """
 
   alias Omni.Context

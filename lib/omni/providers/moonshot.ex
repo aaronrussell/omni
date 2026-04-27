@@ -27,18 +27,9 @@ defmodule Omni.Providers.Moonshot do
 
   ## Reasoning
 
-  Moonshot's Kimi models don't accept the standard `reasoning_effort`
-  parameter. Instead, reasoning is toggled via a `thinking` object:
-  `%{"type" => "enabled"}` or `%{"type" => "disabled"}`. This provider
-  translates the standard `:thinking` option:
-
-    * `thinking: false` → `thinking: %{"type" => "disabled"}`
-    * Any other level (`:low`, `:medium`, `:high`, `:xhigh`, `:max`) →
-      `thinking: %{"type" => "enabled"}`
-
-  Effort levels are flattened to on/off because Moonshot exposes no
-  granularity. Reasoning content streams back as `reasoning_content`, which
-  the Completions dialect already parses into thinking blocks.
+  The `:thinking` option is supported. Moonshot exposes no effort
+  granularity — all positive levels (`:low` through `:max`) enable
+  reasoning equally.
   """
 
   use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions

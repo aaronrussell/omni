@@ -25,33 +25,16 @@ defmodule Omni.Providers.Zai do
   Any key from the provider's `config/0` can be overridden: `:api_key`,
   `:base_url`. See `Omni.Provider` for details.
 
-  ## Endpoint version
-
-  Z.ai serves the OpenAI Completions wire format under `/v4/` rather than the
-  conventional `/v1/`. `build_url/2` rewrites the dialect's path so callers
-  don't need to think about it.
-
   ## Reasoning
 
-  Z.ai's GLM models all support reasoning, but they don't accept the standard
-  `reasoning_effort` parameter. Instead, reasoning is toggled via a `thinking`
-  object: `%{"type" => "enabled"}` or `%{"type" => "disabled"}`. This provider
-  translates the standard `:thinking` option:
-
-    * `thinking: false` → `thinking: %{"type" => "disabled"}`
-    * Any other level (`:low`, `:medium`, `:high`, `:xhigh`, `:max`) →
-      `thinking: %{"type" => "enabled"}`
-
-  Effort levels are flattened to on/off because Z.ai exposes no granularity —
-  reasoning is either on or it isn't. Reasoning content streams back as
-  `reasoning_content`, which the Completions dialect already parses into
-  thinking blocks.
+  The `:thinking` option is supported. Z.ai exposes no effort granularity —
+  all positive levels (`:low` through `:max`) enable reasoning equally.
 
   ## Structured output
 
-  Z.ai doesn't support `response_format: {type: "json_schema"}`. When the
-  `:output` option is set, this provider rewrites the request to use
-  `{type: "json_object"}` and appends the JSON Schema to the system prompt.
+  The `:output` option is supported. Z.ai doesn't natively support JSON
+  Schema constraints, so structured output is achieved via a system prompt
+  fallback.
   """
 
   use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions

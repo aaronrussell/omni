@@ -132,8 +132,8 @@ defmodule LiveTests do
       Message.new(
         role: :user,
         content: [
-          Attachment.new(source: {:base64, base64}, media_type: "image/png"),
-          Text.new(text: "What brand logo is this? Reply with just the brand name.")
+          Text.new(text: "What brand logo is this? Reply with just the brand name."),
+          Attachment.new(source: {:base64, base64}, media_type: "image/png")
         ]
       )
 
@@ -160,8 +160,8 @@ defmodule LiveTests do
       Message.new(
         role: :user,
         content: [
-          Attachment.new(source: {:base64, base64}, media_type: "application/pdf"),
-          Text.new(text: "Who authored this document? Reply with just the author name.")
+          Text.new(text: "Who authored this document? Reply with just the author name."),
+          Attachment.new(source: {:base64, base64}, media_type: "application/pdf")
         ]
       )
 

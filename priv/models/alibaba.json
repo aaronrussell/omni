@@ -1,0 +1,721 @@
+[
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qvq-max",
+    "input_cost": 1.2,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "QVQ Max",
+    "output_cost": 4.8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-03-25"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1000000,
+    "dialect": "openai_completions",
+    "id": "qwen-flash",
+    "input_cost": 0.05,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Qwen Flash",
+    "output_cost": 0.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-07-28"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32768,
+    "dialect": "openai_completions",
+    "id": "qwen-max",
+    "input_cost": 1.6,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Qwen Max",
+    "output_cost": 6.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2024-04-03"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32768,
+    "dialect": "openai_completions",
+    "id": "qwen-omni-turbo",
+    "input_cost": 0.07,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 2048,
+    "name": "Qwen-Omni Turbo",
+    "output_cost": 0.27,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-01-19"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32768,
+    "dialect": "openai_completions",
+    "id": "qwen-omni-turbo-realtime",
+    "input_cost": 0.27,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 2048,
+    "name": "Qwen-Omni Turbo Realtime",
+    "output_cost": 1.07,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-05-08"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1000000,
+    "dialect": "openai_completions",
+    "id": "qwen-plus",
+    "input_cost": 0.4,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Qwen Plus",
+    "output_cost": 1.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2024-01-25"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 8192,
+    "dialect": "openai_completions",
+    "id": "qwen-plus-character-ja",
+    "input_cost": 0.5,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 512,
+    "name": "Qwen Plus Character (Japanese)",
+    "output_cost": 1.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2024-01"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1000000,
+    "dialect": "openai_completions",
+    "id": "qwen-turbo",
+    "input_cost": 0.05,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 16384,
+    "name": "Qwen Turbo",
+    "output_cost": 0.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2024-11-01"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen-vl-max",
+    "input_cost": 0.8,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Qwen-VL Max",
+    "output_cost": 3.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2024-04-08"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen-vl-plus",
+    "input_cost": 0.21,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Qwen-VL Plus",
+    "output_cost": 0.63,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2024-01-25"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen2-5-14b-instruct",
+    "input_cost": 0.35,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Qwen2.5 14B Instruct",
+    "output_cost": 1.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2024-09"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen2-5-32b-instruct",
+    "input_cost": 0.7,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Qwen2.5 32B Instruct",
+    "output_cost": 2.8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2024-09"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen2-5-72b-instruct",
+    "input_cost": 1.4,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Qwen2.5 72B Instruct",
+    "output_cost": 5.6,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2024-09"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen2-5-7b-instruct",
+    "input_cost": 0.175,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Qwen2.5 7B Instruct",
+    "output_cost": 0.7,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2024-09"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 32768,
+    "dialect": "openai_completions",
+    "id": "qwen2-5-omni-7b",
+    "input_cost": 0.1,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 2048,
+    "name": "Qwen2.5-Omni 7B",
+    "output_cost": 0.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2024-12"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen2-5-vl-72b-instruct",
+    "input_cost": 2.8,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Qwen2.5-VL 72B Instruct",
+    "output_cost": 8.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2024-09"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen2-5-vl-7b-instruct",
+    "input_cost": 0.35,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Qwen2.5-VL 7B Instruct",
+    "output_cost": 1.05,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2024-09"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen3-14b",
+    "input_cost": 0.35,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Qwen3 14B",
+    "output_cost": 1.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-04"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen3-235b-a22b",
+    "input_cost": 0.7,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 16384,
+    "name": "Qwen3 235B-A22B",
+    "output_cost": 2.8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-04"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen3-32b",
+    "input_cost": 0.7,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 16384,
+    "name": "Qwen3 32B",
+    "output_cost": 2.8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-04"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen3-8b",
+    "input_cost": 0.18,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Qwen3 8B",
+    "output_cost": 0.7,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-04"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": "openai_completions",
+    "id": "qwen3-coder-30b-a3b-instruct",
+    "input_cost": 0.45,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Qwen3-Coder 30B-A3B Instruct",
+    "output_cost": 2.25,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-04"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": "openai_completions",
+    "id": "qwen3-coder-480b-a35b-instruct",
+    "input_cost": 1.5,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Qwen3-Coder 480B-A35B Instruct",
+    "output_cost": 7.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-04"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1000000,
+    "dialect": "openai_completions",
+    "id": "qwen3-coder-flash",
+    "input_cost": 0.3,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Qwen3 Coder Flash",
+    "output_cost": 1.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-07-28"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1048576,
+    "dialect": "openai_completions",
+    "id": "qwen3-coder-plus",
+    "input_cost": 1,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Qwen3 Coder Plus",
+    "output_cost": 5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-07-23"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": "openai_completions",
+    "id": "qwen3-max",
+    "input_cost": 1.2,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Qwen3 Max",
+    "output_cost": 6,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-09-23"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen3-next-80b-a3b-instruct",
+    "input_cost": 0.5,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Qwen3-Next 80B-A3B Instruct",
+    "output_cost": 2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-09"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen3-next-80b-a3b-thinking",
+    "input_cost": 0.5,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Qwen3-Next 80B-A3B (Thinking)",
+    "output_cost": 6,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-09"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 65536,
+    "dialect": "openai_completions",
+    "id": "qwen3-omni-flash",
+    "input_cost": 0.43,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 16384,
+    "name": "Qwen3-Omni Flash",
+    "output_cost": 1.66,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-09-15"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 65536,
+    "dialect": "openai_completions",
+    "id": "qwen3-omni-flash-realtime",
+    "input_cost": 0.52,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 16384,
+    "name": "Qwen3-Omni Flash Realtime",
+    "output_cost": 1.99,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-09-15"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen3-vl-235b-a22b",
+    "input_cost": 0.7,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Qwen3-VL 235B-A22B",
+    "output_cost": 2.8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-04"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwen3-vl-30b-a3b",
+    "input_cost": 0.2,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Qwen3-VL 30B-A3B",
+    "output_cost": 0.8,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-04"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": "openai_completions",
+    "id": "qwen3-vl-plus",
+    "input_cost": 0.2,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Qwen3-VL Plus",
+    "output_cost": 1.6,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-09-23"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": "openai_completions",
+    "id": "qwen3.5-397b-a17b",
+    "input_cost": 0.6,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Qwen3.5 397B-A17B",
+    "output_cost": 3.6,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-02-16"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1000000,
+    "dialect": "openai_completions",
+    "id": "qwen3.5-plus",
+    "input_cost": 0.4,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Qwen3.5 Plus",
+    "output_cost": 2.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-02-16"
+  },
+  {
+    "cache_read_cost": 0.028,
+    "cache_write_cost": 0.344,
+    "context_size": 1000000,
+    "dialect": "openai_completions",
+    "id": "qwen3.6-plus",
+    "input_cost": 0.276,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Qwen3.6 Plus",
+    "output_cost": 1.651,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-02"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "openai_completions",
+    "id": "qwq-plus",
+    "input_cost": 0.8,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "QwQ Plus",
+    "output_cost": 2.4,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2025-03-05"
+  }
+]

@@ -28,6 +28,7 @@ defmodule Mix.Tasks.Models.Get do
   @api_url "https://models.dev/api.json"
   @output_dir "priv/models"
   @providers [
+    "alibaba",
     "anthropic",
     "google",
     "groq",

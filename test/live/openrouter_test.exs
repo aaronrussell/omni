@@ -33,4 +33,8 @@ defmodule Live.OpenRouterTest do
   test "vision (pdf)" do
     LiveTests.vision_image({:openrouter, "anthropic/claude-haiku-4.5"})
   end
+
+  test "roundtrip" do
+    LiveTests.roundtrip(@model)
+  end
 end
