@@ -14,7 +14,7 @@ defmodule Omni do
 
   Add Omni to your dependencies:
 
-      {:omni, "~> 1.2"}
+      {:omni, "~> 1.3"}
 
   Each built-in provider reads its API key from a standard environment variable
   by default — if your keys are set, no configuration is needed:

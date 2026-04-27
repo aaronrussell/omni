@@ -24,7 +24,7 @@ Add Omni to your dependencies:
 ```elixir
 def deps do
   [
-    {:omni, "~> 1.2"}
+    {:omni, "~> 1.3"}
   ]
 end
 ```
