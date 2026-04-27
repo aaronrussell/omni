@@ -638,7 +638,7 @@
       "image",
       "pdf"
     ],
-    "max_output_tokens": 130000,
+    "max_output_tokens": 128000,
     "name": "GPT-5.5",
     "output_cost": 30,
     "output_modalities": [

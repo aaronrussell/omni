@@ -19,27 +19,6 @@
     "release_date": "2025-10-17"
   },
   {
-    "cache_read_cost": 0.08,
-    "cache_write_cost": 1,
-    "context_size": 200000,
-    "dialect": "anthropic_messages",
-    "id": "claude-3-5-haiku",
-    "input_cost": 0.8,
-    "input_modalities": [
-      "text",
-      "image",
-      "pdf"
-    ],
-    "max_output_tokens": 8192,
-    "name": "Claude Haiku 3.5",
-    "output_cost": 4,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2024-10-22"
-  },
-  {
     "cache_read_cost": 0.1,
     "cache_write_cost": 1.25,
     "context_size": 200000,
@@ -604,7 +583,7 @@
       "image",
       "pdf"
     ],
-    "max_output_tokens": 130000,
+    "max_output_tokens": 128000,
     "name": "GPT-5.5",
     "output_cost": 30,
     "output_modalities": [
