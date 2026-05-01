@@ -1355,6 +1355,26 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
+    "context_size": 256000,
+    "dialect": null,
+    "id": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Nemotron 3 Nano Omni (free)",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-28"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
     "context_size": 262144,
     "dialect": null,
     "id": "nvidia/nemotron-3-super-120b-a12b",
@@ -1929,6 +1949,27 @@
     "max_output_tokens": 128000,
     "name": "GPT-5.5",
     "output_cost": 30,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-23"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 1050000,
+    "dialect": null,
+    "id": "openai/gpt-5.5-pro",
+    "input_cost": 30,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 128000,
+    "name": "GPT-5.5 Pro",
+    "output_cost": 180,
     "output_modalities": [
       "text"
     ],
