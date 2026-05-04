@@ -357,6 +357,81 @@ defmodule Omni.SchemaTest do
       assert {:ok, %{name: "Ada"}} = Schema.validate(schema, %{"name" => "Ada"})
       assert {:error, _} = Schema.validate(schema, %{"age" => 30})
     end
+
+    test "enforces multipleOf on integers" do
+      schema = Schema.integer(multiple_of: 3)
+      assert {:ok, 9} = Schema.validate(schema, 9)
+      assert {:error, _} = Schema.validate(schema, 4)
+    end
+
+    test "enforces minItems on arrays" do
+      schema = Schema.array(Schema.string(), min_items: 2)
+      assert {:ok, ["a", "b"]} = Schema.validate(schema, ["a", "b"])
+      assert {:error, _} = Schema.validate(schema, ["a"])
+    end
+
+    test "enforces maxItems on arrays" do
+      schema = Schema.array(Schema.string(), max_items: 2)
+      assert {:ok, ["a", "b"]} = Schema.validate(schema, ["a", "b"])
+      assert {:error, _} = Schema.validate(schema, ["a", "b", "c"])
+    end
+
+    test "enforces uniqueItems on arrays" do
+      schema = Schema.array(Schema.integer(), unique_items: true)
+      assert {:ok, [1, 2, 3]} = Schema.validate(schema, [1, 2, 3])
+      assert {:error, _} = Schema.validate(schema, [1, 1, 2])
+    end
+
+    test "validates const literal" do
+      schema = %{const: "hello"}
+      assert {:ok, "hello"} = Schema.validate(schema, "hello")
+      assert {:error, _} = Schema.validate(schema, "world")
+    end
+
+    test "returns error message as a string" do
+      schema = Schema.object(%{name: Schema.string()}, required: [:name])
+      assert {:error, message} = Schema.validate(schema, %{})
+      assert is_binary(message)
+      assert message =~ "name"
+    end
+
+    test "dispatches to adapter when given a {module, state} tuple" do
+      defmodule TestAdapter1 do
+        @behaviour Omni.Schema.Adapter
+        def to_schema(state), do: state
+        def validate(_state, input), do: {:ok, input}
+      end
+
+      assert {:ok, %{x: 1}} = Schema.validate({TestAdapter1, %{type: "object"}}, %{x: 1})
+    end
+
+    test "propagates adapter errors as strings" do
+      defmodule TestAdapter2 do
+        @behaviour Omni.Schema.Adapter
+        def to_schema(state), do: state
+        def validate(_state, _input), do: {:error, "custom error"}
+      end
+
+      assert {:error, "custom error"} =
+               Schema.validate({TestAdapter2, %{type: "object"}}, %{})
+    end
+  end
+
+  describe "to_schema/1" do
+    test "returns raw maps unchanged" do
+      schema = %{type: "object", properties: %{name: %{type: "string"}}}
+      assert Schema.to_schema(schema) == schema
+    end
+
+    test "calls adapter to_schema for {module, state} tuples" do
+      defmodule WireAdapter do
+        @behaviour Omni.Schema.Adapter
+        def to_schema(state), do: %{wire: state}
+        def validate(_state, input), do: {:ok, input}
+      end
+
+      assert Schema.to_schema({WireAdapter, :payload}) == %{wire: :payload}
+    end
   end
 
   describe "format_errors/1" do

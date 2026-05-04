@@ -39,7 +39,7 @@ defmodule Omni.Request do
       {:either,
        {{:enum, [false, :low, :medium, :high, :xhigh, :max]},
         {:schema, %{effort: {:enum, [:low, :medium, :high, :xhigh, :max]}, budget: :integer}}}},
-    output: :map
+    output: {:either, {:map, {:tuple, [:atom, :any]}}}
   }
 
   @doc """

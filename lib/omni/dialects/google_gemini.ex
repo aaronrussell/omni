@@ -95,7 +95,10 @@ defmodule Omni.Dialects.GoogleGemini do
   defp encode_output(nil), do: nil
 
   defp encode_output(schema) do
-    %{"responseMimeType" => "application/json", "responseSchema" => schema}
+    %{
+      "responseMimeType" => "application/json",
+      "responseSchema" => Omni.Schema.to_schema(schema)
+    }
   end
 
   # Parse events — Google sends `GenerateContentResponse` objects.
@@ -282,7 +285,11 @@ defmodule Omni.Dialects.GoogleGemini do
   end
 
   defp encode_tool(%{name: name, description: description, input_schema: schema}) do
-    %{"name" => name, "description" => description, "parameters" => schema}
+    %{
+      "name" => name,
+      "description" => description,
+      "parameters" => Omni.Schema.to_schema(schema)
+    }
   end
 
   # Usage normalization

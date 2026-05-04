@@ -91,6 +91,18 @@ defmodule Omni.Tool do
       schema = Omni.Schema.object(%{query: Omni.Schema.string()}, required: [:query])
       tool = Omni.tool(name: "search", description: "Web search", input_schema: schema)
 
+  ## Custom schema validators
+
+  When the built-in validator isn't enough, return an `Omni.Schema.Adapter`
+  tuple from `schema/0`:
+
+      def schema, do: {MyApp.JSVAdapter, @input_root}
+
+  See `Omni.Schema.Adapter` for the behaviour and a JSV example. Note that
+  adapters control their own key conventions for validated input — JSV-style
+  adapters return string-keyed maps, so handlers must access input
+  accordingly.
+
   ## Dynamic descriptions
 
   When a tool's description needs to include runtime context — for example,
@@ -177,13 +189,15 @@ defmodule Omni.Tool do
   @typedoc """
   A tool struct.
 
-  When `handler` is `nil`, the tool is schema-only — the loop will break and
-  return `ToolUse` blocks for manual handling instead of auto-executing.
+  `input_schema` is either a JSON Schema map, an `Omni.Schema.Adapter`
+  tuple `{module, state}`, or `nil`. When `handler` is `nil`, the tool is
+  schema-only — the loop will break and return `ToolUse` blocks for manual
+  handling instead of auto-executing.
   """
   @type t :: %__MODULE__{
           name: String.t(),
           description: String.t(),
-          input_schema: map(),
+          input_schema: Omni.Schema.t() | nil,
           handler: (map() -> term()) | nil
         }
 
@@ -258,19 +272,19 @@ defmodule Omni.Tool do
   @callback description(state :: term()) :: String.t()
 
   @doc """
-  Returns a JSON Schema map describing the tool's input parameters.
+  Returns the tool's input schema.
 
-  The return value is a plain map following JSON Schema conventions — you can
-  build it with `Omni.Schema` helpers, construct it by hand, or use any other
-  library. If using `Omni.Schema`, import it inside the callback body — it is
-  not auto-imported by `use Omni.Tool`.
+  May return either a plain JSON Schema map, or an `Omni.Schema.Adapter`
+  tuple `{module, state}` for adapter-based validation (see
+  `Omni.Schema.Adapter`). If using `Omni.Schema` builders, import them
+  inside the callback body — they are not auto-imported by `use Omni.Tool`.
 
       def schema do
         import Omni.Schema
         object(%{city: string(description: "City name")}, required: [:city])
       end
   """
-  @callback schema() :: map()
+  @callback schema() :: Omni.Schema.t()
 
   @doc """
   Initializes state for a stateful tool.

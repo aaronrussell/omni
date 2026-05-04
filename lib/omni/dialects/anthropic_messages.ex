@@ -196,7 +196,8 @@ defmodule Omni.Dialects.AnthropicMessages do
 
   defp apply_output(body, schema) do
     existing = Map.get(body, "output_config", %{})
-    format = %{"type" => "json_schema", "schema" => apply_strict(schema)}
+    schema = schema |> Omni.Schema.to_schema() |> apply_strict()
+    format = %{"type" => "json_schema", "schema" => schema}
     Map.put(body, "output_config", Map.put(existing, "format", format))
   end
 
@@ -305,7 +306,11 @@ defmodule Omni.Dialects.AnthropicMessages do
   end
 
   defp encode_tool(%{name: name, description: description, input_schema: schema}) do
-    %{"name" => name, "description" => description, "input_schema" => schema}
+    %{
+      "name" => name,
+      "description" => description,
+      "input_schema" => Omni.Schema.to_schema(schema)
+    }
   end
 
   # Cache control

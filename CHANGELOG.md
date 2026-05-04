@@ -6,6 +6,22 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+
+- **`Omni.Schema.Adapter` behaviour** — pluggable schema validators. Pass a `{module, state}` tuple anywhere a JSON Schema map is accepted (`:output` option, `Tool` `input_schema`, tool `schema/0` callback) to delegate wire encoding and validation to a custom adapter. Enables JSV, Ecto, or other validators with zero new dependencies in Omni itself.
+- **`Omni.Schema.to_schema/1`** — public dispatcher that returns the wire-form JSON Schema map for a raw schema or adapter tuple.
+
+### Changed
+
+- **`Omni.Schema` is now the default `Omni.Schema.Adapter`** — `to_schema/1` and `validate/2` accept either a raw map or an adapter tuple and dispatch accordingly.
+- **`Omni.Schema.validate/2` return shape** — now returns `{:ok, term()} | {:error, String.t()}` consistently. Errors come back as a pre-formatted human-readable string instead of a list of Peri error structs.
+- **Built-in validator** — replaced internal Peri schema converter with `Peri.from_json_schema/1` (peri bumped to `~> 0.8`).
+
+### Fixed
+
+- **JSON Schema constraints now enforced** — `multipleOf`, `minItems`, `maxItems`, `uniqueItems`, `const`, `null`, `oneOf`, `allOf`, union types, and string `format` are validated locally where previously they were silently skipped.
+- **`number` type accepts integers** — schemas with `{"type": "number"}` now accept integer inputs as required by the JSON Schema spec (previously rejected).
+
 ## [1.3.2] - 2026-05-01
 
 ### Added

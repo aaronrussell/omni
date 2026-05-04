@@ -221,7 +221,7 @@ defmodule Omni.LoopTest do
       {:ok, sr} = Loop.stream(model(), context, opts(stub_name) ++ [output: schema])
       {:ok, resp} = StreamingResponse.complete(sr)
 
-      assert resp.output["city"] == "London"
+      assert resp.output[:city] == "London"
     end
 
     test "invalid JSON retries up to 3 times then returns without output" do

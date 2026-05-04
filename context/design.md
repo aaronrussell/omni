@@ -889,13 +889,13 @@ defmodule Omni.Tool do
   defstruct [
     :name,           # Tool name string
     :description,    # Human-readable description for the model
-    :input_schema,   # JSON Schema map describing expected input
+    :input_schema,   # JSON Schema map OR {Adapter, state} tuple
     :handler         # nil | (map -> any) -- local metadata, ignored by dialects
   ]
 end
 ```
 
-The `input_schema` field holds a JSON Schema map -- the universal wire format every provider accepts. The name `input_schema` is used over `parameters` for consistency with `ToolUse.input` (the tool defines its `input_schema`, the model returns `input` conforming to that schema) and to avoid OpenAI's baggage where parameters was nested under a `function` wrapper.
+The `input_schema` field holds a JSON Schema map -- the universal wire format every provider accepts -- or an `Omni.Schema.Adapter` tuple `{module, state}` that wraps a custom validator (see [Custom schema validators](#custom-schema-validators) below). The name `input_schema` is used over `parameters` for consistency with `ToolUse.input` (the tool defines its `input_schema`, the model returns `input` conforming to that schema) and to avoid OpenAI's baggage where parameters was nested under a `function` wrapper.
 
 The `handler` field is local metadata, like `timestamp` on messages -- it exists for the user's convenience and is ignored by dialects when serializing tool definitions. If present, it's a single-arity function `(map -> any)` that executes the tool given the model's input.
 
@@ -905,6 +905,9 @@ Raw JSON Schema is verbose and error-prone. `Omni.Schema` provides plain builder
 
 ```elixir
 defmodule Omni.Schema do
+  @behaviour Omni.Schema.Adapter
+
+  # Builders
   def object(properties, opts \\ [])
   def string(opts \\ [])
   def number(opts \\ [])
@@ -914,7 +917,10 @@ defmodule Omni.Schema do
   def enum(values, opts \\ [])
   def any_of(schemas, opts \\ [])
   def update(schema, opts)
-  def validate(schema, input)
+
+  # Adapter dispatch (also implements Omni.Schema.Adapter for raw maps)
+  def to_schema(schema_or_tuple)
+  def validate(schema_or_tuple, input)
 end
 ```
 
@@ -931,9 +937,23 @@ input_schema = object(%{
 
 Option keywords accept snake_case and are normalized to camelCase JSON Schema keywords automatically (e.g. `min_length:` becomes `minLength`). Keys without a known mapping pass through unchanged.
 
-`validate/2` converts the schema to a Peri validation schema internally. It enforces types, required fields, string constraints (`minLength`, `maxLength`, `pattern`), numeric constraints (`minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`), and `anyOf` unions. Array item types are validated, but array-level constraints (`minItems`, `maxItems`, `uniqueItems`) and `multipleOf` are not -- these are sent to the LLM in the schema but skipped during local validation.
+`validate/2` accepts either a raw schema map or an `Omni.Schema.Adapter` tuple. For raw maps it runs the built-in validator (Peri-backed via `Peri.from_json_schema/1`), enforcing types, required fields, all standard string/numeric/array constraints (including `multipleOf`, `minItems`, `maxItems`, `uniqueItems`), `enum`, `const`, union types, and `anyOf`/`oneOf`/`allOf` combinators. For adapter tuples it dispatches to the adapter's `validate/2`. Returns `{:ok, validated} | {:error, String.t()}` -- the error is a pre-formatted human-readable string ready to send back to the model on retry or surface as a tool result.
+
+`to_schema/1` extracts the wire-form JSON Schema map. For raw maps it's identity; for adapter tuples it calls the adapter's `to_schema/1`. Dialects call this before emitting the schema in the request body so adapter-wrapped schemas serialize correctly.
 
 These are plain functions returning maps -- no macros, no special types, no compilation step. Developers who already have JSON Schema maps (from OpenAPI specs, existing code) pass them directly. The dialect doesn't know or care which path produced the map.
+
+### Custom schema validators
+
+The built-in `Omni.Schema` validator is "good enough" for the common LLM-driven cases. For richer semantics -- `$ref` resolution, draft-2020-12 strict compliance, custom casting -- implement the `Omni.Schema.Adapter` behaviour and pass `{module, state}` anywhere a schema is accepted (`:output` option, `Tool.input_schema`, the `schema/0` callback in tool modules):
+
+```elixir
+@callback to_schema(state :: term()) :: map()
+@callback validate(state :: term(), input :: term()) ::
+            {:ok, term()} | {:error, String.t()}
+```
+
+This keeps Omni dependency-light while letting users plug in libraries like JSV. `Omni.Schema` itself implements the behaviour, so the dispatch is uniform: every schema is conceptually `{Adapter, state}`, with raw maps hitting `Omni.Schema` as the default adapter.
 
 ### Building tools inline
 
@@ -1062,7 +1082,7 @@ For stateless tools, `call/2` has a default implementation that delegates to `ca
 {:ok, result} = Omni.Tool.execute(tool, tool_use.input)
 ```
 
-If the tool has an `input_schema`, the LLM's string-keyed input is validated via `Omni.Schema.validate/2` and cast to match the schema's key types -- handlers receive atom keys when the schema uses atoms. Returns `{:ok, result}` on success, `{:error, errors}` on validation failure. Direct handler calls (`tool.handler.(input)`) bypass validation.
+If the tool has an `input_schema`, the LLM's string-keyed input is validated via `Omni.Schema.validate/2` and cast to match the schema's key types -- handlers receive atom keys when the schema uses atoms (built-in validator) or whatever shape the adapter returns. Returns `{:ok, result}` on success, `{:error, message}` on validation failure with a pre-formatted error string. Direct handler calls (`tool.handler.(input)`) bypass validation.
 
 ### How tools reach the context
 
@@ -1627,7 +1647,11 @@ lib/omni/
 ├── usage.ex                   # Usage struct (token counts and computed costs)
 ├── tool.ex                    # Tool struct, behaviour, use macro, execute/2
 ├── tool/
-│   └── schema.ex              # JSON Schema builder functions
+│   └── runner.ex              # Parallel tool execution (ToolUse → ToolResult)
+├── schema.ex                  # JSON Schema builder + Peri-backed validator;
+│                              #   default Omni.Schema.Adapter implementation
+├── schema/
+│   └── adapter.ex             # Behaviour for pluggable schema validators
 ├── content/
 │   ├── text.ex                # Text content block
 │   ├── thinking.ex            # Thinking/reasoning content block

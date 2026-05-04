@@ -63,7 +63,7 @@ defmodule Omni.Dialects.OllamaChat do
   # Output schema
 
   defp encode_output(nil), do: nil
-  defp encode_output(schema), do: schema
+  defp encode_output(schema), do: Omni.Schema.to_schema(schema)
 
   # Options (temperature, max_tokens → num_predict)
 
@@ -315,7 +315,7 @@ defmodule Omni.Dialects.OllamaChat do
       "function" => %{
         "name" => name,
         "description" => description,
-        "parameters" => schema
+        "parameters" => Omni.Schema.to_schema(schema)
       }
     }
   end

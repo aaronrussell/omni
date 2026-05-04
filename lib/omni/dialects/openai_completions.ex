@@ -61,9 +61,11 @@ defmodule Omni.Dialects.OpenAICompletions do
   defp encode_output(nil), do: nil
 
   defp encode_output(schema) do
+    schema = schema |> Omni.Schema.to_schema() |> apply_strict()
+
     %{
       "type" => "json_schema",
-      "json_schema" => %{"name" => "output", "strict" => true, "schema" => apply_strict(schema)}
+      "json_schema" => %{"name" => "output", "strict" => true, "schema" => schema}
     }
   end
 
@@ -293,7 +295,7 @@ defmodule Omni.Dialects.OpenAICompletions do
       "function" => %{
         "name" => name,
         "description" => description,
-        "parameters" => schema
+        "parameters" => Omni.Schema.to_schema(schema)
       }
     }
   end

@@ -24,9 +24,21 @@ defmodule Omni.Schema do
         },
         required: [:city]
       }
+
+  ## Custom validators
+
+  For schemas that need richer semantics than the built-in Peri-backed
+  validator provides — `$ref` resolution, `oneOf`/`allOf` combinators,
+  custom casting — implement the `Omni.Schema.Adapter` behaviour and pass
+  a `{module, state}` tuple anywhere a schema is accepted. See
+  `Omni.Schema.Adapter` for a worked JSV example.
+
+  This module is itself the default `Omni.Schema.Adapter` — `to_schema/1`
+  and `validate/2` both implement the behaviour for raw JSON Schema maps,
+  and dispatch to the relevant adapter when given an adapter tuple.
   """
 
-  import Omni.Util, only: [maybe_put: 3]
+  @behaviour Omni.Schema.Adapter
 
   @doc "Builds a JSON Schema object type."
   @spec object(keyword()) :: map()
@@ -98,24 +110,60 @@ defmodule Omni.Schema do
     Map.merge(schema, normalize_opts(opts))
   end
 
+  @typedoc """
+  A schema accepted anywhere Omni takes a JSON Schema. Either a raw map, or
+  a `{module, state}` tuple where `module` implements `Omni.Schema.Adapter`.
+  """
+  @type t :: map() | {module(), term()}
+
+  @doc """
+  Returns the JSON Schema map sent on the wire for the given schema.
+
+  When the schema is a raw map, returns it unchanged. When it is a
+  `{module, state}` adapter tuple, calls `module.to_schema(state)`.
+
+  Implements the `Omni.Schema.Adapter` behaviour for raw maps; delegates
+  to the named module for adapter tuples.
+  """
+  @impl Omni.Schema.Adapter
+  @spec to_schema(t()) :: map()
+  def to_schema({mod, state}) when is_atom(mod), do: mod.to_schema(state)
+  def to_schema(schema) when is_map(schema), do: schema
+
   @doc """
   Validates input against a schema.
 
-  Enforces types, required fields, string constraints (`minLength`, `maxLength`,
-  `pattern`), numeric constraints (`minimum`, `maximum`, `exclusiveMinimum`,
-  `exclusiveMaximum`), and `anyOf` unions. Array item types are validated, but
-  array-level constraints (`minItems`, `maxItems`, `uniqueItems`) and
-  `multipleOf` are not — these are still sent to the LLM in the schema but
-  skipped during local validation.
+  When the schema is a `{module, state}` adapter tuple, dispatches to the
+  adapter's `validate/2`. When it is a raw map, runs the built-in validator
+  (Peri-backed via `Peri.from_json_schema/1`).
+
+  The built-in validator enforces JSON Schema constraints including types,
+  required fields, string constraints (`minLength`, `maxLength`, `pattern`,
+  `format`), numeric constraints (`minimum`, `maximum`, `exclusiveMinimum`,
+  `exclusiveMaximum`, `multipleOf`), array constraints (`minItems`,
+  `maxItems`, `uniqueItems`), enums, const literals, union types, and
+  `anyOf`/`oneOf`/`allOf` combinators.
 
   Property key types are preserved: atom-keyed schemas validate and cast
-  string-keyed JSON input back to atom keys, so validated output uses the same
-  key types as the schema definition. Builder option keywords (e.g.
-  `min_length:`) must be atoms.
+  string-keyed JSON input back to atom keys, so validated output uses the
+  same key types as the schema definition.
+
+  Returns `{:ok, validated}` or `{:error, message}` with a human-readable
+  error string.
   """
-  @spec validate(map(), term()) :: {:ok, term()} | {:error, term()}
-  def validate(schema, input) do
-    Peri.validate(to_peri(schema), input)
+  @impl Omni.Schema.Adapter
+  @spec validate(t(), term()) :: {:ok, term()} | {:error, String.t()}
+  def validate({mod, state}, input) when is_atom(mod) do
+    mod.validate(state, input)
+  end
+
+  def validate(schema, input) when is_map(schema) do
+    with {:ok, peri_schema} <- Peri.from_json_schema(normalize_schema(schema)),
+         {:ok, validated} <- Peri.validate(restore_permissive(peri_schema), input) do
+      {:ok, validated}
+    else
+      {:error, errors} -> {:error, format_errors(errors)}
+    end
   end
 
   @doc false
@@ -152,72 +200,89 @@ defmodule Omni.Schema do
     flatten_errors(rest, [{[], inspect(other)} | acc])
   end
 
-  defp to_peri(%{type: "object", properties: props} = schema) do
-    required = MapSet.new(Map.get(schema, :required, []))
+  # -- Schema normalization for Peri.from_json_schema/1 --
+  #
+  # Peri's converter requires fully string-keyed schemas with string-typed
+  # values for `type`, `required`, etc. Our builders produce atom-keyed
+  # maps with mostly string values, but users may pass either. Normalize
+  # everything to JSON-shaped strings before conversion.
+  #
+  # JSON Schema's `number` type accepts integers, but Peri maps it to
+  # `:float` (which rejects integers). Rewrite to a `["integer", "number"]`
+  # union so both pass.
 
-    Map.new(props, fn {key, value_schema} ->
-      peri_type = to_peri(value_schema)
-      type = if key in required, do: {:required, peri_type}, else: peri_type
-      {key, type}
-    end)
+  defp normalize_schema(schema) do
+    schema
+    |> stringify()
+    |> rewrite_number_type()
   end
 
-  defp to_peri(%{type: "object"}), do: :map
-
-  defp to_peri(%{type: "string"} = schema) do
-    constrain(:string, string_constraints(schema))
+  defp stringify(map) when is_map(map) do
+    Map.new(map, fn {k, v} -> {stringify_key(k), stringify(v)} end)
   end
 
-  defp to_peri(%{type: "number"} = schema) do
-    case numeric_constraints(schema) do
-      [] ->
-        {:either, {:integer, :float}}
+  defp stringify(list) when is_list(list), do: Enum.map(list, &stringify/1)
 
-      constraints ->
-        {:either,
-         {
-           constrain(:integer, constraints),
-           constrain(:float, constraints)
-         }}
-    end
+  defp stringify(atom) when is_atom(atom) and not is_nil(atom) and not is_boolean(atom) do
+    Atom.to_string(atom)
   end
 
-  defp to_peri(%{type: "integer"} = schema) do
-    constrain(:integer, numeric_constraints(schema))
+  defp stringify(other), do: other
+
+  defp stringify_key(k) when is_atom(k) and not is_nil(k) and not is_boolean(k) do
+    Atom.to_string(k)
   end
 
-  defp to_peri(%{type: "boolean"}), do: :boolean
-  defp to_peri(%{type: "array", items: items}), do: {:list, to_peri(items)}
-  defp to_peri(%{type: "array"}), do: :list
-  defp to_peri(%{enum: values}), do: {:enum, values}
-  defp to_peri(%{anyOf: schemas}), do: {:oneof, Enum.map(schemas, &to_peri/1)}
-  defp to_peri(_), do: :any
+  defp stringify_key(k), do: k
 
-  # -- Peri constraint extraction --
-
-  defp constrain(type, []), do: type
-  defp constrain(type, [single]), do: {type, single}
-  defp constrain(type, constraints), do: {type, constraints}
-
-  defp string_constraints(schema) do
-    []
-    |> maybe_put(:min, schema[:minLength])
-    |> maybe_put(:max, schema[:maxLength])
-    |> maybe_put(:regex, compile_pattern(schema[:pattern]))
+  defp rewrite_number_type(%{"type" => "number"} = schema) do
+    schema
+    |> Map.put("type", ["integer", "number"])
+    |> rewrite_children()
   end
 
-  defp numeric_constraints(schema) do
-    []
-    |> maybe_put(:gte, schema[:minimum])
-    |> maybe_put(:lte, schema[:maximum])
-    |> maybe_put(:gt, schema[:exclusiveMinimum])
-    |> maybe_put(:lt, schema[:exclusiveMaximum])
+  defp rewrite_number_type(%{"type" => types} = schema) when is_list(types) do
+    schema =
+      if "number" in types and "integer" not in types do
+        Map.put(schema, "type", ["integer" | types])
+      else
+        schema
+      end
+
+    rewrite_children(schema)
   end
 
-  defp compile_pattern(nil), do: nil
-  defp compile_pattern(pattern), do: Regex.compile!(pattern)
+  defp rewrite_number_type(map) when is_map(map), do: rewrite_children(map)
+  defp rewrite_number_type(list) when is_list(list), do: Enum.map(list, &rewrite_number_type/1)
+  defp rewrite_number_type(other), do: other
 
-  # -- Key normalization --
+  defp rewrite_children(map) when is_map(map) do
+    Map.new(map, fn {k, v} -> {k, rewrite_number_type(v)} end)
+  end
+
+  # Peri's converter produces an empty map (`%{}`) for bare object schemas
+  # without `properties` — which then drops every key on validate. Restore
+  # the old behaviour: a bare object accepts any map. Walk recursively so
+  # nested bare objects also become permissive.
+
+  defp restore_permissive(%_{} = struct), do: struct
+  defp restore_permissive(%{} = m) when map_size(m) == 0, do: :map
+
+  defp restore_permissive(map) when is_map(map) do
+    Map.new(map, fn {k, v} -> {k, restore_permissive(v)} end)
+  end
+
+  defp restore_permissive(tuple) when is_tuple(tuple) do
+    tuple
+    |> Tuple.to_list()
+    |> Enum.map(&restore_permissive/1)
+    |> List.to_tuple()
+  end
+
+  defp restore_permissive(list) when is_list(list), do: Enum.map(list, &restore_permissive/1)
+  defp restore_permissive(other), do: other
+
+  # -- Key normalization for builder option keywords --
 
   @key_map %{
     min_length: :minLength,

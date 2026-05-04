@@ -75,8 +75,11 @@ defmodule Omni.Tool.Runner do
           {:error, %{__exception__: true} = error} ->
             error_result(tool_use, Exception.message(error))
 
+          {:error, error} when is_binary(error) ->
+            error_result(tool_use, error)
+
           {:error, error} ->
-            error_result(tool_use, Omni.Schema.format_errors(error))
+            error_result(tool_use, inspect(error))
         end
     end
   end

@@ -204,7 +204,7 @@ defmodule Omni.Loop do
 
         :validation ->
           "Your JSON response did not match the required schema. Validation errors:\n" <>
-            Schema.format_errors(errors)
+            errors
       end
 
     user_message = Message.new(role: :user, content: error_text)
