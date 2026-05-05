@@ -158,9 +158,9 @@ defmodule Omni.Schema do
   end
 
   def validate(schema, input) when is_map(schema) do
-    with {:ok, peri_schema} <- Peri.from_json_schema(normalize_schema(schema)),
+    with {:ok, peri_schema} <- Peri.from_json_schema(stringify(schema), keys: :strings),
          {:ok, validated} <- Peri.validate(restore_permissive(peri_schema), input) do
-      {:ok, validated}
+      {:ok, recase(validated, schema)}
     else
       {:error, errors} -> {:error, format_errors(errors)}
     end
@@ -200,22 +200,13 @@ defmodule Omni.Schema do
     flatten_errors(rest, [{[], inspect(other)} | acc])
   end
 
-  # -- Schema normalization for Peri.from_json_schema/1 --
+  # -- Schema preparation for Peri.from_json_schema/2 --
   #
-  # Peri's converter requires fully string-keyed schemas with string-typed
-  # values for `type`, `required`, etc. Our builders produce atom-keyed
-  # maps with mostly string values, but users may pass either. Normalize
-  # everything to JSON-shaped strings before conversion.
-  #
-  # JSON Schema's `number` type accepts integers, but Peri maps it to
-  # `:float` (which rejects integers). Rewrite to a `["integer", "number"]`
-  # union so both pass.
-
-  defp normalize_schema(schema) do
-    schema
-    |> stringify()
-    |> rewrite_number_type()
-  end
+  # Peri's converter requires fully string-keyed schemas with string values
+  # for `type`, `required`, etc. Our builders produce atom-keyed maps with
+  # mostly string values, but users may pass either. Stringify everything
+  # to JSON-shaped strings before conversion. Booleans, nils, structs are
+  # left alone.
 
   defp stringify(map) when is_map(map) do
     Map.new(map, fn {k, v} -> {stringify_key(k), stringify(v)} end)
@@ -235,35 +226,10 @@ defmodule Omni.Schema do
 
   defp stringify_key(k), do: k
 
-  defp rewrite_number_type(%{"type" => "number"} = schema) do
-    schema
-    |> Map.put("type", ["integer", "number"])
-    |> rewrite_children()
-  end
-
-  defp rewrite_number_type(%{"type" => types} = schema) when is_list(types) do
-    schema =
-      if "number" in types and "integer" not in types do
-        Map.put(schema, "type", ["integer" | types])
-      else
-        schema
-      end
-
-    rewrite_children(schema)
-  end
-
-  defp rewrite_number_type(map) when is_map(map), do: rewrite_children(map)
-  defp rewrite_number_type(list) when is_list(list), do: Enum.map(list, &rewrite_number_type/1)
-  defp rewrite_number_type(other), do: other
-
-  defp rewrite_children(map) when is_map(map) do
-    Map.new(map, fn {k, v} -> {k, rewrite_number_type(v)} end)
-  end
-
   # Peri's converter produces an empty map (`%{}`) for bare object schemas
   # without `properties` — which then drops every key on validate. Restore
-  # the old behaviour: a bare object accepts any map. Walk recursively so
-  # nested bare objects also become permissive.
+  # permissive behaviour: a bare object accepts any map. Walk recursively
+  # so nested bare objects also become permissive.
 
   defp restore_permissive(%_{} = struct), do: struct
   defp restore_permissive(%{} = m) when map_size(m) == 0, do: :map
@@ -281,6 +247,69 @@ defmodule Omni.Schema do
 
   defp restore_permissive(list) when is_list(list), do: Enum.map(list, &restore_permissive/1)
   defp restore_permissive(other), do: other
+
+  # -- Output re-keying --
+  #
+  # Peri 0.8.4+ returns string keys deterministically. Walk the validated
+  # value alongside the original (pre-stringification) schema and re-key so
+  # output key types match the schema's original property keys. This
+  # preserves atom-keyed output for atom-keyed schemas without relying on
+  # opportunistic atom-table lookups.
+
+  defp recase(value, schema) when is_map(schema) and is_map(value) do
+    cond do
+      Map.has_key?(schema, :properties) -> recase_object(value, schema.properties)
+      Map.has_key?(schema, "properties") -> recase_object(value, schema["properties"])
+      true -> value
+    end
+  end
+
+  defp recase(value, schema) when is_map(schema) and is_list(value) do
+    cond do
+      Map.has_key?(schema, :items) -> Enum.map(value, &recase(&1, schema.items))
+      Map.has_key?(schema, "items") -> Enum.map(value, &recase(&1, schema["items"]))
+      true -> value
+    end
+  end
+
+  defp recase(value, _schema), do: value
+
+  defp recase_object(value, props) when is_map(props) do
+    Map.new(value, fn {validated_key, v} ->
+      {original_key, sub_schema} = lookup_property(props, validated_key)
+      {original_key, recase(v, sub_schema)}
+    end)
+  end
+
+  defp recase_object(value, _props), do: value
+
+  # Look up a property in the original schema's properties map. The validated
+  # key is a string (Peri now returns strings deterministically); the original
+  # key may be an atom or string. Return {key, sub_schema} where the key uses
+  # the same type as in the original schema. Properties not present in the
+  # schema (e.g. additionalProperties) pass through as strings.
+
+  defp lookup_property(props, key) when is_binary(key) do
+    cond do
+      Map.has_key?(props, key) ->
+        {key, Map.fetch!(props, key)}
+
+      true ->
+        case safe_existing_atom(key) do
+          nil ->
+            {key, %{}}
+
+          atom ->
+            if Map.has_key?(props, atom), do: {atom, Map.fetch!(props, atom)}, else: {key, %{}}
+        end
+    end
+  end
+
+  defp safe_existing_atom(s) do
+    String.to_existing_atom(s)
+  rescue
+    ArgumentError -> nil
+  end
 
   # -- Key normalization for builder option keywords --
 

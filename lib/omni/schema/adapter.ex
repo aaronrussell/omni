@@ -93,11 +93,19 @@ defmodule Omni.Schema.Adapter do
   Validates input against the adapter's state.
 
   Called by Omni when validating structured output or tool input. Return
-  `{:ok, value}` with the validated (and optionally cast) data, or
-  `{:error, message}` with a human-readable error string. The error string
-  is sent back to the LLM during structured-output retries and back to the
-  caller as a tool result on tool input failures, so favour clarity over
-  detail.
+  `{:ok, value}` with the validated data, or `{:error, message}` with a
+  human-readable error string.
+
+  Adapters typically cast input to a normalised shape on success — for
+  example, casting JSON string keys to atom keys (the built-in
+  `Omni.Schema` validator), coercing values to typed structs (JSV with
+  `defschema`), or transforming dates and decimals. The cast value
+  becomes the structured output on `Response`, or the input map handed
+  to a tool handler.
+
+  The error string is sent back to the LLM during structured-output
+  retries and back to the caller as a tool result on tool input
+  failures, so favour clarity over detail.
 
   Argument order mirrors `Omni.Schema.validate/2`: state first (the
   schema-shaped thing), input second (the data being validated).
