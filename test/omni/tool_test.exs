@@ -68,6 +68,68 @@ defmodule Omni.ToolTest do
     def call(input, _opts), do: input.x
   end
 
+  defmodule DescriptionOnlyArity1Tool do
+    use Omni.Tool, name: "desc_only_1"
+
+    @impl Omni.Tool
+    def schema, do: Omni.Schema.object(%{x: Omni.Schema.integer()}, required: [:x])
+
+    @impl Omni.Tool
+    def description(label), do: "Tool labelled: #{label}"
+
+    @impl Omni.Tool
+    def call(input), do: input.x
+  end
+
+  defmodule DynamicSchemaTool do
+    use Omni.Tool, name: "dyn_schema", description: "Schema depends on init"
+
+    @impl Omni.Tool
+    def init(opts), do: opts
+
+    @impl Omni.Tool
+    def schema(opts) do
+      fields = Keyword.get(opts, :fields, [:x])
+      properties = Map.new(fields, fn f -> {f, Omni.Schema.integer()} end)
+      Omni.Schema.object(properties, required: fields)
+    end
+
+    @impl Omni.Tool
+    def call(_input, _opts), do: :ok
+  end
+
+  defmodule SchemaOnlyArity1Tool do
+    use Omni.Tool, name: "schema_only_1", description: "Schema only via /1"
+
+    @impl Omni.Tool
+    def schema(modes) do
+      Omni.Schema.object(
+        %{mode: Omni.Schema.string(enum: modes)},
+        required: [:mode]
+      )
+    end
+
+    @impl Omni.Tool
+    def call(input, _modes), do: input.mode
+  end
+
+  defmodule MissingDescriptionTool do
+    use Omni.Tool, name: "missing_desc"
+
+    @impl Omni.Tool
+    def schema, do: Omni.Schema.object(%{})
+
+    @impl Omni.Tool
+    def call(_input), do: :ok
+  end
+
+  defmodule MissingSchemaTool do
+    use Omni.Tool, name: "missing_schema", description: "no schema"
+
+    @impl Omni.Tool
+    def call(_input), do: :ok
+  end
+
   describe "new/1" do
     test "creates from keyword list" do
       tool = Tool.new(name: "test", description: "A test tool", input_schema: %{})
@@ -166,6 +228,55 @@ defmodule Omni.ToolTest do
     test "description/1 falls back to base when state has no extra" do
       tool = DynamicDescriptionTool.new([])
       assert tool.description == "Base description"
+    end
+
+    test "description/1 can be implemented alone (no description/0, no description: option)" do
+      tool = DescriptionOnlyArity1Tool.new("widget")
+      assert tool.description == "Tool labelled: widget"
+    end
+
+    test "raises a helpful error when neither description/0 nor description/1 is implemented" do
+      assert_raise RuntimeError, ~r/must implement description\/0 or description\/1/, fn ->
+        MissingDescriptionTool.new()
+      end
+    end
+  end
+
+  describe "dynamic schema" do
+    test "default schema/1 delegates to schema/0" do
+      tool = StatelessTool.new()
+
+      assert tool.input_schema == %{
+               type: "object",
+               properties: %{x: %{type: "integer"}},
+               required: [:x]
+             }
+    end
+
+    test "schema/1 can incorporate init state" do
+      tool = DynamicSchemaTool.new(fields: [:a, :b])
+
+      assert tool.input_schema == %{
+               type: "object",
+               properties: %{a: %{type: "integer"}, b: %{type: "integer"}},
+               required: [:a, :b]
+             }
+    end
+
+    test "schema/1 can be implemented alone (no schema/0)" do
+      tool = SchemaOnlyArity1Tool.new(["focus", "casual"])
+
+      assert tool.input_schema == %{
+               type: "object",
+               properties: %{mode: %{type: "string", enum: ["focus", "casual"]}},
+               required: [:mode]
+             }
+    end
+
+    test "raises a helpful error when neither schema/0 nor schema/1 is implemented" do
+      assert_raise RuntimeError, ~r/must implement schema\/0 or schema\/1/, fn ->
+        MissingSchemaTool.new()
+      end
     end
   end
 

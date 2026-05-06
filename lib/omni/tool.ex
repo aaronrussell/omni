@@ -143,7 +143,40 @@ defmodule Omni.Tool do
       tool.description
       #=> "Searches the knowledge base\n\nOnly return results from 2024."
 
-  The default `description/1` delegates to `description/0`, so existing tools
+  Implement either `description/0` or `description/1` (or both). The default
+  `description/1` delegates to `description/0`, so existing tools that only
+  implement `description/0` are unaffected. If you implement only
+  `description/1`, the unused `description/0` default raises if invoked.
+
+  ## Dynamic schemas
+
+  When a tool's input schema depends on runtime state — for example, the set
+  of allowed values comes from configuration or a database — override
+  `schema/1`. It receives the state returned by `init/1`:
+
+      defmodule MyApp.Tools.SetMode do
+        use Omni.Tool, name: "set_mode", description: "Switches the assistant's mode"
+
+        @impl Omni.Tool
+        def schema(allowed_modes) do
+          import Omni.Schema
+          object(
+            %{mode: string(enum: allowed_modes)},
+            required: [:mode]
+          )
+        end
+
+        def init(modes), do: modes
+
+        def call(input, _modes) do
+          {:ok, input.mode}
+        end
+      end
+
+      tool = MyApp.Tools.SetMode.new(["focus", "casual", "technical"])
+
+  Implement either `schema/0` or `schema/1` (or both). The default `schema/1`
+  delegates to `schema/0`, so existing tools that only implement `schema/0`
   are unaffected.
 
   ## Callbacks as an alternative to options
@@ -174,7 +207,7 @@ defmodule Omni.Tool do
 
   1. Calls `init/1` with the given argument (defaults to `nil`)
   2. Calls `description/1` with the init state to resolve the description
-  3. Calls `schema/0` to capture the input schema
+  3. Calls `schema/1` with the init state to resolve the input schema
   4. Returns a `%Tool{}` struct with a handler closure bound to the init state
 
   When the model invokes the tool, `execute/2` validates the LLM's
@@ -283,8 +316,24 @@ defmodule Omni.Tool do
         import Omni.Schema
         object(%{city: string(description: "City name")}, required: [:city])
       end
+
+  Implement `schema/1` instead when the schema needs runtime state. See the
+  "Dynamic schemas" section in the module documentation.
   """
   @callback schema() :: Omni.Schema.t()
+
+  @doc """
+  Returns the tool's input schema, optionally incorporating runtime state.
+
+  Called by `new/1` with the state returned by `init/1`. The default
+  implementation delegates to `schema/0`, ignoring state. Override this when
+  the schema needs runtime context — for example, populating an enum from
+  configuration.
+
+  See the "Dynamic schemas" section in the module documentation for an
+  example.
+  """
+  @callback schema(state :: term()) :: Omni.Schema.t()
 
   @doc """
   Initializes state for a stateful tool.
@@ -337,12 +386,25 @@ defmodule Omni.Tool do
           @doc false
           def description, do: unquote(description)
         end
+      else
+        quote do
+          @impl Omni.Tool
+          @doc false
+          def description,
+            do: raise("#{__MODULE__} must implement description/0 or description/1")
+        end
       end
 
     overridable =
-      [{:init, 1}, {:call, 1}, {:call, 2}, {:description, 1}] ++
-        if(name, do: [{:name, 0}], else: []) ++
-        if(description, do: [{:description, 0}], else: [])
+      [
+        {:init, 1},
+        {:call, 1},
+        {:call, 2},
+        {:description, 0},
+        {:description, 1},
+        {:schema, 0},
+        {:schema, 1}
+      ] ++ if(name, do: [{:name, 0}], else: [])
 
     quote do
       @behaviour Omni.Tool
@@ -357,6 +419,12 @@ defmodule Omni.Tool do
       def description(_state), do: description()
 
       @impl Omni.Tool
+      def schema, do: raise("#{__MODULE__} must implement schema/0 or schema/1")
+
+      @impl Omni.Tool
+      def schema(_state), do: schema()
+
+      @impl Omni.Tool
       def call(_input), do: raise("#{__MODULE__} must implement call/1 or call/2")
 
       @impl Omni.Tool
@@ -369,7 +437,7 @@ defmodule Omni.Tool do
         %Omni.Tool{
           name: name(),
           description: description(state),
-          input_schema: schema(),
+          input_schema: schema(state),
           handler: fn input -> call(input, state) end
         }
       end

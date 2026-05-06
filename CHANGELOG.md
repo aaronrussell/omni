@@ -10,9 +10,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - **`Omni.Schema.Adapter` behaviour** — pluggable schema validators. Pass a `{module, state}` tuple anywhere a JSON Schema map is accepted (`:output` option, `Tool` `input_schema`, tool `schema/0` callback) to delegate wire encoding and validation to a custom adapter. Enables JSV, Ecto, or other validators with zero new dependencies in Omni itself.
 - **`Omni.Schema.to_schema/1`** — public dispatcher that returns the wire-form JSON Schema map for a raw schema or adapter tuple.
+- **`Omni.Tool` `schema/1` callback** — state-aware variant of `schema/0` for tools whose input schema depends on init state. Mirrors the existing `description/0,1` pattern; the default `schema/1` delegates to `schema/0`, so existing tools are unaffected.
 
 ### Changed
 
+- **`Omni.Tool` `description/0` and `schema/0` are no longer required when implementing the 1-arity variant** — the macro now generates raising defaults (matching `call/1,2`), so a tool can implement just `description/1` or `schema/1` without compiler warnings.
 - **`Omni.Schema` is now the default `Omni.Schema.Adapter`** — `to_schema/1` and `validate/2` accept either a raw map or an adapter tuple and dispatch accordingly.
 - **`Omni.Schema.validate/2` return shape** — now returns `{:ok, term()} | {:error, String.t()}` consistently. Errors come back as a pre-formatted human-readable string instead of a list of Peri error structs.
 - **Built-in validator** — replaced internal Peri schema converter with `Peri.from_json_schema/1` (peri bumped to `~> 0.8`).

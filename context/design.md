@@ -993,7 +993,7 @@ tool = %Tool{
 
 ### Tool modules
 
-For reusable, self-contained tools, the `Omni.Tool` behaviour and `use Omni.Tool` macro provide a module-based pattern. Name and description are passed as arguments to `use` (they're static configuration, not behaviour), while `schema/0`, `init/1`, and `call/1,2` are callbacks:
+For reusable, self-contained tools, the `Omni.Tool` behaviour and `use Omni.Tool` macro provide a module-based pattern. Name and description are passed as arguments to `use` (they're static configuration, not behaviour), while `schema/0,1`, `description/0,1`, `init/1`, and `call/1,2` are callbacks:
 
 ```elixir
 defmodule MyWeatherTool do
@@ -1017,7 +1017,7 @@ defmodule MyWeatherTool do
 end
 ```
 
-The `name:` and `description:` options are optional shorthand — when provided, the macro generates default `name/0` and `description/0` callbacks. When omitted, the module must implement `name/0` and `description/0` as callbacks directly. The macro also generates `new/0` and `new/1` constructors that produce a `%Tool{}` struct:
+The `name:` and `description:` options are optional shorthand — when provided, the macro generates default `name/0` and `description/0` callbacks. When omitted, the module must implement `name/0` directly; `description/0` may be omitted as long as `description/1` is implemented (the macro generates a raising default for `description/0`, mirroring the `call/1,2` pattern). The same applies to `schema/0,1`: implement either arity. The macro also generates `new/0` and `new/1` constructors that produce a `%Tool{}` struct:
 
 ```elixir
 tool = MyWeatherTool.new()
@@ -1032,7 +1032,7 @@ def new(args \\ nil) do
   %Tool{
     name: name(),
     description: description(state),
-    input_schema: schema(),
+    input_schema: schema(state),
     handler: fn input -> call(input, state) end
   }
 end
@@ -1070,9 +1070,9 @@ The `init/1` callback is the place to validate and fail early -- at tool constru
 
 For stateless tools, `call/2` has a default implementation that delegates to `call/1`, so authors can ignore opts entirely.
 
-### Dynamic descriptions
+### Dynamic descriptions and schemas
 
-`description/1` receives the state from `init/1` and returns the description used in the `%Tool{}` struct. The default delegates to `description/0`. Override it to inject runtime context into the tool's description — for example, appending environment-specific prompt fragments that the model should consider when deciding to use the tool.
+`description/1` and `schema/1` both receive the state from `init/1` and return the values used in the `%Tool{}` struct. Their defaults delegate to the 0-arity versions. Override `description/1` to inject runtime context into the description (for example, environment-specific prompt fragments). Override `schema/1` when the input schema itself depends on state — for example, populating an `enum` of allowed values from configuration or a database lookup performed in `init/1`.
 
 ### Tool execution
 
