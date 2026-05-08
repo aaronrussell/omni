@@ -6,11 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-05-08
+
 ### Added
 
 - **`Omni.Schema.Adapter` behaviour** — pluggable schema validators. Pass a `{module, state}` tuple anywhere a JSON Schema map is accepted (`:output` option, `Tool` `input_schema`, tool `schema/0` callback) to delegate wire encoding and validation to a custom adapter. Enables JSV, Ecto, or other validators with zero new dependencies in Omni itself.
 - **`Omni.Schema.to_schema/1`** — public dispatcher that returns the wire-form JSON Schema map for a raw schema or adapter tuple.
 - **`Omni.Tool` `schema/1` callback** — state-aware variant of `schema/0` for tools whose input schema depends on init state. Mirrors the existing `description/0,1` pattern; the default `schema/1` delegates to `schema/0`, so existing tools are unaffected.
+- **Updated model catalog** — refreshed across all providers.
 
 ### Changed
 
@@ -132,7 +135,8 @@ Complete rewrite of Omni as a production-ready, multi-provider LLM client for El
 
 *Versions 0.1.0 and 0.1.1, released in 2024, were early prototypes with a different architecture. Version 1.0 is a complete rewrite and is not compatible with 0.1.x.*
 
-[Unreleased]: https://github.com/aaronrussell/omni/compare/v1.3.2...HEAD
+[Unreleased]: https://github.com/aaronrussell/omni/compare/v1.4.0...HEAD
+[1.4.0]: https://github.com/aaronrussell/omni/releases/tag/v1.4.0
 [1.3.2]: https://github.com/aaronrussell/omni/releases/tag/v1.3.2
 [1.3.1]: https://github.com/aaronrussell/omni/releases/tag/v1.3.1
 [1.3.0]: https://github.com/aaronrussell/omni/releases/tag/v1.3.0

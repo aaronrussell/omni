@@ -2152,6 +2152,25 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
+    "context_size": 1048756,
+    "dialect": null,
+    "id": "openrouter/owl-alpha",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Owl Alpha",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-28"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
     "context_size": 200000,
     "dialect": null,
     "id": "openrouter/pareto-code",
@@ -2173,6 +2192,44 @@
     "cache_write_cost": 0,
     "context_size": 131072,
     "dialect": null,
+    "id": "poolside/laguna-m.1:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Laguna M.1",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-28"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": null,
+    "id": "poolside/laguna-xs.2:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Laguna XS.2",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-28"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": null,
     "id": "prime-intellect/intellect-3",
     "input_cost": 0.2,
     "input_modalities": [
@@ -2186,6 +2243,45 @@
     ],
     "reasoning": true,
     "release_date": "2025-01-15"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": null,
+    "id": "qwen/qwen-3.6-27b",
+    "input_cost": 0.195,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 81920,
+    "name": "Qwen3.6 27B",
+    "output_cost": 1.56,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2026-04-22"
+  },
+  {
+    "cache_read_cost": 0.052,
+    "cache_write_cost": 0.325,
+    "context_size": 1000000,
+    "dialect": null,
+    "id": "qwen/qwen-plus",
+    "input_cost": 0.26,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 32768,
+    "name": "Qwen: Qwen-Plus",
+    "output_cost": 0.78,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-01-25"
   },
   {
     "cache_read_cost": 0,
@@ -2302,8 +2398,8 @@
     "release_date": "2025-07-31"
   },
   {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
+    "cache_read_cost": 0.039,
+    "cache_write_cost": 0.24375,
     "context_size": 128000,
     "dialect": null,
     "id": "qwen/qwen3-coder-flash",
@@ -2319,6 +2415,25 @@
     ],
     "reasoning": false,
     "release_date": "2025-07-23"
+  },
+  {
+    "cache_read_cost": 0.13,
+    "cache_write_cost": 0.8125,
+    "context_size": 1000000,
+    "dialect": null,
+    "id": "qwen/qwen3-coder-plus",
+    "input_cost": 0.65,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Qwen3 Coder Plus",
+    "output_cost": 3.25,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-09-23"
   },
   {
     "cache_read_cost": 0,
@@ -2340,8 +2455,8 @@
     "release_date": "2025-07-23"
   },
   {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
+    "cache_read_cost": 0.156,
+    "cache_write_cost": 0.975,
     "context_size": 262144,
     "dialect": null,
     "id": "qwen/qwen3-max",
@@ -2457,8 +2572,8 @@
     "release_date": "2026-02-16"
   },
   {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
+    "cache_read_cost": 0.0325,
+    "cache_write_cost": 0.40625,
     "context_size": 1000000,
     "dialect": null,
     "id": "qwen/qwen3.6-plus",
@@ -2494,6 +2609,25 @@
     ],
     "reasoning": true,
     "release_date": "2026-01-29"
+  },
+  {
+    "cache_read_cost": 0.029,
+    "cache_write_cost": 0.029,
+    "context_size": 256000,
+    "dialect": null,
+    "id": "tencent/hy3-preview",
+    "input_cost": 0.066,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 64000,
+    "name": "Hy3 preview",
+    "output_cost": 0.26,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-20"
   },
   {
     "cache_read_cost": 0.75,
@@ -2651,6 +2785,26 @@
     "release_date": "2026-03-12"
   },
   {
+    "cache_read_cost": 0.2,
+    "cache_write_cost": 0,
+    "context_size": 1000000,
+    "dialect": null,
+    "id": "x-ai/grok-4.3",
+    "input_cost": 1.25,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 1000000,
+    "name": "Grok 4.3",
+    "output_cost": 2.5,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-05-01"
+  },
+  {
     "cache_read_cost": 0.02,
     "cache_write_cost": 0,
     "context_size": 256000,
@@ -2680,13 +2834,13 @@
       "text"
     ],
     "max_output_tokens": 65536,
-    "name": "MiMo-V2-Flash",
+    "name": "Xiaomi: MiMo-V2-Flash",
     "output_cost": 0.3,
     "output_modalities": [
       "text"
     ],
     "reasoning": true,
-    "release_date": "2025-12-14"
+    "release_date": "2025-12-16"
   },
   {
     "cache_read_cost": 0.08,
@@ -2697,10 +2851,11 @@
     "input_cost": 0.4,
     "input_modalities": [
       "text",
-      "image"
+      "image",
+      "pdf"
     ],
-    "max_output_tokens": 65536,
-    "name": "MiMo-V2-Omni",
+    "max_output_tokens": 131072,
+    "name": "Xiaomi: MiMo-V2-Omni",
     "output_cost": 2,
     "output_modalities": [
       "text"
@@ -2718,8 +2873,8 @@
     "input_modalities": [
       "text"
     ],
-    "max_output_tokens": 65536,
-    "name": "MiMo-V2-Pro",
+    "max_output_tokens": 131072,
+    "name": "Xiaomi: MiMo-V2-Pro",
     "output_cost": 3,
     "output_modalities": [
       "text"
@@ -2735,10 +2890,11 @@
     "id": "xiaomi/mimo-v2.5",
     "input_cost": 0.4,
     "input_modalities": [
-      "text"
+      "text",
+      "image"
     ],
     "max_output_tokens": 131072,
-    "name": "MiMo-V2.5",
+    "name": "Xiaomi: MiMo-V2.5",
     "output_cost": 2,
     "output_modalities": [
       "text"
@@ -2754,12 +2910,10 @@
     "id": "xiaomi/mimo-v2.5-pro",
     "input_cost": 1,
     "input_modalities": [
-      "text",
-      "image",
-      "pdf"
+      "text"
     ],
     "max_output_tokens": 131072,
-    "name": "MiMo-V2.5-Pro",
+    "name": "Xiaomi: MiMo-V2.5-Pro",
     "output_cost": 3,
     "output_modalities": [
       "text"

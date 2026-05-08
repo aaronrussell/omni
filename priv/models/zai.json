@@ -242,7 +242,7 @@
       "pdf"
     ],
     "max_output_tokens": 131072,
-    "name": "glm-5v-turbo",
+    "name": "GLM-5V-Turbo",
     "output_cost": 4,
     "output_modalities": [
       "text"

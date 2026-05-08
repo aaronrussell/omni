@@ -425,14 +425,14 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 204800,
+    "context_size": 196608,
     "dialect": "openai_completions",
     "id": "minimax-m2.7",
     "input_cost": 0,
     "input_modalities": [
       "text"
     ],
-    "max_output_tokens": 131072,
+    "max_output_tokens": 196608,
     "name": "minimax-m2.7",
     "output_cost": 0,
     "output_modalities": [
@@ -667,7 +667,7 @@
       "text",
       "image"
     ],
-    "max_output_tokens": 81920,
+    "max_output_tokens": 65536,
     "name": "qwen3.5:397b",
     "output_cost": 0,
     "output_modalities": [
