@@ -210,6 +210,7 @@ defmodule Omni.Provider do
     openai: Omni.Providers.OpenAI,
     opencode: Omni.Providers.OpenCode,
     openrouter: Omni.Providers.OpenRouter,
+    venice: Omni.Providers.Venice,
     zai: Omni.Providers.Zai
   }
 

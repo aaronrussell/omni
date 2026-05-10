@@ -1,7 +1,7 @@
 alias Omni.Test.Capture
 
 # Load additional providers
-Omni.Provider.load([:alibaba, :groq, :moonshot, :opencode, :openrouter, :zai])
+Omni.Provider.load([:alibaba, :groq, :moonshot, :opencode, :openrouter, :zai, :venice])
 
 fixture_dir = "test/support/fixtures/sse"
 
@@ -29,7 +29,7 @@ prompts = %{
 }
 
 models = %{
-  :alibaba => "qwen3.6-plus",
+  #:alibaba => "qwen3.6-plus",
   #:anthropic => "claude-haiku-4-5",
   #:openai => "gpt-5-mini",
   #:google => "gemini-3-flash-preview",
@@ -37,6 +37,7 @@ models = %{
   #:moonshot => "kimi-k2.6",
   #:openrouter => "openai/gpt-4o-mini",
   #:opencode => "kimi-k2.5",
+  :venice => "qwen3-6-27b"
   #:zai => "glm-4.7-flash"
 }
 

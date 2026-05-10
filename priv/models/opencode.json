@@ -614,25 +614,6 @@
     "release_date": "2026-04-24"
   },
   {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 256000,
-    "dialect": "openai_completions",
-    "id": "hy3-preview-free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 64000,
-    "name": "Hy3 preview Free",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2026-04-20"
-  },
-  {
     "cache_read_cost": 0.08,
     "cache_write_cost": 0,
     "context_size": 262144,
@@ -787,5 +768,24 @@
     ],
     "reasoning": true,
     "release_date": "2026-04-02"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262000,
+    "dialect": "openai_completions",
+    "id": "ring-2.6-1t-free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 66000,
+    "name": "Ring 2.6 1T Free",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-05-08"
   }
 ]

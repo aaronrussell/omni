@@ -43,6 +43,7 @@ by default — if your keys are set, no configuration is needed:
 | OpenAI | `OPENAI_API_KEY` |
 | OpenCode | `OPENCODE_API_KEY` |
 | OpenRouter | `OPENROUTER_API_KEY` |
+| Venice AI | `VENICE_API_KEY` |
 | Z.ai | `ZAI_API_KEY` |
 
 Anthropic, OpenAI, and Google are loaded by default. To add others or limit

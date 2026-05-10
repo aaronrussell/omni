@@ -37,6 +37,7 @@ defmodule Mix.Tasks.Models.Get do
     "openai",
     "opencode",
     "openrouter",
+    "venice",
     "zai"
   ]
   @supported_input_modalities Enum.map(Omni.Model.supported_modalities(:input), &to_string/1)

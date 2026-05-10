@@ -1,0 +1,16 @@
+data: {"id":"chatcmpl-R4Qbw3fgdQITXYfNoTjOnjvr","object":"chat.completion.chunk","created":1778436584,"model":"qwen3-6-27b","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_content":null,"tool_calls":null},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-R4Qbw3fgdQITXYfNoTjOnjvr","object":"chat.completion.chunk","created":1778436584,"model":"qwen3-6-27b","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_content":null,"tool_calls":null},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-R4Qbw3fgdQITXYfNoTjOnjvr","object":"chat.completion.chunk","created":1778436584,"model":"qwen3-6-27b","choices":[{"index":0,"delta":{"role":null,"content":"","reasoning_content":null,"tool_calls":[{"index":0,"id":"call_d5c28339b45c4becb91ddd78","function":{"arguments":"","name":"get_weather"},"type":"function"}]},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-R4Qbw3fgdQITXYfNoTjOnjvr","object":"chat.completion.chunk","created":1778436584,"model":"qwen3-6-27b","choices":[{"index":0,"delta":{"role":null,"content":"","reasoning_content":null,"tool_calls":[{"index":0,"id":null,"function":{"arguments":"{","name":null},"type":null}]},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-R4Qbw3fgdQITXYfNoTjOnjvr","object":"chat.completion.chunk","created":1778436584,"model":"qwen3-6-27b","choices":[{"index":0,"delta":{"role":null,"content":"","reasoning_content":null,"tool_calls":[{"index":0,"id":null,"function":{"arguments":"\"location\": \"London\"","name":null},"type":null}]},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-R4Qbw3fgdQITXYfNoTjOnjvr","object":"chat.completion.chunk","created":1778436584,"model":"qwen3-6-27b","choices":[{"index":0,"delta":{"role":null,"content":"","reasoning_content":null,"tool_calls":[{"index":0,"id":null,"function":{"arguments":"}","name":null},"type":null}]},"logprobs":null,"finish_reason":null}],"usage":null}
+
+data: {"id":"chatcmpl-R4Qbw3fgdQITXYfNoTjOnjvr","object":"chat.completion.chunk","created":1778436584,"model":"qwen3-6-27b","choices":[{"index":0,"delta":{"role":null,"content":"","reasoning_content":null,"tool_calls":null},"logprobs":null,"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":2021,"completion_tokens":26,"total_tokens":2047}}
+
+data: [DONE]
+

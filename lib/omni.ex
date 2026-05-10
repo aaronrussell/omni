@@ -30,6 +30,7 @@ defmodule Omni do
   | OpenAI | `OPENAI_API_KEY` |
   | OpenCode | `OPENCODE_API_KEY` |
   | OpenRouter | `OPENROUTER_API_KEY` |
+  | Venice AI | `VENICE_API_KEY` |
   | Z.ai | `ZAI_API_KEY` |
 
   To override a key — for example, to use a different variable name or load
