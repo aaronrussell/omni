@@ -427,20 +427,20 @@ defmodule Omni.Provider do
   models. Otherwise, each model's `"dialect"` string from the JSON data is
   resolved via `Omni.Dialect.get!/1`.
 
-  The `path` may be absolute or relative to the provider module's OTP app
+  The `file` may be absolute or relative to the provider module's OTP app
   directory (determined via `Application.get_application/1`).
   """
   @spec load_models(module(), String.t()) :: [Model.t()]
-  def load_models(module, path) do
-    resolved_path =
-      if Path.type(path) == :absolute do
-        path
+  def load_models(module, file) do
+    resolved_file =
+      if Path.type(file) == :absolute do
+        file
       else
         app = Application.get_application(module) || :omni
-        Application.app_dir(app, path)
+        Application.app_dir(app, file)
       end
 
-    resolved_path
+    resolved_file
     |> File.read!()
     |> JSON.decode!()
     |> Enum.map(&build_model(&1, module))

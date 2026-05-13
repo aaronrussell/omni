@@ -49,8 +49,8 @@ defmodule Omni.ProviderTest do
     end
   end
 
-  @fixture_path Path.expand("../support/fixtures/test_models.json", __DIR__)
-  @multi_dialect_fixture_path Path.expand(
+  @fixture_file Path.expand("../support/fixtures/test_models.json", __DIR__)
+  @multi_dialect_fixture_file Path.expand(
                                 "../support/fixtures/test_models_multi_dialect.json",
                                 __DIR__
                               )
@@ -146,12 +146,12 @@ defmodule Omni.ProviderTest do
 
   describe "load_models/2" do
     test "loads correct number of models from fixture" do
-      models = Provider.load_models(TestProvider, @fixture_path)
+      models = Provider.load_models(TestProvider, @fixture_file)
       assert length(models) == 3
     end
 
     test "stamps provider and dialect on every model" do
-      models = Provider.load_models(TestProvider, @fixture_path)
+      models = Provider.load_models(TestProvider, @fixture_file)
 
       for model <- models do
         assert model.provider == TestProvider
@@ -160,7 +160,7 @@ defmodule Omni.ProviderTest do
     end
 
     test "maps all JSON fields to struct fields" do
-      [small | _] = Provider.load_models(TestProvider, @fixture_path)
+      [small | _] = Provider.load_models(TestProvider, @fixture_file)
 
       assert %Omni.Model{
                id: "test-model-small",
@@ -175,7 +175,7 @@ defmodule Omni.ProviderTest do
     end
 
     test "converts modality strings to atoms and filters to supported" do
-      models = Provider.load_models(TestProvider, @fixture_path)
+      models = Provider.load_models(TestProvider, @fixture_file)
       multi = Enum.find(models, &(&1.id == "test-model-multi"))
 
       assert multi.input_modalities == [:text, :image]
@@ -183,7 +183,7 @@ defmodule Omni.ProviderTest do
     end
 
     test "loads reasoning flag correctly" do
-      models = Provider.load_models(TestProvider, @fixture_path)
+      models = Provider.load_models(TestProvider, @fixture_file)
       small = Enum.find(models, &(&1.id == "test-model-small"))
       large = Enum.find(models, &(&1.id == "test-model-large"))
 
@@ -194,7 +194,7 @@ defmodule Omni.ProviderTest do
 
   describe "load_models/2 with per-model dialect" do
     test "resolves dialect from JSON when provider declares no dialect" do
-      models = Provider.load_models(MultiDialectProvider, @multi_dialect_fixture_path)
+      models = Provider.load_models(MultiDialectProvider, @multi_dialect_fixture_file)
 
       claude = Enum.find(models, &(&1.id == "claude-test"))
       gpt = Enum.find(models, &(&1.id == "gpt-test"))
@@ -206,7 +206,7 @@ defmodule Omni.ProviderTest do
     end
 
     test "all models share the same provider module" do
-      models = Provider.load_models(MultiDialectProvider, @multi_dialect_fixture_path)
+      models = Provider.load_models(MultiDialectProvider, @multi_dialect_fixture_file)
 
       for model <- models do
         assert model.provider == MultiDialectProvider
@@ -214,7 +214,7 @@ defmodule Omni.ProviderTest do
     end
 
     test "provider's declared dialect takes priority over JSON dialect" do
-      models = Provider.load_models(TestProvider, @multi_dialect_fixture_path)
+      models = Provider.load_models(TestProvider, @multi_dialect_fixture_file)
 
       for model <- models do
         assert model.dialect == DummyDialect
@@ -223,7 +223,7 @@ defmodule Omni.ProviderTest do
 
     test "raises when no dialect is declared and JSON has no dialect field" do
       assert_raise ArgumentError, ~r/no dialect specified/, fn ->
-        Provider.load_models(MultiDialectProvider, @fixture_path)
+        Provider.load_models(MultiDialectProvider, @fixture_file)
       end
     end
   end

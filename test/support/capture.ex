@@ -8,7 +8,7 @@ defmodule Omni.Test.Capture do
 
   Uses `Request.validate/2` and `Request.build/3` to build the request from
   Omni types, executes it, collects all async body chunks, and writes the raw
-  SSE bytes to `output_path`.
+  SSE bytes to `output_file`.
 
   ## Example
 
@@ -18,7 +18,7 @@ defmodule Omni.Test.Capture do
       Omni.Test.Capture.record(model, context, "test/support/fixtures/sse/anthropic_text.sse")
   """
   @spec record(Model.t(), Context.t(), String.t(), keyword()) :: :ok
-  def record(%Model{} = model, %Context{} = context, output_path, opts \\ []) do
+  def record(%Model{} = model, %Context{} = context, output_file, opts \\ []) do
     {:ok, req} = Request.build(model, context, opts)
 
     {:ok, resp} = Req.request(req)
@@ -28,8 +28,8 @@ defmodule Omni.Test.Capture do
       |> Enum.to_list()
       |> IO.iodata_to_binary()
 
-    File.mkdir_p!(Path.dirname(output_path))
-    File.write!(output_path, data)
+    File.mkdir_p!(Path.dirname(output_file))
+    File.write!(output_file, data)
     :ok
   end
 end

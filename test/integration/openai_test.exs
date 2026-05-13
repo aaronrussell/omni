@@ -8,9 +8,9 @@ defmodule Integration.OpenAITest do
   @tool_use_fixture "test/support/fixtures/sse/openai_tool_use.sse"
   @thinking_fixture "test/support/fixtures/sse/openai_thinking.sse"
 
-  defp stub_fixture(stub_name, fixture_path) do
+  defp stub_fixture(stub_name, fixture_file) do
     Req.Test.stub(stub_name, fn conn ->
-      body = File.read!(fixture_path)
+      body = File.read!(fixture_file)
 
       conn
       |> Plug.Conn.put_resp_content_type("text/event-stream")

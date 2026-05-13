@@ -98,6 +98,7 @@ lib/omni/
 - Supported modalities defined on `Omni.Model`. Input: `:text`, `:image`, `:pdf`. Output: `:text`.
 - Structured output wire format is dialect-specific. Each dialect applies its own strictness mechanism.
 - `%Response{}` carries `messages`, `usage`, and `stop_reason` (includes `:cancelled`). `:message` is optional.
+- Filesystem path naming: `*_dir` for directories, `*_file` for files, `*_path` for generic or non-filesystem paths (e.g. URL paths). Applies to config keys, function params, variables, and module attributes.
 
 ## Testing
 

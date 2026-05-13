@@ -72,11 +72,11 @@ defmodule Mix.Tasks.Models.Get do
             |> Enum.filter(&("text" in &1["input_modalities"]))
             |> Enum.sort_by(& &1["id"])
 
-          path = Path.join(@output_dir, "#{provider_id}.json")
+          file = Path.join(@output_dir, "#{provider_id}.json")
           json = Jason.encode!(models, pretty: true)
-          File.write!(path, json <> "\n")
+          File.write!(file, json <> "\n")
 
-          Mix.shell().info("#{provider_id}: wrote #{length(models)} models to #{path}")
+          Mix.shell().info("#{provider_id}: wrote #{length(models)} models to #{file}")
 
         :error ->
           Mix.raise("Provider #{inspect(provider_id)} not found in API response")
