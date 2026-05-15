@@ -799,19 +799,19 @@
     "release_date": "2026-04-20"
   },
   {
-    "cache_read_cost": 0.028,
-    "cache_write_cost": 0.344,
+    "cache_read_cost": 0.05,
+    "cache_write_cost": 0.625,
     "context_size": 1000000,
     "dialect": "openai_completions",
     "id": "qwen3.6-plus",
-    "input_cost": 0.276,
+    "input_cost": 0.5,
     "input_modalities": [
       "text",
       "image"
     ],
     "max_output_tokens": 65536,
     "name": "Qwen3.6 Plus",
-    "output_cost": 1.651,
+    "output_cost": 3,
     "output_modalities": [
       "text"
     ],

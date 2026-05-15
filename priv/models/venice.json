@@ -99,6 +99,26 @@
     "release_date": "2026-04-16"
   },
   {
+    "cache_read_cost": 3.6,
+    "cache_write_cost": 45,
+    "context_size": 1000000,
+    "dialect": null,
+    "id": "claude-opus-4-7-fast",
+    "input_cost": 36,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "Claude Opus 4.7 Fast",
+    "output_cost": 180,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-05-14"
+  },
+  {
     "cache_read_cost": 0.375,
     "cache_write_cost": 4.69,
     "context_size": 198000,
