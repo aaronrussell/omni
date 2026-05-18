@@ -817,6 +817,56 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       assert [{:message, %{stop_reason: :stop}}] =
                AnthropicMessages.handle_event(make_event.("unknown_reason"))
     end
+
+    test "message_start normalizes cache usage keys" do
+      event = %{
+        "type" => "message_start",
+        "message" => %{
+          "model" => "claude-sonnet-4-20250514",
+          "usage" => %{
+            "input_tokens" => 100,
+            "output_tokens" => 1,
+            "cache_read_input_tokens" => 50,
+            "cache_creation_input_tokens" => 25
+          }
+        }
+      }
+
+      assert [{:message, %{usage: usage}}] = AnthropicMessages.handle_event(event)
+      assert usage["input_tokens"] == 100
+      assert usage["cache_read_tokens"] == 50
+      assert usage["cache_write_tokens"] == 25
+      refute Map.has_key?(usage, "cache_read_input_tokens")
+      refute Map.has_key?(usage, "cache_creation_input_tokens")
+    end
+
+    test "message_delta normalizes cache usage keys" do
+      event = %{
+        "type" => "message_delta",
+        "delta" => %{"stop_reason" => "end_turn"},
+        "usage" => %{
+          "output_tokens" => 50,
+          "cache_read_input_tokens" => 30,
+          "cache_creation_input_tokens" => 10
+        }
+      }
+
+      assert [{:message, %{usage: usage}}] = AnthropicMessages.handle_event(event)
+      assert usage["output_tokens"] == 50
+      assert usage["cache_read_tokens"] == 30
+      assert usage["cache_write_tokens"] == 10
+    end
+
+    test "message_delta with partial usage omits absent keys" do
+      event = %{
+        "type" => "message_delta",
+        "delta" => %{"stop_reason" => "end_turn"},
+        "usage" => %{"output_tokens" => 31}
+      }
+
+      assert [{:message, %{usage: usage}}] = AnthropicMessages.handle_event(event)
+      assert usage == %{"output_tokens" => 31}
+    end
   end
 
   describe "handle_body/3 output" do

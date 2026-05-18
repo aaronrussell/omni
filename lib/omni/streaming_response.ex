@@ -473,8 +473,8 @@ defmodule Omni.StreamingResponse do
   defp build_usage(raw, pricing) do
     input = raw["input_tokens"] || 0
     output = raw["output_tokens"] || 0
-    cache_read = raw["cache_read_input_tokens"] || 0
-    cache_write = raw["cache_creation_input_tokens"] || 0
+    cache_read = raw["cache_read_tokens"] || 0
+    cache_write = raw["cache_write_tokens"] || 0
 
     input_cost = input * (pricing[:input_cost] || 0) / 1_000_000
     output_cost = output * (pricing[:output_cost] || 0) / 1_000_000

@@ -710,6 +710,37 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert usage["output_tokens"] == 5
     end
 
+    test "usage extracts cachedContentTokenCount as cache_read_tokens" do
+      event = %{
+        "candidates" => [
+          %{"finishReason" => "STOP", "index" => 0}
+        ],
+        "usageMetadata" => %{
+          "promptTokenCount" => 100,
+          "candidatesTokenCount" => 50,
+          "cachedContentTokenCount" => 80
+        }
+      }
+
+      assert [{:message, %{usage: usage}}] = GoogleGemini.handle_event(event)
+      assert usage["input_tokens"] == 100
+      assert usage["output_tokens"] == 50
+      assert usage["cache_read_tokens"] == 80
+    end
+
+    test "usage without cachedContentTokenCount omits cache_read_tokens" do
+      event = %{
+        "usageMetadata" => %{
+          "promptTokenCount" => 10,
+          "candidatesTokenCount" => 5,
+          "totalTokenCount" => 15
+        }
+      }
+
+      assert [{:message, %{usage: usage}}] = GoogleGemini.handle_event(event)
+      refute Map.has_key?(usage, "cache_read_tokens")
+    end
+
     test "text and finishReason in same event emits both" do
       event = %{
         "candidates" => [

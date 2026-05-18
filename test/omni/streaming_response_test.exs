@@ -549,8 +549,8 @@ defmodule Omni.StreamingResponseTest do
            usage: %{
              "input_tokens" => 100,
              "output_tokens" => 50,
-             "cache_read_input_tokens" => 20,
-             "cache_creation_input_tokens" => 10
+             "cache_read_tokens" => 20,
+             "cache_write_tokens" => 10
            },
            stop_reason: :stop
          }},

@@ -634,6 +634,42 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       assert [] == OpenAIResponses.handle_event(%{"something" => "else"})
     end
 
+    test "response.completed extracts cached tokens from input_tokens_details" do
+      event = %{
+        "type" => "response.completed",
+        "response" => %{
+          "status" => "completed",
+          "output" => [
+            %{"type" => "message", "content" => [%{"type" => "output_text", "text" => "Hi"}]}
+          ],
+          "usage" => %{
+            "input_tokens" => 17,
+            "input_tokens_details" => %{"cached_tokens" => 12},
+            "output_tokens" => 22
+          }
+        }
+      }
+
+      assert [{:message, %{usage: usage}}] = OpenAIResponses.handle_event(event)
+      assert usage["input_tokens"] == 17
+      assert usage["output_tokens"] == 22
+      assert usage["cache_read_tokens"] == 12
+    end
+
+    test "response.completed without input_tokens_details omits cache_read_tokens" do
+      event = %{
+        "type" => "response.completed",
+        "response" => %{
+          "status" => "completed",
+          "output" => [],
+          "usage" => %{"input_tokens" => 10, "output_tokens" => 5}
+        }
+      }
+
+      assert [{:message, %{usage: usage}}] = OpenAIResponses.handle_event(event)
+      refute Map.has_key?(usage, "cache_read_tokens")
+    end
+
     test "error event returns error delta" do
       event = %{
         "type" => "error",

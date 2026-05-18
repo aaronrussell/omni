@@ -6,7 +6,6 @@ Work tracking for `omni`. This is a live document — add to it freely, clean it
 
 ## Scheduled
 
-- **Prompt-cache usage on the OpenAI Completions dialect** — `normalize_usage/1` in `lib/omni/dialects/openai_completions.ex` only extracts `prompt_tokens` / `completion_tokens` and ignores `prompt_tokens_details.cached_tokens` and `prompt_tokens_details.cache_creation_input_tokens`. As a result, `cache_read_tokens` / `cache_write_tokens` on `%Usage{}` are always `0` for every OAI-Completions provider that supports caching (Groq, Moonshot, OpenRouter, OpenCode, Z.ai, Venice). Fix is to map these into the `cache_read_input_tokens` / `cache_creation_input_tokens` raw keys that `StreamingResponse.build_usage/2` already consumes — one dialect change, broad benefit.
 - **Load all built-in providers by default** — `@default_providers` in `Omni.Application` currently only loads `[:anthropic, :google, :openai]`, requiring users to configure `:providers` to access the other 8 built-in providers. Change to `Map.keys(@builtin_providers)` so all built-ins are available out of the box. The cost is negligible (a few hundred models deserialized from JSON into `:persistent_term`). Users who want to restrict the set can still use `config :omni, :providers, [:anthropic]`. The `:providers` config key becomes a filter rather than an additive list — document accordingly.
 
 ---

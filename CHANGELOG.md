@@ -10,6 +10,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - **Updated model catalog** — refreshed across all providers.
 
+### Fixed
+
+- **Prompt cache usage tokens** — `cache_read_tokens` and `cache_write_tokens` on `%Usage{}` were always zero for non-Anthropic providers. All dialects now correctly report prompt cache hits from their respective APIs.
+
 ## [1.4.1] - 2026-05-11
 
 ### Added

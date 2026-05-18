@@ -50,7 +50,7 @@ defmodule Omni.Dialects.AnthropicMessages do
 
   @impl true
   def handle_event(%{"type" => "message_start", "message" => %{"model" => model_id} = message}) do
-    [{:message, %{model: model_id} |> maybe_put(:usage, message["usage"])}]
+    [{:message, %{model: model_id} |> maybe_put(:usage, normalize_usage(message["usage"]))}]
   end
 
   def handle_event(%{
@@ -130,7 +130,7 @@ defmodule Omni.Dialects.AnthropicMessages do
     message =
       %{}
       |> maybe_put(:stop_reason, normalize_stop_reason(delta["stop_reason"]))
-      |> maybe_put(:usage, event["usage"])
+      |> maybe_put(:usage, normalize_usage(event["usage"]))
 
     [{:message, message}]
   end
@@ -326,6 +326,18 @@ defmodule Omni.Dialects.AnthropicMessages do
   end
 
   defp maybe_put_cache_control(blocks, _), do: blocks
+
+  # Usage normalization
+
+  defp normalize_usage(nil), do: nil
+
+  defp normalize_usage(usage) do
+    %{}
+    |> maybe_put("input_tokens", usage["input_tokens"])
+    |> maybe_put("output_tokens", usage["output_tokens"])
+    |> maybe_put("cache_read_tokens", usage["cache_read_input_tokens"])
+    |> maybe_put("cache_write_tokens", usage["cache_creation_input_tokens"])
+  end
 
   # Helpers
 

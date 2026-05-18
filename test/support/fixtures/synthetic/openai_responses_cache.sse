@@ -1,0 +1,9 @@
+event: response.created
+data: {"type":"response.created","response":{"id":"resp_synth_cache","object":"response","created_at":1776700000,"status":"in_progress","model":"gpt-5-mini-2025-08-07","output":[],"usage":null}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","output_index":0,"content_index":0,"delta":"Cached response"}
+
+event: response.completed
+data: {"type":"response.completed","response":{"id":"resp_synth_cache","object":"response","created_at":1776700000,"status":"completed","model":"gpt-5-mini-2025-08-07","output":[{"id":"msg_synth_cache","type":"message","status":"completed","content":[{"type":"output_text","text":"Cached response"}],"role":"assistant"}],"usage":{"input_tokens":17,"input_tokens_details":{"cached_tokens":12},"output_tokens":22,"output_tokens_details":{"reasoning_tokens":0},"total_tokens":39}}}
+

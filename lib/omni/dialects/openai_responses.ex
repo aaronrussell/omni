@@ -276,10 +276,10 @@ defmodule Omni.Dialects.OpenAIResponses do
   # Usage normalization
 
   defp normalize_usage(%{"usage" => usage}) when is_map(usage) do
-    %{
-      "input_tokens" => usage["input_tokens"],
-      "output_tokens" => usage["output_tokens"]
-    }
+    %{}
+    |> maybe_put("input_tokens", usage["input_tokens"])
+    |> maybe_put("output_tokens", usage["output_tokens"])
+    |> maybe_put("cache_read_tokens", get_in(usage, ["input_tokens_details", "cached_tokens"]))
   end
 
   defp normalize_usage(_), do: nil

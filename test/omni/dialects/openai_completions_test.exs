@@ -632,6 +632,33 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert usage["output_tokens"] == 5
     end
 
+    test "usage extracts cached tokens from prompt_tokens_details" do
+      event = %{
+        "choices" => [],
+        "usage" => %{
+          "prompt_tokens" => 46,
+          "completion_tokens" => 17,
+          "total_tokens" => 63,
+          "prompt_tokens_details" => %{"cached_tokens" => 20}
+        }
+      }
+
+      assert [{:message, %{usage: usage}}] = OpenAICompletions.handle_event(event)
+      assert usage["input_tokens"] == 46
+      assert usage["output_tokens"] == 17
+      assert usage["cache_read_tokens"] == 20
+    end
+
+    test "usage without prompt_tokens_details omits cache_read_tokens" do
+      event = %{
+        "choices" => [],
+        "usage" => %{"prompt_tokens" => 10, "completion_tokens" => 5, "total_tokens" => 15}
+      }
+
+      assert [{:message, %{usage: usage}}] = OpenAICompletions.handle_event(event)
+      refute Map.has_key?(usage, "cache_read_tokens")
+    end
+
     test "tool use start with id emits message and block_start" do
       event = %{
         "choices" => [

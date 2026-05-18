@@ -297,10 +297,10 @@ defmodule Omni.Dialects.GoogleGemini do
   defp normalize_usage(nil), do: nil
 
   defp normalize_usage(usage) do
-    %{
-      "input_tokens" => usage["promptTokenCount"],
-      "output_tokens" => usage["candidatesTokenCount"]
-    }
+    %{}
+    |> maybe_put("input_tokens", usage["promptTokenCount"])
+    |> maybe_put("output_tokens", usage["candidatesTokenCount"])
+    |> maybe_put("cache_read_tokens", usage["cachedContentTokenCount"])
   end
 
   # Helpers
