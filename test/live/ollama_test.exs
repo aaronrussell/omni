@@ -4,8 +4,6 @@ defmodule Live.OllamaTest do
   @moduletag :live
 
   setup_all do
-    Omni.Provider.load([:ollama])
-
     model =
       Omni.Model.new(
         id: "gemma4:latest",

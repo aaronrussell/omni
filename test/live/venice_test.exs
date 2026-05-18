@@ -3,11 +3,6 @@ defmodule Live.VeniceTest do
 
   @moduletag :live
 
-  setup_all do
-    Omni.Provider.load([:venice])
-    :ok
-  end
-
   @model {:venice, "qwen3-6-27b"}
 
   test "text generation" do

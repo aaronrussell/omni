@@ -8,15 +8,6 @@ defmodule Omni.Providers.OpenCode do
   Anthropic Messages format, GPT models use OpenAI Responses, and so on. The
   correct dialect is resolved per-model from the data files.
 
-  Not loaded by default — must be explicitly enabled. Either add it to your
-  provider list in application config:
-
-      config :omni, :providers, [:anthropic, :openai, :google, :opencode]
-
-  Or load it at runtime:
-
-      Omni.Provider.load([:opencode])
-
   Reads the API key from the `OPENCODE_API_KEY` environment variable — no
   further configuration is needed if the variable is set.
 

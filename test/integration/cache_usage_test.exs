@@ -1,12 +1,7 @@
 defmodule Integration.CacheUsageTest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Provider, Response}
-
-  setup_all do
-    Provider.load([:groq])
-    :ok
-  end
+  alias Omni.Response
 
   defp stub_fixture(stub_name, fixture_file) do
     Req.Test.stub(stub_name, fn conn ->

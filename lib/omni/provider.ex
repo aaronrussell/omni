@@ -182,8 +182,8 @@ defmodule Omni.Provider do
 
   ## Registering a provider
 
-  Providers are loaded at startup from application config. Built-in providers
-  use shorthand atoms; custom providers use `{id, module}` tuples:
+  All built-in providers are loaded at startup. To restrict which built-ins
+  load, or to add custom providers, use application config:
 
       config :omni, :providers, [
         :anthropic,

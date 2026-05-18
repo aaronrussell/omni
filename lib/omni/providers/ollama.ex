@@ -2,14 +2,7 @@ defmodule Omni.Providers.Ollama do
   @moduledoc """
   Provider for the Ollama API, using the `Omni.Dialects.OllamaChat` dialect.
 
-  Not loaded by default — must be explicitly enabled. Either add it to your
-  provider list in application config:
-
-      config :omni, :providers, [:anthropic, :openai, :google, :ollama]
-
-  Or load it at runtime:
-
-      Omni.Provider.load([:ollama])
+  Loaded by default with models from `priv/models/ollama-cloud.json`.
 
   ## Configuration
 

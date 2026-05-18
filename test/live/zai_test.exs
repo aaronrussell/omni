@@ -5,8 +5,6 @@ defmodule Live.ZaiTest do
   @moduletag timeout: 120_000
 
   setup_all do
-    Omni.Provider.load([:zai])
-
     vision_model =
       Omni.Model.new(
         id: "glm-4.6v-flash",

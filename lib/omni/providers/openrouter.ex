@@ -3,15 +3,6 @@ defmodule Omni.Providers.OpenRouter do
   Provider for the OpenRouter API, using the `Omni.Dialects.OpenAICompletions`
   dialect.
 
-  Not loaded by default — must be explicitly enabled. Either add it to your
-  provider list in application config:
-
-      config :omni, :providers, [:anthropic, :openai, :google, :openrouter]
-
-  Or load it at runtime:
-
-      Omni.Provider.load([:openrouter])
-
   Reads the API key from the `OPENROUTER_API_KEY` environment variable — no
   further configuration is needed if the variable is set.
 

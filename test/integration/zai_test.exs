@@ -1,17 +1,12 @@
 defmodule Integration.ZaiTest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Context, Message, Provider, Response, StreamingResponse}
+  alias Omni.{Context, Message, Response, StreamingResponse}
   alias Omni.Content.{Text, Thinking, ToolUse}
 
   @text_fixture "test/support/fixtures/sse/zai_text.sse"
   @tool_use_fixture "test/support/fixtures/sse/zai_tool_use.sse"
   @thinking_fixture "test/support/fixtures/sse/zai_thinking.sse"
-
-  setup_all do
-    Provider.load([:zai])
-    :ok
-  end
 
   defp stub_fixture(stub_name, fixture_file) do
     Req.Test.stub(stub_name, fn conn ->

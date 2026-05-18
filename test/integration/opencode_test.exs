@@ -1,13 +1,8 @@
 defmodule Integration.OpenCodeTest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Provider, Response}
+  alias Omni.Response
   alias Omni.Content.{Text, ToolUse}
-
-  setup_all do
-    Provider.load([:opencode])
-    :ok
-  end
 
   @anthropic_fixture "test/support/fixtures/sse/opencode_text_anthropic.sse"
   @oair_fixture "test/support/fixtures/sse/opencode_text_oair.sse"

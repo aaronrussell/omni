@@ -1,7 +1,5 @@
 alias Omni.{Context, Message, StreamingResponse}
 
-Omni.Provider.load(openrouter: Omni.Providers.OpenRouter)
-
 time_map = %{
   "London" => "17:28",
   "New York" => "12:28",

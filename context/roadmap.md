@@ -6,9 +6,7 @@ Work tracking for `omni`. This is a live document — add to it freely, clean it
 
 ## Scheduled
 
-- **Load all built-in providers by default** — `@default_providers` in `Omni.Application` currently only loads `[:anthropic, :google, :openai]`, requiring users to configure `:providers` to access the other 8 built-in providers. Change to `Map.keys(@builtin_providers)` so all built-ins are available out of the box. The cost is negligible (a few hundred models deserialized from JSON into `:persistent_term`). Users who want to restrict the set can still use `config :omni, :providers, [:anthropic]`. The `:providers` config key becomes a filter rather than an additive list — document accordingly.
-
----
+*(empty)*
 
 ## Parked ideas
 

@@ -3,15 +3,6 @@ defmodule Omni.Providers.Venice do
   Provider for the Venice AI API, using the `Omni.Dialects.OpenAICompletions`
   dialect.
 
-  Not loaded by default — must be explicitly enabled. Either add it to your
-  provider list in application config:
-
-      config :omni, :providers, [:anthropic, :openai, :google, :venice]
-
-  Or load it at runtime:
-
-      Omni.Provider.load([:venice])
-
   Reads the API key from the `VENICE_API_KEY` environment variable — no
   further configuration is needed if the variable is set.
 

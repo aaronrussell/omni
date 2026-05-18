@@ -5,11 +5,6 @@ defmodule Live.OpenRouterTest do
 
   @model {:openrouter, "moonshotai/kimi-k2.5"}
 
-  setup_all do
-    Omni.Provider.load([:openrouter])
-    :ok
-  end
-
   test "text generation" do
     LiveTests.text_generation(@model)
   end

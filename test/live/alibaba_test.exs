@@ -6,10 +6,6 @@ defmodule Live.AlibabaTest do
 
   @model {:alibaba, "qwen3.6-plus"}
 
-  setup_all do
-    Omni.Provider.load([:alibaba])
-  end
-
   test "text generation" do
     LiveTests.text_generation(@model, thinking: false)
   end

@@ -1,8 +1,5 @@
 alias Omni.Test.Capture
 
-# Load additional providers
-Omni.Provider.load([:alibaba, :groq, :moonshot, :opencode, :openrouter, :zai, :venice])
-
 fixture_dir = "test/support/fixtures/sse"
 
 # Shared tool

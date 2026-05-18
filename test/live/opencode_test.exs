@@ -8,11 +8,6 @@ defmodule Live.OpenCodeTest do
   @model {:opencode, "gpt-5.4-nano"}
   # @model {:opencode, "kimi-k2.5"}
 
-  setup_all do
-    Omni.Provider.load([:opencode])
-    :ok
-  end
-
   test "text generation" do
     LiveTests.text_generation(@model)
   end

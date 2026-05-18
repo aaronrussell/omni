@@ -4,11 +4,6 @@ defmodule Live.MoonshotTest do
   @moduletag :live
   @moduletag timeout: 120_000
 
-  setup_all do
-    Omni.Provider.load([:moonshot])
-    :ok
-  end
-
   @model {:moonshot, "kimi-k2.6"}
 
   test "text generation" do

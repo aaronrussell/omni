@@ -1,17 +1,12 @@
 defmodule Integration.GroqTest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Context, Message, Provider, Response, StreamingResponse}
+  alias Omni.{Context, Message, Response, StreamingResponse}
   alias Omni.Content.{Text, Thinking, ToolUse}
 
   @text_fixture "test/support/fixtures/sse/groq_text.sse"
   @tool_use_fixture "test/support/fixtures/sse/groq_tool_use.sse"
   @thinking_fixture "test/support/fixtures/sse/groq_thinking.sse"
-
-  setup_all do
-    Provider.load([:groq])
-    :ok
-  end
 
   defp stub_fixture(stub_name, fixture_file) do
     Req.Test.stub(stub_name, fn conn ->

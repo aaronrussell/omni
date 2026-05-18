@@ -3,15 +3,6 @@ defmodule Omni.Providers.Alibaba do
   Provider for the Alibaba Cloud (DashScope) API, using the
   `Omni.Dialects.OpenAICompletions` dialect.
 
-  Not loaded by default — must be explicitly enabled. Either add it to your
-  provider list in application config:
-
-      config :omni, :providers, [:anthropic, :openai, :google, :alibaba]
-
-  Or load it at runtime:
-
-      Omni.Provider.load([:alibaba])
-
   Reads the API key from the `DASHSCOPE_API_KEY` environment variable — no
   further configuration is needed if the variable is set.
 

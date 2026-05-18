@@ -3,8 +3,6 @@ defmodule Omni.Application do
 
   use Application
 
-  @default_providers [:anthropic, :google, :openai]
-
   @impl true
   def start(_type, _args) do
     load_providers()
@@ -12,7 +10,8 @@ defmodule Omni.Application do
   end
 
   defp load_providers do
-    providers = Application.get_env(:omni, :providers, @default_providers)
+    builtins = Map.keys(Omni.Provider.builtin_providers())
+    providers = Application.get_env(:omni, :providers) || builtins
     Omni.Provider.load(providers)
   end
 end

@@ -3,15 +3,6 @@ defmodule Omni.Providers.Zai do
   Provider for the Z.ai API, using the `Omni.Dialects.OpenAICompletions`
   dialect.
 
-  Not loaded by default — must be explicitly enabled. Either add it to your
-  provider list in application config:
-
-      config :omni, :providers, [:anthropic, :openai, :google, :zai]
-
-  Or load it at runtime:
-
-      Omni.Provider.load([:zai])
-
   Reads the API key from the `ZAI_API_KEY` environment variable — no further
   configuration is needed if the variable is set.
 

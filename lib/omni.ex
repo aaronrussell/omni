@@ -42,10 +42,9 @@ defmodule Omni do
 
   You can also pass `:api_key` directly to `generate_text/3` or `stream_text/3`.
 
-  Anthropic, OpenAI, and Google are loaded by default. To add others or limit
-  what loads at startup:
+  All built-in providers are loaded by default. To limit what loads at startup:
 
-      config :omni, :providers, [:anthropic, :openai, :openrouter]
+      config :omni, :providers, [:anthropic, :openai]
 
   ## Text generation
 

@@ -285,12 +285,9 @@ defmodule Omni.Application do
   end
 
   defp load_providers do
-    providers = Application.get_env(:omni, :providers, @default_providers)
-
-    for {provider_id, provider_mod} <- Enum.map(providers, &normalize_provider/1) do
-      model_map = Map.new(provider_mod.models(), &{&1.id, &1})
-      :persistent_term.put({Omni, provider_id}, model_map)
-    end
+    builtins = Map.keys(Omni.Provider.builtin_providers())
+    providers = Application.get_env(:omni, :providers) || builtins
+    Omni.Provider.load(providers)
   end
 
   defp normalize_provider({_id, _mod} = pair), do: pair
@@ -307,20 +304,17 @@ defmodule Omni.Application do
 end
 ```
 
-Which providers are loaded is controlled by application config. Built-in providers are referenced by shorthand atom; custom providers use a `{id, module}` tuple:
+All built-in providers are loaded at startup by default. To restrict which built-ins load, or to add custom providers, use application config:
 
 ```elixir
 config :omni, :providers, [
   :anthropic,
   :openai,
-  :groq,
   custom: MyApp.Providers.Custom
 ]
 ```
 
 The shorthand atom `:anthropic` is normalised to `{:anthropic, Omni.Providers.Anthropic}` at startup. The `{id, module}` tuple form allows custom providers to be registered under any id. Provider IDs are defined only in the config -- provider modules do not declare their own IDs, eliminating the possibility of ID conflicts between modules.
-
-If no providers are configured, a sensible default set is loaded (Anthropic, OpenAI, etc.), so the library works out of the box without requiring any config.
 
 The empty supervisor returned by `start/2` is just the OTP contract -- `start/2` must return `{:ok, pid}`. The real work is the `load_providers` call, which is synchronous and fast (reading a handful of JSON files from disk). This guarantees models are available by the time any user code runs.
 
@@ -499,7 +493,7 @@ Supported value formats:
 Deployment-specific values like `base_url` and `api_key` can be overridden via application config without modifying the provider module. Per-provider config uses the provider module as the config key, separate from provider registration:
 
 ```elixir
-# Provider registration (which providers to load)
+# Provider registration (restrict to specific providers)
 config :omni, :providers, [:anthropic, :openai]
 
 # Per-provider config overrides (deployment-specific values)
@@ -508,7 +502,7 @@ config :omni, Omni.Providers.OpenAI,
   base_url: "https://my-instance.openai.azure.com"
 ```
 
-This separates two concerns: the `:providers` key controls which providers are registered at startup, while per-module config keys control runtime behaviour. The provider module defines the **structural contract** (header name, dialect, URL path structure) and **sensible defaults** in `config/0`. Application config overrides deployment-specific values. The framework merges per-module config into the provider's defaults at call time.
+This separates two concerns: the `:providers` key controls which providers are registered at startup (all built-ins by default), while per-module config keys control runtime behaviour. The provider module defines the **structural contract** (header name, dialect, URL path structure) and **sensible defaults** in `config/0`. Application config overrides deployment-specific values. The framework merges per-module config into the provider's defaults at call time.
 
 ### URL building
 
@@ -582,7 +576,7 @@ defmodule MyApp.Providers.Internal do
 end
 ```
 
-Custom providers are registered in the application config using a `{id, module}` tuple:
+Custom providers are registered in the application config using a `{id, module}` tuple. When `:providers` is set, only the listed providers are loaded:
 
 ```elixir
 config :omni, :providers, [

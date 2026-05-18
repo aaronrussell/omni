@@ -1,7 +1,5 @@
 alias Omni.{Context, Schema}
 
-Omni.Provider.load(openrouter: Omni.Providers.OpenRouter)
-
 context = Context.new("Create a person")
 
 schema = Schema.object(%{

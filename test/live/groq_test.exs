@@ -5,11 +5,6 @@ defmodule Live.GroqTest do
 
   @model {:groq, "openai/gpt-oss-20b"}
 
-  setup_all do
-    Omni.Provider.load([:groq])
-    :ok
-  end
-
   test "text generation" do
     LiveTests.text_generation(@model)
   end
