@@ -1,7 +1,7 @@
 defmodule Omni.MixProject do
   use Mix.Project
 
-  @version "1.4.1"
+  @version "1.5.0"
   @source_url "https://github.com/aaronrussell/omni"
 
   def project do
@@ -32,11 +32,11 @@ defmodule Omni.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:peri, "~> 0.8.4"},
-      {:req, "~> 0.5.17"},
+      {:peri, "~> 0.8"},
+      {:req, "~> 0.5"},
 
       # dev dependencies
-      {:ex_doc, "~> 0.40.1", only: :dev, runtime: false, warn_if_outdated: true},
+      {:ex_doc, "~> 0.40", only: :dev, runtime: false, warn_if_outdated: true},
       {:plug, "~> 1.0", only: :test}
     ]
   end
