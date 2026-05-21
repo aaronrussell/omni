@@ -39,6 +39,7 @@ by default — if your keys are set, no configuration is needed:
 | Google | `GEMINI_API_KEY` |
 | Groq | `GROQ_API_KEY` |
 | Moonshot AI | `MOONSHOT_API_KEY` |
+| NEAR AI Cloud | `NEARAI_API_KEY` |
 | Ollama Cloud | `OLLAMA_API_KEY` |
 | OpenAI | `OPENAI_API_KEY` |
 | OpenCode | `OPENCODE_API_KEY` |

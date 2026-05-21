@@ -14,6 +14,9 @@ https://console.groq.com/docs/api-reference.md
 ## Moonshot
 https://platform.kimi.ai/docs/api/chat.md
 
+## NEAR AI Cloud
+https://cloud-api.near.ai/v1/model/list
+
 ## OpenAI Chat Completions
 https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create/index.md
 
