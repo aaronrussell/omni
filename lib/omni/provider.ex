@@ -206,6 +206,7 @@ defmodule Omni.Provider do
     google: Omni.Providers.Google,
     groq: Omni.Providers.Groq,
     moonshot: Omni.Providers.Moonshot,
+    nearai: Omni.Providers.NearAI,
     ollama: Omni.Providers.Ollama,
     openai: Omni.Providers.OpenAI,
     opencode: Omni.Providers.OpenCode,

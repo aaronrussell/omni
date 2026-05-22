@@ -32,6 +32,7 @@ models = %{
   #:google => "gemini-3-flash-preview",
   #:groq => "openai/gpt-oss-20b",
   #:moonshot => "kimi-k2.6",
+  #:nearai => "zai-org/GLM-5.1-FP8",
   #:openrouter => "openai/gpt-4o-mini",
   #:opencode => "kimi-k2.5",
   :venice => "qwen3-6-27b"

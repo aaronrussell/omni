@@ -1,0 +1,70 @@
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"role":"assistant","content":""}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":"The"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" user"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" wants"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" to"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" know"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" the"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" weather"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" in"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" London"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":"."}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" I"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":"'ll"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" call"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" the"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" get"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":"_weather"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" function"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" with"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440658,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" \""}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440659,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":"London"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440659,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":"\""}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440659,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" as"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440659,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" the"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440659,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":" location"}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440659,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"reasoning_content":"."}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440659,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"tool_calls":[{"id":"call_4f577fe6f7e442198e598e41","type":"function","index":0,"function":{"name":"get_weather","arguments":""}}]}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440659,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"tool_calls":[{"type":"function","index":0,"function":{"arguments":"{"}}]}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440659,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"tool_calls":[{"type":"function","index":0,"function":{"arguments":"\"location\": "}}]}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440659,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"tool_calls":[{"type":"function","index":0,"function":{"arguments":"\"London"}}]}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440659,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"tool_calls":[{"type":"function","index":0,"function":{"arguments":"\""}}]}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440659,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{"tool_calls":[{"type":"function","index":0,"function":{"arguments":"}"}}]}}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440659,"model":"zai-org/GLM-5.1-FP8","choices":[{"index":0,"delta":{},"finish_reason":"tool_calls"}]}
+
+data: {"id":"bc28079c3c504f40867d376badf6a453","object":"chat.completion.chunk","created":1779440659,"model":"zai-org/GLM-5.1-FP8","choices":[],"usage":{"prompt_tokens":169,"completion_tokens":37,"total_tokens":206}}
+
+data: [DONE]
+
