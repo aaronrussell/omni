@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [1.5.1] - 2026-05-22
+
 ### Added
 
 - **NEAR AI Cloud provider** — built-in provider for NEAR AI Cloud's OpenAI-compatible API, including TEE-backed inference models.
@@ -161,7 +163,8 @@ Complete rewrite of Omni as a production-ready, multi-provider LLM client for El
 
 *Versions 0.1.0 and 0.1.1, released in 2024, were early prototypes with a different architecture. Version 1.0 is a complete rewrite and is not compatible with 0.1.x.*
 
-[Unreleased]: https://github.com/aaronrussell/omni/compare/v1.5.0...HEAD
+[Unreleased]: https://github.com/aaronrussell/omni/compare/v1.5.1...HEAD
+[1.5.1]: https://github.com/aaronrussell/omni/releases/tag/v1.5.1
 [1.5.0]: https://github.com/aaronrussell/omni/releases/tag/v1.5.0
 [1.4.1]: https://github.com/aaronrussell/omni/releases/tag/v1.4.1
 [1.4.0]: https://github.com/aaronrussell/omni/releases/tag/v1.4.0
