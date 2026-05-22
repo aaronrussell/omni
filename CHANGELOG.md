@@ -9,6 +9,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 ### Added
 
 - **NEAR AI Cloud provider** — built-in provider for NEAR AI Cloud's OpenAI-compatible API, including TEE-backed inference models.
+- **Updated model catalog** — refreshed across all providers.
 
 ## [1.5.0] - 2026-05-18
 
