@@ -39,7 +39,7 @@ defmodule Omni.Providers.NearAITest do
       models = NearAI.models()
 
       assert Enum.any?(models, &(&1.id == "zai-org/GLM-5.1-FP8"))
-      assert Enum.any?(models, &(&1.id == "Qwen/Qwen3.6-35B-A3B-FP8"))
+      assert Enum.any?(models, &(&1.id == "Qwen/Qwen3-30B-A3B-Instruct-2507"))
     end
   end
 
