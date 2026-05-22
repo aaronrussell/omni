@@ -4241,7 +4241,7 @@
       "text",
       "image"
     ],
-    "max_output_tokens": 65536,
+    "max_output_tokens": 262144,
     "name": "Qwen3.5-122B-A10B",
     "output_cost": 2.08,
     "output_modalities": [
@@ -4393,15 +4393,15 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 262140,
+    "context_size": 262144,
     "dialect": null,
     "id": "qwen/qwen3.6-27b",
-    "input_cost": 0.317,
+    "input_cost": 0.3,
     "input_modalities": [
       "text",
       "image"
     ],
-    "max_output_tokens": 262140,
+    "max_output_tokens": 262144,
     "name": "Qwen3.6 27B",
     "output_cost": 3.2,
     "output_modalities": [
@@ -4411,9 +4411,9 @@
     "release_date": "2026-04-27"
   },
   {
-    "cache_read_cost": 0.05,
+    "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 262144,
+    "context_size": 262140,
     "dialect": null,
     "id": "qwen/qwen3.6-35b-a3b",
     "input_cost": 0.15,
@@ -4421,7 +4421,7 @@
       "text",
       "image"
     ],
-    "max_output_tokens": 262144,
+    "max_output_tokens": 262140,
     "name": "Qwen3.6 35B A3B",
     "output_cost": 1,
     "output_modalities": [

@@ -236,6 +236,26 @@
     "release_date": "2026-02-19"
   },
   {
+    "cache_read_cost": 0.18,
+    "cache_write_cost": 0.1,
+    "context_size": 1000000,
+    "dialect": null,
+    "id": "gemini-3-5-flash",
+    "input_cost": 1.8,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Gemini 3.5 Flash",
+    "output_cost": 11,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-05-22"
+  },
+  {
     "cache_read_cost": 0.07,
     "cache_write_cost": 0,
     "context_size": 256000,
@@ -377,19 +397,19 @@
     "release_date": "2026-04-18"
   },
   {
-    "cache_read_cost": 0.19,
+    "cache_read_cost": 0.2,
     "cache_write_cost": 0,
     "context_size": 256000,
     "dialect": null,
     "id": "grok-build-0-1",
-    "input_cost": 0.95,
+    "input_cost": 1,
     "input_modalities": [
       "text",
       "image"
     ],
     "max_output_tokens": 65536,
     "name": "Grok Build 0.1",
-    "output_cost": 1.95,
+    "output_cost": 2,
     "output_modalities": [
       "text"
     ],
@@ -864,6 +884,25 @@
     ],
     "reasoning": true,
     "release_date": "2026-04-06"
+  },
+  {
+    "cache_read_cost": 0.3125,
+    "cache_write_cost": 3.90625,
+    "context_size": 1000000,
+    "dialect": null,
+    "id": "qwen-3-7-max",
+    "input_cost": 3.125,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Qwen 3.7 Max",
+    "output_cost": 9.375,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-05-22"
   },
   {
     "cache_read_cost": 0,
