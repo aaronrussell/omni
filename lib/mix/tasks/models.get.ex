@@ -140,5 +140,4 @@ defmodule Mix.Tasks.Models.Get do
       "max_output_tokens" => get_in(model, ["limit", "output"]) || 0
     }
   end
-
 end
