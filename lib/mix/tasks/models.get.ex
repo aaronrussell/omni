@@ -1,17 +1,16 @@
 defmodule Mix.Tasks.Models.Get do
-  @shortdoc "Fetches model catalog data"
+  @shortdoc "Fetches model data from models.dev"
 
   @moduledoc """
-  Fetches model catalog data and writes JSON files to `priv/models/`.
+  Fetches model catalog data from models.dev and writes JSON files to `priv/models/`.
 
       mix models.get
 
-  Each supported provider is sourced from models.dev and gets a JSON file
-  containing an array of model objects with fields matching the `Omni.Model`
-  struct: `id`, `name`, `reasoning`, `release_date`, `dialect`,
-  `input_modalities`, `output_modalities`, `input_cost`, `output_cost`,
-  `cache_read_cost`, `cache_write_cost`, `context_size`, and
-  `max_output_tokens`.
+  Each supported provider gets a JSON file containing an array of model objects
+  with fields matching the `Omni.Model` struct: `id`, `name`, `reasoning`,
+  `release_date`, `dialect`, `input_modalities`, `output_modalities`,
+  `input_cost`, `output_cost`, `cache_read_cost`, `cache_write_cost`,
+  `context_size`, and `max_output_tokens`.
 
   The `dialect` field is a string identifier (e.g. `"anthropic_messages"`,
   `"openai_responses"`) inferred from the models.dev npm package metadata.
@@ -28,7 +27,7 @@ defmodule Mix.Tasks.Models.Get do
 
   @api_url "https://models.dev/api.json"
   @output_dir "priv/models"
-  @models_dev_providers [
+  @providers [
     "alibaba",
     "anthropic",
     "google",
@@ -61,7 +60,7 @@ defmodule Mix.Tasks.Models.Get do
 
     File.mkdir_p!(@output_dir)
 
-    for provider_id <- @models_dev_providers do
+    for provider_id <- @providers do
       case Map.fetch(data, provider_id) do
         {:ok, provider_data} ->
           provider_npm = provider_data["npm"]
@@ -74,7 +73,11 @@ defmodule Mix.Tasks.Models.Get do
             |> Enum.filter(&("text" in &1["input_modalities"]))
             |> Enum.sort_by(& &1["id"])
 
-          write_models(provider_id, models)
+          file = Path.join(@output_dir, "#{provider_id}.json")
+          json = Jason.encode!(models, pretty: true)
+          File.write!(file, json <> "\n")
+
+          Mix.shell().info("#{provider_id}: wrote #{length(models)} models to #{file}")
 
         :error ->
           Mix.raise("Provider #{inspect(provider_id)} not found in API response")
@@ -93,14 +96,6 @@ defmodule Mix.Tasks.Models.Get do
       {:error, reason} ->
         Mix.raise("Failed to fetch models.dev: #{inspect(reason)}")
     end
-  end
-
-  defp write_models(provider_id, models) do
-    file = Path.join(@output_dir, "#{provider_id}.json")
-    json = Jason.encode!(models, pretty: true)
-    File.write!(file, json <> "\n")
-
-    Mix.shell().info("#{provider_id}: wrote #{length(models)} models to #{file}")
   end
 
   defp get_models(%{"models" => models}) when is_map(models), do: Map.values(models)

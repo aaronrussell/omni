@@ -377,24 +377,24 @@
     "release_date": "2026-04-18"
   },
   {
-    "cache_read_cost": 0.06,
+    "cache_read_cost": 0.19,
     "cache_write_cost": 0,
-    "context_size": 1000000,
+    "context_size": 256000,
     "dialect": null,
-    "id": "grok-41-fast",
-    "input_cost": 0.23,
+    "id": "grok-build-0-1",
+    "input_cost": 0.95,
     "input_modalities": [
       "text",
       "image"
     ],
-    "max_output_tokens": 30000,
-    "name": "Grok 4.1 Fast",
-    "output_cost": 0.57,
+    "max_output_tokens": 65536,
+    "name": "Grok Build 0.1",
+    "output_cost": 1.95,
     "output_modalities": [
       "text"
     ],
     "reasoning": true,
-    "release_date": "2025-12-01"
+    "release_date": "2026-05-21"
   },
   {
     "cache_read_cost": 0.22,
