@@ -780,6 +780,26 @@
     "release_date": "2026-04-17"
   },
   {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0.234375,
+    "context_size": 1000000,
+    "dialect": "openai_completions",
+    "id": "qwen3.6-flash",
+    "input_cost": 0.1875,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 65536,
+    "name": "Qwen3.6 Flash",
+    "output_cost": 1.125,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-27"
+  },
+  {
     "cache_read_cost": 0.13,
     "cache_write_cost": 1.625,
     "context_size": 262144,

@@ -19,25 +19,6 @@
     "release_date": "2025-08-08"
   },
   {
-    "cache_read_cost": 0.09,
-    "cache_write_cost": 0,
-    "context_size": 131072,
-    "dialect": null,
-    "id": "alibaba/tongyi-deepresearch-30b-a3b",
-    "input_cost": 0.09,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 131072,
-    "name": "Tongyi DeepResearch 30B A3B",
-    "output_cost": 0.45,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-09-18"
-  },
-  {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 1000000,
@@ -346,6 +327,48 @@
     "release_date": "2026-05-12"
   },
   {
+    "cache_read_cost": 0.5,
+    "cache_write_cost": 6.25,
+    "context_size": 1000000,
+    "dialect": null,
+    "id": "anthropic/claude-opus-4.8",
+    "input_cost": 5,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 128000,
+    "name": "Claude Opus 4.8",
+    "output_cost": 25,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-05-28"
+  },
+  {
+    "cache_read_cost": 1,
+    "cache_write_cost": 12.5,
+    "context_size": 1000000,
+    "dialect": null,
+    "id": "anthropic/claude-opus-4.8-fast",
+    "input_cost": 10,
+    "input_modalities": [
+      "text",
+      "image",
+      "pdf"
+    ],
+    "max_output_tokens": 128000,
+    "name": "Claude Opus 4.8 (Fast)",
+    "output_cost": 50,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-05-27"
+  },
+  {
     "cache_read_cost": 0.3,
     "cache_write_cost": 3.75,
     "context_size": 1000000,
@@ -430,25 +453,6 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 262144,
-    "dialect": null,
-    "id": "arcee-ai/trinity-large-thinking:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 80000,
-    "name": "Trinity Large Thinking (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2026-04-01"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
     "context_size": 131072,
     "dialect": null,
     "id": "arcee-ai/trinity-mini",
@@ -483,44 +487,6 @@
     ],
     "reasoning": false,
     "release_date": "2025-05-05"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 131072,
-    "dialect": null,
-    "id": "baidu/cobuddy:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 65536,
-    "name": "CoBuddy (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2026-05-06"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 120000,
-    "dialect": null,
-    "id": "baidu/ernie-4.5-21b-a3b",
-    "input_cost": 0.07,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 8000,
-    "name": "ERNIE 4.5 21B A3B",
-    "output_cost": 0.28,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-08-12"
   },
   {
     "cache_read_cost": 0,
@@ -663,16 +629,16 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 163840,
+    "context_size": 128000,
     "dialect": null,
     "id": "deepseek/deepseek-chat",
-    "input_cost": 0.32,
+    "input_cost": 0.2288,
     "input_modalities": [
       "text"
     ],
-    "max_output_tokens": 16384,
+    "max_output_tokens": 16000,
     "name": "DeepSeek Chat",
-    "output_cost": 0.89,
+    "output_cost": 0.9144,
     "output_modalities": [
       "text"
     ],
@@ -813,37 +779,18 @@
     "release_date": "2025-09-29"
   },
   {
-    "cache_read_cost": 0.022,
+    "cache_read_cost": 0.0197,
     "cache_write_cost": 0,
-    "context_size": 1048575,
+    "context_size": 1048576,
     "dialect": null,
     "id": "deepseek/deepseek-v4-flash",
-    "input_cost": 0.112,
+    "input_cost": 0.0983,
     "input_modalities": [
       "text"
     ],
     "max_output_tokens": 131072,
     "name": "DeepSeek V4 Flash",
-    "output_cost": 0.224,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2026-04-24"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 1048576,
-    "dialect": null,
-    "id": "deepseek/deepseek-v4-flash:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 384000,
-    "name": "DeepSeek V4 Flash (free)",
-    "output_cost": 0,
+    "output_cost": 0.1966,
     "output_modalities": [
       "text"
     ],
@@ -891,7 +838,7 @@
   {
     "cache_read_cost": 0.025,
     "cache_write_cost": 0.083333,
-    "context_size": 1000000,
+    "context_size": 1048576,
     "dialect": null,
     "id": "google/gemini-2.0-flash-001",
     "input_cost": 0.1,
@@ -1379,18 +1326,18 @@
     "release_date": "2026-04-21"
   },
   {
-    "cache_read_cost": 0.015,
+    "cache_read_cost": 0.06,
     "cache_write_cost": 0,
     "context_size": 262144,
     "dialect": null,
     "id": "inclusionai/ring-2.6-1t",
-    "input_cost": 0.075,
+    "input_cost": 0.3,
     "input_modalities": [
       "text"
     ],
     "max_output_tokens": 65536,
     "name": "Ring-2.6-1T",
-    "output_cost": 0.625,
+    "output_cost": 2.5,
     "output_modalities": [
       "text"
     ],
@@ -1495,6 +1442,26 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
+    "context_size": 1048576,
+    "dialect": null,
+    "id": "meta-llama/llama-4-maverick",
+    "input_cost": 0.15,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 16384,
+    "name": "Llama 4 Maverick",
+    "output_cost": 0.6,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": false,
+    "release_date": "2025-04-05"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
     "context_size": 327680,
     "dialect": null,
     "id": "meta-llama/llama-4-scout",
@@ -1593,27 +1560,8 @@
     "cache_write_cost": 0,
     "context_size": 196608,
     "dialect": null,
-    "id": "minimax/minimax-m2.5:free",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 8192,
-    "name": "MiniMax M2.5 (free)",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2026-02-12"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 196608,
-    "dialect": null,
     "id": "minimax/minimax-m2.7",
-    "input_cost": 0.279,
+    "input_cost": 0.26,
     "input_modalities": [
       "text"
     ],
@@ -1665,46 +1613,6 @@
     ],
     "reasoning": false,
     "release_date": "2025-12-09"
-  },
-  {
-    "cache_read_cost": 0.04,
-    "cache_write_cost": 0,
-    "context_size": 131072,
-    "dialect": null,
-    "id": "mistralai/devstral-medium",
-    "input_cost": 0.4,
-    "input_modalities": [
-      "text",
-      "pdf"
-    ],
-    "max_output_tokens": 131072,
-    "name": "Devstral Medium",
-    "output_cost": 2,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-07-10"
-  },
-  {
-    "cache_read_cost": 0.01,
-    "cache_write_cost": 0,
-    "context_size": 131072,
-    "dialect": null,
-    "id": "mistralai/devstral-small",
-    "input_cost": 0.1,
-    "input_modalities": [
-      "text",
-      "pdf"
-    ],
-    "max_output_tokens": 131072,
-    "name": "Devstral Small 1.1",
-    "output_cost": 0.3,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-07-10"
   },
   {
     "cache_read_cost": 0.02,
@@ -1805,26 +1713,6 @@
     ],
     "reasoning": false,
     "release_date": "2024-11-19"
-  },
-  {
-    "cache_read_cost": 0.2,
-    "cache_write_cost": 0,
-    "context_size": 131072,
-    "dialect": null,
-    "id": "mistralai/mistral-large-2411",
-    "input_cost": 2,
-    "input_modalities": [
-      "text",
-      "pdf"
-    ],
-    "max_output_tokens": 131072,
-    "name": "Mistral Large 2.1",
-    "output_cost": 6,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2024-11-01"
   },
   {
     "cache_read_cost": 0.05,
@@ -2010,27 +1898,6 @@
     "release_date": "2024-04-17"
   },
   {
-    "cache_read_cost": 0.2,
-    "cache_write_cost": 0,
-    "context_size": 131072,
-    "dialect": null,
-    "id": "mistralai/pixtral-large-2411",
-    "input_cost": 2,
-    "input_modalities": [
-      "text",
-      "image",
-      "pdf"
-    ],
-    "max_output_tokens": 131072,
-    "name": "Pixtral Large 2411",
-    "output_cost": 6,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2024-11-19"
-  },
-  {
     "cache_read_cost": 0.01,
     "cache_write_cost": 0,
     "context_size": 32000,
@@ -2128,19 +1995,39 @@
     "release_date": "2026-01"
   },
   {
-    "cache_read_cost": 0.25,
+    "cache_read_cost": 0.144,
     "cache_write_cost": 0,
-    "context_size": 262142,
+    "context_size": 262144,
     "dialect": null,
     "id": "moonshotai/kimi-k2.6",
-    "input_cost": 0.73,
+    "input_cost": 0.684,
     "input_modalities": [
       "text",
       "image"
     ],
-    "max_output_tokens": 262142,
+    "max_output_tokens": 262144,
     "name": "Kimi K2.6",
-    "output_cost": 3.49,
+    "output_cost": 3.42,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-21"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": null,
+    "id": "moonshotai/kimi-k2.6:free",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 262144,
+    "name": "Kimi K2.6 (free)",
+    "output_cost": 0,
     "output_modalities": [
       "text"
     ],
@@ -2640,25 +2527,6 @@
     "release_date": "2024-11-20"
   },
   {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 128000,
-    "dialect": null,
-    "id": "openai/gpt-4o-audio-preview",
-    "input_cost": 2.5,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 16384,
-    "name": "GPT-4o Audio",
-    "output_cost": 10,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-08-15"
-  },
-  {
     "cache_read_cost": 0.075,
     "cache_write_cost": 0,
     "context_size": 128000,
@@ -2826,7 +2694,7 @@
     "release_date": "2025-11-13"
   },
   {
-    "cache_read_cost": 0.125,
+    "cache_read_cost": 0.13,
     "cache_write_cost": 0,
     "context_size": 128000,
     "dialect": null,
@@ -2837,7 +2705,7 @@
       "image",
       "text"
     ],
-    "max_output_tokens": 16384,
+    "max_output_tokens": 32000,
     "name": "GPT-5.1 Chat",
     "output_cost": 10,
     "output_modalities": [
@@ -2847,7 +2715,7 @@
     "release_date": "2025-11-13"
   },
   {
-    "cache_read_cost": 0.125,
+    "cache_read_cost": 0.13,
     "cache_write_cost": 0,
     "context_size": 400000,
     "dialect": null,
@@ -2887,7 +2755,7 @@
     "release_date": "2025-11-13"
   },
   {
-    "cache_read_cost": 0.03,
+    "cache_read_cost": 0.025,
     "cache_write_cost": 0,
     "context_size": 400000,
     "dialect": null,
@@ -2897,7 +2765,7 @@
       "image",
       "text"
     ],
-    "max_output_tokens": 128000,
+    "max_output_tokens": 100000,
     "name": "GPT-5.1 Codex mini",
     "output_cost": 2,
     "output_modalities": [
@@ -2939,7 +2807,7 @@
       "image",
       "text"
     ],
-    "max_output_tokens": 32000,
+    "max_output_tokens": 16384,
     "name": "GPT-5.2 Chat",
     "output_cost": 14,
     "output_modalities": [
@@ -3260,7 +3128,7 @@
     "context_size": 131072,
     "dialect": null,
     "id": "openai/gpt-oss-20b",
-    "input_cost": 0.03,
+    "input_cost": 0.029,
     "input_modalities": [
       "text"
     ],
@@ -3561,14 +3429,14 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 131072,
+    "context_size": 262144,
     "dialect": null,
     "id": "poolside/laguna-m.1:free",
     "input_cost": 0,
     "input_modalities": [
       "text"
     ],
-    "max_output_tokens": 8192,
+    "max_output_tokens": 32768,
     "name": "Laguna M.1 (free)",
     "output_cost": 0,
     "output_modalities": [
@@ -3580,14 +3448,14 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 131072,
+    "context_size": 262144,
     "dialect": null,
     "id": "poolside/laguna-xs.2:free",
     "input_cost": 0,
     "input_modalities": [
       "text"
     ],
-    "max_output_tokens": 8192,
+    "max_output_tokens": 32768,
     "name": "Laguna XS.2 (free)",
     "output_cost": 0,
     "output_modalities": [
@@ -3635,25 +3503,6 @@
     "release_date": "2024-09-19"
   },
   {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 32768,
-    "dialect": null,
-    "id": "qwen/qwen-2.5-7b-instruct",
-    "input_cost": 0.04,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 32768,
-    "name": "Qwen2.5 7B Instruct",
-    "output_cost": 0.1,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2024-10-16"
-  },
-  {
     "cache_read_cost": 0.052,
     "cache_write_cost": 0.325,
     "context_size": 1000000,
@@ -3674,7 +3523,7 @@
   },
   {
     "cache_read_cost": 0,
-    "cache_write_cost": 0.325,
+    "cache_write_cost": 0,
     "context_size": 1000000,
     "dialect": null,
     "id": "qwen/qwen-plus-2025-07-28",
@@ -3768,18 +3617,18 @@
     "release_date": "2025-07-21"
   },
   {
-    "cache_read_cost": 0,
+    "cache_read_cost": 0.1,
     "cache_write_cost": 0,
-    "context_size": 131072,
+    "context_size": 262144,
     "dialect": null,
     "id": "qwen/qwen3-235b-a22b-thinking-2507",
-    "input_cost": 0.1495,
+    "input_cost": 0.1,
     "input_modalities": [
       "text"
     ],
-    "max_output_tokens": 81920,
+    "max_output_tokens": 262144,
     "name": "Qwen3 235B A22B Thinking 2507",
-    "output_cost": 1.495,
+    "output_cost": 0.1,
     "output_modalities": [
       "text"
     ],
@@ -4271,17 +4120,17 @@
     "release_date": "2026-02-25"
   },
   {
-    "cache_read_cost": 0,
+    "cache_read_cost": 0.05,
     "cache_write_cost": 0,
     "context_size": 262144,
     "dialect": null,
     "id": "qwen/qwen3.5-35b-a3b",
-    "input_cost": 0.139,
+    "input_cost": 0.14,
     "input_modalities": [
       "text",
       "image"
     ],
-    "max_output_tokens": 81920,
+    "max_output_tokens": 262144,
     "name": "Qwen3.5-35B-A3B",
     "output_cost": 1,
     "output_modalities": [
@@ -4332,7 +4181,7 @@
   },
   {
     "cache_read_cost": 0,
-    "cache_write_cost": 0.08125,
+    "cache_write_cost": 0,
     "context_size": 1000000,
     "dialect": null,
     "id": "qwen/qwen3.5-flash-02-23",
@@ -4352,7 +4201,7 @@
   },
   {
     "cache_read_cost": 0,
-    "cache_write_cost": 0.325,
+    "cache_write_cost": 0,
     "context_size": 1000000,
     "dialect": null,
     "id": "qwen/qwen3.5-plus-02-15",
@@ -4372,7 +4221,7 @@
   },
   {
     "cache_read_cost": 0,
-    "cache_write_cost": 0,
+    "cache_write_cost": 0.375,
     "context_size": 1000000,
     "dialect": null,
     "id": "qwen/qwen3.5-plus-20260420",
@@ -4393,15 +4242,15 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 262144,
+    "context_size": 262140,
     "dialect": null,
     "id": "qwen/qwen3.6-27b",
-    "input_cost": 0.3,
+    "input_cost": 0.29,
     "input_modalities": [
       "text",
       "image"
     ],
-    "max_output_tokens": 262144,
+    "max_output_tokens": 262140,
     "name": "Qwen3.6 27B",
     "output_cost": 3.2,
     "output_modalities": [
@@ -4416,7 +4265,7 @@
     "context_size": 262140,
     "dialect": null,
     "id": "qwen/qwen3.6-35b-a3b",
-    "input_cost": 0.15,
+    "input_cost": 0.14,
     "input_modalities": [
       "text",
       "image"
@@ -4490,18 +4339,18 @@
     "release_date": "2026-04-02"
   },
   {
-    "cache_read_cost": 0,
-    "cache_write_cost": 3.125,
+    "cache_read_cost": 0.25,
+    "cache_write_cost": 1.5625,
     "context_size": 1000000,
     "dialect": null,
     "id": "qwen/qwen3.7-max",
-    "input_cost": 2.5,
+    "input_cost": 1.25,
     "input_modalities": [
       "text"
     ],
     "max_output_tokens": 65536,
     "name": "Qwen3.7 Max",
-    "output_cost": 7.5,
+    "output_cost": 3.75,
     "output_modalities": [
       "text"
     ],
@@ -4605,18 +4454,38 @@
     "release_date": "2026-01-29"
   },
   {
-    "cache_read_cost": 0.029,
+    "cache_read_cost": 0.04,
+    "cache_write_cost": 0,
+    "context_size": 256000,
+    "dialect": null,
+    "id": "stepfun/step-3.7-flash",
+    "input_cost": 0.2,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 256000,
+    "name": "Step 3.7 Flash",
+    "output_cost": 1.15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-05-28"
+  },
+  {
+    "cache_read_cost": 0.021,
     "cache_write_cost": 0,
     "context_size": 262144,
     "dialect": null,
     "id": "tencent/hy3-preview",
-    "input_cost": 0.066,
+    "input_cost": 0.063,
     "input_modalities": [
       "text"
     ],
     "max_output_tokens": 262144,
     "name": "Hy3 preview",
-    "output_cost": 0.26,
+    "output_cost": 0.21,
     "output_modalities": [
       "text"
     ],
@@ -4761,58 +4630,19 @@
     "release_date": "2025-12-16"
   },
   {
-    "cache_read_cost": 0.08,
-    "cache_write_cost": 0,
-    "context_size": 262144,
-    "dialect": null,
-    "id": "xiaomi/mimo-v2-omni",
-    "input_cost": 0.4,
-    "input_modalities": [
-      "text",
-      "image"
-    ],
-    "max_output_tokens": 65536,
-    "name": "MiMo-V2-Omni",
-    "output_cost": 2,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2026-03-18"
-  },
-  {
-    "cache_read_cost": 0.2,
-    "cache_write_cost": 0,
-    "context_size": 1048576,
-    "dialect": null,
-    "id": "xiaomi/mimo-v2-pro",
-    "input_cost": 1,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 131072,
-    "name": "MiMo-V2-Pro",
-    "output_cost": 3,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2026-03-18"
-  },
-  {
-    "cache_read_cost": 0.08,
+    "cache_read_cost": 0.0028,
     "cache_write_cost": 0,
     "context_size": 1048576,
     "dialect": null,
     "id": "xiaomi/mimo-v2.5",
-    "input_cost": 0.4,
+    "input_cost": 0.14,
     "input_modalities": [
       "text",
       "image"
     ],
     "max_output_tokens": 131072,
     "name": "MiMo-V2.5",
-    "output_cost": 2,
+    "output_cost": 0.28,
     "output_modalities": [
       "text"
     ],
@@ -4820,18 +4650,18 @@
     "release_date": "2026-04-22"
   },
   {
-    "cache_read_cost": 0.2,
+    "cache_read_cost": 0.0036,
     "cache_write_cost": 0,
     "context_size": 1048576,
     "dialect": null,
     "id": "xiaomi/mimo-v2.5-pro",
-    "input_cost": 1,
+    "input_cost": 0.435,
     "input_modalities": [
       "text"
     ],
-    "max_output_tokens": 16384,
+    "max_output_tokens": 131072,
     "name": "MiMo-V2.5-Pro",
-    "output_cost": 3,
+    "output_cost": 0.87,
     "output_modalities": [
       "text"
     ],
@@ -4877,16 +4707,16 @@
     "release_date": "2025-07-28"
   },
   {
-    "cache_read_cost": 0.025,
+    "cache_read_cost": 0.06,
     "cache_write_cost": 0,
-    "context_size": 131072,
+    "context_size": 131070,
     "dialect": null,
     "id": "z-ai/glm-4.5-air",
-    "input_cost": 0.13,
+    "input_cost": 0.125,
     "input_modalities": [
       "text"
     ],
-    "max_output_tokens": 98304,
+    "max_output_tokens": 131070,
     "name": "GLM-4.5-Air",
     "output_cost": 0.85,
     "output_modalities": [
@@ -5194,19 +5024,19 @@
     "release_date": "2026-04-27"
   },
   {
-    "cache_read_cost": 0.25,
+    "cache_read_cost": 0.144,
     "cache_write_cost": 0,
-    "context_size": 262142,
+    "context_size": 262144,
     "dialect": null,
     "id": "~moonshotai/kimi-latest",
-    "input_cost": 0.73,
+    "input_cost": 0.684,
     "input_modalities": [
       "text",
       "image"
     ],
-    "max_output_tokens": 262142,
+    "max_output_tokens": 262144,
     "name": "MoonshotAI Kimi Latest",
-    "output_cost": 3.49,
+    "output_cost": 3.42,
     "output_modalities": [
       "text"
     ],

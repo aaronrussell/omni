@@ -96,7 +96,7 @@
     "release_date": "2025-04-05"
   },
   {
-    "cache_read_cost": 0,
+    "cache_read_cost": 0.5,
     "cache_write_cost": 0,
     "context_size": 262144,
     "dialect": null,
@@ -115,7 +115,7 @@
     "release_date": "2025-09-05"
   },
   {
-    "cache_read_cost": 0,
+    "cache_read_cost": 0.075,
     "cache_write_cost": 0,
     "context_size": 131072,
     "dialect": null,
@@ -134,7 +134,7 @@
     "release_date": "2025-08-05"
   },
   {
-    "cache_read_cost": 0,
+    "cache_read_cost": 0.0375,
     "cache_write_cost": 0,
     "context_size": 131072,
     "dialect": null,

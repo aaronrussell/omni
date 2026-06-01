@@ -119,6 +119,46 @@
     "release_date": "2026-05-14"
   },
   {
+    "cache_read_cost": 0.6,
+    "cache_write_cost": 7.5,
+    "context_size": 1000000,
+    "dialect": null,
+    "id": "claude-opus-4-8",
+    "input_cost": 6,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "Claude Opus 4.8",
+    "output_cost": 30,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-05-28"
+  },
+  {
+    "cache_read_cost": 1.2,
+    "cache_write_cost": 15,
+    "context_size": 1000000,
+    "dialect": null,
+    "id": "claude-opus-4-8-fast",
+    "input_cost": 12,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 128000,
+    "name": "Claude Opus 4.8 Fast",
+    "output_cost": 60,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-05-28"
+  },
+  {
     "cache_read_cost": 0.375,
     "cache_write_cost": 4.69,
     "context_size": 198000,
@@ -236,19 +276,19 @@
     "release_date": "2026-02-19"
   },
   {
-    "cache_read_cost": 0.18,
-    "cache_write_cost": 0.1,
+    "cache_read_cost": 0.155,
+    "cache_write_cost": 0.086,
     "context_size": 1000000,
     "dialect": null,
     "id": "gemini-3-5-flash",
-    "input_cost": 1.8,
+    "input_cost": 1.55,
     "input_modalities": [
       "text",
       "image"
     ],
     "max_output_tokens": 65536,
     "name": "Gemini 3.5 Flash",
-    "output_cost": 11,
+    "output_cost": 9.45,
     "output_modalities": [
       "text"
     ],
@@ -342,14 +382,14 @@
     "context_size": 256000,
     "dialect": null,
     "id": "google-gemma-4-31b-it",
-    "input_cost": 0.175,
+    "input_cost": 0.155,
     "input_modalities": [
       "text",
       "image"
     ],
     "max_output_tokens": 8192,
     "name": "Google Gemma 4 31B Instruct",
-    "output_cost": 0.5,
+    "output_cost": 0.44,
     "output_modalities": [
       "text"
     ],
@@ -886,18 +926,18 @@
     "release_date": "2026-04-06"
   },
   {
-    "cache_read_cost": 0.3125,
-    "cache_write_cost": 3.90625,
+    "cache_read_cost": 0.27,
+    "cache_write_cost": 3.35,
     "context_size": 1000000,
     "dialect": null,
     "id": "qwen-3-7-max",
-    "input_cost": 3.125,
+    "input_cost": 2.7,
     "input_modalities": [
       "text"
     ],
     "max_output_tokens": 65536,
     "name": "Qwen 3.7 Max",
-    "output_cost": 9.375,
+    "output_cost": 8.05,
     "output_modalities": [
       "text"
     ],
@@ -953,7 +993,7 @@
       "text",
       "image"
     ],
-    "max_output_tokens": 65536,
+    "max_output_tokens": 16384,
     "name": "Qwen 3.5 35B A3B",
     "output_cost": 1.25,
     "output_modalities": [
