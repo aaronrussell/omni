@@ -592,6 +592,26 @@
     "release_date": "2026-03-18"
   },
   {
+    "cache_read_cost": 0.06,
+    "cache_write_cost": 0,
+    "context_size": 500000,
+    "dialect": null,
+    "id": "minimax-m3",
+    "input_cost": 0.3,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 32768,
+    "name": "MiniMax M3",
+    "output_cost": 1.2,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-06-01"
+  },
+  {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 256000,

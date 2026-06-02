@@ -8,7 +8,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
-- **Updated model catalog** — refreshed across all providers.
+- **Updated model catalog** — refreshed across all providers. Notable additions: Claude Opus 4.8, Minimax M3.
 
 ## [1.5.1] - 2026-05-22
 
