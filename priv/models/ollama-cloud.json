@@ -4,25 +4,6 @@
     "cache_write_cost": 0,
     "context_size": 163840,
     "dialect": "openai_completions",
-    "id": "cogito-2.1:671b",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 32000,
-    "name": "cogito-2.1:671b",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-11-19"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 163840,
-    "dialect": "openai_completions",
     "id": "deepseek-v3.1:671b",
     "input_cost": 0,
     "input_modalities": [
@@ -178,25 +159,6 @@
     "cache_write_cost": 0,
     "context_size": 202752,
     "dialect": "openai_completions",
-    "id": "glm-4.6",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 131072,
-    "name": "glm-4.6",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-09-29"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 202752,
-    "dialect": "openai_completions",
     "id": "glm-4.7",
     "input_cost": 0,
     "input_modalities": [
@@ -292,25 +254,6 @@
     "cache_write_cost": 0,
     "context_size": 262144,
     "dialect": "openai_completions",
-    "id": "kimi-k2-thinking",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 262144,
-    "name": "kimi-k2-thinking",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-11-06"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 262144,
-    "dialect": "openai_completions",
     "id": "kimi-k2.5",
     "input_cost": 0,
     "input_modalities": [
@@ -351,38 +294,20 @@
     "cache_write_cost": 0,
     "context_size": 262144,
     "dialect": "openai_completions",
-    "id": "kimi-k2:1t",
+    "id": "kimi-k2.7-code",
     "input_cost": 0,
     "input_modalities": [
-      "text"
+      "text",
+      "image"
     ],
     "max_output_tokens": 262144,
-    "name": "kimi-k2:1t",
+    "name": "kimi-k2.7-code",
     "output_cost": 0,
     "output_modalities": [
       "text"
     ],
-    "reasoning": false,
-    "release_date": "2025-07-11"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 204800,
-    "dialect": "openai_completions",
-    "id": "minimax-m2",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 128000,
-    "name": "minimax-m2",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-10-23"
+    "reasoning": true,
+    "release_date": "2026-06-12"
   },
   {
     "cache_read_cost": 0,
@@ -584,6 +509,25 @@
     "cache_write_cost": 0,
     "context_size": 262144,
     "dialect": "openai_completions",
+    "id": "nemotron-3-ultra",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 128000,
+    "name": "nemotron-3-ultra",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-06-04"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 262144,
+    "dialect": "openai_completions",
     "id": "qwen3-coder-next",
     "input_cost": 0,
     "input_modalities": [
@@ -616,65 +560,6 @@
     ],
     "reasoning": false,
     "release_date": "2025-07-22"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 262144,
-    "dialect": "openai_completions",
-    "id": "qwen3-next:80b",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 32768,
-    "name": "qwen3-next:80b",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-09-15"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 262144,
-    "dialect": "openai_completions",
-    "id": "qwen3-vl:235b",
-    "input_cost": 0,
-    "input_modalities": [
-      "text",
-      "image"
-    ],
-    "max_output_tokens": 32768,
-    "name": "qwen3-vl:235b",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-09-22"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 262144,
-    "dialect": "openai_completions",
-    "id": "qwen3-vl:235b-instruct",
-    "input_cost": 0,
-    "input_modalities": [
-      "text",
-      "image"
-    ],
-    "max_output_tokens": 131072,
-    "name": "qwen3-vl:235b-instruct",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-09-22"
   },
   {
     "cache_read_cost": 0,

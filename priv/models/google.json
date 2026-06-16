@@ -1,47 +1,5 @@
 [
   {
-    "cache_read_cost": 0.025,
-    "cache_write_cost": 0,
-    "context_size": 1048576,
-    "dialect": "google_gemini",
-    "id": "gemini-2.0-flash",
-    "input_cost": 0.1,
-    "input_modalities": [
-      "text",
-      "image",
-      "pdf"
-    ],
-    "max_output_tokens": 8192,
-    "name": "Gemini 2.0 Flash",
-    "output_cost": 0.4,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2024-12-11"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 1048576,
-    "dialect": "google_gemini",
-    "id": "gemini-2.0-flash-lite",
-    "input_cost": 0.075,
-    "input_modalities": [
-      "text",
-      "image",
-      "pdf"
-    ],
-    "max_output_tokens": 8192,
-    "name": "Gemini 2.0 Flash-Lite",
-    "output_cost": 0.3,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2024-12-11"
-  },
-  {
     "cache_read_cost": 0.03,
     "cache_write_cost": 0,
     "context_size": 1048576,
@@ -60,7 +18,7 @@
       "text"
     ],
     "reasoning": true,
-    "release_date": "2025-03-20"
+    "release_date": "2025-06-17"
   },
   {
     "cache_read_cost": 0.01,
@@ -102,7 +60,7 @@
       "text"
     ],
     "reasoning": true,
-    "release_date": "2025-03-20"
+    "release_date": "2025-06-17"
   },
   {
     "cache_read_cost": 0.05,
@@ -126,27 +84,6 @@
     "release_date": "2025-12-17"
   },
   {
-    "cache_read_cost": 0.2,
-    "cache_write_cost": 0,
-    "context_size": 1048576,
-    "dialect": "google_gemini",
-    "id": "gemini-3-pro-preview",
-    "input_cost": 2,
-    "input_modalities": [
-      "text",
-      "image",
-      "pdf"
-    ],
-    "max_output_tokens": 65536,
-    "name": "Gemini 3 Pro Preview",
-    "output_cost": 12,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-11-18"
-  },
-  {
     "cache_read_cost": 0.025,
     "cache_write_cost": 0,
     "context_size": 1048576,
@@ -166,27 +103,6 @@
     ],
     "reasoning": true,
     "release_date": "2026-05-07"
-  },
-  {
-    "cache_read_cost": 0.025,
-    "cache_write_cost": 0,
-    "context_size": 1048576,
-    "dialect": "google_gemini",
-    "id": "gemini-3.1-flash-lite-preview",
-    "input_cost": 0.25,
-    "input_modalities": [
-      "text",
-      "image",
-      "pdf"
-    ],
-    "max_output_tokens": 65536,
-    "name": "Gemini 3.1 Flash Lite Preview",
-    "output_cost": 1.5,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2026-03-03"
   },
   {
     "cache_read_cost": 0.2,
@@ -326,6 +242,46 @@
     ],
     "max_output_tokens": 32768,
     "name": "Gemma 4 31B IT",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-02"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "google_gemini",
+    "id": "gemma-4-E2B-it",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Gemma 4 E2B IT",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-04-02"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
+    "context_size": 131072,
+    "dialect": "google_gemini",
+    "id": "gemma-4-E4B-it",
+    "input_cost": 0,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 8192,
+    "name": "Gemma 4 E4B IT",
     "output_cost": 0,
     "output_modalities": [
       "text"

@@ -80,7 +80,7 @@ defmodule Integration.CacheUsageTest do
     test "cache_read_tokens populated from cachedContentTokenCount" do
       stub_fixture(:cache_google, "test/support/fixtures/synthetic/google_cache.sse")
 
-      {:ok, model} = Omni.get_model(:google, "gemini-2.0-flash-lite")
+      {:ok, model} = Omni.get_model(:google, "gemini-2.5-flash-lite")
 
       assert {:ok, %Response{} = resp} =
                Omni.generate_text(model, "Hello",

@@ -4,51 +4,13 @@
     "cache_write_cost": 0,
     "context_size": 131072,
     "dialect": null,
-    "id": "groq/compound",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 8192,
-    "name": "Compound",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-09-04"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 131072,
-    "dialect": null,
-    "id": "groq/compound-mini",
-    "input_cost": 0,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 8192,
-    "name": "Compound Mini",
-    "output_cost": 0,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2025-09-04"
-  },
-  {
-    "cache_read_cost": 0,
-    "cache_write_cost": 0,
-    "context_size": 131072,
-    "dialect": null,
     "id": "llama-3.1-8b-instant",
     "input_cost": 0.05,
     "input_modalities": [
       "text"
     ],
     "max_output_tokens": 131072,
-    "name": "Llama 3.1 8B Instant",
+    "name": "Llama 3.1 8B",
     "output_cost": 0.08,
     "output_modalities": [
       "text"
@@ -67,7 +29,7 @@
       "text"
     ],
     "max_output_tokens": 32768,
-    "name": "Llama 3.3 70B Versatile",
+    "name": "Llama 3.3 70B",
     "output_cost": 0.79,
     "output_modalities": [
       "text"
@@ -87,32 +49,13 @@
       "image"
     ],
     "max_output_tokens": 8192,
-    "name": "Llama 4 Scout 17B",
+    "name": "Llama 4 Scout 17B 16E",
     "output_cost": 0.34,
     "output_modalities": [
       "text"
     ],
     "reasoning": false,
     "release_date": "2025-04-05"
-  },
-  {
-    "cache_read_cost": 0.5,
-    "cache_write_cost": 0,
-    "context_size": 262144,
-    "dialect": null,
-    "id": "moonshotai/kimi-k2-instruct-0905",
-    "input_cost": 1,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 16384,
-    "name": "Kimi K2 Instruct 0905",
-    "output_cost": 3,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": false,
-    "release_date": "2025-09-05"
   },
   {
     "cache_read_cost": 0.075,
@@ -169,7 +112,7 @@
       "text"
     ],
     "reasoning": true,
-    "release_date": "2025-03-05"
+    "release_date": "2025-10-29"
   },
   {
     "cache_read_cost": 0,
@@ -182,12 +125,12 @@
       "text"
     ],
     "max_output_tokens": 40960,
-    "name": "Qwen3 32B",
+    "name": "Qwen3-32B",
     "output_cost": 0.59,
     "output_modalities": [
       "text"
     ],
     "reasoning": true,
-    "release_date": "2024-12-23"
+    "release_date": "2025-06-11"
   }
 ]
