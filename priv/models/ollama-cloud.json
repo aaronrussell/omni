@@ -214,6 +214,25 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
+    "context_size": 976000,
+    "dialect": "openai_completions",
+    "id": "glm-5.2",
+    "input_cost": 0,
+    "input_modalities": [
+      "text"
+    ],
+    "max_output_tokens": 131072,
+    "name": "GLM-5.2",
+    "output_cost": 0,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-06-13"
+  },
+  {
+    "cache_read_cost": 0,
+    "cache_write_cost": 0,
     "context_size": 131072,
     "dialect": "openai_completions",
     "id": "gpt-oss:120b",
