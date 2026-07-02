@@ -28,3 +28,6 @@ omni-*.tar
 # Environment variables
 .env
 .envrc
+
+# Ignore LLMDB models for now
+/priv/models-llmdb

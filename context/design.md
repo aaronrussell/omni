@@ -221,29 +221,29 @@ priv/models/openai.json
 priv/models/groq.json
 ```
 
-Each file contains an array of model objects. Provider-level concerns (base URL, dialect, auth) are **not** stored in the JSON -- only model-specific data:
+Each file contains an array of model objects. Provider-level concerns (base URL, auth) are **not** stored in the JSON -- only model-specific data, including the model's wire-format `dialect`:
 
 ```json
 [
   {
-    "id": "claude-sonnet-4-20250514",
-    "name": "Claude Sonnet 4",
-    "reasoning": false,
-    "input_modalities": ["text", "image"],
+    "id": "claude-sonnet-4-6",
+    "name": "Claude Sonnet 4.6",
+    "reasoning": true,
+    "release_date": "2026-02-17",
+    "dialect": "anthropic_messages",
+    "input_modalities": ["text", "image", "pdf"],
     "output_modalities": ["text"],
-    "cost": {
-      "input": 3.0,
-      "output": 15.0,
-      "cache_read": 0.3,
-      "cache_write": 3.75
-    },
-    "context_window": 200000,
-    "max_output_tokens": 8192
+    "input_cost": 3,
+    "output_cost": 15,
+    "cache_read_cost": 0.3,
+    "cache_write_cost": 3.75,
+    "context_size": 1000000,
+    "max_output_tokens": 64000
   }
 ]
 ```
 
-These files are populated by a mix task that fetches data from [models.dev](https://models.dev/) and transforms it into Omni's format. The files are committed to the repository and ship with the library -- consumers get a known-good snapshot without needing network access at runtime.
+These files are populated by `mix models.update`, which fetches data from [models.dev](https://models.dev/) and transforms it into Omni's format, inferring each model's dialect from npm package metadata. The files are committed to the repository and ship with the library -- consumers get a known-good snapshot without needing network access at runtime.
 
 Users can also manually edit these files to add newly released models before Omni updates.
 

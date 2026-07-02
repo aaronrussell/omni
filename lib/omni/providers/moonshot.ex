@@ -35,7 +35,7 @@ defmodule Omni.Providers.Moonshot do
 
   @impl true
   def models do
-    Omni.Provider.load_models(__MODULE__, "priv/models/moonshotai.json")
+    Omni.Provider.load_models(__MODULE__, "priv/models/moonshot.json")
   end
 
   @impl true

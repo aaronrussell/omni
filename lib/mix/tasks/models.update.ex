@@ -1,10 +1,10 @@
-defmodule Mix.Tasks.Models.Get do
+defmodule Mix.Tasks.Models.Update do
   @shortdoc "Fetches model data from models.dev"
 
   @moduledoc """
   Fetches model catalog data from models.dev and writes JSON files to `priv/models/`.
 
-      mix models.get
+      mix models.update
 
   Each supported provider gets a JSON file containing an array of model objects
   with fields matching the `Omni.Model` struct: `id`, `name`, `reasoning`,
@@ -22,34 +22,26 @@ defmodule Mix.Tasks.Models.Get do
   are filtered to those Omni supports (input: text, image, pdf; output: text).
   Output is sorted by `id` for stable diffs.
   """
+  require Logger
 
   use Mix.Task
 
   @api_url "https://models.dev/api.json"
   @output_dir "priv/models"
-  @providers [
-    "alibaba",
-    "anthropic",
-    "google",
-    "groq",
-    "moonshotai",
-    "nearai",
-    "ollama-cloud",
-    "openai",
-    "opencode",
-    "openrouter",
-    "venice",
-    "zai"
-  ]
+
+  @builtin_providers Enum.sort(Omni.Provider.builtin_providers())
   @supported_input_modalities Enum.map(Omni.Model.supported_modalities(:input), &to_string/1)
   @supported_output_modalities Enum.map(Omni.Model.supported_modalities(:output), &to_string/1)
 
   @npm_to_dialect %{
+    "@ai-sdk/alibaba" => "openai_completions",
     "@ai-sdk/anthropic" => "anthropic_messages",
+    "@ai-sdk/google" => "google_gemini",
+    "@ai-sdk/groq" => "openai_completions",
     "@ai-sdk/openai" => "openai_responses",
     "@ai-sdk/openai-compatible" => "openai_completions",
-    "@ai-sdk/alibaba" => "openai_completions",
-    "@ai-sdk/google" => "google_gemini"
+    "@openrouter/ai-sdk-provider" => "openai_completions",
+    "venice-ai-sdk-provider" => "openai_completions"
   }
 
   @impl Mix.Task
@@ -60,17 +52,16 @@ defmodule Mix.Tasks.Models.Get do
 
     File.mkdir_p!(@output_dir)
 
-    for provider_id <- @providers do
-      case Map.fetch(data, provider_id) do
+    for {provider_id, _provider_mod} <- @builtin_providers do
+      case Map.fetch(data, provider_string(provider_id)) do
         {:ok, provider_data} ->
-          provider_npm = provider_data["npm"]
-
           models =
             provider_data
             |> get_models()
-            |> Enum.reject(&skip?/1)
-            |> Enum.map(&transform_model(&1, provider_npm))
-            |> Enum.filter(&("text" in &1["input_modalities"]))
+            |> Enum.reject(& &1["status"] == "deprecated")
+            |> Enum.filter(& &1["tool_call"] == true and text_model?(&1))
+            |> Enum.map(& transform_model(&1, provider_id, provider_data))
+            |> Enum.reject(& is_nil(&1["dialect"]))
             |> Enum.sort_by(& &1["id"])
 
           file = Path.join(@output_dir, "#{provider_id}.json")
@@ -83,6 +74,44 @@ defmodule Mix.Tasks.Models.Get do
           Mix.raise("Provider #{inspect(provider_id)} not found in API response")
       end
     end
+  end
+
+  # Omni -> models.dev provider id mapping
+  defp provider_string(:moonshot), do: "moonshotai"
+  defp provider_string(:ollama), do: "ollama-cloud"
+  defp provider_string(provider_id), do: to_string(provider_id)
+
+  defp transform_model(
+    %{"limit" => limit, "modalities" => modalities} = model,
+    provider_id,
+    provider_data
+  ) do
+    cost = model["cost"] || %{}
+    npm = get_in(model, ["provider", "npm"]) || provider_data["npm"]
+
+    %{
+      "id" => model["id"],
+      "name" => model["name"],
+      "reasoning" => model["reasoning"] || false,
+      "release_date" => model["release_date"],
+      "dialect" => derive_dialect(npm, "#{provider_id}:#{model["id"]}"),
+      "input_modalities" => filter_modalities(modalities["input"], @supported_input_modalities),
+      "output_modalities" => filter_modalities(modalities["output"], @supported_output_modalities),
+      "input_cost" => cost["input"] || 0,
+      "output_cost" => cost["output"] || 0,
+      "cache_read_cost" => cost["cache_read"] || 0,
+      "cache_write_cost" => cost["cache_write"] || 0,
+      "context_size" => limit["context"] || 0,
+      "max_output_tokens" => limit["output"] || 0
+    }
+  end
+
+  defp derive_dialect(npm, ref) do
+    if is_nil(@npm_to_dialect[npm]) do
+      Logger.warning("Unknown dialect: #{ref} [npm=#{npm}]")
+    end
+
+    @npm_to_dialect[npm]
   end
 
   defp fetch_api do
@@ -98,41 +127,17 @@ defmodule Mix.Tasks.Models.Get do
     end
   end
 
-  defp get_models(%{"models" => models}) when is_map(models), do: Map.values(models)
-  defp get_models(%{"models" => models}) when is_list(models), do: models
-  defp get_models(_), do: []
-
-  defp skip?(%{"status" => "deprecated"}), do: true
-  defp skip?(%{"tool_call" => false}), do: true
-  defp skip?(%{"tool_call" => nil}), do: true
-  defp skip?(model), do: not Map.has_key?(model, "tool_call")
-
   defp filter_modalities(nil, _supported), do: []
 
   defp filter_modalities(modalities, supported) do
     Enum.filter(modalities, &(&1 in supported))
   end
 
-  defp transform_model(model, provider_npm) do
-    npm = get_in(model, ["provider", "npm"]) || provider_npm
-    dialect = @npm_to_dialect[npm]
+  defp get_models(%{"models" => models}) when is_map(models), do: Map.values(models)
+  defp get_models(%{"models" => models}) when is_list(models), do: models
+  defp get_models(_), do: []
 
-    %{
-      "id" => model["id"],
-      "name" => model["name"],
-      "reasoning" => model["reasoning"] || false,
-      "release_date" => model["release_date"],
-      "dialect" => dialect,
-      "input_modalities" =>
-        filter_modalities(get_in(model, ["modalities", "input"]), @supported_input_modalities),
-      "output_modalities" =>
-        filter_modalities(get_in(model, ["modalities", "output"]), @supported_output_modalities),
-      "input_cost" => get_in(model, ["cost", "input"]) || 0,
-      "output_cost" => get_in(model, ["cost", "output"]) || 0,
-      "cache_read_cost" => get_in(model, ["cost", "cache_read"]) || 0,
-      "cache_write_cost" => get_in(model, ["cost", "cache_write"]) || 0,
-      "context_size" => get_in(model, ["limit", "context"]) || 0,
-      "max_output_tokens" => get_in(model, ["limit", "output"]) || 0
-    }
+  defp text_model?(%{"modalities" => modalities}) do
+    "text" in modalities["input"] and "text" in modalities["output"]
   end
 end

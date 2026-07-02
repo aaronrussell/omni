@@ -1,28 +1,9 @@
 [
   {
-    "cache_read_cost": 0.075,
-    "cache_write_cost": 0,
-    "context_size": 256000,
-    "dialect": null,
-    "id": "arcee-trinity-large-thinking",
-    "input_cost": 0.3125,
-    "input_modalities": [
-      "text"
-    ],
-    "max_output_tokens": 65536,
-    "name": "Trinity Large Thinking",
-    "output_cost": 1.125,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2026-04-02"
-  },
-  {
     "cache_read_cost": 1.2,
     "cache_write_cost": 15,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "claude-fable-5",
     "input_cost": 12,
     "input_modalities": [
@@ -42,7 +23,7 @@
     "cache_read_cost": 0.6,
     "cache_write_cost": 7.5,
     "context_size": 198000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "claude-opus-4-5",
     "input_cost": 6,
     "input_modalities": [
@@ -62,7 +43,7 @@
     "cache_read_cost": 0.6,
     "cache_write_cost": 7.5,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "claude-opus-4-6",
     "input_cost": 6,
     "input_modalities": [
@@ -79,30 +60,10 @@
     "release_date": "2026-02-05"
   },
   {
-    "cache_read_cost": 3.6,
-    "cache_write_cost": 45,
-    "context_size": 1000000,
-    "dialect": null,
-    "id": "claude-opus-4-6-fast",
-    "input_cost": 36,
-    "input_modalities": [
-      "text",
-      "image"
-    ],
-    "max_output_tokens": 128000,
-    "name": "Claude Opus 4.6 Fast",
-    "output_cost": 180,
-    "output_modalities": [
-      "text"
-    ],
-    "reasoning": true,
-    "release_date": "2026-04-08"
-  },
-  {
     "cache_read_cost": 0.6,
     "cache_write_cost": 7.5,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "claude-opus-4-7",
     "input_cost": 6,
     "input_modalities": [
@@ -122,7 +83,7 @@
     "cache_read_cost": 3.6,
     "cache_write_cost": 45,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "claude-opus-4-7-fast",
     "input_cost": 36,
     "input_modalities": [
@@ -142,7 +103,7 @@
     "cache_read_cost": 0.6,
     "cache_write_cost": 7.5,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "claude-opus-4-8",
     "input_cost": 6,
     "input_modalities": [
@@ -162,7 +123,7 @@
     "cache_read_cost": 1.2,
     "cache_write_cost": 15,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "claude-opus-4-8-fast",
     "input_cost": 12,
     "input_modalities": [
@@ -182,7 +143,7 @@
     "cache_read_cost": 0.375,
     "cache_write_cost": 4.69,
     "context_size": 198000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "claude-sonnet-4-5",
     "input_cost": 3.75,
     "input_modalities": [
@@ -202,7 +163,7 @@
     "cache_read_cost": 0.36,
     "cache_write_cost": 4.5,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "claude-sonnet-4-6",
     "input_cost": 3.6,
     "input_modalities": [
@@ -219,10 +180,30 @@
     "release_date": "2026-02-17"
   },
   {
+    "cache_read_cost": 0.3,
+    "cache_write_cost": 3.75,
+    "context_size": 1000000,
+    "dialect": "openai_completions",
+    "id": "claude-sonnet-5",
+    "input_cost": 3,
+    "input_modalities": [
+      "text",
+      "image"
+    ],
+    "max_output_tokens": 64000,
+    "name": "Claude Sonnet 5",
+    "output_cost": 15,
+    "output_modalities": [
+      "text"
+    ],
+    "reasoning": true,
+    "release_date": "2026-06-29"
+  },
+  {
     "cache_read_cost": 0.16,
     "cache_write_cost": 0,
     "context_size": 160000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "deepseek-v3.2",
     "input_cost": 0.33,
     "input_modalities": [
@@ -241,15 +222,15 @@
     "cache_read_cost": 0.028,
     "cache_write_cost": 0,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "deepseek-v4-flash",
-    "input_cost": 0.17,
+    "input_cost": 0.138,
     "input_modalities": [
       "text"
     ],
     "max_output_tokens": 32768,
     "name": "DeepSeek V4 Flash",
-    "output_cost": 0.35,
+    "output_cost": 0.275,
     "output_modalities": [
       "text"
     ],
@@ -260,15 +241,15 @@
     "cache_read_cost": 0.33,
     "cache_write_cost": 0,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "deepseek-v4-pro",
-    "input_cost": 1.73,
+    "input_cost": 1.65,
     "input_modalities": [
       "text"
     ],
     "max_output_tokens": 32768,
     "name": "DeepSeek V4 Pro",
-    "output_cost": 3.796,
+    "output_cost": 3.301,
     "output_modalities": [
       "text"
     ],
@@ -279,7 +260,7 @@
     "cache_read_cost": 0.5,
     "cache_write_cost": 0.5,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "gemini-3-1-pro-preview",
     "input_cost": 2.5,
     "input_modalities": [
@@ -299,7 +280,7 @@
     "cache_read_cost": 0.155,
     "cache_write_cost": 0.086,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "gemini-3-5-flash",
     "input_cost": 1.55,
     "input_modalities": [
@@ -319,7 +300,7 @@
     "cache_read_cost": 0.07,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "gemini-3-flash-preview",
     "input_cost": 0.7,
     "input_modalities": [
@@ -340,7 +321,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "gemma-4-uncensored",
     "input_cost": 0.1625,
     "input_modalities": [
@@ -360,7 +341,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 198000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "google-gemma-3-27b-it",
     "input_cost": 0.12,
     "input_modalities": [
@@ -380,7 +361,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "google-gemma-4-26b-a4b-it",
     "input_cost": 0.1625,
     "input_modalities": [
@@ -400,7 +381,7 @@
     "cache_read_cost": 0.09,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "google-gemma-4-31b-it",
     "input_cost": 0.12,
     "input_modalities": [
@@ -420,7 +401,7 @@
     "cache_read_cost": 0.23,
     "cache_write_cost": 0,
     "context_size": 2000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "grok-4-20",
     "input_cost": 1.42,
     "input_modalities": [
@@ -440,7 +421,7 @@
     "cache_read_cost": 0.23,
     "cache_write_cost": 0,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "grok-4-3",
     "input_cost": 1.42,
     "input_modalities": [
@@ -460,7 +441,7 @@
     "cache_read_cost": 0.2,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "grok-build-0-1",
     "input_cost": 1,
     "input_modalities": [
@@ -480,7 +461,7 @@
     "cache_read_cost": 0.22,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "kimi-k2-5",
     "input_cost": 0.56,
     "input_modalities": [
@@ -497,19 +478,19 @@
     "release_date": "2026-01-27"
   },
   {
-    "cache_read_cost": 0.22,
+    "cache_read_cost": 0.16,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "kimi-k2-6",
-    "input_cost": 0.85,
+    "input_cost": 0.75,
     "input_modalities": [
       "text",
       "image"
     ],
     "max_output_tokens": 65536,
     "name": "Kimi K2.6",
-    "output_cost": 4.655,
+    "output_cost": 3.5,
     "output_modalities": [
       "text"
     ],
@@ -520,7 +501,7 @@
     "cache_read_cost": 0.2,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "kimi-k2-7-code",
     "input_cost": 0.9,
     "input_modalities": [
@@ -540,7 +521,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 128000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "llama-3.2-3b",
     "input_cost": 0.15,
     "input_modalities": [
@@ -559,7 +540,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 128000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "llama-3.3-70b",
     "input_cost": 0.7,
     "input_modalities": [
@@ -578,7 +559,7 @@
     "cache_read_cost": 0.03125,
     "cache_write_cost": 0,
     "context_size": 128000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "mercury-2",
     "input_cost": 0.3125,
     "input_modalities": [
@@ -597,7 +578,7 @@
     "cache_read_cost": 0.04,
     "cache_write_cost": 0,
     "context_size": 198000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "minimax-m25",
     "input_cost": 0.34,
     "input_modalities": [
@@ -616,7 +597,7 @@
     "cache_read_cost": 0.06875,
     "cache_write_cost": 0,
     "context_size": 198000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "minimax-m27",
     "input_cost": 0.375,
     "input_modalities": [
@@ -635,7 +616,7 @@
     "cache_read_cost": 0.06,
     "cache_write_cost": 0,
     "context_size": 524288,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "minimax-m3-preview",
     "input_cost": 0.3,
     "input_modalities": [
@@ -654,7 +635,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "mistral-small-2603",
     "input_cost": 0.1875,
     "input_modalities": [
@@ -674,7 +655,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "mistral-small-3-2-24b-instruct",
     "input_cost": 0.09375,
     "input_modalities": [
@@ -693,7 +674,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 128000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "nvidia-nemotron-3-nano-30b-a3b",
     "input_cost": 0.075,
     "input_modalities": [
@@ -712,7 +693,7 @@
     "cache_read_cost": 0.1875,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "nvidia-nemotron-3-ultra-550b-a55b",
     "input_cost": 0.625,
     "input_modalities": [
@@ -731,7 +712,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "nvidia-nemotron-cascade-2-30b-a3b",
     "input_cost": 0.14,
     "input_modalities": [
@@ -750,7 +731,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 200000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "olafangensan-glm-4.7-flash-heretic",
     "input_cost": 0.14,
     "input_modalities": [
@@ -769,7 +750,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 128000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "openai-gpt-4o-2024-11-20",
     "input_cost": 3.125,
     "input_modalities": [
@@ -789,7 +770,7 @@
     "cache_read_cost": 0.09375,
     "cache_write_cost": 0,
     "context_size": 128000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "openai-gpt-4o-mini-2024-07-18",
     "input_cost": 0.1875,
     "input_modalities": [
@@ -809,7 +790,7 @@
     "cache_read_cost": 0.219,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "openai-gpt-52",
     "input_cost": 2.19,
     "input_modalities": [
@@ -828,7 +809,7 @@
     "cache_read_cost": 0.219,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "openai-gpt-52-codex",
     "input_cost": 2.19,
     "input_modalities": [
@@ -848,7 +829,7 @@
     "cache_read_cost": 0.219,
     "cache_write_cost": 0,
     "context_size": 400000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "openai-gpt-53-codex",
     "input_cost": 2.19,
     "input_modalities": [
@@ -868,7 +849,7 @@
     "cache_read_cost": 0.313,
     "cache_write_cost": 0,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "openai-gpt-54",
     "input_cost": 3.13,
     "input_modalities": [
@@ -888,7 +869,7 @@
     "cache_read_cost": 0.09375,
     "cache_write_cost": 0,
     "context_size": 400000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "openai-gpt-54-mini",
     "input_cost": 0.9375,
     "input_modalities": [
@@ -908,7 +889,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "openai-gpt-54-pro",
     "input_cost": 37.5,
     "input_modalities": [
@@ -928,7 +909,7 @@
     "cache_read_cost": 0.625,
     "cache_write_cost": 0,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "openai-gpt-55",
     "input_cost": 6.25,
     "input_modalities": [
@@ -948,7 +929,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "openai-gpt-55-pro",
     "input_cost": 37.5,
     "input_modalities": [
@@ -968,7 +949,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 128000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "openai-gpt-oss-120b",
     "input_cost": 0.07,
     "input_modalities": [
@@ -987,7 +968,7 @@
     "cache_read_cost": 0.0625,
     "cache_write_cost": 0.78,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "qwen-3-6-plus",
     "input_cost": 0.625,
     "input_modalities": [
@@ -1007,11 +988,12 @@
     "cache_read_cost": 0.27,
     "cache_write_cost": 3.35,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "qwen-3-7-max",
     "input_cost": 2.7,
     "input_modalities": [
-      "text"
+      "text",
+      "image"
     ],
     "max_output_tokens": 65536,
     "name": "Qwen 3.7 Max",
@@ -1026,7 +1008,7 @@
     "cache_read_cost": 0.05,
     "cache_write_cost": 0.625,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "qwen-3-7-plus",
     "input_cost": 0.5,
     "input_modalities": [
@@ -1046,7 +1028,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 128000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "qwen3-235b-a22b-instruct-2507",
     "input_cost": 0.15,
     "input_modalities": [
@@ -1065,7 +1047,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 128000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "qwen3-235b-a22b-thinking-2507",
     "input_cost": 0.45,
     "input_modalities": [
@@ -1084,7 +1066,7 @@
     "cache_read_cost": 0.15625,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "qwen3-5-35b-a3b",
     "input_cost": 0.3125,
     "input_modalities": [
@@ -1104,7 +1086,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 128000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "qwen3-5-397b-a17b",
     "input_cost": 0.75,
     "input_modalities": [
@@ -1124,7 +1106,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "qwen3-5-9b",
     "input_cost": 0.1,
     "input_modalities": [
@@ -1144,7 +1126,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "qwen3-6-27b",
     "input_cost": 0.325,
     "input_modalities": [
@@ -1164,7 +1146,7 @@
     "cache_read_cost": 0.04,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "qwen3-coder-480b-a35b-instruct-turbo",
     "input_cost": 0.35,
     "input_modalities": [
@@ -1183,7 +1165,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 256000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "qwen3-next-80b",
     "input_cost": 0.35,
     "input_modalities": [
@@ -1201,8 +1183,8 @@
   {
     "cache_read_cost": 0,
     "cache_write_cost": 0,
-    "context_size": 256000,
-    "dialect": null,
+    "context_size": 128000,
+    "dialect": "openai_completions",
     "id": "qwen3-vl-235b-a22b",
     "input_cost": 0.25,
     "input_modalities": [
@@ -1222,7 +1204,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 128000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "venice-uncensored-1-2",
     "input_cost": 0.2,
     "input_modalities": [
@@ -1242,7 +1224,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 128000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "venice-uncensored-role-play",
     "input_cost": 0.5,
     "input_modalities": [
@@ -1262,7 +1244,7 @@
     "cache_read_cost": 0.0625,
     "cache_write_cost": 0,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "xiaomi-mimo-v2-5",
     "input_cost": 0.175,
     "input_modalities": [
@@ -1282,7 +1264,7 @@
     "cache_read_cost": 0.24,
     "cache_write_cost": 0,
     "context_size": 200000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "z-ai-glm-5-turbo",
     "input_cost": 1.2,
     "input_modalities": [
@@ -1301,7 +1283,7 @@
     "cache_read_cost": 0.3,
     "cache_write_cost": 0,
     "context_size": 200000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "z-ai-glm-5v-turbo",
     "input_cost": 1.5,
     "input_modalities": [
@@ -1318,18 +1300,18 @@
     "release_date": "2026-04-01"
   },
   {
-    "cache_read_cost": 0.3,
+    "cache_read_cost": 0.08,
     "cache_write_cost": 0,
     "context_size": 198000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "zai-org-glm-4.6",
-    "input_cost": 0.85,
+    "input_cost": 0.43,
     "input_modalities": [
       "text"
     ],
     "max_output_tokens": 16384,
     "name": "GLM 4.6",
-    "output_cost": 2.75,
+    "output_cost": 1.75,
     "output_modalities": [
       "text"
     ],
@@ -1340,7 +1322,7 @@
     "cache_read_cost": 0.11,
     "cache_write_cost": 0,
     "context_size": 198000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "zai-org-glm-4.7",
     "input_cost": 0.55,
     "input_modalities": [
@@ -1359,7 +1341,7 @@
     "cache_read_cost": 0,
     "cache_write_cost": 0,
     "context_size": 128000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "zai-org-glm-4.7-flash",
     "input_cost": 0.125,
     "input_modalities": [
@@ -1378,7 +1360,7 @@
     "cache_read_cost": 0.2,
     "cache_write_cost": 0,
     "context_size": 198000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "zai-org-glm-5",
     "input_cost": 1,
     "input_modalities": [
@@ -1397,7 +1379,7 @@
     "cache_read_cost": 0.325,
     "cache_write_cost": 0,
     "context_size": 200000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "zai-org-glm-5-1",
     "input_cost": 1.75,
     "input_modalities": [
@@ -1416,7 +1398,7 @@
     "cache_read_cost": 0.26,
     "cache_write_cost": 0,
     "context_size": 1000000,
-    "dialect": null,
+    "dialect": "openai_completions",
     "id": "zai-org-glm-5-2",
     "input_cost": 1.4,
     "input_modalities": [

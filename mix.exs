@@ -37,6 +37,7 @@ defmodule Omni.MixProject do
 
       # dev dependencies
       {:ex_doc, "~> 0.40", only: :dev, runtime: false, warn_if_outdated: true},
+      {:llm_db, "~> 2026.6", optional: true},
       {:plug, "~> 1.0", only: :test}
     ]
   end
