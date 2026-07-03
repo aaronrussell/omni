@@ -1,6 +1,6 @@
 # Model Sources Design Document
 
-**Status:** Approved — Phases 1 (dialect precedence flip), 2 (source behaviour, config reshape, ModelsDev source), 3 (LLMDB source), and 4 (ModelsDev live mode) complete
+**Status:** Implemented — all five phases complete: 1 (dialect precedence flip), 2 (source behaviour, config reshape, ModelsDev source), 3 (LLMDB source), 4 (ModelsDev live mode), 5 (documentation; release prep pending the final version call). Remaining loose end: the deferred legacy-task cleanup (`mix models.update`, `mix models.update_llmdb`), tracked in the roadmap.
 **Last updated:** July 2026
 
 > **Phase 2 deviation:** the snapshot capture became a *new* task, `mix omni.snapshot`, instead of rewriting `mix models.update`. Both legacy tasks (`models.update`, `models.update_llmdb`) remain in the tree untouched and unused at runtime, to be deleted in a later cleanup — this shifts Phase 3's "delete `models.update_llmdb`" step into that cleanup and Phase 5's task-description wording accordingly. Phase 2's validation diff came back exact: old transform and ModelsDev source produce identical model sets for all 12 built-ins over the same snapshot.

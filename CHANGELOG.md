@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+
+- **Pluggable model sources** — model catalog data now loads through the new `Omni.Source` behaviour, configurable globally, per provider, or per call site. Custom providers get catalog data with a one-line `models/0` (`provider_id:` opt); custom sources implement the behaviour.
+- **`Omni.Sources.ModelsDev`** — the default source, reading a bundled verbatim [models.dev](https://models.dev) snapshot. Optional live mode (`live: true`) fetches fresh catalog data at boot, with disk caching and graceful fallback to the bundled snapshot when models.dev is unreachable.
+- **`Omni.Sources.LLMDB`** — alternative source backed by the optional [`llm_db`](https://hex.pm/packages/llm_db) package.
+
+### Changed
+
+- **Config key renamed to `config :omni, :models`** (breaking) — provider registration moves under `providers:`, the model source is set via `source:`. Migration: `config :omni, :providers, [:anthropic, :openai]` becomes `config :omni, :models, providers: [:anthropic, :openai]`. The legacy `:providers` key raises at boot with instructions.
+- **Dialect resolution is now data-first** — a model's dialect from catalog data wins over the provider module's declared dialect, which is now a fallback. No behavior change for built-in providers.
+- **`Omni.Provider.load_models/2`** now takes options (`:source`, `:provider_id`) instead of a JSON file path. The curated per-provider JSON files in `priv/models/` are replaced by the verbatim snapshot, captured with the new `mix omni.snapshot` task.
+
 ## [1.5.4] - 2026-06-25
 
 ### Added

@@ -15,6 +15,7 @@ Streaming text generation, tool use, and structured output.
 - **Streaming-first** — all requests stream by default; `generate_text` is built on `stream_text`
 - **Tool use** — define tools with schemas and handlers; the loop auto-executes and feeds results back
 - **Structured output** — JSON Schema validation with constrained decoding and automatic retries
+- **Pluggable model catalog** — bundled [models.dev](https://models.dev) snapshot by default, with optional live fetching or the [`llm_db`](https://hex.pm/packages/llm_db) package as alternative sources
 - **Extensible** — add custom providers by implementing a behaviour
 
 ## Installation
@@ -50,7 +51,7 @@ by default — if your keys are set, no configuration is needed:
 All built-in providers are loaded by default. To limit what loads at startup:
 
 ```elixir
-config :omni, :providers, [:anthropic, :openai]
+config :omni, :models, providers: [:anthropic, :openai]
 ```
 
 ## Quick start
@@ -145,6 +146,23 @@ context = Omni.context(
 
 {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-4-5-20250514"}, context)
 ```
+
+## Model catalog
+
+Model data loads at startup from a pluggable source. The default reads a bundled [models.dev](https://models.dev) snapshot — no network access required. To fetch fresh catalog data at boot instead (disk-cached, degrading gracefully to the bundled snapshot when models.dev is unreachable):
+
+```elixir
+config :omni, :models,
+  source: {Omni.Sources.ModelsDev, live: true}
+```
+
+Or source the catalog from the optional [`llm_db`](https://hex.pm/packages/llm_db) package (requires `{:llm_db, "~> 2026.6"}` in your deps):
+
+```elixir
+config :omni, :models, source: Omni.Sources.LLMDB
+```
+
+Sources can also be pinned per provider (`config :omni, Omni.Providers.OpenAI, source: ...`), and custom sources implement the `Omni.Source` behaviour. See the [HexDocs](https://hexdocs.pm/omni) for details.
 
 ## Documentation
 
