@@ -10,8 +10,9 @@ defmodule Omni.Application do
   end
 
   defp load_providers do
-    builtins = Map.keys(Omni.Provider.builtin_providers())
-    providers = Application.get_env(:omni, :providers) || builtins
-    Omni.Provider.load(providers)
+    :omni
+    |> Application.get_env(:providers)
+    |> Omni.Provider.providers_from_config()
+    |> Omni.Provider.load()
   end
 end

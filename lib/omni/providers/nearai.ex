@@ -36,7 +36,7 @@ defmodule Omni.Providers.NearAI do
 
   @impl true
   def models do
-    Omni.Provider.load_models(__MODULE__, "priv/models/nearai.json")
+    Omni.Provider.load_models(__MODULE__)
   end
 
   @impl true

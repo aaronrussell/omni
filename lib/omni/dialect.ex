@@ -23,10 +23,10 @@ defmodule Omni.Dialect do
 
   ## Dialect registry
 
-  Built-in dialects are registered with string identifiers for use in JSON
-  data files (e.g. `"anthropic_messages"`, `"openai_responses"`). Use `get/1`
+  Built-in dialects are registered with string identifiers for use in model
+  catalog data (e.g. `"anthropic_messages"`, `"openai_responses"`). Use `get/1`
   or `get!/1` to resolve a string to its module. This is primarily used by
-  `Omni.Provider.load_models/2` for multi-dialect providers where the dialect
+  `Omni.Provider.build_model/2` for multi-dialect providers where the dialect
   varies per model.
 
   ## Delta types
@@ -139,13 +139,7 @@ defmodule Omni.Dialect do
   @doc """
   Resolves a dialect string identifier to its module, raising on failure.
   """
-  @spec get!(String.t() | nil) :: module()
-  def get!(nil) do
-    raise ArgumentError,
-          "no dialect specified — the model data has no \"dialect\" field " <>
-            "and the provider declares no dialect"
-  end
-
+  @spec get!(String.t()) :: module()
   def get!(name) when is_binary(name) do
     case get(name) do
       {:ok, mod} -> mod

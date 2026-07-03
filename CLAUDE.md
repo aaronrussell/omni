@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Omni is an Elixir library for interacting with LLM APIs across multiple providers. It separates three concerns:
 
-- **Models** — data structs describing a specific LLM (loaded from JSON in `priv/models/`)
+- **Models** — data structs describing a specific LLM (loaded from a pluggable model source; the default reads the bundled models.dev snapshot in `priv/models/`)
 - **Providers** — authenticated HTTP layer (where to send requests, how to authenticate)
 - **Dialects** — wire format translation (how to build request bodies, parse streaming events)
 
@@ -26,10 +26,10 @@ mix test path/to/test.exs     # Run a single test file
 mix test path/to/test.exs:42  # Run a specific test (line number)
 mix format                    # Format all code
 mix format --check-formatted  # Check formatting without changing files
-mix models.update             # Fetch model data from models.dev into priv/models/
+mix omni.snapshot             # Capture a verbatim models.dev snapshot into priv/models/
 ```
 
-`mix models.update` fetches model catalogs from [models.dev](https://models.dev) for each built-in provider. It filters out deprecated models and those without tool use support, and infers each model's `dialect` from models.dev's npm package metadata. The JSON files in `priv/models/` are checked into the repo — run this task manually when model data needs refreshing. A shelved sibling, `mix models.update_llmdb`, sources the same catalog from the `llm_db` package instead; it writes to `priv/models-llmdb/` (which nothing reads) and is kept as the prototype for planned runtime llm_db loading.
+`mix omni.snapshot` writes the full [models.dev](https://models.dev) catalog verbatim to `priv/models/models_dev.json` (checked into the repo). `Omni.Sources.ModelsDev` transforms the snapshot at load time — filtering out deprecated models and those without tool use support, and inferring each model's `dialect` from models.dev's npm package metadata. Run the task manually when model data needs refreshing, and update the golden test expectations (`test/omni/sources/models_dev_golden_test.exs`) alongside. Two legacy tasks remain until a later cleanup and are unused at runtime: `mix models.update` (the old curated per-provider JSON pipeline) and `mix models.update_llmdb` (the reference transform for the planned llm_db source).
 
 ## Dependencies
 
@@ -44,7 +44,7 @@ mix models.update             # Fetch model data from models.dev into priv/model
 
 - **Streaming-first**: Every LLM request uses streaming HTTP via Req's `into: :self` async mode. The event pipeline is a lazy `Stream`: format parsing (SSE or NDJSON) → `Request.parse_event/2` (dialect `handle_event/1` + provider `modify_events/2`) → delta tuples. `StreamingResponse.new/2` builds the consumer pipeline via `Stream.transform/5`. The struct holds `stream` (the pipeline) and `cancel` (a zero-arity function). `Enumerable` yields `{event_type, data, partial_response}` tuples. Key functions: `on/3` (pipeline-composable side-effect handler), `text_stream/1`, `complete/1`, `cancel/1`. `:done` is only emitted when a stop reason was received; incomplete streams emit `{:error, :incomplete_stream}`.
 
-- **Models are data, not modules**: `%Model{}` structs are loaded from `priv/models/*.json` at startup into `:persistent_term`. Models carry direct module references to their provider and dialect — the dialect is on the model, not derived from the provider, enabling multi-dialect providers.
+- **Models are data, not modules**: `%Model{}` structs are loaded from the configured model source (`Omni.Source`) at startup into `:persistent_term`. Models carry direct module references to their provider and dialect — the dialect is on the model, not derived from the provider, enabling multi-dialect providers.
 
 - **Request building separated from execution**: `Request.build/3` validates options via Peri and returns a `%Req.Request{}` via dialect + provider composition. `Request.stream/3` executes and returns a `StreamingResponse`. The dialect transforms Omni types ↔ native JSON. The provider optionally modifies via `modify_body/3` and `modify_events/2`.
 
@@ -127,5 +127,6 @@ Tests are organized in four layers, none of which require API keys except live t
 The `context/` directory contains detailed design documents. This CLAUDE.md provides sufficient context for most tasks — consult the design docs when working in depth on a specific subsystem.
 
 - **`context/design.md`** — Full architecture reference: top-level API, models, providers, dialects, messages and content blocks, streaming pipeline, tools, and request flow.
+- **`context/model-sources.md`** — Approved design for pluggable model data sources (`Omni.Source` behaviour, ModelsDev/LLMDB sources, config reshape) with the phased implementation plan. Consult when working on model loading, `mix omni.snapshot`, or llm_db integration.
 - **`context/roadmap.md`** — Future work.
 - **`context/provider-apis.md`** — Provider API documentation URLs (fetch on demand when working on a specific provider/dialect).

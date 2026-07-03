@@ -40,7 +40,7 @@ defmodule Omni.Providers.Zai do
 
   @impl true
   def models do
-    Omni.Provider.load_models(__MODULE__, "priv/models/zai.json")
+    Omni.Provider.load_models(__MODULE__)
   end
 
   @impl true

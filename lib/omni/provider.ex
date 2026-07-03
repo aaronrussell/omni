@@ -16,8 +16,8 @@ defmodule Omni.Provider do
 
   Most providers speak a single dialect, but multi-model gateways (like OpenCode
   Zen) route to different upstream APIs depending on the model. These providers
-  omit the `:dialect` option — the dialect is resolved per-model from the JSON
-  data files at load time. See "Multi-dialect providers" below.
+  omit the `:dialect` option — the dialect is resolved per-model from the
+  catalog data at load time. See "Multi-dialect providers" below.
 
   ## Defining a provider
 
@@ -158,15 +158,31 @@ defmodule Omni.Provider do
 
         @impl true
         def models do
-          Omni.Provider.load_models(__MODULE__, "priv/models/gateway.json")
+          Omni.Provider.load_models(__MODULE__, provider_id: :gateway)
         end
       end
 
-  `load_models/2` resolves each model's dialect from the `"dialect"` string in
-  its JSON entry via `Omni.Dialect.get!/1`. The provider's declared dialect is
-  only a fallback for entries without the field — so when `dialect/0` returns
-  `nil`, every model must carry a `"dialect"` field or loading raises at
-  startup.
+  The model source resolves each model's dialect from its catalog data (see
+  `Omni.Sources.ModelsDev` for how the default source infers dialects). The
+  provider's declared dialect is only a fallback for models without one — when
+  `dialect/0` returns `nil`, a model whose dialect the source cannot resolve
+  is skipped with a warning.
+
+  ## Model sources
+
+  Model catalog data comes from a pluggable source — see `Omni.Source`.
+  `load_models/2` resolves the source per call, in priority order:
+
+  1. **Per-module config** — `config :omni, Omni.Providers.OpenAI, source: ...`
+  2. **Call-site opt** — `load_models(__MODULE__, source: ...)` (a provider
+     author's default for that provider)
+  3. **Global config** — `config :omni, :providers, source: ...`
+  4. **Default** — `Omni.Sources.ModelsDev` (bundled models.dev snapshot)
+
+  A source value is a module, a `{module, opts}` tuple, or a shorthand atom
+  (`:models_dev`, `:llm_db`). Unlike API keys, the user's provider-specific
+  config beats the call site here, because the call site is provider-author
+  code rather than end-user code.
 
   ## Choosing a dialect
 
@@ -185,13 +201,16 @@ defmodule Omni.Provider do
   ## Registering a provider
 
   All built-in providers are loaded at startup. To restrict which built-ins
-  load, or to add custom providers, use application config:
+  load, or to add custom providers, use the `load:` key of the `:providers`
+  config (bare atoms name built-ins; `{id, module}` pairs register custom
+  providers; the default is `:all`):
 
-      config :omni, :providers, [
-        :anthropic,
-        :openai,
-        acme: MyApp.Providers.Acme
-      ]
+      config :omni, :providers,
+        load: [
+          :anthropic,
+          :openai,
+          acme: MyApp.Providers.Acme
+        ]
 
   To load a provider at runtime without restarting:
 
@@ -199,6 +218,8 @@ defmodule Omni.Provider do
 
   The provider's models are then available via `Omni.get_model(:acme, "acme-7b")`.
   """
+
+  require Logger
 
   alias Omni.Model
 
@@ -242,8 +263,16 @@ defmodule Omni.Provider do
   @doc """
   Returns the provider's list of model structs.
 
-  Built-in providers use `load_models/2` to read from a JSON data file; custom
-  providers can return models from any source:
+  Built-in providers call `load_models/2`, which pulls catalog data from the
+  configured model source (see `Omni.Source`). Custom providers can do the
+  same with a `provider_id:` naming their entry in the source's catalog:
+
+      @impl true
+      def models do
+        Omni.Provider.load_models(__MODULE__, provider_id: :acme)
+      end
+
+  Or build model structs directly:
 
       @impl true
       def models do
@@ -258,10 +287,6 @@ defmodule Omni.Provider do
           )
         ]
       end
-
-  `load_models/2` resolves each model's dialect from the `"dialect"` field in
-  the JSON data, falling back to the provider's declared dialect when the
-  field is absent.
 
   Default: `[]` (no models).
   """
@@ -381,26 +406,30 @@ defmodule Omni.Provider do
   """
   @spec load([atom() | {atom(), module()}]) :: :ok
   def load(providers) when is_list(providers) do
-    for provider <- providers do
-      {id, mod} = normalize_provider(provider)
+    # The cache scope lets sources share expensive work (like decoding a
+    # catalog snapshot) across the pass and release it when the pass ends.
+    Omni.Source.with_cache(fn ->
+      for provider <- providers do
+        {id, mod} = normalize_provider(provider)
 
-      models =
-        try do
-          mod.models()
-        rescue
-          e ->
-            reraise "failed to load models for provider #{inspect(id)} (#{inspect(mod)}): " <>
-                      Exception.message(e),
-                    __STACKTRACE__
-        end
+        models =
+          try do
+            mod.models()
+          rescue
+            e ->
+              reraise "failed to load models for provider #{inspect(id)} (#{inspect(mod)}): " <>
+                        Exception.message(e),
+                      __STACKTRACE__
+          end
 
-      model_map = Map.new(models, &{&1.id, &1})
-      existing = :persistent_term.get({Omni, id}, %{})
-      :persistent_term.put({Omni, id}, Map.merge(existing, model_map))
+        model_map = Map.new(models, &{&1.id, &1})
+        existing = :persistent_term.get({Omni, id}, %{})
+        :persistent_term.put({Omni, id}, Map.merge(existing, model_map))
 
-      existing_ids = :persistent_term.get({Omni, :provider_ids}, %{})
-      :persistent_term.put({Omni, :provider_ids}, Map.put(existing_ids, mod, id))
-    end
+        existing_ids = :persistent_term.get({Omni, :provider_ids}, %{})
+        :persistent_term.put({Omni, :provider_ids}, Map.put(existing_ids, mod, id))
+      end
+    end)
 
     :ok
   end
@@ -422,39 +451,177 @@ defmodule Omni.Provider do
     end
   end
 
-  @doc """
-  Loads models from a JSON file and builds `%Model{}` structs.
+  @doc false
+  @spec providers_from_config(term()) :: [atom() | {atom(), module()}]
+  def providers_from_config(nil), do: Map.keys(@builtin_providers)
 
-  Each model is stamped with the given provider module and a dialect. The
-  dialect is resolved in priority order: each model's `"dialect"` string from
-  the JSON data is resolved via `Omni.Dialect.get!/1`. When the field is
-  absent, the provider's declared dialect (via `use Omni.Provider, dialect:
-  Module`) is used instead; if neither exists, loading raises.
-
-  The `file` may be absolute or relative to the provider module's OTP app
-  directory (determined via `Application.get_application/1`).
-  """
-  @spec load_models(module(), String.t()) :: [Model.t()]
-  def load_models(module, file) do
-    resolved_file =
-      if Path.type(file) == :absolute do
-        file
-      else
-        app = Application.get_application(module) || :omni
-        Application.app_dir(app, file)
-      end
-
-    resolved_file
-    |> File.read!()
-    |> JSON.decode!()
-    |> Enum.map(&build_model(&1, module))
+  def providers_from_config(config) when is_list(config) do
+    if Keyword.keyword?(config) and Enum.all?(Keyword.keys(config), &(&1 in [:source, :load])) do
+      expand_load(Keyword.get(config, :load, :all))
+    else
+      raise ArgumentError, config_migration_message(config)
+    end
   end
 
-  defp build_model(data, module) do
+  def providers_from_config(config), do: raise(ArgumentError, config_migration_message(config))
+
+  defp expand_load(:all), do: Map.keys(@builtin_providers)
+  defp expand_load(providers) when is_list(providers), do: providers
+
+  defp expand_load(other) do
+    raise ArgumentError,
+          "invalid load: value #{inspect(other)} in config :omni, :providers — " <>
+            "expected :all or a list of provider atoms / {id, module} pairs"
+  end
+
+  defp config_migration_message(config) do
+    """
+    config :omni, :providers changed shape in Omni 2.0.
+
+    Old:  config :omni, :providers, [:anthropic, :openai, acme: MyApp.Acme]
+
+    New:  config :omni, :providers,
+            source: :models_dev,  # optional — module | {module, opts} | :models_dev | :llm_db
+            load: [:anthropic, :openai, acme: MyApp.Acme]  # or :all (the default)
+
+    Got: #{inspect(config)}
+    """
+  end
+
+  @doc """
+  Loads a provider's models from the configured model source.
+
+  Resolves the source (see the "Model sources" section in the moduledoc for
+  the resolution order), calls its `c:Omni.Source.fetch/2`, and returns the
+  models. When the source returns an error — most commonly
+  `:unknown_provider` for a module the source cannot match to a catalog
+  entry — a warning is logged and `[]` is returned; models never silently
+  load from a source the user didn't configure.
+
+  ## Options
+
+    * `:source` — a source override for this call: a module, `{module, opts}`,
+      or a shorthand atom (`:models_dev`, `:llm_db`). Intended for provider
+      authors setting their provider's default source; user config for the
+      provider module still wins.
+    * `:provider_id` — the caller's identity in the source's catalog. Required
+      for custom providers, which cannot be looked up in
+      `builtin_providers/0`.
+
+  All options (except `:source`) are passed through to the source's `fetch/2`,
+  merged over the source's own configured opts, so sources can define
+  additional call-site options.
+  """
+  @spec load_models(module(), keyword()) :: [Model.t()]
+  def load_models(module, opts \\ [])
+
+  def load_models(module, file) when is_binary(file) do
+    raise ArgumentError, """
+    load_models/2 no longer accepts a file path (got #{inspect(file)} for \
+    #{inspect(module)}).
+
+    Model data now comes from pluggable sources (see Omni.Source). To load \
+    this provider's models from the configured source's catalog:
+
+        def models, do: Omni.Provider.load_models(__MODULE__, provider_id: :your_catalog_id)
+
+    Or build %Omni.Model{} structs directly in models/0.
+    """
+  end
+
+  def load_models(module, opts) when is_list(opts) do
+    {source, source_opts} = resolve_source(module, opts)
+    fetch_opts = Keyword.merge(source_opts, Keyword.delete(opts, :source))
+
+    case source.fetch(module, fetch_opts) do
+      {:ok, models} ->
+        models
+
+      {:error, reason} ->
+        Logger.warning(
+          "failed to load models for #{inspect(module)}: #{inspect(source)} returned " <>
+            "#{inspect(reason)} (provider_id: #{inspect(fetch_opts[:provider_id])}) — " <>
+            "returning no models. Custom providers must pass provider_id: to " <>
+            "load_models/2; to use a different source for this provider: " <>
+            "config :omni, #{inspect(module)}, source: MySource"
+        )
+
+        []
+    end
+  end
+
+  defp resolve_source(module, opts) do
+    configured =
+      Application.get_env(:omni, module, [])[:source] || opts[:source] || global_source() ||
+        Omni.Sources.ModelsDev
+
+    normalize_source(configured)
+  end
+
+  defp global_source do
+    case Application.get_env(:omni, :providers) do
+      config when is_list(config) -> if Keyword.keyword?(config), do: config[:source]
+      _ -> nil
+    end
+  end
+
+  defp normalize_source(:models_dev), do: normalize_source(Omni.Sources.ModelsDev)
+  defp normalize_source(:llm_db), do: normalize_source(Omni.Sources.LLMDB)
+
+  defp normalize_source({module, opts}) when is_atom(module) and is_list(opts) do
+    validate_source!(module)
+    {module, opts}
+  end
+
+  defp normalize_source(module) when is_atom(module), do: normalize_source({module, []})
+
+  defp normalize_source(other) do
+    raise ArgumentError,
+          "invalid model source #{inspect(other)} — expected a module, " <>
+            "a {module, opts} tuple, or a shorthand atom (:models_dev, :llm_db)"
+  end
+
+  defp validate_source!(module) do
+    unless Code.ensure_loaded?(module) and function_exported?(module, :fetch, 2) do
+      raise ArgumentError,
+            "#{inspect(module)} is not an Omni.Source — it does not export fetch/2"
+    end
+  end
+
+  @doc """
+  Builds a `%Model{}` struct from a string-keyed data map.
+
+  The shared constructor used by model sources (see `Omni.Source`). The model
+  is stamped with the given provider module and a dialect, resolved in
+  priority order: the data's `"dialect"` string via `Omni.Dialect.get!/1`,
+  falling back to the provider's declared dialect (via `use Omni.Provider,
+  dialect: Module`). Raises `ArgumentError` when neither resolves.
+
+  Recognized keys: `"id"`, `"name"`, `"dialect"`, `"release_date"` (ISO 8601
+  `YYYY-MM-DD`, or `YYYY-MM` which parses as the first of the month),
+  `"reasoning"`, `"input_modalities"`/`"output_modalities"` (lists of
+  strings), `"input_cost"`, `"output_cost"`, `"cache_read_cost"`,
+  `"cache_write_cost"`, `"context_size"`, `"max_output_tokens"`. Costs and
+  limits default to `0`, modalities to `["text"]`, reasoning to `false`.
+
+  Modality strings are converted with `String.to_atom/1` — callers feeding
+  data from untrusted or unpruned catalogs must filter them against
+  `Omni.Model.supported_modalities/1` first.
+  """
+  @spec build_model(module(), map()) :: Model.t()
+  def build_model(module, data) do
     dialect =
       case data["dialect"] do
-        nil -> module.dialect() || Omni.Dialect.get!(nil)
-        name -> Omni.Dialect.get!(name)
+        nil ->
+          module.dialect() ||
+            raise(
+              ArgumentError,
+              "no dialect specified for model #{inspect(data["id"])} — the model data " <>
+                "has no \"dialect\" field and #{inspect(module)} declares no dialect"
+            )
+
+        name ->
+          Omni.Dialect.get!(name)
       end
 
     Model.new(

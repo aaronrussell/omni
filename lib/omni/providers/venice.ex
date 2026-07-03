@@ -35,7 +35,7 @@ defmodule Omni.Providers.Venice do
   @impl true
   def models do
     __MODULE__
-    |> Omni.Provider.load_models("priv/models/venice.json")
+    |> Omni.Provider.load_models()
     |> Enum.map(fn model ->
       case :pdf in model.input_modalities do
         true -> model

@@ -36,7 +36,7 @@ defmodule Omni.Providers.OpenRouter do
 
   @impl true
   def models do
-    Omni.Provider.load_models(__MODULE__, "priv/models/openrouter.json")
+    Omni.Provider.load_models(__MODULE__)
   end
 
   @impl true

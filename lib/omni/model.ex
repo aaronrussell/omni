@@ -3,8 +3,8 @@ defmodule Omni.Model do
   A data struct describing a specific LLM.
 
   Models carry identity, capabilities, and pricing information. They are loaded
-  from JSON data files in `priv/models/` at startup rather than defined as
-  individual modules. The `:provider` and `:dialect` fields hold direct module
+  from the configured model source (see `Omni.Source`) at startup rather than
+  defined as individual modules. The `:provider` and `:dialect` fields hold direct module
   references, making the struct self-contained for callback dispatch — given a
   `%Model{}`, Omni knows where to send the request and how to format it.
 
@@ -42,7 +42,7 @@ defmodule Omni.Model do
 
   ## Custom models
 
-  When a model isn't in the built-in JSON data (new releases, fine-tunes,
+  When a model isn't in the source's catalog (new releases, fine-tunes,
   self-hosted endpoints), create and register it manually:
 
       model = Omni.Model.new(

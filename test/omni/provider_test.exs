@@ -144,23 +144,13 @@ defmodule Omni.ProviderTest do
     end
   end
 
-  describe "load_models/2" do
-    test "loads correct number of models from fixture" do
-      models = Provider.load_models(TestProvider, @fixture_file)
-      assert length(models) == 3
+  describe "build_model/2" do
+    defp fixture_entries(file) do
+      file |> File.read!() |> JSON.decode!()
     end
 
-    test "stamps provider and dialect on every model" do
-      models = Provider.load_models(TestProvider, @fixture_file)
-
-      for model <- models do
-        assert model.provider == TestProvider
-        assert model.dialect == DummyDialect
-      end
-    end
-
-    test "maps all JSON fields to struct fields" do
-      [small | _] = Provider.load_models(TestProvider, @fixture_file)
+    test "maps all data fields to struct fields" do
+      [small | _] = fixture_entries(@fixture_file)
 
       assert %Omni.Model{
                id: "test-model-small",
@@ -170,74 +160,140 @@ defmodule Omni.ProviderTest do
                input_cost: 0.5,
                output_cost: 1.5,
                cache_read_cost: 0.05,
-               cache_write_cost: 0.5
-             } = small
+               cache_write_cost: 0.5,
+               reasoning: false
+             } = Provider.build_model(TestProvider, small)
+    end
+
+    test "stamps provider and falls back to the declared dialect" do
+      for data <- fixture_entries(@fixture_file) do
+        model = Provider.build_model(TestProvider, data)
+        assert model.provider == TestProvider
+        assert model.dialect == DummyDialect
+      end
     end
 
     test "converts modality strings to atoms and filters to supported" do
-      models = Provider.load_models(TestProvider, @fixture_file)
-      multi = Enum.find(models, &(&1.id == "test-model-multi"))
+      data = @fixture_file |> fixture_entries() |> Enum.find(&(&1["id"] == "test-model-multi"))
+      model = Provider.build_model(TestProvider, data)
 
-      assert multi.input_modalities == [:text, :image]
-      assert multi.output_modalities == [:text]
+      assert model.input_modalities == [:text, :image]
+      assert model.output_modalities == [:text]
     end
 
-    test "loads reasoning flag correctly" do
-      models = Provider.load_models(TestProvider, @fixture_file)
-      small = Enum.find(models, &(&1.id == "test-model-small"))
-      large = Enum.find(models, &(&1.id == "test-model-large"))
+    test "defaults costs, limits, modalities, and reasoning when absent" do
+      model = Provider.build_model(TestProvider, %{"id" => "bare", "name" => "Bare"})
 
-      refute small.reasoning
-      assert large.reasoning
+      assert %Omni.Model{
+               input_cost: 0,
+               output_cost: 0,
+               cache_read_cost: 0,
+               cache_write_cost: 0,
+               context_size: 0,
+               max_output_tokens: 0,
+               reasoning: false,
+               input_modalities: [:text],
+               output_modalities: [:text],
+               release_date: nil
+             } = model
+    end
+
+    test "parses full and year-month release dates" do
+      full = Provider.build_model(TestProvider, %{"id" => "a", "release_date" => "2025-08-05"})
+      month = Provider.build_model(TestProvider, %{"id" => "b", "release_date" => "2025-08"})
+
+      assert full.release_date == ~D[2025-08-05]
+      assert month.release_date == ~D[2025-08-01]
+    end
+
+    test "data dialect takes priority over the declared dialect" do
+      for data <- fixture_entries(@multi_dialect_fixture_file) do
+        model = Provider.build_model(TestProvider, data)
+        refute model.dialect == DummyDialect
+      end
+    end
+
+    test "resolves dialect from data when module declares none" do
+      models =
+        @multi_dialect_fixture_file
+        |> fixture_entries()
+        |> Map.new(&{&1["id"], Provider.build_model(MultiDialectProvider, &1)})
+
+      assert models["claude-test"].dialect == Omni.Dialects.AnthropicMessages
+      assert models["gpt-test"].dialect == Omni.Dialects.OpenAIResponses
+      assert models["gemini-test"].dialect == Omni.Dialects.GoogleGemini
+    end
+
+    test "raises when neither data nor module supply a dialect" do
+      assert_raise ArgumentError, ~r/no dialect specified/, fn ->
+        Provider.build_model(MultiDialectProvider, %{"id" => "no-dialect"})
+      end
+    end
+
+    test "raises on unknown dialect string" do
+      assert_raise ArgumentError, ~r/unknown_dialect/, fn ->
+        Provider.build_model(TestProvider, %{"id" => "bad", "dialect" => "bogus_format"})
+      end
     end
   end
 
-  describe "load_models/2 with per-model dialect" do
-    test "resolves dialect from JSON when provider declares no dialect" do
-      models = Provider.load_models(MultiDialectProvider, @multi_dialect_fixture_file)
+  describe "load_models/2 deprecation" do
+    test "raises with a migration message on a file path argument" do
+      assert_raise ArgumentError, ~r/no longer accepts a file path/, fn ->
+        Provider.load_models(TestProvider, "priv/models/test.json")
+      end
+    end
+  end
 
-      claude = Enum.find(models, &(&1.id == "claude-test"))
-      gpt = Enum.find(models, &(&1.id == "gpt-test"))
-      gemini = Enum.find(models, &(&1.id == "gemini-test"))
-
-      assert claude.dialect == Omni.Dialects.AnthropicMessages
-      assert gpt.dialect == Omni.Dialects.OpenAIResponses
-      assert gemini.dialect == Omni.Dialects.GoogleGemini
+  describe "providers_from_config/1" do
+    test "nil loads all built-in providers" do
+      assert Provider.providers_from_config(nil) ==
+               Map.keys(Provider.builtin_providers())
     end
 
-    test "all models share the same provider module" do
-      models = Provider.load_models(MultiDialectProvider, @multi_dialect_fixture_file)
+    test "load: defaults to :all" do
+      assert Provider.providers_from_config(source: :models_dev) ==
+               Map.keys(Provider.builtin_providers())
 
-      for model <- models do
-        assert model.provider == MultiDialectProvider
+      assert Provider.providers_from_config([]) == Map.keys(Provider.builtin_providers())
+    end
+
+    test "load: :all expands to all built-in providers" do
+      assert Provider.providers_from_config(load: :all) ==
+               Map.keys(Provider.builtin_providers())
+    end
+
+    test "load: passes a provider list through" do
+      assert Provider.providers_from_config(load: [:anthropic, :openai]) ==
+               [:anthropic, :openai]
+
+      assert Provider.providers_from_config(load: [:anthropic, acme: TestProvider]) ==
+               [:anthropic, {:acme, TestProvider}]
+    end
+
+    test "raises on an invalid load: value" do
+      assert_raise ArgumentError, ~r/invalid load: value/, fn ->
+        Provider.providers_from_config(load: :anthropic)
       end
     end
 
-    test "JSON dialect takes priority over provider's declared dialect" do
-      models = Provider.load_models(TestProvider, @multi_dialect_fixture_file)
+    test "raises with a migration message on the legacy list shape" do
+      assert_raise ArgumentError, ~r/changed shape/, fn ->
+        Provider.providers_from_config([:anthropic, :openai])
+      end
 
-      claude = Enum.find(models, &(&1.id == "claude-test"))
-      gpt = Enum.find(models, &(&1.id == "gpt-test"))
-      gemini = Enum.find(models, &(&1.id == "gemini-test"))
+      assert_raise ArgumentError, ~r/changed shape/, fn ->
+        Provider.providers_from_config([:anthropic, acme: TestProvider])
+      end
 
-      assert claude.dialect == Omni.Dialects.AnthropicMessages
-      assert gpt.dialect == Omni.Dialects.OpenAIResponses
-      assert gemini.dialect == Omni.Dialects.GoogleGemini
-    end
-
-    test "raises when no dialect is declared and JSON has no dialect field" do
-      assert_raise ArgumentError, ~r/no dialect specified/, fn ->
-        Provider.load_models(MultiDialectProvider, @fixture_file)
+      assert_raise ArgumentError, ~r/changed shape/, fn ->
+        Provider.providers_from_config(acme: TestProvider)
       end
     end
 
-    @tag :tmp_dir
-    test "raises on unknown JSON dialect string", %{tmp_dir: tmp_dir} do
-      file = Path.join(tmp_dir, "bad_dialect.json")
-      File.write!(file, ~s([{"id": "bad-model", "dialect": "bogus_format"}]))
-
-      assert_raise ArgumentError, ~r/unknown_dialect/, fn ->
-        Provider.load_models(TestProvider, file)
+    test "raises with a migration message on a non-list value" do
+      assert_raise ArgumentError, ~r/changed shape/, fn ->
+        Provider.providers_from_config(:all)
       end
     end
   end

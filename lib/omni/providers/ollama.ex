@@ -2,7 +2,8 @@ defmodule Omni.Providers.Ollama do
   @moduledoc """
   Provider for the Ollama API, using the `Omni.Dialects.OllamaChat` dialect.
 
-  Loaded by default with models from `priv/models/ollama.json`.
+  Loaded by default with Ollama's cloud model catalog (the `ollama-cloud`
+  entry of the configured model source).
 
   ## Configuration
 
@@ -15,9 +16,9 @@ defmodule Omni.Providers.Ollama do
 
   ## Models
 
-  By default, models are loaded from `priv/models/ollama.json`. For local
-  Ollama instances, override with a list of models matching what you have
-  pulled locally. Each entry can be a string (just the model ID) or a keyword
+  By default, models come from the configured model source's cloud catalog.
+  For local Ollama instances, override with a list of models matching what
+  you have pulled locally. Each entry can be a string (just the model ID) or a keyword
   list for full control:
 
       config :omni, Omni.Providers.Ollama,
@@ -55,7 +56,7 @@ defmodule Omni.Providers.Ollama do
         # Catalog data reports Ollama's OpenAI-compatible endpoint; Omni
         # prefers the native chat API, so re-apply the declared dialect.
         __MODULE__
-        |> Omni.Provider.load_models("priv/models/ollama.json")
+        |> Omni.Provider.load_models()
         |> Enum.map(&%{&1 | dialect: dialect()})
 
       model_ids when is_list(model_ids) ->

@@ -6,7 +6,7 @@ defmodule Omni.Providers.OpenCode do
   OpenAI, Google, and others) through a single service. Unlike single-dialect
   providers, the wire format depends on the model — Claude models use the
   Anthropic Messages format, GPT models use OpenAI Responses, and so on. The
-  correct dialect is resolved per-model from the data files.
+  correct dialect is resolved per-model from the catalog data.
 
   Reads the API key from the `OPENCODE_API_KEY` environment variable — no
   further configuration is needed if the variable is set.
@@ -34,7 +34,7 @@ defmodule Omni.Providers.OpenCode do
 
   @impl true
   def models do
-    Omni.Provider.load_models(__MODULE__, "priv/models/opencode.json")
+    Omni.Provider.load_models(__MODULE__)
   end
 
   @impl true

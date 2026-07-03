@@ -29,6 +29,6 @@ defmodule Omni.Providers.OpenAI do
 
   @impl true
   def models do
-    Omni.Provider.load_models(__MODULE__, "priv/models/openai.json")
+    Omni.Provider.load_models(__MODULE__)
   end
 end

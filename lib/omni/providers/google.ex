@@ -30,6 +30,6 @@ defmodule Omni.Providers.Google do
 
   @impl true
   def models do
-    Omni.Provider.load_models(__MODULE__, "priv/models/google.json")
+    Omni.Provider.load_models(__MODULE__)
   end
 end
