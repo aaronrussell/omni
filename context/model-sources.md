@@ -1,6 +1,6 @@
 # Model Sources Design Document
 
-**Status:** Approved — Phases 1 (dialect precedence flip), 2 (source behaviour, config reshape, ModelsDev source), and 3 (LLMDB source) complete
+**Status:** Approved — Phases 1 (dialect precedence flip), 2 (source behaviour, config reshape, ModelsDev source), 3 (LLMDB source), and 4 (ModelsDev live mode) complete
 **Last updated:** July 2026
 
 > **Phase 2 deviation:** the snapshot capture became a *new* task, `mix omni.snapshot`, instead of rewriting `mix models.update`. Both legacy tasks (`models.update`, `models.update_llmdb`) remain in the tree untouched and unused at runtime, to be deleted in a later cleanup — this shifts Phase 3's "delete `models.update_llmdb`" step into that cleanup and Phase 5's task-description wording accordingly. Phase 2's validation diff came back exact: old transform and ModelsDev source produce identical model sets for all 12 built-ins over the same snapshot.
@@ -8,6 +8,8 @@
 > **Phase 2 amendment (memoization):** the doc's original suggestion to memoize the decoded snapshot in `:persistent_term` was replaced post-review — ~9 MB of decoded terms needed only at load time would have lived for the VM's lifetime. Instead, `Omni.Source` provides a pass-scoped cache: `Omni.Provider.load/1` wraps each load pass in `Omni.Source.with_cache/1`, sources memoize shared work via `Omni.Source.memo/2` (process dictionary), and the scope teardown garbage-collects the calling process. One decode per pass, zero-copy reads, nothing resident post-boot; a standalone `load_models/2` call outside a pass simply decodes fresh (~36 ms). The `fetch/2` behaviour contract is unchanged; lifecycle callbacks (setup/teardown) were considered and rejected — any pass-scoped state must be ambient because the call chain between fetches runs through the fixed zero-arity `models/0`.
 >
 > **Phase 3 notes:** the dialect cascade shipped as approved (wire_protocol → npm → fallbacks), with two settled details. First, the OpenCode gateway-fallback question: **needed** — a `@gateway_fallback %{opencode: "openai_completions"}` map covers the ~20 OpenCode models carrying neither npm nor wire metadata (mirroring models.dev's provider-level `@ai-sdk/openai-compatible`); OpenCode models have no `wire_protocol` at all, so npm and this map do all the work there. Second, the no-dialect policy: the source emits `nil` when no catalog signal resolves, `Provider.build_model/2` falls back to `module.dialect()`, and if that is also nil the builder's raise is caught by the source's per-model rescue → warn + skip (a module-first alternative was considered and rejected — catalog data stays the source of truth; the module dialect is strictly a fallback, consistent with the Phase 1 flip). Consequence, accepted as an upstream data issue: the 11 OpenAI models with mislabeled `wire_protocol` (the codex issue below) load as `openai_completions` until fixed upstream — the validation diff shows exactly those 11 dialect mismatches vs the ModelsDev source and none elsewhere; remaining id-set deltas are snapshot freshness. The unknown-wire dead ends in the prototype now fall through to the module fallback instead (recovers 4 models). The LLMDB source skips `Omni.Source.memo/2` — llm_db keeps its catalog in its own `:persistent_term` store. The compile-without-llm_db gate is an env-gated dep (`OMNI_SKIP_LLMDB=1` in mix.exs) plus a dedicated CI job running the full suite; llm_db-dependent test modules are wrapped in `if Code.ensure_loaded?(LLMDB)`. Per the Phase 2 deviation, `mix models.update_llmdb` and `priv/models-llmdb/` remain in-tree for the later cleanup.
+>
+> **Phase 4 notes:** the `fetch_timeout:` opt was dropped — the request budget is hard-coded (~5s total: 2s connect + 3s receive, `retry: false` since Req's default 3× retries would blow it) on the grounds that fetch failure is soft via the resilience ladder; the `{module, opts}` form leaves room to add a knob later without a contract change. `cache_ttl:` is **milliseconds** (default `to_timeout(hour: 24)`; `0` means always fetch), not the seconds the original sketch implied. The default `cache_dir:` is a per-user directory under `System.tmp_dir!()` (`omni_<user>` — the suffix avoids shared-`/tmp` ownership collisions between users on Linux). Cache writes are best-effort (temp-then-rename in the target dir for atomicity; a write failure warns and the fetched data serves that boot in-memory) and a corrupt cache file is treated as missing (warned, then healed by the next successful fetch). The fetched body is validated as decodable JSON before it is cached. Live opts are part of the source's memo key, so providers sharing identical live config share one fetch per load pass while per-module overrides fetch separately. Tests inject HTTP via an undocumented `plug:` opt on the source (anonymous function plugs), mirroring the request pipeline's seam.
 
 ---
 
@@ -193,10 +195,10 @@ end
 
 ```elixir
 config :omni, :providers,
-  source: {Omni.Sources.ModelsDev, live: true, cache_ttl: 86_400}
+  source: {Omni.Sources.ModelsDev, live: true, cache_ttl: to_timeout(hour: 12)}
 ```
 
-Opts: `live:` (default `false`), `cache_dir:` (default under `System.tmp_dir!()` — never priv, which is read-only in releases), `cache_ttl:` (default 24h), `fetch_timeout:` (default ~5s).
+Opts: `live:` (default `false`), `cache_dir:` (default a per-user directory under `System.tmp_dir!()` — never priv, which is read-only in releases), `cache_ttl:` (milliseconds, default 24h). The fetch's request budget is fixed at ~5s and not configurable (see Phase 4 notes).
 
 Resilience ladder, warning at each degradation step:
 
@@ -205,7 +207,7 @@ Resilience ladder, warning at each degradation step:
 3. Fetch fails → use stale cache with a warning (the user asked for *fresher* data, not *different* data — stale beats empty).
 4. No cache at all → bundled snapshot with a warning.
 
-The fetch runs inside `Application.start` of `:omni` and blocks the host app's supervision tree, hence the tight timeout. Synchronous-with-timeout is the V1 design; boot-from-snapshot + background refresh + atomic `:persistent_term` swap (as llm_db does with epochs) is the obvious V2 if boot latency matters. Document the opt-in network egress at boot for enterprise users.
+The fetch runs inside `Application.start` of `:omni` and blocks the host app's supervision tree, hence the tight fixed timeout. Synchronous-with-timeout is the V1 design; boot-from-snapshot + background refresh + atomic `:persistent_term` swap (as llm_db does with epochs) is the obvious V2 if boot latency matters. Document the opt-in network egress at boot for enterprise users.
 
 ---
 
@@ -344,8 +346,8 @@ The structural core; largest phase.
 
 The only phase with genuinely new machinery.
 
-- `live:`, `cache_dir:`, `cache_ttl:`, `fetch_timeout:` opts on `Omni.Sources.ModelsDev`.
-- Resilience ladder: fresh cache → fetch (timeout, write-temp-then-rename cache) → stale cache (warn) → bundled snapshot (warn).
+- `live:`, `cache_dir:`, `cache_ttl:` opts on `Omni.Sources.ModelsDev` (no timeout opt — fixed ~5s budget).
+- Resilience ladder: fresh cache → fetch (fixed timeout, write-temp-then-rename cache) → stale cache (warn) → bundled snapshot (warn).
 - `Req.Test`-stubbed tests for the full ladder.
 - Docs: boot-time egress note; cache location semantics.
 
