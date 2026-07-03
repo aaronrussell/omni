@@ -52,7 +52,11 @@ defmodule Omni.Providers.Ollama do
   def models do
     case Application.get_env(:omni, __MODULE__, [])[:models] do
       nil ->
-        Omni.Provider.load_models(__MODULE__, "priv/models/ollama.json")
+        # Catalog data reports Ollama's OpenAI-compatible endpoint; Omni
+        # prefers the native chat API, so re-apply the declared dialect.
+        __MODULE__
+        |> Omni.Provider.load_models("priv/models/ollama.json")
+        |> Enum.map(&%{&1 | dialect: dialect()})
 
       model_ids when is_list(model_ids) ->
         Enum.map(model_ids, &build_model/1)

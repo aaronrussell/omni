@@ -6,7 +6,7 @@ Work tracking for `omni`. This is a live document — add to it freely, clean it
 
 ## Scheduled
 
-- **Optional llm_db model source** — let users install `llm_db` and populate the model store from it at startup via `config :omni, :llmdb` (config shape TBC), intercepting in `Provider.load/1`. Bundled data stays models.dev-sourced; llm_db was evaluated as a bundling source and shelved (snapshot staleness, upstream data errors) — `mix models.update_llmdb` is kept as the transform prototype. Prerequisite: flip dialect precedence in `Provider.build_model/2` so the data's `dialect` wins and `dialect/0` becomes the fallback; Ollama's `models/0` then re-applies its native-dialect preference over the data's `openai_completions`.
+- **Pluggable model sources** — swappable model data sources behind an `Omni.Source` behaviour, configured globally, per provider, or per call site. Ships two sources: `Omni.Sources.ModelsDev` (default; verbatim models.dev snapshot bundled in the package, optional live fetching) and `Omni.Sources.LLMDB` (optional `llm_db` package). `mix models.update` becomes a dumb snapshot capture; the curated per-provider JSON schema is removed. Design is complete — see **`context/model-sources.md`** for the full design and the 5-phase implementation plan (start at Phase 1: dialect precedence flip).
 
 ## Parked ideas
 

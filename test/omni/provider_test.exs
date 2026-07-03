@@ -213,17 +213,31 @@ defmodule Omni.ProviderTest do
       end
     end
 
-    test "provider's declared dialect takes priority over JSON dialect" do
+    test "JSON dialect takes priority over provider's declared dialect" do
       models = Provider.load_models(TestProvider, @multi_dialect_fixture_file)
 
-      for model <- models do
-        assert model.dialect == DummyDialect
-      end
+      claude = Enum.find(models, &(&1.id == "claude-test"))
+      gpt = Enum.find(models, &(&1.id == "gpt-test"))
+      gemini = Enum.find(models, &(&1.id == "gemini-test"))
+
+      assert claude.dialect == Omni.Dialects.AnthropicMessages
+      assert gpt.dialect == Omni.Dialects.OpenAIResponses
+      assert gemini.dialect == Omni.Dialects.GoogleGemini
     end
 
     test "raises when no dialect is declared and JSON has no dialect field" do
       assert_raise ArgumentError, ~r/no dialect specified/, fn ->
         Provider.load_models(MultiDialectProvider, @fixture_file)
+      end
+    end
+
+    @tag :tmp_dir
+    test "raises on unknown JSON dialect string", %{tmp_dir: tmp_dir} do
+      file = Path.join(tmp_dir, "bad_dialect.json")
+      File.write!(file, ~s([{"id": "bad-model", "dialect": "bogus_format"}]))
+
+      assert_raise ArgumentError, ~r/unknown_dialect/, fn ->
+        Provider.load_models(TestProvider, file)
       end
     end
   end

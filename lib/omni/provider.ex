@@ -162,9 +162,11 @@ defmodule Omni.Provider do
         end
       end
 
-  When `dialect/0` returns `nil`, `load_models/2` reads the `"dialect"` string
-  from each model's JSON entry and resolves it via `Omni.Dialect.get!/1`. If a
-  model is missing the `"dialect"` field, loading raises at startup.
+  `load_models/2` resolves each model's dialect from the `"dialect"` string in
+  its JSON entry via `Omni.Dialect.get!/1`. The provider's declared dialect is
+  only a fallback for entries without the field — so when `dialect/0` returns
+  `nil`, every model must carry a `"dialect"` field or loading raises at
+  startup.
 
   ## Choosing a dialect
 
@@ -257,8 +259,9 @@ defmodule Omni.Provider do
         ]
       end
 
-  For multi-dialect providers (where `dialect/0` returns `nil`), `load_models/2`
-  resolves each model's dialect from the `"dialect"` field in the JSON data.
+  `load_models/2` resolves each model's dialect from the `"dialect"` field in
+  the JSON data, falling back to the provider's declared dialect when the
+  field is absent.
 
   Default: `[]` (no models).
   """
@@ -423,10 +426,10 @@ defmodule Omni.Provider do
   Loads models from a JSON file and builds `%Model{}` structs.
 
   Each model is stamped with the given provider module and a dialect. The
-  dialect is resolved in priority order: if the provider declares a dialect
-  (via `use Omni.Provider, dialect: Module`), that dialect is used for all
-  models. Otherwise, each model's `"dialect"` string from the JSON data is
-  resolved via `Omni.Dialect.get!/1`.
+  dialect is resolved in priority order: each model's `"dialect"` string from
+  the JSON data is resolved via `Omni.Dialect.get!/1`. When the field is
+  absent, the provider's declared dialect (via `use Omni.Provider, dialect:
+  Module`) is used instead; if neither exists, loading raises.
 
   The `file` may be absolute or relative to the provider module's OTP app
   directory (determined via `Application.get_application/1`).
@@ -448,7 +451,11 @@ defmodule Omni.Provider do
   end
 
   defp build_model(data, module) do
-    dialect = module.dialect() || Omni.Dialect.get!(data["dialect"])
+    dialect =
+      case data["dialect"] do
+        nil -> module.dialect() || Omni.Dialect.get!(nil)
+        name -> Omni.Dialect.get!(name)
+      end
 
     Model.new(
       id: data["id"],

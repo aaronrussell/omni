@@ -14,9 +14,9 @@ defmodule Mix.Tasks.Models.Update do
 
   The `dialect` field is a string identifier (e.g. `"anthropic_messages"`,
   `"openai_responses"`) inferred from the models.dev npm package metadata.
-  It is resolved to a module by `Omni.Dialect.get!/1` at load time. For
-  single-dialect providers the field is present but ignored — the provider's
-  declared dialect takes priority.
+  It is resolved to a module by `Omni.Dialect.get!/1` at load time and takes
+  priority over the provider's declared dialect, which serves only as a
+  fallback for entries without the field.
 
   Models that are deprecated or lack tool use support are filtered out. Modalities
   are filtered to those Omni supports (input: text, image, pdf; output: text).
@@ -58,10 +58,10 @@ defmodule Mix.Tasks.Models.Update do
           models =
             provider_data
             |> get_models()
-            |> Enum.reject(& &1["status"] == "deprecated")
-            |> Enum.filter(& &1["tool_call"] == true and text_model?(&1))
-            |> Enum.map(& transform_model(&1, provider_id, provider_data))
-            |> Enum.reject(& is_nil(&1["dialect"]))
+            |> Enum.reject(&(&1["status"] == "deprecated"))
+            |> Enum.filter(&(&1["tool_call"] == true and text_model?(&1)))
+            |> Enum.map(&transform_model(&1, provider_id, provider_data))
+            |> Enum.reject(&is_nil(&1["dialect"]))
             |> Enum.sort_by(& &1["id"])
 
           file = Path.join(@output_dir, "#{provider_id}.json")
@@ -82,10 +82,10 @@ defmodule Mix.Tasks.Models.Update do
   defp provider_string(provider_id), do: to_string(provider_id)
 
   defp transform_model(
-    %{"limit" => limit, "modalities" => modalities} = model,
-    provider_id,
-    provider_data
-  ) do
+         %{"limit" => limit, "modalities" => modalities} = model,
+         provider_id,
+         provider_data
+       ) do
     cost = model["cost"] || %{}
     npm = get_in(model, ["provider", "npm"]) || provider_data["npm"]
 
@@ -96,7 +96,8 @@ defmodule Mix.Tasks.Models.Update do
       "release_date" => model["release_date"],
       "dialect" => derive_dialect(npm, "#{provider_id}:#{model["id"]}"),
       "input_modalities" => filter_modalities(modalities["input"], @supported_input_modalities),
-      "output_modalities" => filter_modalities(modalities["output"], @supported_output_modalities),
+      "output_modalities" =>
+        filter_modalities(modalities["output"], @supported_output_modalities),
       "input_cost" => cost["input"] || 0,
       "output_cost" => cost["output"] || 0,
       "cache_read_cost" => cost["cache_read"] || 0,

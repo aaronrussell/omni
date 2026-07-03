@@ -53,14 +53,14 @@ defmodule Mix.Tasks.Models.UpdateLlmdb do
         |> llmdb_provider()
         |> LLMDB.models()
         |> Enum.reject(&LLMDB.Model.retired?/1)
-        |> Enum.filter(& chat?(&1) and tools?(&1))
+        |> Enum.filter(&(chat?(&1) and tools?(&1)))
         |> Enum.sort_by(& &1.id)
         |> Enum.flat_map(fn model ->
           data = transform_model(model, provider_id)
           aliases = Enum.map(model.aliases, &Map.put(data, "id", &1))
           [data | aliases]
         end)
-        |> Enum.reject(& is_nil(&1["dialect"]))
+        |> Enum.reject(&is_nil(&1["dialect"]))
 
       file = Path.join(@output_dir, "#{provider_id}.json")
       json = Jason.encode!(models, pretty: true)
@@ -96,11 +96,20 @@ defmodule Mix.Tasks.Models.UpdateLlmdb do
     }
   end
 
-  defp infer_dialect(%{execution: %{text: %{supported: true, wire_protocol: wire}}} = model, provider) do
+  defp infer_dialect(
+         %{execution: %{text: %{supported: true, wire_protocol: wire}}} = model,
+         provider
+       ) do
     case wire do
-      "openai_chat" -> "openai_completions"
-      "google_generate_content" -> "google_gemini"
-      dialect when dialect in @supported_dialects -> dialect
+      "openai_chat" ->
+        "openai_completions"
+
+      "google_generate_content" ->
+        "google_gemini"
+
+      dialect when dialect in @supported_dialects ->
+        dialect
+
       _ ->
         Logger.warning("Unknown dialect: #{provider}:#{model.id} [wire=#{wire}]")
         nil
@@ -109,11 +118,21 @@ defmodule Mix.Tasks.Models.UpdateLlmdb do
 
   defp infer_dialect(%{extra: %{provider: %{npm: npm}}} = model, provider) do
     case npm do
-      "@ai-sdk/anthropic" -> "anthropic_messages"
-      "@ai-sdk/openai" -> "openai_responses"
-      "@ai-sdk/openai-compatible" -> "openai_completions"
-      "@ai-sdk/alibaba" -> "openai_completions"
-      "@ai-sdk/google" -> "google_gemini"
+      "@ai-sdk/anthropic" ->
+        "anthropic_messages"
+
+      "@ai-sdk/openai" ->
+        "openai_responses"
+
+      "@ai-sdk/openai-compatible" ->
+        "openai_completions"
+
+      "@ai-sdk/alibaba" ->
+        "openai_completions"
+
+      "@ai-sdk/google" ->
+        "google_gemini"
+
       _ ->
         Logger.warning("Unknown dialect: #{provider}:#{model.id} [npm=#{npm}]")
         nil
@@ -131,7 +150,7 @@ defmodule Mix.Tasks.Models.UpdateLlmdb do
 
   defp filter_modalities(modalities, supported) do
     modalities
-    |> Enum.filter(& &1 in supported)
+    |> Enum.filter(&(&1 in supported))
     |> Enum.map(&to_string/1)
   end
 
@@ -152,5 +171,4 @@ defmodule Mix.Tasks.Models.UpdateLlmdb do
       (extra_reasoning[:supported_efforts] || []) != [] or
       (extra[:reasoning_options] || []) != []
   end
-
 end

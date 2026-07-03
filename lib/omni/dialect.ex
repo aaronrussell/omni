@@ -142,8 +142,8 @@ defmodule Omni.Dialect do
   @spec get!(String.t() | nil) :: module()
   def get!(nil) do
     raise ArgumentError,
-          "no dialect specified — multi-dialect providers require a \"dialect\" field " <>
-            "in the model data"
+          "no dialect specified — the model data has no \"dialect\" field " <>
+            "and the provider declares no dialect"
   end
 
   def get!(name) when is_binary(name) do
