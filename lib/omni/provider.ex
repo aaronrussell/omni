@@ -176,13 +176,12 @@ defmodule Omni.Provider do
   1. **Per-module config** — `config :omni, Omni.Providers.OpenAI, source: ...`
   2. **Call-site opt** — `load_models(__MODULE__, source: ...)` (a provider
      author's default for that provider)
-  3. **Global config** — `config :omni, :providers, source: ...`
+  3. **Global config** — `config :omni, :models, source: ...`
   4. **Default** — `Omni.Sources.ModelsDev` (bundled models.dev snapshot)
 
-  A source value is a module, a `{module, opts}` tuple, or a shorthand atom
-  (`:models_dev`, `:llm_db`). Unlike API keys, the user's provider-specific
-  config beats the call site here, because the call site is provider-author
-  code rather than end-user code.
+  A source value is a module or a `{module, opts}` tuple. Unlike API keys,
+  the user's provider-specific config beats the call site here, because the
+  call site is provider-author code rather than end-user code.
 
   ## Choosing a dialect
 
@@ -201,12 +200,12 @@ defmodule Omni.Provider do
   ## Registering a provider
 
   All built-in providers are loaded at startup. To restrict which built-ins
-  load, or to add custom providers, use the `load:` key of the `:providers`
+  load, or to add custom providers, use the `providers:` key of the `:models`
   config (bare atoms name built-ins; `{id, module}` pairs register custom
   providers; the default is `:all`):
 
-      config :omni, :providers,
-        load: [
+      config :omni, :models,
+        providers: [
           :anthropic,
           :openai,
           acme: MyApp.Providers.Acme
@@ -456,8 +455,9 @@ defmodule Omni.Provider do
   def providers_from_config(nil), do: Map.keys(@builtin_providers)
 
   def providers_from_config(config) when is_list(config) do
-    if Keyword.keyword?(config) and Enum.all?(Keyword.keys(config), &(&1 in [:source, :load])) do
-      expand_load(Keyword.get(config, :load, :all))
+    if Keyword.keyword?(config) and
+         Enum.all?(Keyword.keys(config), &(&1 in [:source, :providers])) do
+      expand_providers(Keyword.get(config, :providers, :all))
     else
       raise ArgumentError, config_migration_message(config)
     end
@@ -465,24 +465,29 @@ defmodule Omni.Provider do
 
   def providers_from_config(config), do: raise(ArgumentError, config_migration_message(config))
 
-  defp expand_load(:all), do: Map.keys(@builtin_providers)
-  defp expand_load(providers) when is_list(providers), do: providers
+  defp expand_providers(:all), do: Map.keys(@builtin_providers)
+  defp expand_providers(providers) when is_list(providers), do: providers
 
-  defp expand_load(other) do
+  defp expand_providers(other) do
     raise ArgumentError,
-          "invalid load: value #{inspect(other)} in config :omni, :providers — " <>
+          "invalid providers: value #{inspect(other)} in config :omni, :models — " <>
             "expected :all or a list of provider atoms / {id, module} pairs"
   end
 
-  defp config_migration_message(config) do
+  @doc false
+  @spec config_migration_message(term()) :: String.t()
+  def config_migration_message(config) do
     """
-    config :omni, :providers changed shape in Omni 2.0.
+    model loading config moved from :providers to :models.
 
     Old:  config :omni, :providers, [:anthropic, :openai, acme: MyApp.Acme]
 
-    New:  config :omni, :providers,
-            source: :models_dev,  # optional — module | {module, opts} | :models_dev | :llm_db
-            load: [:anthropic, :openai, acme: MyApp.Acme]  # or :all (the default)
+    New:  config :omni, :models,
+            # optional — an Omni.Source module or {module, opts};
+            # default Omni.Sources.ModelsDev
+            source: Omni.Sources.ModelsDev,
+            # :all (the default), or built-in ids and {id, module} pairs
+            providers: [:anthropic, :openai, acme: MyApp.Acme]
 
     Got: #{inspect(config)}
     """
@@ -500,10 +505,10 @@ defmodule Omni.Provider do
 
   ## Options
 
-    * `:source` — a source override for this call: a module, `{module, opts}`,
-      or a shorthand atom (`:models_dev`, `:llm_db`). Intended for provider
-      authors setting their provider's default source; user config for the
-      provider module still wins.
+    * `:source` — a source override for this call: a module or a
+      `{module, opts}` tuple. Intended for provider authors setting their
+      provider's default source; user config for the provider module still
+      wins.
     * `:provider_id` — the caller's identity in the source's catalog. Required
       for custom providers, which cannot be looked up in
       `builtin_providers/0`.
@@ -559,14 +564,11 @@ defmodule Omni.Provider do
   end
 
   defp global_source do
-    case Application.get_env(:omni, :providers) do
+    case Application.get_env(:omni, :models) do
       config when is_list(config) -> if Keyword.keyword?(config), do: config[:source]
       _ -> nil
     end
   end
-
-  defp normalize_source(:models_dev), do: normalize_source(Omni.Sources.ModelsDev)
-  defp normalize_source(:llm_db), do: normalize_source(Omni.Sources.LLMDB)
 
   defp normalize_source({module, opts}) when is_atom(module) and is_list(opts) do
     validate_source!(module)
@@ -577,8 +579,8 @@ defmodule Omni.Provider do
 
   defp normalize_source(other) do
     raise ArgumentError,
-          "invalid model source #{inspect(other)} — expected a module, " <>
-            "a {module, opts} tuple, or a shorthand atom (:models_dev, :llm_db)"
+          "invalid model source #{inspect(other)} — expected a module or " <>
+            "a {module, opts} tuple"
   end
 
   defp validate_source!(module) do

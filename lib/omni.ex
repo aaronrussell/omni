@@ -45,7 +45,7 @@ defmodule Omni do
 
   All built-in providers are loaded by default. To limit what loads at startup:
 
-      config :omni, :providers, [:anthropic, :openai]
+      config :omni, :models, providers: [:anthropic, :openai]
 
   ## Text generation
 

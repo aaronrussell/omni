@@ -5,10 +5,10 @@ defmodule Omni.Sources.LLMDB do
 
   Select it globally, per provider, or at a call site:
 
-      config :omni, :providers, source: :llm_db
+      config :omni, :models, source: Omni.Sources.LLMDB
 
       # keep one provider on the bundled snapshot
-      config :omni, Omni.Providers.OpenAI, source: :models_dev
+      config :omni, Omni.Providers.OpenAI, source: Omni.Sources.ModelsDev
 
   llm_db must be in your deps — selecting this source without the package
   raises at boot:
@@ -120,7 +120,7 @@ defmodule Omni.Sources.LLMDB do
 
       or configure a different source:
 
-          config :omni, :providers, source: :models_dev
+          config :omni, :models, source: Omni.Sources.ModelsDev
       """
     end
 

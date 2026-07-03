@@ -63,8 +63,8 @@ defmodule Omni.Source do
   `Omni.Sources.ModelsDev` for an example.
   """
 
-  @typedoc "A source in configuration: a module, a `{module, opts}` tuple, or a shorthand atom."
-  @type t :: module() | {module(), keyword()} | :models_dev | :llm_db
+  @typedoc "A source in configuration: a module or a `{module, opts}` tuple."
+  @type t :: module() | {module(), keyword()}
 
   @doc """
   Returns the models for the given provider module.

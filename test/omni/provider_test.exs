@@ -251,48 +251,48 @@ defmodule Omni.ProviderTest do
                Map.keys(Provider.builtin_providers())
     end
 
-    test "load: defaults to :all" do
-      assert Provider.providers_from_config(source: :models_dev) ==
+    test "providers: defaults to :all" do
+      assert Provider.providers_from_config(source: Omni.Sources.ModelsDev) ==
                Map.keys(Provider.builtin_providers())
 
       assert Provider.providers_from_config([]) == Map.keys(Provider.builtin_providers())
     end
 
-    test "load: :all expands to all built-in providers" do
-      assert Provider.providers_from_config(load: :all) ==
+    test "providers: :all expands to all built-in providers" do
+      assert Provider.providers_from_config(providers: :all) ==
                Map.keys(Provider.builtin_providers())
     end
 
-    test "load: passes a provider list through" do
-      assert Provider.providers_from_config(load: [:anthropic, :openai]) ==
+    test "providers: passes a provider list through" do
+      assert Provider.providers_from_config(providers: [:anthropic, :openai]) ==
                [:anthropic, :openai]
 
-      assert Provider.providers_from_config(load: [:anthropic, acme: TestProvider]) ==
+      assert Provider.providers_from_config(providers: [:anthropic, acme: TestProvider]) ==
                [:anthropic, {:acme, TestProvider}]
     end
 
-    test "raises on an invalid load: value" do
-      assert_raise ArgumentError, ~r/invalid load: value/, fn ->
-        Provider.providers_from_config(load: :anthropic)
+    test "raises on an invalid providers: value" do
+      assert_raise ArgumentError, ~r/invalid providers: value/, fn ->
+        Provider.providers_from_config(providers: :anthropic)
       end
     end
 
     test "raises with a migration message on the legacy list shape" do
-      assert_raise ArgumentError, ~r/changed shape/, fn ->
+      assert_raise ArgumentError, ~r/moved from :providers to :models/, fn ->
         Provider.providers_from_config([:anthropic, :openai])
       end
 
-      assert_raise ArgumentError, ~r/changed shape/, fn ->
+      assert_raise ArgumentError, ~r/moved from :providers to :models/, fn ->
         Provider.providers_from_config([:anthropic, acme: TestProvider])
       end
 
-      assert_raise ArgumentError, ~r/changed shape/, fn ->
+      assert_raise ArgumentError, ~r/moved from :providers to :models/, fn ->
         Provider.providers_from_config(acme: TestProvider)
       end
     end
 
     test "raises with a migration message on a non-list value" do
-      assert_raise ArgumentError, ~r/changed shape/, fn ->
+      assert_raise ArgumentError, ~r/moved from :providers to :models/, fn ->
         Provider.providers_from_config(:all)
       end
     end

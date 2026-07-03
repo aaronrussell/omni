@@ -1,5 +1,5 @@
 defmodule Omni.ProviderSourceTest do
-  # async: false — these tests mutate global application env (`:providers` and
+  # async: false — these tests mutate global application env (`:models` and
   # per-module `source:` config) that load_models/2 reads.
   use ExUnit.Case, async: false
 
@@ -48,7 +48,7 @@ defmodule Omni.ProviderSourceTest do
 
   setup do
     on_exit(fn ->
-      Application.delete_env(:omni, :providers)
+      Application.delete_env(:omni, :models)
       Application.delete_env(:omni, CustomProvider)
     end)
   end
@@ -68,13 +68,13 @@ defmodule Omni.ProviderSourceTest do
     end
 
     test "global config source is used" do
-      Application.put_env(:omni, :providers, source: stub({:ok, [marker("global")]}))
+      Application.put_env(:omni, :models, source: stub({:ok, [marker("global")]}))
 
       assert [%{id: "global"}] = Provider.load_models(CustomProvider)
     end
 
     test "call-site source beats global config" do
-      Application.put_env(:omni, :providers, source: stub({:ok, [marker("global")]}))
+      Application.put_env(:omni, :models, source: stub({:ok, [marker("global")]}))
 
       assert [%{id: "call-site"}] =
                Provider.load_models(CustomProvider, source: stub({:ok, [marker("call-site")]}))
@@ -87,14 +87,14 @@ defmodule Omni.ProviderSourceTest do
                Provider.load_models(CustomProvider, source: stub({:ok, [marker("call-site")]}))
     end
 
-    test "shorthand :models_dev resolves to the ModelsDev source" do
-      Application.put_env(:omni, :providers, source: :models_dev)
+    test "the default source can also be configured explicitly by module" do
+      Application.put_env(:omni, :models, source: Omni.Sources.ModelsDev)
 
       assert [%Omni.Model{} | _] = Provider.load_models(Omni.Providers.Anthropic)
     end
 
     test "a bare source module resolves with empty opts" do
-      Application.put_env(:omni, :providers, source: StubSource)
+      Application.put_env(:omni, :models, source: StubSource)
 
       assert Provider.load_models(CustomProvider) == []
     end
@@ -123,7 +123,7 @@ defmodule Omni.ProviderSourceTest do
     end
 
     test "memo'd source work is shared within a pass and released between passes" do
-      Application.put_env(:omni, :providers, source: {MemoSource, notify: self()})
+      Application.put_env(:omni, :models, source: {MemoSource, notify: self()})
 
       Provider.load(memo_a: LoadingProviderA, memo_b: LoadingProviderB)
       assert_received {:memo_value, first_a}
@@ -149,7 +149,7 @@ defmodule Omni.ProviderSourceTest do
     end
 
     test "a source error logs the source, reason, and provider_id tried" do
-      Application.put_env(:omni, :providers, source: stub({:error, :boom}))
+      Application.put_env(:omni, :models, source: stub({:error, :boom}))
 
       log =
         capture_log(fn ->
@@ -162,7 +162,7 @@ defmodule Omni.ProviderSourceTest do
     end
 
     test "a module that is not a source raises at resolution" do
-      Application.put_env(:omni, :providers, source: String)
+      Application.put_env(:omni, :models, source: String)
 
       assert_raise ArgumentError, ~r/not an Omni\.Source/, fn ->
         Provider.load_models(CustomProvider)
@@ -170,8 +170,8 @@ defmodule Omni.ProviderSourceTest do
     end
 
     if Code.ensure_loaded?(LLMDB) do
-      test "the :llm_db shorthand resolves and loads models" do
-        Application.put_env(:omni, :providers, source: :llm_db)
+      test "the LLMDB source resolves and loads models" do
+        Application.put_env(:omni, :models, source: Omni.Sources.LLMDB)
 
         models = Provider.load_models(Omni.Providers.Anthropic)
 
@@ -181,8 +181,8 @@ defmodule Omni.ProviderSourceTest do
     else
       # only exercisable when the optional llm_db package is compiled out
       # (the OMNI_SKIP_LLMDB CI job)
-      test "the :llm_db shorthand raises when the llm_db package is absent" do
-        Application.put_env(:omni, :providers, source: :llm_db)
+      test "the LLMDB source raises when the llm_db package is absent" do
+        Application.put_env(:omni, :models, source: Omni.Sources.LLMDB)
 
         assert_raise RuntimeError, ~r/llm_db package is not available/, fn ->
           Provider.load_models(Omni.Providers.Anthropic)
@@ -191,7 +191,7 @@ defmodule Omni.ProviderSourceTest do
     end
 
     test "an unrecognized source value raises" do
-      Application.put_env(:omni, :providers, source: "models_dev")
+      Application.put_env(:omni, :models, source: "models_dev")
 
       assert_raise ArgumentError, ~r/invalid model source/, fn ->
         Provider.load_models(CustomProvider)

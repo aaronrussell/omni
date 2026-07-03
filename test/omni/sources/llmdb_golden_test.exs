@@ -13,8 +13,8 @@ if Code.ensure_loaded?(LLMDB) do
     use ExUnit.Case, async: false
 
     setup_all do
-      Application.put_env(:omni, :providers, source: :llm_db)
-      on_exit(fn -> Application.delete_env(:omni, :providers) end)
+      Application.put_env(:omni, :models, source: Omni.Sources.LLMDB)
+      on_exit(fn -> Application.delete_env(:omni, :models) end)
 
       models =
         Omni.Source.with_cache(fn ->

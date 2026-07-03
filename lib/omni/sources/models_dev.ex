@@ -43,7 +43,7 @@ defmodule Omni.Sources.ModelsDev do
 
   ## Live mode
 
-      config :omni, :providers,
+      config :omni, :models,
         source: {Omni.Sources.ModelsDev, live: true}
 
   Live mode fetches the full models.dev catalog over HTTPS and caches the

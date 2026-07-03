@@ -36,5 +36,19 @@ defmodule Omni.ApplicationTest do
         assert model.provider == Omni.Providers.OpenAI
       end
     end
+
+    test "the legacy :providers config key raises with a migration message at boot" do
+      Application.put_env(:omni, :providers, [:anthropic])
+
+      on_exit(fn ->
+        Application.delete_env(:omni, :providers)
+        {:ok, _} = Application.ensure_all_started(:omni)
+      end)
+
+      :ok = Application.stop(:omni)
+
+      assert {:error, reason} = Application.start(:omni)
+      assert inspect(reason) =~ "moved from :providers to :models"
+    end
   end
 end
