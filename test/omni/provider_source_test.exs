@@ -169,13 +169,24 @@ defmodule Omni.ProviderSourceTest do
       end
     end
 
-    # Omni.Sources.LLMDB ships in a later release; until then the shorthand
-    # resolves to a module that doesn't exist and fails source validation.
-    test "the :llm_db shorthand raises while the source is unavailable" do
-      Application.put_env(:omni, :providers, source: :llm_db)
+    if Code.ensure_loaded?(LLMDB) do
+      test "the :llm_db shorthand resolves and loads models" do
+        Application.put_env(:omni, :providers, source: :llm_db)
 
-      assert_raise ArgumentError, ~r/not an Omni\.Source/, fn ->
-        Provider.load_models(CustomProvider)
+        models = Provider.load_models(Omni.Providers.Anthropic)
+
+        assert [%Omni.Model{} | _] = models
+        assert Enum.all?(models, &(&1.provider == Omni.Providers.Anthropic))
+      end
+    else
+      # only exercisable when the optional llm_db package is compiled out
+      # (the OMNI_SKIP_LLMDB CI job)
+      test "the :llm_db shorthand raises when the llm_db package is absent" do
+        Application.put_env(:omni, :providers, source: :llm_db)
+
+        assert_raise RuntimeError, ~r/llm_db package is not available/, fn ->
+          Provider.load_models(Omni.Providers.Anthropic)
+        end
       end
     end
 

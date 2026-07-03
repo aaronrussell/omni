@@ -17,8 +17,10 @@ defmodule Mix.Tasks.Models.UpdateLlmdb do
   # - capabilities.reasoning.enabled is unreliable upstream — worked around
   #   via extra fields (see reasoning?/1)
   #
-  # Kept because this transform is the prototype for the planned runtime
-  # "populate the model store from llm_db" feature (config :omni, :llmdb).
+  # This transform was the prototype for Omni.Sources.LLMDB, which shipped in
+  # model sources Phase 3 (with a true fall-through cascade instead of the
+  # clause-short-circuiting one below). Kept, along with priv/models-llmdb/,
+  # until the legacy-task cleanup — see context/model-sources.md.
 
   @output_dir "priv/models-llmdb"
 

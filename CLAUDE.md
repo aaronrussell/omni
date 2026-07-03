@@ -29,7 +29,7 @@ mix format --check-formatted  # Check formatting without changing files
 mix omni.snapshot             # Capture a verbatim models.dev snapshot into priv/models/
 ```
 
-`mix omni.snapshot` writes the full [models.dev](https://models.dev) catalog verbatim to `priv/models/models_dev.json` (checked into the repo). `Omni.Sources.ModelsDev` transforms the snapshot at load time — filtering out deprecated models and those without tool use support, and inferring each model's `dialect` from models.dev's npm package metadata. Run the task manually when model data needs refreshing, and update the golden test expectations (`test/omni/sources/models_dev_golden_test.exs`) alongside. Two legacy tasks remain until a later cleanup and are unused at runtime: `mix models.update` (the old curated per-provider JSON pipeline) and `mix models.update_llmdb` (the reference transform for the planned llm_db source).
+`mix omni.snapshot` writes the full [models.dev](https://models.dev) catalog verbatim to `priv/models/models_dev.json` (checked into the repo). `Omni.Sources.ModelsDev` transforms the snapshot at load time — filtering out deprecated models and those without tool use support, and inferring each model's `dialect` from models.dev's npm package metadata. Run the task manually when model data needs refreshing, and update the golden test expectations (`test/omni/sources/models_dev_golden_test.exs`) alongside. Two legacy tasks remain until a later cleanup and are unused at runtime: `mix models.update` (the old curated per-provider JSON pipeline) and `mix models.update_llmdb` (the prototype transform behind `Omni.Sources.LLMDB`).
 
 ## Dependencies
 

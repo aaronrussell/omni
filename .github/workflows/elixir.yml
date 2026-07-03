@@ -27,3 +27,19 @@ jobs:
           elixir-version: ${{matrix.elixir}}
       - run: mix deps.get
       - run: mix test
+
+  # Guards the optional-dependency mechanics: Omni must compile and test
+  # green without the llm_db package (see llm_db_dep/0 in mix.exs).
+  test-no-llmdb:
+    runs-on: ubuntu-latest
+    name: Without llm_db
+    env:
+      OMNI_SKIP_LLMDB: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '29.x'
+          elixir-version: '1.20.x'
+      - run: mix deps.get
+      - run: mix test

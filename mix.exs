@@ -37,9 +37,19 @@ defmodule Omni.MixProject do
 
       # dev dependencies
       {:ex_doc, "~> 0.40", only: :dev, runtime: false, warn_if_outdated: true},
-      {:llm_db, "~> 2026.6", optional: true},
       {:plug, "~> 1.0", only: :test}
-    ]
+    ] ++ llm_db_dep()
+  end
+
+  # OMNI_SKIP_LLMDB=1 excludes the optional llm_db dep so CI can verify Omni
+  # compiles and tests green without it. Beware locally: a `mix deps.get` run
+  # with it set can rewrite mix.lock without the llm_db entry.
+  defp llm_db_dep do
+    if System.get_env("OMNI_SKIP_LLMDB") do
+      []
+    else
+      [{:llm_db, "~> 2026.6", optional: true}]
+    end
   end
 
   defp docs do
