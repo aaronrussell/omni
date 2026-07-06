@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [1.6.0] - 2026-07-06
+
 ### Added
 
 - **Pluggable model sources** — model catalog data now loads through the new `Omni.Source` behaviour, configurable globally or per provider.

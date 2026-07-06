@@ -13,7 +13,7 @@ defmodule Omni.Sources.LLMDB do
   llm_db must be in your deps — selecting this source without the package
   raises at boot:
 
-      {:llm_db, "~> 2026.6"}
+      {:llm_db, "~> 2026.7"}
 
   Models are read from llm_db's catalog store and transformed at load time:
   retired models and those without tool use or text modalities are filtered
@@ -111,7 +111,7 @@ defmodule Omni.Sources.LLMDB do
       Omni.Sources.LLMDB is configured as a model source, but the llm_db \
       package is not available. Add it to your deps:
 
-          {:llm_db, "~> 2026.6"}
+          {:llm_db, "~> 2026.7"}
 
       or configure a different source:
 

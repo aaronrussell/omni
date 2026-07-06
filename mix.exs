@@ -1,7 +1,7 @@
 defmodule Omni.MixProject do
   use Mix.Project
 
-  @version "1.5.4"
+  @version "1.6.0"
   @source_url "https://github.com/aaronrussell/omni"
 
   def project do
@@ -48,7 +48,7 @@ defmodule Omni.MixProject do
     if System.get_env("OMNI_SKIP_LLMDB") do
       []
     else
-      [{:llm_db, "~> 2026.6", optional: true}]
+      [{:llm_db, "~> 2026.7", optional: true}]
     end
   end
 
@@ -69,7 +69,8 @@ defmodule Omni.MixProject do
           Omni.Usage
         ],
         Providers: ~r/^Omni\.Provider/,
-        Dialects: ~r/^Omni\.Dialect/
+        Dialects: ~r/^Omni\.Dialect/,
+        Sources: ~r/^Omni\.Source/
       ],
       groups_for_docs: [
         "Text Generation": &(&1[:group] == :generation),

@@ -55,7 +55,7 @@ if Code.ensure_loaded?(LLMDB) do
     test "the goldens below were verified against this llm_db version" do
       # llm_db upgraded? Re-run the load, re-verify the golden expectations
       # in this file against the new catalog, then update this pin.
-      assert to_string(Application.spec(:llm_db, :vsn)) == "2026.6.4"
+      assert to_string(Application.spec(:llm_db, :vsn)) == "2026.7.0"
     end
 
     test "every built-in provider loads a model set within the expected range", %{models: models} do

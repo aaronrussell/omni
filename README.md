@@ -25,7 +25,7 @@ Add Omni to your dependencies:
 ```elixir
 def deps do
   [
-    {:omni, "~> 1.5"}
+    {:omni, "~> 1.6"}
   ]
 end
 ```
@@ -163,7 +163,7 @@ config :omni, :models,
   source: {Omni.Sources.ModelsDev, live: true}
 ```
 
-Or source the catalog from the optional [`llm_db`](https://hex.pm/packages/llm_db) package (requires `{:llm_db, "~> 2026.6"}` in your deps):
+Or source the catalog from the optional [`llm_db`](https://hex.pm/packages/llm_db) package (requires `{:llm_db, "~> 2026.7"}` in your deps):
 
 ```elixir
 config :omni, :models, source: Omni.Sources.LLMDB
