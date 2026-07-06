@@ -200,7 +200,7 @@ defmodule Omni.Provider do
 
   All built-in providers are loaded at startup. To restrict which providers
   load, or to add custom ones, set the `providers:` key of the `:models`
-  config to a list of provider modules — `:all` (the default) names all
+  config to a list of provider modules — `:builtins` (the default) names all
   built-ins and may also appear inside the list:
 
       config :omni, :models,
@@ -212,7 +212,7 @@ defmodule Omni.Provider do
 
       # or: all built-ins plus a custom provider
       config :omni, :models,
-        providers: [:all, MyApp.Providers.Acme]
+        providers: [:builtins, MyApp.Providers.Acme]
 
   To load a provider at runtime without restarting:
 
@@ -459,12 +459,6 @@ defmodule Omni.Provider do
 
   @doc """
   Returns the list of built-in provider modules.
-
-  Useful for config arithmetic — for example, loading all built-ins except a
-  few:
-
-      config :omni, :models,
-        providers: Omni.Provider.builtins() -- [Omni.Providers.Venice]
   """
   @spec builtins() :: [module()]
   def builtins, do: @builtins
@@ -476,7 +470,7 @@ defmodule Omni.Provider do
   def providers_from_config(config) when is_list(config) do
     if Keyword.keyword?(config) and
          Enum.all?(Keyword.keys(config), &(&1 in [:source, :providers])) do
-      expand_providers(Keyword.get(config, :providers, :all))
+      expand_providers(Keyword.get(config, :providers, :builtins))
     else
       raise ArgumentError, config_migration_message(config)
     end
@@ -484,12 +478,12 @@ defmodule Omni.Provider do
 
   def providers_from_config(config), do: raise(ArgumentError, config_migration_message(config))
 
-  defp expand_providers(:all), do: @builtins
+  defp expand_providers(:builtins), do: @builtins
 
   defp expand_providers(providers) when is_list(providers) do
     providers
     |> Enum.flat_map(fn
-      :all -> @builtins
+      :builtins -> @builtins
       other -> [validate_provider_module!(other)]
     end)
     |> Enum.uniq()
@@ -498,7 +492,7 @@ defmodule Omni.Provider do
   defp expand_providers(other) do
     raise ArgumentError,
           "invalid providers: value #{inspect(other)} in config :omni, :models — " <>
-            "expected :all or a list of provider modules (:all may appear in the list " <>
+            "expected :builtins or a list of provider modules (:builtins may appear in the list " <>
             "to include all built-ins)"
   end
 
@@ -526,9 +520,9 @@ defmodule Omni.Provider do
             # optional — an Omni.Source module or {module, opts};
             # default Omni.Sources.ModelsDev
             source: Omni.Sources.ModelsDev,
-            # :all (the default), or a list of provider modules
-            # (:all may appear in the list to include all built-ins)
-            providers: [:all, MyApp.Providers.Acme]
+            # :builtins (the default), or a list of provider modules
+            # (:builtins may appear in the list to include all built-ins)
+            providers: [:builtins, MyApp.Providers.Acme]
 
     Got: #{inspect(config)}
     """

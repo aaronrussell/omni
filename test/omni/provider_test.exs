@@ -268,15 +268,15 @@ defmodule Omni.ProviderTest do
       assert Provider.providers_from_config(nil) == Provider.builtins()
     end
 
-    test "providers: defaults to :all" do
+    test "providers: defaults to :builtins" do
       assert Provider.providers_from_config(source: Omni.Sources.ModelsDev) ==
                Provider.builtins()
 
       assert Provider.providers_from_config([]) == Provider.builtins()
     end
 
-    test "providers: :all expands to all built-in providers" do
-      assert Provider.providers_from_config(providers: :all) == Provider.builtins()
+    test "providers: :builtins expands to all built-in providers" do
+      assert Provider.providers_from_config(providers: :builtins) == Provider.builtins()
     end
 
     test "providers: passes a module list through" do
@@ -284,8 +284,8 @@ defmodule Omni.ProviderTest do
                [Omni.Providers.Anthropic, TestProvider]
     end
 
-    test "providers: expands :all inside the list" do
-      assert Provider.providers_from_config(providers: [:all, TestProvider]) ==
+    test "providers: expands :builtins inside the list" do
+      assert Provider.providers_from_config(providers: [:builtins, TestProvider]) ==
                Provider.builtins() ++ [TestProvider]
     end
 
@@ -323,7 +323,7 @@ defmodule Omni.ProviderTest do
 
     test "raises with a migration message on a non-list value" do
       assert_raise ArgumentError, ~r/moved from :providers to :models/, fn ->
-        Provider.providers_from_config(:all)
+        Provider.providers_from_config(:builtins)
       end
     end
   end

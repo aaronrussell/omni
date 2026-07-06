@@ -52,13 +52,13 @@ A local-Ollama provider (`Omni.Providers.Ollama`) is also included; it needs
 no API key — configure it with the models you have pulled locally.
 
 All built-in providers are loaded by default. To limit what loads at startup,
-list provider modules (`:all` names all built-ins and may appear in the list):
+list provider modules (`:builtins` names all built-ins and may appear in the list):
 
 ```elixir
 config :omni, :models, providers: [Omni.Providers.Anthropic, Omni.Providers.OpenAI]
 
 # or: everything built-in plus a custom provider
-config :omni, :models, providers: [:all, MyApp.Providers.Acme]
+config :omni, :models, providers: [:builtins, MyApp.Providers.Acme]
 ```
 
 ## Quick start

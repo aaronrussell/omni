@@ -302,7 +302,7 @@ config :omni, :models,
   ]
 ```
 
-`providers:` is a list of provider modules; `:all` (the default) names every built-in and may also appear inside the list (`[:all, MyApp.Providers.Custom]` loads everything plus a custom provider). Bare id atoms and `{id, module}` pairs raise with guidance. Each provider's id comes from its module (`use Omni.Provider, id: ...`) — one canonical id per provider, used for registration, `get_model/2` lookup, and source catalog lookup alike; `load/1` raises if two modules declare the same id. The legacy `config :omni, :providers` key raises at boot with a migration message.
+`providers:` is a list of provider modules; `:builtins` (the default) names every built-in and may also appear inside the list (`[:builtins, MyApp.Providers.Custom]` loads everything plus a custom provider). Bare id atoms and `{id, module}` pairs raise with guidance. Each provider's id comes from its module (`use Omni.Provider, id: ...`) — one canonical id per provider, used for registration, `get_model/2` lookup, and source catalog lookup alike; `load/1` raises if two modules declare the same id. The legacy `config :omni, :providers` key raises at boot with a migration message.
 
 `Omni.Provider.load/1` wraps each load pass in `Omni.Source.with_cache/1`, a pass-scoped cache (process dictionary): sources memoize shared expensive work (like the ~9 MB decoded snapshot) via `Omni.Source.memo/2`, computed once per pass and garbage-collected when the pass ends -- nothing stays resident after boot.
 
