@@ -1,4 +1,4 @@
-defmodule Omni.Providers.MoonshotAI do
+defmodule Omni.Providers.Moonshot do
   @moduledoc """
   Provider for the Moonshot AI (Kimi) API, using the
   `Omni.Dialects.OpenAICompletions` dialect.
@@ -10,7 +10,7 @@ defmodule Omni.Providers.MoonshotAI do
 
   Override the default API key or base URL via application config:
 
-      config :omni, Omni.Providers.MoonshotAI,
+      config :omni, Omni.Providers.Moonshot,
         api_key: {:system, "MY_MOONSHOT_KEY"}
 
   Any key from the provider's `config/0` can be overridden: `:api_key`,

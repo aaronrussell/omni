@@ -17,7 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 - **Providers declare a canonical id** (breaking) — `use Omni.Provider, id: :mistral`, named after the provider's models.dev catalog key (snake_cased). The id drives registration, `Omni.get_model/2`, and catalog lookup, and `models/0` now defaults to loading from the configured source — a catalog-backed custom provider needs only `id:` and `config/0`.
 - **Provider config moved to `config :omni, :models`** (breaking) — registration goes under `providers:` (a list of provider modules; `:all`, the default, names the built-ins and may appear in the list), the model source under `source:`. The legacy `:providers` key raises at boot with migration instructions.
-- **`:moonshot` is now `:moonshotai`** (breaking) — `Omni.Providers.Moonshot` renamed to `Omni.Providers.MoonshotAI`, matching the catalog id.
+- **`:moonshot` is now `:moonshotai`** (breaking), matching the catalog id.
 - **Ollama split into local and cloud providers** (breaking) — `Omni.Providers.Ollama` (`:ollama`) now targets local instances only, with models listed in its `models:` config. Cloud users switch to `Omni.Providers.OllamaCloud` (`:ollama_cloud`).
 - **Dialect resolution is now data-first** — a model's dialect from catalog data wins over the provider module's declared dialect, which is now a fallback. No behavior change for built-in providers.
 - **`Omni.Provider.load_models/2`** (breaking) — takes options instead of a JSON file path. The curated `priv/models/*.json` files are replaced by the verbatim snapshot, captured with the new `mix omni.snapshot` task.

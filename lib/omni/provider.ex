@@ -231,7 +231,7 @@ defmodule Omni.Provider do
     Omni.Providers.Anthropic,
     Omni.Providers.Google,
     Omni.Providers.Groq,
-    Omni.Providers.MoonshotAI,
+    Omni.Providers.Moonshot,
     Omni.Providers.NearAI,
     Omni.Providers.Ollama,
     Omni.Providers.OllamaCloud,
