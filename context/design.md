@@ -236,7 +236,7 @@ The source is configured globally, per provider module, or per `load_models/2` c
 
 A source value is a module or a `{module, opts}` tuple. Note the deliberate asymmetry with API key resolution (where the call site wins): here the call site is provider-author code, not end-user code, so user config must be able to override it.
 
-A CI golden test runs the ModelsDev transform over the bundled snapshot and asserts invariants (resolved dialects, per-provider count ranges, exact golden models) -- the quality gate for the shipped snapshot + transform combination. See `context/model-sources.md` for the full design history.
+A CI golden test runs the ModelsDev transform over the bundled snapshot and asserts invariants (resolved dialects, per-provider count ranges, exact golden models) -- the quality gate for the shipped snapshot + transform combination. (The model-sources work was planned in `context/model-sources.md`, since deleted -- see git history on the `llmdb` branch for the phased plan and decision record.)
 
 **Snapshot refresh and release policy.** models.dev changes multiple times a day; the bundled snapshot does not chase that churn -- live mode is the freshness valve for users who need current data, so the snapshot only needs to be good as a default and an offline fallback. The policy:
 

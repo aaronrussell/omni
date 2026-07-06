@@ -127,6 +127,5 @@ Tests are organized in four layers, none of which require API keys except live t
 The `context/` directory contains detailed design documents. This CLAUDE.md provides sufficient context for most tasks — consult the design docs when working in depth on a specific subsystem.
 
 - **`context/design.md`** — Full architecture reference: top-level API, models, providers, dialects, messages and content blocks, streaming pipeline, tools, and request flow.
-- **`context/model-sources.md`** — Design doc (implemented) for pluggable model data sources (`Omni.Source` behaviour, ModelsDev/LLMDB sources, config reshape), with the phased plan and decision history. Consult when working on model loading, `mix omni.snapshot`, or llm_db integration.
 - **`context/roadmap.md`** — Future work.
 - **`context/provider-apis.md`** — Provider API documentation URLs (fetch on demand when working on a specific provider/dialect).
