@@ -4,8 +4,11 @@ defmodule Omni.Sources.ModelsDev do
 
   The snapshot (`priv/models/models_dev.json`) is a verbatim capture of the
   full [models.dev](https://models.dev) catalog, refreshed with
-  `mix omni.snapshot`. It is transformed into `%Omni.Model{}` structs at load
-  time: deprecated models and those without tool use or text modalities are
+  `mix omni.snapshot`. Every Omni release ships a fresh snapshot, with
+  data-only patch releases for notable catalog changes and at least one
+  release per month; use live mode (below) when you need fresher data than
+  the release cadence provides. The snapshot is transformed into
+  `%Omni.Model{}` structs at load time: deprecated models and those without tool use or text modalities are
   filtered out, modalities are narrowed to those Omni supports, and each
   model's dialect is inferred from models.dev's npm package metadata, falling
   back to the provider's declared dialect. Models that still fail to build

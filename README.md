@@ -149,7 +149,7 @@ context = Omni.context(
 
 ## Model catalog
 
-Model data loads at startup from a pluggable source. The default reads a bundled [models.dev](https://models.dev) snapshot — no network access required. To fetch fresh catalog data at boot instead (disk-cached, degrading gracefully to the bundled snapshot when models.dev is unreachable):
+Model data loads at startup from a pluggable source. The default reads a bundled [models.dev](https://models.dev) snapshot — no network access required. The snapshot is refreshed with every release, with data-only patch releases for notable catalog changes (major model launches, pricing changes) and at least one release per month. If you need fresher data than that, fetch the catalog at boot instead (disk-cached, degrading gracefully to the bundled snapshot when models.dev is unreachable):
 
 ```elixir
 config :omni, :models,

@@ -224,7 +224,7 @@ Sources return ready-to-use `%Omni.Model{}` structs, not intermediate maps. Ever
 
 Omni ships two sources:
 
-- **`Omni.Sources.ModelsDev`** (default) -- reads a verbatim snapshot of the full [models.dev](https://models.dev/) catalog bundled in the package (`priv/models/models_dev.json`, refreshed with `mix omni.snapshot` and committed to the repository). The snapshot is transformed into model structs at load time: deprecated models and those without tool use or text modalities are filtered out, and each model's dialect is inferred from models.dev's npm package metadata. Because the snapshot is unpruned, a custom provider can point at *any* models.dev catalog entry -- including providers Omni ships no module for. An optional **live mode** (`source: {Omni.Sources.ModelsDev, live: true}`) fetches fresh catalog data from models.dev at boot with a disk cache (`cache_ttl:`, `cache_dir:` opts), degrading gracefully: fresh cache → fetch → stale cache → bundled snapshot, warning at each step.
+- **`Omni.Sources.ModelsDev`** (default) -- reads a snapshot of the full [models.dev](https://models.dev/) catalog bundled in the package (`priv/models/models_dev.json`, refreshed with `mix omni.snapshot` and committed to the repository). The snapshot content is verbatim; only the encoding is normalized (pretty-printed, keys sorted) so snapshot updates produce minimal, reviewable git diffs. The snapshot is transformed into model structs at load time: deprecated models and those without tool use or text modalities are filtered out, and each model's dialect is inferred from models.dev's npm package metadata. Because the snapshot is unpruned, a custom provider can point at *any* models.dev catalog entry -- including providers Omni ships no module for. An optional **live mode** (`source: {Omni.Sources.ModelsDev, live: true}`) fetches fresh catalog data from models.dev at boot with a disk cache (`cache_ttl:`, `cache_dir:` opts), degrading gracefully: fresh cache → fetch → stale cache → bundled snapshot, warning at each step.
 - **`Omni.Sources.LLMDB`** -- sources the catalog from the optional [`llm_db`](https://hex.pm/packages/llm_db) hex package. Selecting it without the package in deps raises at boot. Filtering and freshness are llm_db's own concerns (`config :llm_db, allow:/deny:/sources:`), deliberately not wrapped by Omni.
 
 The source is configured globally, per provider module, or per `load_models/2` call site, resolved in priority order:
@@ -237,6 +237,12 @@ The source is configured globally, per provider module, or per `load_models/2` c
 A source value is a module or a `{module, opts}` tuple. Note the deliberate asymmetry with API key resolution (where the call site wins): here the call site is provider-author code, not end-user code, so user config must be able to override it.
 
 A CI golden test runs the ModelsDev transform over the bundled snapshot and asserts invariants (resolved dialects, per-provider count ranges, exact golden models) -- the quality gate for the shipped snapshot + transform combination. See `context/model-sources.md` for the full design history.
+
+**Snapshot refresh and release policy.** models.dev changes multiple times a day; the bundled snapshot does not chase that churn -- live mode is the freshness valve for users who need current data, so the snapshot only needs to be good as a default and an offline fallback. The policy:
+
+1. **Every release refreshes the snapshot** -- running `mix omni.snapshot` (and updating the golden test expectations) is a release checklist step, so no release ships staler data than it has to.
+2. **Event-driven data patches** -- a data-only patch release is cut when a change users actually feel lands in the catalog: a major model family launch, or a pricing change that affects cost computation. Routine catalog noise does not trigger a release.
+3. **Monthly backstop** -- at least one release per month, even if it is only a snapshot refresh.
 
 ### How model data is loaded
 
