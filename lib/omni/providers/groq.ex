@@ -24,7 +24,7 @@ defmodule Omni.Providers.Groq do
   may be clamped to the model's maximum supported level.
   """
 
-  use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+  use Omni.Provider, id: :groq, dialect: Omni.Dialects.OpenAICompletions
 
   @impl true
   def config do
@@ -32,11 +32,6 @@ defmodule Omni.Providers.Groq do
       base_url: "https://api.groq.com/openai",
       api_key: {:system, "GROQ_API_KEY"}
     }
-  end
-
-  @impl true
-  def models do
-    Omni.Provider.load_models(__MODULE__)
   end
 
   @impl true

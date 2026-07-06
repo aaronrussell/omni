@@ -1,25 +1,16 @@
 defmodule Omni.Providers.Ollama do
   @moduledoc """
-  Provider for the Ollama API, using the `Omni.Dialects.OllamaChat` dialect.
+  Provider for a local Ollama instance, using the `Omni.Dialects.OllamaChat`
+  dialect.
 
-  Loaded by default with Ollama's cloud model catalog (the `ollama-cloud`
-  entry of the configured model source).
-
-  ## Configuration
-
-  Defaults to a local Ollama instance at `http://localhost:11434` with no
-  authentication. For cloud-hosted Ollama instances that require an API key:
-
-      config :omni, Omni.Providers.Ollama,
-        base_url: "https://ollama.com",
-        api_key: {:system, "OLLAMA_API_KEY"}
+  Talks to `http://localhost:11434` with no authentication. For Ollama's
+  hosted cloud service, use `Omni.Providers.OllamaCloud` instead.
 
   ## Models
 
-  By default, models come from the configured model source's cloud catalog.
-  For local Ollama instances, override with a list of models matching what
-  you have pulled locally. Each entry can be a string (just the model ID) or a keyword
-  list for full control:
+  A local instance's models are whatever you have pulled, so there is no
+  catalog to load from — list the models you have locally. Each entry can be
+  a string (just the model ID) or a keyword list for full control:
 
       config :omni, Omni.Providers.Ollama,
         models: [
@@ -32,6 +23,15 @@ defmodule Omni.Providers.Ollama do
   other fields. Keyword entries accept any field from `Omni.Model.new/1` —
   only `:id` is required, everything else has sensible defaults.
 
+  Without this config the provider loads no models.
+
+  ## Configuration
+
+  Override the base URL for a non-default host or port:
+
+      config :omni, Omni.Providers.Ollama,
+        base_url: "http://192.168.1.10:11434"
+
   ## Limitations
 
   - **Image attachments**: Only base64-encoded images are supported. URL-based
@@ -39,7 +39,7 @@ defmodule Omni.Providers.Ollama do
     has no URL image input mechanism.
   """
 
-  use Omni.Provider, dialect: Omni.Dialects.OllamaChat
+  use Omni.Provider, id: :ollama, dialect: Omni.Dialects.OllamaChat
 
   @impl true
   def config do
@@ -51,17 +51,10 @@ defmodule Omni.Providers.Ollama do
 
   @impl true
   def models do
-    case Application.get_env(:omni, __MODULE__, [])[:models] do
-      nil ->
-        # Catalog data reports Ollama's OpenAI-compatible endpoint; Omni
-        # prefers the native chat API, so re-apply the declared dialect.
-        __MODULE__
-        |> Omni.Provider.load_models()
-        |> Enum.map(&%{&1 | dialect: dialect()})
-
-      model_ids when is_list(model_ids) ->
-        Enum.map(model_ids, &build_model/1)
-    end
+    :omni
+    |> Application.get_env(__MODULE__, [])
+    |> Keyword.get(:models, [])
+    |> Enum.map(&build_model/1)
   end
 
   @impl true

@@ -1,6 +1,6 @@
 # Model Sources Design Document
 
-**Status:** Implemented — all five phases complete: 1 (dialect precedence flip), 2 (source behaviour, config reshape, ModelsDev source), 3 (LLMDB source), 4 (ModelsDev live mode), 5 (documentation; release prep pending the final version call). Remaining loose end: the deferred legacy-task cleanup (`mix models.update`, `mix models.update_llmdb`), tracked in the roadmap.
+**Status:** Implemented — all five phases complete: 1 (dialect precedence flip), 2 (source behaviour, config reshape, ModelsDev source), 3 (LLMDB source), 4 (ModelsDev live mode), 5 (documentation; release prep pending the final version call). The deferred legacy-task cleanup (`mix models.update`, `mix models.update_llmdb`, `priv/models-llmdb/`) shipped with the identity revision below.
 **Last updated:** July 2026
 
 > **Phase 2 deviation:** the snapshot capture became a *new* task, `mix omni.snapshot`, instead of rewriting `mix models.update`. Both legacy tasks (`models.update`, `models.update_llmdb`) remain in the tree untouched and unused at runtime, to be deleted in a later cleanup — this shifts Phase 3's "delete `models.update_llmdb`" step into that cleanup and Phase 5's task-description wording accordingly. Phase 2's validation diff came back exact: old transform and ModelsDev source produce identical model sets for all 12 built-ins over the same snapshot.
@@ -10,6 +10,8 @@
 > **Phase 3 notes:** the dialect cascade shipped as approved (wire_protocol → npm → fallbacks), with two settled details. First, the OpenCode gateway-fallback question: **needed** — a `@gateway_fallback %{opencode: "openai_completions"}` map covers the ~20 OpenCode models carrying neither npm nor wire metadata (mirroring models.dev's provider-level `@ai-sdk/openai-compatible`); OpenCode models have no `wire_protocol` at all, so npm and this map do all the work there. Second, the no-dialect policy: the source emits `nil` when no catalog signal resolves, `Provider.build_model/2` falls back to `module.dialect()`, and if that is also nil the builder's raise is caught by the source's per-model rescue → warn + skip (a module-first alternative was considered and rejected — catalog data stays the source of truth; the module dialect is strictly a fallback, consistent with the Phase 1 flip). Consequence, accepted as an upstream data issue: the 11 OpenAI models with mislabeled `wire_protocol` (the codex issue below) load as `openai_completions` until fixed upstream — the validation diff shows exactly those 11 dialect mismatches vs the ModelsDev source and none elsewhere; remaining id-set deltas are snapshot freshness. The unknown-wire dead ends in the prototype now fall through to the module fallback instead (recovers 4 models). The LLMDB source skips `Omni.Source.memo/2` — llm_db keeps its catalog in its own `:persistent_term` store. The compile-without-llm_db gate is an env-gated dep (`OMNI_SKIP_LLMDB=1` in mix.exs) plus a dedicated CI job running the full suite; llm_db-dependent test modules are wrapped in `if Code.ensure_loaded?(LLMDB)`. Per the Phase 2 deviation, `mix models.update_llmdb` and `priv/models-llmdb/` remain in-tree for the later cleanup.
 >
 > **Post-Phase-4 config revision:** the config shape below was renamed before release (design session 2026-07-03). The top-level key is `:models`, not `:providers` — the config primarily answers "which models, from where", and the rename makes legacy detection trivial (any `config :omni, :providers` raises with a migration message, no shape-sniffing). The `load:` key became `providers:` (the `providers: providers` collision that motivated `load:` disappeared with the rename). The `:models_dev`/`:llm_db` shorthand atoms were dropped entirely: sources are configured by full module (`module | {module, opts}`), matching how the wider ecosystem configures pluggable backends and not privileging built-in sources over custom ones. The normative sections below are updated; the phased plan retains the original names as a historical record of what each phase shipped.
+>
+> **Post-Phase-5 identity revision (design session 2026-07-06):** the two-id handling below was replaced before release with a single canonical id. Every provider declares `use Omni.Provider, id: :atom` — the models.dev catalog key snake_cased — and that one id serves registration, `get_model/2` lookup, and source catalog lookup. Consequences: `models/0` gained a default implementation (`load_models(__MODULE__)`); `load_models/2` lost its `provider_id:` opt (the id flows from `module.id()`, overridable per source via `{Source, provider_id: ...}` opts); the sources' `@renames` maps and `builtin_providers/0` reverse-lookups were deleted (ModelsDev translates mechanically by hyphenating, LLMDB uses ids verbatim); `@builtin_providers` became a plain module list (`Omni.Provider.builtins/0`) and the `providers:` config takes modules (with `:all` as a splat element) instead of atoms and `{id, module}` pairs; `Omni.Providers.Moonshot` became `MoonshotAI` (`:moonshotai`) and Ollama split into local `Ollama` (`:ollama`, config-driven models, no catalog) and `OllamaCloud` (`:ollama_cloud`); the `{Omni, :provider_ids}` reverse map died (`Model.to_ref/1` reads `model.provider.id()`), replaced by a `{Omni, :loaded_providers}` id→module registry used only to raise on duplicate-id registration. Normative sections below are updated; superseded text is marked.
 >
 > **Phase 4 notes:** the `fetch_timeout:` opt was dropped — the request budget is hard-coded (~5s total: 2s connect + 3s receive, `retry: false` since Req's default 3× retries would blow it) on the grounds that fetch failure is soft via the resilience ladder; the `{module, opts}` form leaves room to add a knob later without a contract change. `cache_ttl:` is **milliseconds** (default `to_timeout(hour: 24)`; `0` means always fetch), not the seconds the original sketch implied. The default `cache_dir:` is a per-user directory under `System.tmp_dir!()` (`omni_<user>` — the suffix avoids shared-`/tmp` ownership collisions between users on Linux). Cache writes are best-effort (temp-then-rename in the target dir for atomicity; a write failure warns and the fetched data serves that boot in-memory) and a corrupt cache file is treated as missing (warned, then healed by the next successful fetch). The fetched body is validated as decodable JSON before it is cached. Live opts are part of the source's memo key, so providers sharing identical live config share one fetch per load pass while per-module overrides fetch separately. Tests inject HTTP via an undocumented `plug:` opt on the source (anonymous function plugs), mirroring the request pipeline's seam.
 
@@ -101,14 +103,16 @@ Source values are `module | {module, opts}`, normalized internally to `{module, 
 
 Within-source resilience is a different thing and is expected: ModelsDev's live mode falling back from live fetch → cache → bundled snapshot is the same source serving the same data at different freshness, and is part of that source's own contract.
 
-### Provider identity — the two-id problem
+### Provider identity — one canonical id
 
-A provider has an Omni id (`:moonshot`) and possibly a different id in a source's catalog (`"moonshotai"` in models.dev, `:moonshotai` in llm_db). Handling:
+*(Rewritten by the Post-Phase-5 identity revision; the original two-id design — registration atoms distinct from per-source catalog ids, source-side reverse-lookups and rename maps — is preserved in this file's git history.)*
 
-- **Built-ins:** `fetch/2` receives the provider module; the source reverse-looks-it-up in `Omni.Provider.builtin_providers/0` to get the Omni id, then applies its own internal rename map. Renames live *inside each source* — call sites never see them. (Module-name munging is not viable: `Macro.underscore` gives `open_ai`/`near_ai`/`open_code` where catalogs say `openai`/`nearai`/`opencode`.)
-- **Custom providers:** must pass `provider_id:` — it is used verbatim as the catalog id by the active source. A custom module cannot infer its own Omni id (`{Omni, :provider_ids}` is written *after* `models/0` runs during `load/1`), and doesn't need to.
+Every provider declares one canonical id on the module: `use Omni.Provider, id: :mistral`. The naming rule is deterministic — the models.dev catalog key, snake_cased as an atom (`:moonshotai`, `:ollama_cloud`, `:fireworks_ai`). That single id serves registration (`{Omni, id}` persistent_term key), `get_model/2` lookup, and source catalog lookup.
 
-Each source consumes the opts it understands, so one custom-provider line works under any source: the ModelsDev source and the LLMDB source both read `provider_id:`; a hypothetical file-based source would read its own opt.
+- `load_models/2` always passes `provider_id: module.id()` to `fetch/2`; a `provider_id:` in the *source's* opts overrides it (`{Omni.Sources.ModelsDev, provider_id: :other}`) — the override is inherently source-scoped, so it lives in source config, not as a call-site opt.
+- Each source translates the canonical id to its native key format itself: ModelsDev hyphenates (`:fireworks_ai` → `"fireworks-ai"`; a binary passes through as a verbatim key), LLMDB uses the atom verbatim. No rename maps, no registry reverse-lookups.
+- A provider whose id exists in no catalog (local Ollama) simply overrides `models/0`; the id still serves registration and lookup.
+- Two modules declaring the same id raise at `load/1` via the `{Omni, :loaded_providers}` registry.
 
 ---
 
@@ -119,13 +123,13 @@ Each source consumes the opts it understands, so one custom-provider line works 
 ```elixir
 config :omni, :models,
   source: Omni.Sources.ModelsDev,           # module | {module, opts} — default Omni.Sources.ModelsDev
-  providers: [:anthropic, :openai,          # which providers to load — default :all
-              acme: MyApp.Providers.Acme]   # {id, module} pairs register custom providers
+  providers: [Omni.Providers.Anthropic,     # which providers to load — default :all
+              MyApp.Providers.Acme]         # custom providers are just modules too
 ```
 
-- `providers:` carries the semantics of the legacy provider list: bare atoms name built-ins (unknown atoms raise), `{id, module}` pairs register custom providers, `:all` (the default) loads every built-in.
+- `providers:` *(shape revised by the identity revision)* is a list of provider modules; `:all` (the default) names every built-in and may appear inside the list (`[:all, MyApp.Providers.Acme]`). Bare id atoms and `{id, module}` pairs raise with guidance — ids live on modules now. `Omni.Provider.builtins/0` is public for list arithmetic (`builtins() -- [Omni.Providers.Venice]`).
 - The legacy key (`config :omni, :providers`, any value) **raises at boot with a migration message** — a hard break, deliberately loud rather than silently misread. A malformed value under `:models` raises the same message.
-- `Omni.Provider.load/1` (the documented runtime-loading API) is unchanged: it takes a plain provider list; source resolution happens inside `load_models/2`.
+- `Omni.Provider.load/1` (the documented runtime-loading API) takes the same module list; source resolution happens inside `load_models/2`.
 
 ### Per-provider override
 
@@ -165,7 +169,7 @@ The logic currently in `Mix.Tasks.Models.Update` relocates into the source, appl
 - **Eligibility:** reject `status == "deprecated"`; require `tool_call == true`; require text in input and output modalities.
 - **Dialect:** the `@npm_to_dialect` map (npm package name → dialect string), reading the per-model npm override before the provider-level npm (`model["provider"]["npm"] || provider_data["npm"]`); unresolved → the shared builder falls back to `module.dialect()`; still unresolved → skip + warn.
 - **Modalities** filtered to Omni-supported; costs/limits defaulted to 0; fields mapped as today.
-- **Renames** (Omni id → models.dev catalog key): `:moonshot → "moonshotai"`, `:ollama → "ollama-cloud"`.
+- **Id translation** *(revised by the identity revision)*: the canonical id atom is hyphenated mechanically (`:fireworks_ai` → `"fireworks-ai"`); the original `@renames` map (`:moonshot → "moonshotai"`, `:ollama → "ollama-cloud"`) was deleted along with the provider renames that motivated it.
 - Provider key missing from snapshot → `{:error, :unknown_provider}`.
 
 **Memoization:** `Provider.load/1` calls `models/0` per provider, so the source must parse the snapshot once per boot and memoize the decoded payload (e.g. `:persistent_term` under a source-private key), not re-parse a 1–2 MB file twelve times. The parsed payload lingering in memory post-boot is an acceptable cost; freeing it is a possible later optimization.
@@ -176,17 +180,14 @@ Because the snapshot is verbatim and unpruned, a custom provider can point at *a
 
 ```elixir
 defmodule MyApp.Providers.Mistral do
-  use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+  use Omni.Provider, id: :mistral, dialect: Omni.Dialects.OpenAICompletions
 
   @impl true
   def config, do: %{base_url: "https://api.mistral.ai", api_key: {:system, "MISTRAL_API_KEY"}}
-
-  @impl true
-  def models, do: Omni.Provider.load_models(__MODULE__, provider_id: :mistral)
 end
 ```
 
-"Add a provider" collapses to a module with `config/0` and a catalog id. This replaces the old pattern of custom providers shipping their own curated JSON file (the multi-dialect gateway example in the `Omni.Provider` moduledoc needs rewriting accordingly). Hand-specified models remain available by building structs directly in `models/0` (see Ollama's config branch and the moduledoc example).
+"Add a provider" collapses to a module with an id and a `config/0` — the default `models/0` loads the catalog entry named by the id. This replaces the old pattern of custom providers shipping their own curated JSON file. Hand-specified models remain available by building structs directly in `models/0` (see local Ollama's config-driven list and the moduledoc example).
 
 ### Live mode (Phase 4)
 
@@ -288,9 +289,13 @@ Dev-time validation for Phase 2: compare the new pipeline's loaded model set aga
 | Change | Migration |
 | --- | --- |
 | `config :omni, :providers` → `config :omni, :models` keyword shape | Move the list under `providers:`; the legacy key raises with instructions |
-| `load_models(module, file)` → `load_models(module, opts)` | Built-ins updated in-repo; custom providers with own JSON switch to `provider_id:` or build structs in `models/0` |
+| `load_models(module, file)` → `load_models(module, opts)` | Built-ins updated in-repo; custom providers with own JSON declare an `id:` or build structs in `models/0` |
 | Curated `priv/models/*.json` schema removed | No user-facing contract existed on the files themselves; custom-file pattern replaced per above |
 | `mix models.update` output format | Maintainer-only task; snapshot committed as before |
+| `providers:` takes modules, not atoms/`{id, module}` pairs *(identity revision)* | Replace atoms with module names; `:all` still works, incl. inside the list |
+| `use Omni.Provider` requires `id:` *(identity revision)* | Custom providers add `id: :their_catalog_id`; `load_models/2` `provider_id:` opt removed in favor of the module id / source opts |
+| `:moonshot` → `:moonshotai` (`Omni.Providers.MoonshotAI`) *(identity revision)* | Update `get_model/2` refs and per-module config keys |
+| Ollama split: `:ollama` (local, config-driven models) + `:ollama_cloud` *(identity revision)* | Cloud users switch to `Omni.Providers.OllamaCloud` / `:ollama_cloud`; local users keep `:ollama`, which no longer loads catalog models |
 
 Dialect precedence flips from provider-wins to data-wins, but bundled data and provider declarations agree for every built-in (zero null dialects across all files; Ollama re-applies its preference), so no observable behavior change.
 

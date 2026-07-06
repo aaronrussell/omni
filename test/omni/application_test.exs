@@ -24,6 +24,14 @@ defmodule Omni.ApplicationTest do
       end
     end
 
+    test "renamed and split providers are loaded under their canonical ids" do
+      assert map_size(:persistent_term.get({Omni, :moonshotai}, %{})) > 0
+      assert map_size(:persistent_term.get({Omni, :ollama_cloud}, %{})) > 0
+
+      # local Ollama is registered too (other tests may put models into it)
+      assert is_map(:persistent_term.get({Omni, :ollama}, nil))
+    end
+
     test "openai models are loaded into :persistent_term" do
       models = :persistent_term.get({Omni, :openai}, nil)
 

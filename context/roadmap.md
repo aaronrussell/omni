@@ -6,7 +6,7 @@ Work tracking for `omni`. This is a live document — add to it freely, clean it
 
 ## Scheduled
 
-- **Legacy mix task cleanup** — delete `mix models.update` and `mix models.update_llmdb` (plus the gitignored `priv/models-llmdb/` reference output). Both are unused at runtime since the pluggable model sources work landed (`llmdb` branch; see `context/model-sources.md`), kept in-tree per the deferred-cleanup decision.
+*(empty)*
 
 ## Parked ideas
 

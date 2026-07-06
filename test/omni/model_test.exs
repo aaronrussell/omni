@@ -201,12 +201,10 @@ defmodule Omni.ModelTest do
       assert model_id == model.id
     end
 
-    test "raises for an unloaded provider module" do
-      model = Model.new(id: "test", name: "Test", provider: UnloadedProvider, dialect: D)
+    test "derives the id from the provider module without loading" do
+      model = Model.new(id: "test", name: "Test", provider: Omni.Providers.Venice, dialect: D)
 
-      assert_raise ArgumentError, ~r/UnloadedProvider is not loaded/, fn ->
-        Model.to_ref(model)
-      end
+      assert Model.to_ref(model) == {:venice, "test"}
     end
   end
 

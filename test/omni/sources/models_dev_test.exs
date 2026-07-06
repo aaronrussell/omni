@@ -8,14 +8,14 @@ defmodule Omni.Sources.ModelsDevTest do
   alias Omni.Sources.ModelsDev
 
   defmodule CompletionsProvider do
-    use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+    use Omni.Provider, id: :completions_test, dialect: Omni.Dialects.OpenAICompletions
 
     @impl true
     def config, do: %{base_url: "https://api.test.com", api_key: nil}
   end
 
   defmodule GatewayProvider do
-    use Omni.Provider
+    use Omni.Provider, id: :gateway_test
 
     @impl true
     def config, do: %{base_url: "https://api.test.com", api_key: nil}
@@ -225,27 +225,35 @@ defmodule Omni.Sources.ModelsDevTest do
   end
 
   describe "fetch/2 against the bundled snapshot" do
-    test "loads models for a built-in provider module" do
-      assert {:ok, models} = ModelsDev.fetch(Omni.Providers.OpenAI, [])
+    test "loads models under the given provider_id" do
+      assert {:ok, models} = ModelsDev.fetch(Omni.Providers.OpenAI, provider_id: :openai)
 
       assert models != []
       assert Enum.all?(models, &(&1.provider == Omni.Providers.OpenAI))
     end
 
-    test "applies catalog renames for moonshot and ollama" do
-      assert {:ok, [_ | _]} = ModelsDev.fetch(Omni.Providers.Moonshot, [])
-      assert {:ok, [_ | _] = ollama} = ModelsDev.fetch(Omni.Providers.Ollama, [])
+    test "translates canonical ids to models.dev catalog keys" do
+      # snake_case atom -> kebab-case key
+      assert {:ok, [_ | _]} = ModelsDev.fetch(CompletionsProvider, provider_id: :fireworks_ai)
+      assert {:ok, [_ | _]} = ModelsDev.fetch(CompletionsProvider, provider_id: :moonshotai)
+
+      assert {:ok, [_ | _] = ollama} =
+               ModelsDev.fetch(CompletionsProvider, provider_id: :ollama_cloud)
 
       # The catalog reports Ollama's OpenAI-compatible endpoint; the native
-      # dialect preference is re-applied by the provider's models/0.
+      # dialect preference is re-applied by OllamaCloud's models/0.
       assert Enum.all?(ollama, &(&1.dialect == Omni.Dialects.OpenAICompletions))
     end
 
-    test "provider_id: resolves any catalog id for a custom module" do
-      assert {:ok, [_ | _] = models} = ModelsDev.fetch(CompletionsProvider, provider_id: :groq)
+    test "a binary provider_id is used as a verbatim catalog key" do
+      assert {:ok, [_ | _] = models} =
+               ModelsDev.fetch(CompletionsProvider, provider_id: "fireworks-ai")
+
       assert Enum.all?(models, &(&1.provider == CompletionsProvider))
 
-      assert {:ok, [_ | _]} = ModelsDev.fetch(CompletionsProvider, provider_id: "mistral")
+      # no translation for binaries — the snake_cased form misses
+      assert {:error, :unknown_provider} =
+               ModelsDev.fetch(CompletionsProvider, provider_id: "fireworks_ai")
     end
 
     test "returns :unknown_provider for a catalog id not in the snapshot" do
@@ -253,7 +261,7 @@ defmodule Omni.Sources.ModelsDevTest do
                ModelsDev.fetch(CompletionsProvider, provider_id: :does_not_exist)
     end
 
-    test "returns :unknown_provider for a custom module without provider_id" do
+    test "returns :unknown_provider when provider_id is absent" do
       assert {:error, :unknown_provider} = ModelsDev.fetch(CompletionsProvider, [])
     end
   end

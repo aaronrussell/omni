@@ -24,7 +24,7 @@ defmodule Omni.Providers.NearAI do
   `https://cloud-api.near.ai`.
   """
 
-  use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+  use Omni.Provider, id: :nearai, dialect: Omni.Dialects.OpenAICompletions
 
   @impl true
   def config do
@@ -32,11 +32,6 @@ defmodule Omni.Providers.NearAI do
       base_url: "https://cloud-api.near.ai",
       api_key: {:system, "NEARAI_API_KEY"}
     }
-  end
-
-  @impl true
-  def models do
-    Omni.Provider.load_models(__MODULE__)
   end
 
   @impl true

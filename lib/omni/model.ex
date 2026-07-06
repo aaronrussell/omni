@@ -133,12 +133,7 @@ defmodule Omni.Model do
   """
   @spec to_ref(t()) :: ref()
   def to_ref(%__MODULE__{} = model) do
-    provider_ids = :persistent_term.get({Omni, :provider_ids}, %{})
-
-    case Map.fetch(provider_ids, model.provider) do
-      {:ok, id} -> {id, model.id}
-      :error -> raise ArgumentError, "provider #{inspect(model.provider)} is not loaded"
-    end
+    {model.provider.id(), model.id}
   end
 
   @doc """

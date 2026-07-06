@@ -26,19 +26,17 @@ defmodule Omni.Sources.LLMDB do
   deliberately doesn't wrap them. See llm_db's `allow:`, `deny:`, and
   `sources:` configuration.
 
-  Built-in providers are matched to their catalog entries automatically.
-  Custom providers pass `provider_id:`, the llm_db catalog id:
+  Providers are matched to catalog entries by their canonical id (the
+  module's `id/0`) — llm_db uses the same snake_cased ids, so no translation
+  is applied:
 
       defmodule MyApp.Providers.Mistral do
-        use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+        use Omni.Provider, id: :mistral, dialect: Omni.Dialects.OpenAICompletions
 
         @impl true
         def config do
           %{base_url: "https://api.mistral.ai", api_key: {:system, "MISTRAL_API_KEY"}}
         end
-
-        @impl true
-        def models, do: Omni.Provider.load_models(__MODULE__, provider_id: :mistral)
       end
 
   ## Dialect resolution
@@ -62,9 +60,6 @@ defmodule Omni.Sources.LLMDB do
   require Logger
 
   alias Omni.{Model, Provider}
-
-  # Omni provider id -> llm_db provider id
-  @renames %{moonshot: :moonshotai, ollama: :ollama_cloud}
 
   # npm package -> dialect, for models of multi-dialect providers. Kept in
   # step with Omni.Sources.ModelsDev's table by hand — the two catalogs can
@@ -101,7 +96,7 @@ defmodule Omni.Sources.LLMDB do
   def fetch(module, opts) do
     ensure_llm_db!()
 
-    with {:ok, provider_id} <- resolve_provider_id(module, opts),
+    with {:ok, provider_id} <- resolve_provider_id(opts),
          :ok <- lookup(provider_id) do
       {:ok, transform_provider(LLMDB.models(provider_id), module, provider_id)}
     end
@@ -128,27 +123,12 @@ defmodule Omni.Sources.LLMDB do
     :ok
   end
 
-  defp resolve_provider_id(module, opts) do
+  # llm_db ids are canonical ids verbatim (snake_cased models.dev keys), so
+  # no translation is needed.
+  defp resolve_provider_id(opts) do
     case Keyword.fetch(opts, :provider_id) do
-      {:ok, id} when is_atom(id) ->
-        {:ok, id}
-
-      {:ok, id} when is_binary(id) ->
-        # llm_db ids are atoms, but a string keeps provider_id: portable
-        # across sources. Every provider in the loaded catalog already has
-        # its atom, so unknown strings degrade to :unknown_provider instead
-        # of leaking atoms.
-        try do
-          {:ok, String.to_existing_atom(id)}
-        rescue
-          ArgumentError -> {:error, :unknown_provider}
-        end
-
-      :error ->
-        case Enum.find(Provider.builtin_providers(), fn {_id, mod} -> mod == module end) do
-          {omni_id, _mod} -> {:ok, @renames[omni_id] || omni_id}
-          nil -> {:error, :unknown_provider}
-        end
+      {:ok, id} when is_atom(id) and not is_nil(id) -> {:ok, id}
+      _ -> {:error, :unknown_provider}
     end
   end
 

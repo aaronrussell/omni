@@ -248,7 +248,7 @@ A CI golden test runs the ModelsDev transform over the bundled snapshot and asse
 
 On application startup, `Omni.Application` iterates the configured provider modules and calls each provider's `models/0` callback to get its model list. Each model list is stored into `:persistent_term` -- a global key-value store built into the BEAM VM. This is not a process; it requires no supervision tree entry. It is optimised for data that is written rarely and read frequently, where reads are essentially free (no message passing, no data copying).
 
-Models are stored per-provider as separate persistent_term entries, keyed by the provider's shorthand id:
+Models are stored per-provider as separate persistent_term entries, keyed by the provider's canonical id (the module's `id/0`):
 
 ```elixir
 :persistent_term.put({Omni, :anthropic}, %{
@@ -261,14 +261,9 @@ Models are stored per-provider as separate persistent_term entries, keyed by the
 })
 
 :persistent_term.put({Omni, :openai}, %{...})
-
-# Reverse mapping: provider module → atom ID (used by Model.to_ref/1)
-:persistent_term.put({Omni, :provider_ids}, %{
-  Omni.Providers.Anthropic => :anthropic,
-  Omni.Providers.OpenAI => :openai,
-  ...
-})
 ```
+
+There is no module→id reverse map — `Model.to_ref/1` reads the id straight off the module (`model.provider.id()`). A small `{Omni, :loaded_providers}` registry (id → module) exists only to detect two modules claiming the same id, which raises at load.
 
 The startup loading logic is uniform for every provider -- built-in or custom:
 
@@ -301,13 +296,13 @@ All built-in providers are loaded at startup by default. Which providers load, a
 config :omni, :models,
   source: Omni.Sources.ModelsDev,     # module | {module, opts} — this is the default
   providers: [
-    :anthropic,
-    :openai,
-    custom: MyApp.Providers.Custom
+    Omni.Providers.Anthropic,
+    Omni.Providers.OpenAI,
+    MyApp.Providers.Custom
   ]
 ```
 
-Under `providers:`, bare atoms name built-ins (`:anthropic` normalises to `{:anthropic, Omni.Providers.Anthropic}`; unknown atoms raise), `{id, module}` pairs register custom providers under any id, and `:all` (the default) loads every built-in. Provider IDs are defined only in the config -- provider modules do not declare their own IDs, eliminating the possibility of ID conflicts between modules. The legacy `config :omni, :providers` key raises at boot with a migration message.
+`providers:` is a list of provider modules; `:all` (the default) names every built-in and may also appear inside the list (`[:all, MyApp.Providers.Custom]` loads everything plus a custom provider). Bare id atoms and `{id, module}` pairs raise with guidance. Each provider's id comes from its module (`use Omni.Provider, id: ...`) — one canonical id per provider, used for registration, `get_model/2` lookup, and source catalog lookup alike; `load/1` raises if two modules declare the same id. The legacy `config :omni, :providers` key raises at boot with a migration message.
 
 `Omni.Provider.load/1` wraps each load pass in `Omni.Source.with_cache/1`, a pass-scoped cache (process dictionary): sources memoize shared expensive work (like the ~9 MB decoded snapshot) via `Omni.Source.memo/2`, computed once per pass and garbage-collected when the pass ends -- nothing stays resident after boot.
 
@@ -423,32 +418,25 @@ Built-in providers use the `Omni.Provider.load_models/2` helper, which resolves 
 
 ```elixir
 defmodule Omni.Providers.Anthropic do
-  use Omni.Provider, dialect: Omni.Dialects.AnthropicMessages
-
-  @impl true
-  def models do
-    Omni.Provider.load_models(__MODULE__)
-  end
+  use Omni.Provider, id: :anthropic, dialect: Omni.Dialects.AnthropicMessages
+  # models/0 defaults to Omni.Provider.load_models(__MODULE__)
 end
 ```
 
-`load_models/2` takes the provider module and options. Recognized opts are `:source` (a source override) and `:provider_id` (the caller's identity in the source's catalog -- required for custom providers, which cannot be reverse-looked-up in `builtin_providers/0`); all opts are passed through to the source's `fetch/2`. Dialect precedence is data-wins: each model's dialect comes from the catalog data, and the provider module's declared dialect is only a fallback (Ollama is the exception -- its `models/0` re-applies its native dialect over whatever the source returned, preferring the native NDJSON API over the OpenAI-compatible one that catalogs report). The models returned from `models/0` are always complete -- all enforce_keys are populated.
+`load_models/2` takes the provider module and options; the only recognized opt is `:source` (a source override). The provider's identity in the source's catalog is its canonical id — the module's `id/0`, a snake_cased models.dev catalog key — passed to the source as `provider_id:` and overridable per source via source opts (`{MySource, provider_id: :other}`). Each source translates the canonical id to its native key format itself (ModelsDev hyphenates; LLMDB uses it verbatim). All opts are passed through to the source's `fetch/2`. Dialect precedence is data-wins: each model's dialect comes from the catalog data, and the provider module's declared dialect is only a fallback (OllamaCloud is the exception -- its `models/0` re-applies its native dialect over whatever the source returned, preferring the native NDJSON API over the OpenAI-compatible one that catalogs report). The models returned from `models/0` are always complete -- all enforce_keys are populated.
 
-`models/0` remains the single authority for a provider's models -- provider-specific logic (Ollama's config-models branch and dialect override, Venice's `:pdf` modality enrichment) lives there and wins over any source by construction.
+`models/0` remains the single authority for a provider's models -- provider-specific logic (local Ollama's config-driven model list, OllamaCloud's dialect override, Venice's `:pdf` modality enrichment) lives there and wins over any source by construction.
 
-Because the default source's snapshot covers the full models.dev catalog, a custom provider gets catalog data with a one-liner:
+Because the default source's snapshot covers the full models.dev catalog, a custom provider is just an id and a config:
 
 ```elixir
 defmodule MyApp.Providers.Mistral do
-  use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+  use Omni.Provider, id: :mistral, dialect: Omni.Dialects.OpenAICompletions
 
   @impl true
   def config do
     %{base_url: "https://api.mistral.ai", api_key: {:system, "MISTRAL_API_KEY"}}
   end
-
-  @impl true
-  def models, do: Omni.Provider.load_models(__MODULE__, provider_id: :mistral)
 end
 ```
 

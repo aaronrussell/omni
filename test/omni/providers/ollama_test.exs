@@ -18,16 +18,10 @@ defmodule Omni.Providers.OllamaTest do
   end
 
   describe "models/0" do
-    test "returns a list of models from JSON" do
-      models = Ollama.models()
-      assert is_list(models) and length(models) > 0
-    end
-
-    test "all models have correct provider and dialect" do
-      for model <- Ollama.models() do
-        assert model.provider == Ollama
-        assert model.dialect == Omni.Dialects.OllamaChat
-      end
+    test "returns no models without a models: config" do
+      # A local instance's models are unknowable to any catalog — they come
+      # from user config only.
+      assert Ollama.models() == []
     end
 
     test "builds model from string shorthand" do

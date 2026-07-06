@@ -24,7 +24,7 @@ defmodule Omni.Providers.OpenRouter do
 
   alias Omni.Context
 
-  use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+  use Omni.Provider, id: :openrouter, dialect: Omni.Dialects.OpenAICompletions
 
   @impl true
   def config do
@@ -32,11 +32,6 @@ defmodule Omni.Providers.OpenRouter do
       base_url: "https://openrouter.ai/api",
       api_key: {:system, "OPENROUTER_API_KEY"}
     }
-  end
-
-  @impl true
-  def models do
-    Omni.Provider.load_models(__MODULE__)
   end
 
   @impl true

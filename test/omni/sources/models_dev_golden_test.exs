@@ -15,7 +15,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
   setup_all do
     models =
       Omni.Source.with_cache(fn ->
-        Map.new(Omni.Provider.builtin_providers(), fn {id, mod} -> {id, mod.models()} end)
+        Map.new(Omni.Provider.builtins(), fn mod -> {mod.id(), mod.models()} end)
       end)
 
     %{models: models}
@@ -37,9 +37,11 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
     anthropic: 9..45,
     google: 6..30,
     groq: 3..20,
-    moonshot: 4..25,
+    moonshotai: 4..25,
     nearai: 15..85,
-    ollama: 15..80,
+    # local instance — models come from user config, never a catalog
+    ollama: 0..0,
+    ollama_cloud: 15..80,
     openai: 20..100,
     opencode: 25..125,
     openrouter: 120..640,
@@ -48,7 +50,8 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
   }
 
   test "every built-in provider loads a model set within the expected range", %{models: models} do
-    for {id, _mod} <- Omni.Provider.builtin_providers() do
+    for mod <- Omni.Provider.builtins() do
+      id = mod.id()
       count = length(models[id])
       range = Map.fetch!(@expected_counts, id)
 
@@ -61,7 +64,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
     supported_input = Omni.Model.supported_modalities(:input)
     supported_output = Omni.Model.supported_modalities(:output)
 
-    for {id, mod} <- Omni.Provider.builtin_providers(), model <- models[id] do
+    for mod <- Omni.Provider.builtins(), id = mod.id(), model <- models[id] do
       assert is_binary(model.id), "#{id}: model without a string id: #{inspect(model)}"
       assert model.provider == mod, "#{id}:#{model.id}: provider not stamped"
       assert model.dialect in @known_dialects, "#{id}:#{model.id}: bad dialect"
@@ -77,9 +80,9 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
     end
   end
 
-  test "ollama models re-apply the native dialect over the catalog's", %{models: models} do
-    assert models[:ollama] != []
-    assert Enum.all?(models[:ollama], &(&1.dialect == Omni.Dialects.OllamaChat))
+  test "ollama cloud models re-apply the native dialect over the catalog's", %{models: models} do
+    assert models[:ollama_cloud] != []
+    assert Enum.all?(models[:ollama_cloud], &(&1.dialect == Omni.Dialects.OllamaChat))
   end
 
   test "venice models are enriched with the :pdf input modality", %{models: models} do

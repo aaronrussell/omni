@@ -21,39 +21,36 @@ defmodule Omni.Provider do
 
   ## Defining a provider
 
-  Use `use Omni.Provider` with an optional `:dialect` option. Most providers
-  declare a dialect — the only required callback is `config/0`:
+  Use `use Omni.Provider` with a required `:id` option — the provider's
+  canonical id, its [models.dev](https://models.dev) catalog key snake_cased
+  as an atom — and typically a `:dialect`. The only required callback is
+  `config/0`; models load automatically from the configured model source
+  (see `Omni.Source`) under the provider's id:
 
-      defmodule MyApp.Providers.Acme do
-        use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+      defmodule MyApp.Providers.Mistral do
+        use Omni.Provider,
+          id: :mistral,
+          dialect: Omni.Dialects.OpenAICompletions
 
         @impl true
         def config do
           %{
-            base_url: "https://api.acme.ai",
-            api_key: {:system, "ACME_API_KEY"}
+            base_url: "https://api.mistral.ai",
+            api_key: {:system, "MISTRAL_API_KEY"}
           }
-        end
-
-        @impl true
-        def models do
-          [
-            Omni.Model.new(
-              id: "acme-7b",
-              name: "Acme 7B",
-              provider: __MODULE__,
-              dialect: dialect(),
-              context_size: 128_000,
-              max_output_tokens: 4096
-            )
-          ]
         end
       end
 
-  The `use` macro generates a `dialect/0` accessor from the provided module (or
-  `nil` when omitted) and default implementations for all optional callbacks.
-  Override only what your provider needs — most providers are just `config/0`
-  and `models/0`.
+  The `use` macro generates `id/0` and `dialect/0` accessors (dialect is
+  `nil` when omitted) and default implementations for all optional
+  callbacks. Override only what your provider needs — most providers are
+  just `config/0`.
+
+  Override `models/0` to adjust what the source returns, or to skip catalog
+  loading entirely — see `c:models/0`. The decision rule: implement an
+  `Omni.Source` when you're replacing the *data supply* (reusable across
+  providers, user-configurable); override `models/0` when one provider needs
+  local adjustments or its own loading path.
 
   ## The request pipeline
 
@@ -93,7 +90,7 @@ defmodule Omni.Provider do
   | Callback | Required? | Default |
   |---|---|---|
   | `config/0` | yes | — |
-  | `models/0` | no | `[]` |
+  | `models/0` | no | loads from the configured model source |
   | `build_url/2` | no | `opts.base_url <> path` |
   | `authenticate/2` | no | resolves `opts.api_key`, sets header |
   | `modify_body/3` | no | passthrough |
@@ -149,16 +146,11 @@ defmodule Omni.Provider do
   These providers omit the `:dialect` option:
 
       defmodule MyApp.Providers.Gateway do
-        use Omni.Provider
+        use Omni.Provider, id: :gateway
 
         @impl true
         def config do
           %{base_url: "https://gateway.example.com", api_key: {:system, "GW_KEY"}}
-        end
-
-        @impl true
-        def models do
-          Omni.Provider.load_models(__MODULE__, provider_id: :gateway)
         end
       end
 
@@ -183,6 +175,13 @@ defmodule Omni.Provider do
   the user's provider-specific config beats the call site here, because the
   call site is provider-author code rather than end-user code.
 
+  Sources look the provider up by its canonical id — the module's `id/0` by
+  default. To load from a different catalog entry, set `provider_id:` in the
+  source's opts:
+
+      config :omni, MyApp.Providers.Gateway,
+        source: {Omni.Sources.ModelsDev, provider_id: :mistral}
+
   ## Choosing a dialect
 
   Pick the dialect that matches your provider's wire format:
@@ -199,43 +198,49 @@ defmodule Omni.Provider do
 
   ## Registering a provider
 
-  All built-in providers are loaded at startup. To restrict which built-ins
-  load, or to add custom providers, use the `providers:` key of the `:models`
-  config (bare atoms name built-ins; `{id, module}` pairs register custom
-  providers; the default is `:all`):
+  All built-in providers are loaded at startup. To restrict which providers
+  load, or to add custom ones, set the `providers:` key of the `:models`
+  config to a list of provider modules — `:all` (the default) names all
+  built-ins and may also appear inside the list:
 
       config :omni, :models,
         providers: [
-          :anthropic,
-          :openai,
-          acme: MyApp.Providers.Acme
+          Omni.Providers.Anthropic,
+          Omni.Providers.OpenAI,
+          MyApp.Providers.Acme
         ]
+
+      # or: all built-ins plus a custom provider
+      config :omni, :models,
+        providers: [:all, MyApp.Providers.Acme]
 
   To load a provider at runtime without restarting:
 
-      Omni.Provider.load(acme: MyApp.Providers.Acme)
+      Omni.Provider.load([MyApp.Providers.Acme])
 
-  The provider's models are then available via `Omni.get_model(:acme, "acme-7b")`.
+  The provider's models are then available under its id, e.g.
+  `Omni.get_model(:acme, "acme-7b")`.
   """
 
   require Logger
 
   alias Omni.Model
 
-  @builtin_providers %{
-    alibaba: Omni.Providers.Alibaba,
-    anthropic: Omni.Providers.Anthropic,
-    google: Omni.Providers.Google,
-    groq: Omni.Providers.Groq,
-    moonshot: Omni.Providers.Moonshot,
-    nearai: Omni.Providers.NearAI,
-    ollama: Omni.Providers.Ollama,
-    openai: Omni.Providers.OpenAI,
-    opencode: Omni.Providers.OpenCode,
-    openrouter: Omni.Providers.OpenRouter,
-    venice: Omni.Providers.Venice,
-    zai: Omni.Providers.Zai
-  }
+  @builtins [
+    Omni.Providers.Alibaba,
+    Omni.Providers.Anthropic,
+    Omni.Providers.Google,
+    Omni.Providers.Groq,
+    Omni.Providers.MoonshotAI,
+    Omni.Providers.NearAI,
+    Omni.Providers.Ollama,
+    Omni.Providers.OllamaCloud,
+    Omni.Providers.OpenAI,
+    Omni.Providers.OpenCode,
+    Omni.Providers.OpenRouter,
+    Omni.Providers.Venice,
+    Omni.Providers.Zai
+  ]
 
   @doc """
   Returns the provider's base configuration map.
@@ -262,16 +267,20 @@ defmodule Omni.Provider do
   @doc """
   Returns the provider's list of model structs.
 
-  Built-in providers call `load_models/2`, which pulls catalog data from the
-  configured model source (see `Omni.Source`). Custom providers can do the
-  same with a `provider_id:` naming their entry in the source's catalog:
+  Default: `Omni.Provider.load_models(__MODULE__)` — catalog data from the
+  configured model source (see `Omni.Source`), looked up under the module's
+  `id/0`. Most providers don't override this.
+
+  Override to post-process what the source returns:
 
       @impl true
       def models do
-        Omni.Provider.load_models(__MODULE__, provider_id: :acme)
+        __MODULE__
+        |> Omni.Provider.load_models()
+        |> Enum.map(&add_pdf_modality/1)
       end
 
-  Or build model structs directly:
+  Or to bypass catalog loading and build model structs directly:
 
       @impl true
       def models do
@@ -286,8 +295,6 @@ defmodule Omni.Provider do
           )
         ]
       end
-
-  Default: `[]` (no models).
   """
   @callback models() :: [Model.t()]
 
@@ -393,23 +400,25 @@ defmodule Omni.Provider do
   @doc """
   Loads providers' models into `:persistent_term`.
 
-  Accepts a list of built-in provider atoms or `{id, module}` tuples for
-  custom providers. Models are merged with any existing entries for that
-  provider, so calling `load/1` multiple times is safe.
+  Accepts a list of provider modules. Each provider's models are stored under
+  its `id/0` and merged with any existing entries, so calling `load/1`
+  multiple times is safe. Raises when two different modules declare the same
+  id.
 
       # Load a built-in provider on demand
-      Omni.Provider.load([:openrouter])
+      Omni.Provider.load([Omni.Providers.OpenRouter])
 
       # Load a custom provider
-      Omni.Provider.load(my_llm: MyApp.Providers.CustomLLM)
+      Omni.Provider.load([MyApp.Providers.CustomLLM])
   """
-  @spec load([atom() | {atom(), module()}]) :: :ok
-  def load(providers) when is_list(providers) do
+  @spec load([module()]) :: :ok
+  def load(modules) when is_list(modules) do
     # The cache scope lets sources share expensive work (like decoding a
     # catalog snapshot) across the pass and release it when the pass ends.
     Omni.Source.with_cache(fn ->
-      for provider <- providers do
-        {id, mod} = normalize_provider(provider)
+      for mod <- modules do
+        id = mod.id()
+        register_id!(id, mod)
 
         models =
           try do
@@ -424,35 +433,45 @@ defmodule Omni.Provider do
         model_map = Map.new(models, &{&1.id, &1})
         existing = :persistent_term.get({Omni, id}, %{})
         :persistent_term.put({Omni, id}, Map.merge(existing, model_map))
-
-        existing_ids = :persistent_term.get({Omni, :provider_ids}, %{})
-        :persistent_term.put({Omni, :provider_ids}, Map.put(existing_ids, mod, id))
       end
     end)
 
     :ok
   end
 
-  @doc false
-  def builtin_providers, do: @builtin_providers
+  # Two modules sharing an id would silently merge their models into one
+  # bucket — always a bug, so it raises.
+  defp register_id!(id, mod) do
+    loaded = :persistent_term.get({Omni, :loaded_providers}, %{})
 
-  defp normalize_provider({_id, _mod} = pair), do: pair
-
-  defp normalize_provider(id) when is_atom(id) do
-    case @builtin_providers[id] do
+    case Map.get(loaded, id) do
       nil ->
-        raise ArgumentError,
-              "unknown built-in provider #{inspect(id)} — " <>
-                "use {id, module} for custom providers"
+        :persistent_term.put({Omni, :loaded_providers}, Map.put(loaded, id, mod))
 
-      mod ->
-        {id, mod}
+      ^mod ->
+        :ok
+
+      other ->
+        raise ArgumentError,
+              "cannot load #{inspect(mod)}: provider id #{inspect(id)} is already registered by #{inspect(other)}"
     end
   end
 
+  @doc """
+  Returns the list of built-in provider modules.
+
+  Useful for config arithmetic — for example, loading all built-ins except a
+  few:
+
+      config :omni, :models,
+        providers: Omni.Provider.builtins() -- [Omni.Providers.Venice]
+  """
+  @spec builtins() :: [module()]
+  def builtins, do: @builtins
+
   @doc false
-  @spec providers_from_config(term()) :: [atom() | {atom(), module()}]
-  def providers_from_config(nil), do: Map.keys(@builtin_providers)
+  @spec providers_from_config(term()) :: [module()]
+  def providers_from_config(nil), do: @builtins
 
   def providers_from_config(config) when is_list(config) do
     if Keyword.keyword?(config) and
@@ -465,13 +484,34 @@ defmodule Omni.Provider do
 
   def providers_from_config(config), do: raise(ArgumentError, config_migration_message(config))
 
-  defp expand_providers(:all), do: Map.keys(@builtin_providers)
-  defp expand_providers(providers) when is_list(providers), do: providers
+  defp expand_providers(:all), do: @builtins
+
+  defp expand_providers(providers) when is_list(providers) do
+    providers
+    |> Enum.flat_map(fn
+      :all -> @builtins
+      other -> [validate_provider_module!(other)]
+    end)
+    |> Enum.uniq()
+  end
 
   defp expand_providers(other) do
     raise ArgumentError,
           "invalid providers: value #{inspect(other)} in config :omni, :models — " <>
-            "expected :all or a list of provider atoms / {id, module} pairs"
+            "expected :all or a list of provider modules (:all may appear in the list " <>
+            "to include all built-ins)"
+  end
+
+  defp validate_provider_module!(mod) do
+    if is_atom(mod) and Code.ensure_loaded?(mod) and function_exported?(mod, :id, 0) do
+      mod
+    else
+      raise ArgumentError,
+            "invalid provider #{inspect(mod)} in config :omni, :models — providers: " <>
+              "entries are modules that use Omni.Provider (bare ids like :openai and " <>
+              "{id, module} pairs are no longer accepted; use the module name, e.g. " <>
+              "Omni.Providers.OpenAI)"
+    end
   end
 
   @doc false
@@ -486,8 +526,9 @@ defmodule Omni.Provider do
             # optional — an Omni.Source module or {module, opts};
             # default Omni.Sources.ModelsDev
             source: Omni.Sources.ModelsDev,
-            # :all (the default), or built-in ids and {id, module} pairs
-            providers: [:anthropic, :openai, acme: MyApp.Acme]
+            # :all (the default), or a list of provider modules
+            # (:all may appear in the list to include all built-ins)
+            providers: [:all, MyApp.Providers.Acme]
 
     Got: #{inspect(config)}
     """
@@ -503,19 +544,21 @@ defmodule Omni.Provider do
   entry — a warning is logged and `[]` is returned; models never silently
   load from a source the user didn't configure.
 
+  The provider's identity in the source's catalog defaults to the module's
+  `id/0` (declared via `use Omni.Provider, id: ...`); a `provider_id:` in the
+  source's own opts overrides it, so a provider can be pointed at a different
+  catalog entry per source: `{MySource, provider_id: :other}`.
+
   ## Options
 
     * `:source` — a source override for this call: a module or a
       `{module, opts}` tuple. Intended for provider authors setting their
       provider's default source; user config for the provider module still
       wins.
-    * `:provider_id` — the caller's identity in the source's catalog. Required
-      for custom providers, which cannot be looked up in
-      `builtin_providers/0`.
 
-  All options (except `:source`) are passed through to the source's `fetch/2`,
-  merged over the source's own configured opts, so sources can define
-  additional call-site options.
+  All other options are passed through to the source's `fetch/2`, merged over
+  the source's own configured opts, so sources can define additional
+  call-site options.
   """
   @spec load_models(module(), keyword()) :: [Model.t()]
   def load_models(module, opts \\ [])
@@ -525,18 +568,20 @@ defmodule Omni.Provider do
     load_models/2 no longer accepts a file path (got #{inspect(file)} for \
     #{inspect(module)}).
 
-    Model data now comes from pluggable sources (see Omni.Source). To load \
-    this provider's models from the configured source's catalog:
-
-        def models, do: Omni.Provider.load_models(__MODULE__, provider_id: :your_catalog_id)
-
-    Or build %Omni.Model{} structs directly in models/0.
+    Model data now comes from pluggable sources (see Omni.Source). The \
+    default models/0 already loads this provider's models from the \
+    configured source's catalog under the module's id. Or build \
+    %Omni.Model{} structs directly in models/0.
     """
   end
 
   def load_models(module, opts) when is_list(opts) do
     {source, source_opts} = resolve_source(module, opts)
-    fetch_opts = Keyword.merge(source_opts, Keyword.delete(opts, :source))
+
+    fetch_opts =
+      [provider_id: module.id()]
+      |> Keyword.merge(source_opts)
+      |> Keyword.merge(Keyword.delete(opts, :source))
 
     case source.fetch(module, fetch_opts) do
       {:ok, models} ->
@@ -546,9 +591,8 @@ defmodule Omni.Provider do
         Logger.warning(
           "failed to load models for #{inspect(module)}: #{inspect(source)} returned " <>
             "#{inspect(reason)} (provider_id: #{inspect(fetch_opts[:provider_id])}) — " <>
-            "returning no models. Custom providers must pass provider_id: to " <>
-            "load_models/2; to use a different source for this provider: " <>
-            "config :omni, #{inspect(module)}, source: MySource"
+            "returning no models. To load from a different catalog entry or source: " <>
+            "config :omni, #{inspect(module)}, source: {MySource, provider_id: :catalog_id}"
         )
 
         []
@@ -649,16 +693,27 @@ defmodule Omni.Provider do
   defp parse_date(_), do: nil
 
   defmacro __using__(opts) do
+    id = Keyword.get(opts, :id)
     dialect = Keyword.get(opts, :dialect)
+
+    unless is_atom(id) and not is_nil(id) do
+      raise ArgumentError,
+            "use Omni.Provider requires an id: option — the provider's canonical id " <>
+              "as a literal atom (its models.dev catalog key, snake_cased), e.g. " <>
+              "use Omni.Provider, id: :mistral"
+    end
 
     quote do
       @behaviour Omni.Provider
 
       @doc false
+      def id, do: unquote(id)
+
+      @doc false
       def dialect, do: unquote(dialect)
 
       @impl Omni.Provider
-      def models, do: []
+      def models, do: Omni.Provider.load_models(__MODULE__)
 
       @impl Omni.Provider
       def build_url(path, opts), do: opts.base_url <> path

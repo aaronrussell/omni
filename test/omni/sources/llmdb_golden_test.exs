@@ -18,7 +18,7 @@ if Code.ensure_loaded?(LLMDB) do
 
       models =
         Omni.Source.with_cache(fn ->
-          Map.new(Omni.Provider.builtin_providers(), fn {id, mod} -> {id, mod.models()} end)
+          Map.new(Omni.Provider.builtins(), fn mod -> {mod.id(), mod.models()} end)
         end)
 
       %{models: models}
@@ -40,9 +40,11 @@ if Code.ensure_loaded?(LLMDB) do
       anthropic: 8..40,
       google: 5..28,
       groq: 3..20,
-      moonshot: 4..25,
+      moonshotai: 4..25,
       nearai: 15..85,
-      ollama: 20..100,
+      # local instance — models come from user config, never a catalog
+      ollama: 0..0,
+      ollama_cloud: 20..100,
       openai: 20..100,
       opencode: 35..180,
       openrouter: 120..640,
@@ -57,7 +59,8 @@ if Code.ensure_loaded?(LLMDB) do
     end
 
     test "every built-in provider loads a model set within the expected range", %{models: models} do
-      for {id, _mod} <- Omni.Provider.builtin_providers() do
+      for mod <- Omni.Provider.builtins() do
+        id = mod.id()
         count = length(models[id])
         range = Map.fetch!(@expected_counts, id)
 
@@ -70,7 +73,7 @@ if Code.ensure_loaded?(LLMDB) do
       supported_input = Omni.Model.supported_modalities(:input)
       supported_output = Omni.Model.supported_modalities(:output)
 
-      for {id, mod} <- Omni.Provider.builtin_providers(), model <- models[id] do
+      for mod <- Omni.Provider.builtins(), id = mod.id(), model <- models[id] do
         assert is_binary(model.id), "#{id}: model without a string id: #{inspect(model)}"
         assert model.provider == mod, "#{id}:#{model.id}: provider not stamped"
         assert model.dialect in @known_dialects, "#{id}:#{model.id}: bad dialect"
@@ -87,16 +90,17 @@ if Code.ensure_loaded?(LLMDB) do
     end
 
     test "model ids are unique per provider after alias expansion", %{models: models} do
-      for {id, _mod} <- Omni.Provider.builtin_providers() do
+      for mod <- Omni.Provider.builtins() do
+        id = mod.id()
         ids = Enum.map(models[id], & &1.id)
 
         assert ids == Enum.uniq(ids), "#{id}: duplicate model ids after alias expansion"
       end
     end
 
-    test "ollama models carry the native dialect", %{models: models} do
-      assert models[:ollama] != []
-      assert Enum.all?(models[:ollama], &(&1.dialect == Omni.Dialects.OllamaChat))
+    test "ollama cloud models carry the native dialect", %{models: models} do
+      assert models[:ollama_cloud] != []
+      assert Enum.all?(models[:ollama_cloud], &(&1.dialect == Omni.Dialects.OllamaChat))
     end
 
     test "venice models are enriched with the :pdf input modality", %{models: models} do

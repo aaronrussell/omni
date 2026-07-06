@@ -19,7 +19,7 @@ defmodule Integration.MoonshotTest do
   end
 
   defp model do
-    {:ok, model} = Omni.get_model(:moonshot, "kimi-k2.6")
+    {:ok, model} = Omni.get_model(:moonshotai, "kimi-k2.6")
     model
   end
 

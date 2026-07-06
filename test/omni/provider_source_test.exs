@@ -9,7 +9,7 @@ defmodule Omni.ProviderSourceTest do
   alias Omni.Test.StubSource
 
   defmodule CustomProvider do
-    use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+    use Omni.Provider, id: :custom, dialect: Omni.Dialects.OpenAICompletions
 
     @impl true
     def config, do: %{base_url: "https://api.custom.test", api_key: nil}
@@ -26,24 +26,19 @@ defmodule Omni.ProviderSourceTest do
     end
   end
 
+  # Both rely on the default models/0, which calls load_models/2.
   defmodule LoadingProviderA do
-    use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+    use Omni.Provider, id: :loading_a, dialect: Omni.Dialects.OpenAICompletions
 
     @impl true
     def config, do: %{base_url: "https://a.test", api_key: nil}
-
-    @impl true
-    def models, do: Omni.Provider.load_models(__MODULE__)
   end
 
   defmodule LoadingProviderB do
-    use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+    use Omni.Provider, id: :loading_b, dialect: Omni.Dialects.OpenAICompletions
 
     @impl true
     def config, do: %{base_url: "https://b.test", api_key: nil}
-
-    @impl true
-    def models, do: Omni.Provider.load_models(__MODULE__)
   end
 
   setup do
@@ -104,40 +99,56 @@ defmodule Omni.ProviderSourceTest do
     test "source opts merge with call-site opts, call-site winning" do
       source = {StubSource, notify: self(), tier: :source, keep: :source}
 
-      Provider.load_models(CustomProvider, source: source, tier: :call_site, provider_id: :acme)
+      Provider.load_models(CustomProvider, source: source, tier: :call_site)
 
       assert_received {:fetch, CustomProvider, opts}
       assert opts[:tier] == :call_site
       assert opts[:keep] == :source
-      assert opts[:provider_id] == :acme
       refute Keyword.has_key?(opts, :source)
+    end
+
+    test "provider_id defaults to the module's id" do
+      Provider.load_models(CustomProvider, source: {StubSource, notify: self()})
+
+      assert_received {:fetch, CustomProvider, opts}
+      assert opts[:provider_id] == :custom
+    end
+
+    test "provider_id in source opts overrides the module's id" do
+      Provider.load_models(
+        CustomProvider,
+        source: {StubSource, notify: self(), provider_id: :acme}
+      )
+
+      assert_received {:fetch, CustomProvider, opts}
+      assert opts[:provider_id] == :acme
     end
   end
 
   describe "load/1 as a cache pass" do
     setup do
       on_exit(fn ->
-        :persistent_term.erase({Omni, :memo_a})
-        :persistent_term.erase({Omni, :memo_b})
+        :persistent_term.erase({Omni, :loading_a})
+        :persistent_term.erase({Omni, :loading_b})
       end)
     end
 
     test "memo'd source work is shared within a pass and released between passes" do
       Application.put_env(:omni, :models, source: {MemoSource, notify: self()})
 
-      Provider.load(memo_a: LoadingProviderA, memo_b: LoadingProviderB)
+      Provider.load([LoadingProviderA, LoadingProviderB])
       assert_received {:memo_value, first_a}
       assert_received {:memo_value, first_b}
       assert first_a == first_b
 
-      Provider.load(memo_a: LoadingProviderA)
+      Provider.load([LoadingProviderA])
       assert_received {:memo_value, second_a}
       refute second_a == first_a
     end
   end
 
   describe "failure policy" do
-    test "custom module without provider_id warns and returns no models" do
+    test "a module whose id is not in the catalog warns and returns no models" do
       log =
         capture_log(fn ->
           assert Provider.load_models(CustomProvider) == []
@@ -145,15 +156,19 @@ defmodule Omni.ProviderSourceTest do
 
       assert log =~ ":unknown_provider"
       assert log =~ "CustomProvider"
-      assert log =~ "provider_id"
+      assert log =~ "provider_id: :custom"
     end
 
     test "a source error logs the source, reason, and provider_id tried" do
-      Application.put_env(:omni, :models, source: stub({:error, :boom}))
+      Application.put_env(
+        :omni,
+        :models,
+        source: {StubSource, return: {:error, :boom}, provider_id: :acme}
+      )
 
       log =
         capture_log(fn ->
-          assert Provider.load_models(CustomProvider, provider_id: :acme) == []
+          assert Provider.load_models(CustomProvider) == []
         end)
 
       assert log =~ ":boom"

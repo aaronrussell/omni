@@ -25,7 +25,7 @@ defmodule Omni.RequestTest do
   end
 
   defmodule TestProvider do
-    use Omni.Provider, dialect: Omni.RequestTest.DummyDialect
+    use Omni.Provider, id: :request_test, dialect: Omni.RequestTest.DummyDialect
 
     @impl true
     def config do
@@ -39,7 +39,7 @@ defmodule Omni.RequestTest do
   end
 
   defmodule AugmentingProvider do
-    use Omni.Provider, dialect: Omni.RequestTest.DummyDialect
+    use Omni.Provider, id: :request_test_augmenting, dialect: Omni.RequestTest.DummyDialect
 
     @impl true
     def config do

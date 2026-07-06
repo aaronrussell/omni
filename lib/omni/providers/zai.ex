@@ -28,7 +28,7 @@ defmodule Omni.Providers.Zai do
   fallback.
   """
 
-  use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+  use Omni.Provider, id: :zai, dialect: Omni.Dialects.OpenAICompletions
 
   @impl true
   def config do
@@ -36,11 +36,6 @@ defmodule Omni.Providers.Zai do
       base_url: "https://api.z.ai/api/paas",
       api_key: {:system, "ZAI_API_KEY"}
     }
-  end
-
-  @impl true
-  def models do
-    Omni.Provider.load_models(__MODULE__)
   end
 
   @impl true

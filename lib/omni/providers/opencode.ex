@@ -22,7 +22,7 @@ defmodule Omni.Providers.OpenCode do
   `:base_url`. See `Omni.Provider` for details.
   """
 
-  use Omni.Provider
+  use Omni.Provider, id: :opencode
 
   @impl true
   def config do
@@ -30,11 +30,6 @@ defmodule Omni.Providers.OpenCode do
       base_url: "https://opencode.ai/zen",
       api_key: {:system, "OPENCODE_API_KEY"}
     }
-  end
-
-  @impl true
-  def models do
-    Omni.Provider.load_models(__MODULE__)
   end
 
   @impl true

@@ -17,7 +17,7 @@ defmodule Omni.Providers.Anthropic do
   `:base_url`, `:headers`. See `Omni.Provider` for details.
   """
 
-  use Omni.Provider, dialect: Omni.Dialects.AnthropicMessages
+  use Omni.Provider, id: :anthropic, dialect: Omni.Dialects.AnthropicMessages
 
   @impl true
   def config do
@@ -27,10 +27,5 @@ defmodule Omni.Providers.Anthropic do
       api_key: {:system, "ANTHROPIC_API_KEY"},
       headers: %{"anthropic-version" => "2023-06-01"}
     }
-  end
-
-  @impl true
-  def models do
-    Omni.Provider.load_models(__MODULE__)
   end
 end

@@ -11,14 +11,14 @@ if Code.ensure_loaded?(LLMDB) do
     alias Omni.Sources.LLMDB, as: Source
 
     defmodule CompletionsProvider do
-      use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+      use Omni.Provider, id: :completions_test, dialect: Omni.Dialects.OpenAICompletions
 
       @impl true
       def config, do: %{base_url: "https://api.test.com", api_key: nil}
     end
 
     defmodule GatewayProvider do
-      use Omni.Provider
+      use Omni.Provider, id: :gateway_test
 
       @impl true
       def config, do: %{base_url: "https://api.test.com", api_key: nil}
@@ -356,25 +356,29 @@ if Code.ensure_loaded?(LLMDB) do
     end
 
     describe "fetch/2 against the llm_db catalog" do
-      test "loads models for a built-in provider module with its declared dialect" do
-        assert {:ok, models} = Source.fetch(Omni.Providers.Anthropic, [])
+      test "loads models under the given provider_id with the declared dialect" do
+        assert {:ok, models} =
+                 Source.fetch(Omni.Providers.Anthropic, provider_id: :anthropic)
 
         assert models != []
         assert Enum.all?(models, &(&1.provider == Omni.Providers.Anthropic))
         assert Enum.all?(models, &(&1.dialect == Omni.Dialects.AnthropicMessages))
       end
 
-      test "applies catalog renames for moonshot and ollama" do
-        assert {:ok, [_ | _]} = Source.fetch(Omni.Providers.Moonshot, [])
-        assert {:ok, [_ | _] = ollama} = Source.fetch(Omni.Providers.Ollama, [])
+      test "canonical ids are llm_db catalog ids verbatim" do
+        assert {:ok, [_ | _]} = Source.fetch(CompletionsProvider, provider_id: :moonshotai)
+
+        assert {:ok, [_ | _] = ollama} =
+                 Source.fetch(CompletionsProvider, provider_id: :ollama_cloud)
 
         # The catalog reports Ollama's OpenAI-compatible endpoint; the native
-        # dialect preference is re-applied by the provider's models/0.
+        # dialect preference is re-applied by OllamaCloud's models/0.
         assert Enum.all?(ollama, &(&1.dialect == Omni.Dialects.OpenAICompletions))
       end
 
       test "resolves every opencode model through npm or the gateway fallback" do
-        assert {:ok, [_ | _] = models} = Source.fetch(Omni.Providers.OpenCode, [])
+        assert {:ok, [_ | _] = models} =
+                 Source.fetch(Omni.Providers.OpenCode, provider_id: :opencode)
 
         assert Enum.all?(models, &is_atom(&1.dialect))
       end
@@ -382,19 +386,18 @@ if Code.ensure_loaded?(LLMDB) do
       test "provider_id: resolves any catalog id for a custom module" do
         assert {:ok, [_ | _] = models} = Source.fetch(CompletionsProvider, provider_id: :mistral)
         assert Enum.all?(models, &(&1.provider == CompletionsProvider))
-
-        assert {:ok, [_ | _]} = Source.fetch(CompletionsProvider, provider_id: "mistral")
       end
 
       test "returns :unknown_provider for a catalog id llm_db doesn't know" do
         assert {:error, :unknown_provider} =
                  Source.fetch(CompletionsProvider, provider_id: :does_not_exist)
 
+        # binaries are not accepted — llm_db ids are atoms
         assert {:error, :unknown_provider} =
-                 Source.fetch(CompletionsProvider, provider_id: "no_such_provider_atom_exists")
+                 Source.fetch(CompletionsProvider, provider_id: "mistral")
       end
 
-      test "returns :unknown_provider for a custom module without provider_id" do
+      test "returns :unknown_provider when provider_id is absent" do
         assert {:error, :unknown_provider} = Source.fetch(CompletionsProvider, [])
       end
     end

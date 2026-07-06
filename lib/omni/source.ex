@@ -18,13 +18,18 @@ defmodule Omni.Source do
 
   ## The `fetch/2` contract
 
-  `c:fetch/2` receives the provider module and a keyword list of options —
-  the source's configured opts (from `{module, opts}` config) merged with
-  the call-site opts passed to `Omni.Provider.load_models/2`, call-site
-  winning. All options are passed through, so sources may define their own;
-  every source should honor `:provider_id`, the caller's identity in the
-  source's catalog (used by custom providers, which cannot be reverse-looked-up
-  in `Omni.Provider.builtin_providers/0`).
+  `c:fetch/2` receives the provider module and a keyword list of options.
+  `Omni.Provider.load_models/2` builds the options in layers: the module's
+  canonical id as `provider_id:`, then the source's configured opts (from
+  `{module, opts}` config), then the remaining call-site opts — later
+  layers winning. All options are passed through, so sources may define
+  their own.
+
+  Every source must honor `:provider_id` — the provider's canonical Omni
+  id, a snake_cased models.dev catalog key (`:anthropic`, `:fireworks_ai`).
+  Translating it to the source's native catalog key is the source's job:
+  `Omni.Sources.ModelsDev` hyphenates it, `Omni.Sources.LLMDB` uses it
+  verbatim.
 
   On success, return `{:ok, models}` — an empty list is a valid result
   (a known provider whose models were all filtered out). Return

@@ -43,9 +43,12 @@ defmodule Omni do
 
   You can also pass `:api_key` directly to `generate_text/3` or `stream_text/3`.
 
-  All built-in providers are loaded by default. To limit what loads at startup:
+  All built-in providers are loaded by default. To limit what loads at
+  startup, list provider modules (`:all` names all built-ins and may appear
+  in the list):
 
-      config :omni, :models, providers: [:anthropic, :openai]
+      config :omni, :models,
+        providers: [Omni.Providers.Anthropic, Omni.Providers.OpenAI]
 
   ## Text generation
 

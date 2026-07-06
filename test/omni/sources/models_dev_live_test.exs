@@ -9,7 +9,7 @@ defmodule Omni.Sources.ModelsDevLiveTest do
   alias Omni.Sources.ModelsDev
 
   defmodule LiveProvider do
-    use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+    use Omni.Provider, id: :livetest, dialect: Omni.Dialects.OpenAICompletions
 
     @impl true
     def config, do: %{base_url: "https://api.test.com", api_key: nil}
@@ -134,12 +134,13 @@ defmodule Omni.Sources.ModelsDevLiveTest do
           ModelsDev.fetch(Omni.Providers.OpenAI,
             live: true,
             cache_dir: tmp_dir,
-            plug: transport_error(:timeout)
+            plug: transport_error(:timeout),
+            provider_id: :openai
           )
         end)
 
       assert log =~ "falling back to the bundled snapshot"
-      assert result == ModelsDev.fetch(Omni.Providers.OpenAI, [])
+      assert result == ModelsDev.fetch(Omni.Providers.OpenAI, provider_id: :openai)
     end
   end
 
@@ -216,19 +217,20 @@ defmodule Omni.Sources.ModelsDevLiveTest do
         ModelsDev.fetch(Omni.Providers.OpenAI,
           cache_dir: tmp_dir,
           cache_ttl: 0,
-          plug: poisoned()
+          plug: poisoned(),
+          provider_id: :openai
         )
 
-      assert result == ModelsDev.fetch(Omni.Providers.OpenAI, [])
+      assert result == ModelsDev.fetch(Omni.Providers.OpenAI, provider_id: :openai)
       refute_received :fetched
       refute File.exists?(Path.join(tmp_dir, @cache_file))
     end
 
     test "live opts survive the load_models/2 source resolution path", %{tmp_dir: tmp_dir} do
+      # provider_id comes from LiveProvider.id() — the default flow.
       models =
         Omni.Provider.load_models(LiveProvider,
-          source: {ModelsDev, live: true, cache_dir: tmp_dir, plug: serve(catalog_body(["e2e"]))},
-          provider_id: :livetest
+          source: {ModelsDev, live: true, cache_dir: tmp_dir, plug: serve(catalog_body(["e2e"]))}
         )
 
       assert Enum.map(models, & &1.id) == ["e2e"]

@@ -46,7 +46,7 @@ defmodule Omni.Providers.Alibaba do
   prompt fallback.
   """
 
-  use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+  use Omni.Provider, id: :alibaba, dialect: Omni.Dialects.OpenAICompletions
 
   @impl true
   def config do
@@ -54,11 +54,6 @@ defmodule Omni.Providers.Alibaba do
       base_url: "https://dashscope-intl.aliyuncs.com/compatible-mode",
       api_key: {:system, "DASHSCOPE_API_KEY"}
     }
-  end
-
-  @impl true
-  def models do
-    Omni.Provider.load_models(__MODULE__)
   end
 
   @impl true

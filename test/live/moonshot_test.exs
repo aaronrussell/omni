@@ -4,7 +4,7 @@ defmodule Live.MoonshotTest do
   @moduletag :live
   @moduletag timeout: 120_000
 
-  @model {:moonshot, "kimi-k2.6"}
+  @model {:moonshotai, "kimi-k2.6"}
 
   test "text generation" do
     LiveTests.text_generation(@model, thinking: false)

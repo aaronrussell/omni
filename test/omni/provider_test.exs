@@ -24,7 +24,7 @@ defmodule Omni.ProviderTest do
   end
 
   defmodule TestProvider do
-    use Omni.Provider, dialect: Omni.ProviderTest.DummyDialect
+    use Omni.Provider, id: :test_provider, dialect: Omni.ProviderTest.DummyDialect
 
     @impl true
     def config do
@@ -37,8 +37,15 @@ defmodule Omni.ProviderTest do
     end
   end
 
+  defmodule DuplicateIdProvider do
+    use Omni.Provider, id: :test_provider
+
+    @impl true
+    def config, do: %{base_url: "https://dup.test"}
+  end
+
   defmodule MultiDialectProvider do
-    use Omni.Provider
+    use Omni.Provider, id: :multi_dialect
 
     @impl true
     def config do
@@ -56,6 +63,11 @@ defmodule Omni.ProviderTest do
                               )
 
   describe "__using__/1 macro" do
+    test "id/0 returns the declared canonical id" do
+      assert TestProvider.id() == :test_provider
+      assert MultiDialectProvider.id() == :multi_dialect
+    end
+
     test "dialect/0 returns the configured dialect module" do
       assert TestProvider.dialect() == DummyDialect
     end
@@ -64,8 +76,14 @@ defmodule Omni.ProviderTest do
       assert MultiDialectProvider.dialect() == nil
     end
 
-    test "models/0 returns empty list by default" do
-      assert TestProvider.models() == []
+    test "models/0 defaults to loading from the model source under the module id" do
+      # :test_provider is not a catalog entry — the default implementation
+      # reaches the source, which warns and yields no models.
+      {result, log} = ExUnit.CaptureLog.with_log(fn -> TestProvider.models() end)
+
+      assert result == []
+      assert log =~ "failed to load models for Omni.ProviderTest.TestProvider"
+      assert log =~ ":unknown_provider"
     end
 
     test "build_url/2 concatenates base URL from opts and path" do
@@ -247,28 +265,40 @@ defmodule Omni.ProviderTest do
 
   describe "providers_from_config/1" do
     test "nil loads all built-in providers" do
-      assert Provider.providers_from_config(nil) ==
-               Map.keys(Provider.builtin_providers())
+      assert Provider.providers_from_config(nil) == Provider.builtins()
     end
 
     test "providers: defaults to :all" do
       assert Provider.providers_from_config(source: Omni.Sources.ModelsDev) ==
-               Map.keys(Provider.builtin_providers())
+               Provider.builtins()
 
-      assert Provider.providers_from_config([]) == Map.keys(Provider.builtin_providers())
+      assert Provider.providers_from_config([]) == Provider.builtins()
     end
 
     test "providers: :all expands to all built-in providers" do
-      assert Provider.providers_from_config(providers: :all) ==
-               Map.keys(Provider.builtin_providers())
+      assert Provider.providers_from_config(providers: :all) == Provider.builtins()
     end
 
-    test "providers: passes a provider list through" do
-      assert Provider.providers_from_config(providers: [:anthropic, :openai]) ==
-               [:anthropic, :openai]
+    test "providers: passes a module list through" do
+      assert Provider.providers_from_config(providers: [Omni.Providers.Anthropic, TestProvider]) ==
+               [Omni.Providers.Anthropic, TestProvider]
+    end
 
-      assert Provider.providers_from_config(providers: [:anthropic, acme: TestProvider]) ==
-               [:anthropic, {:acme, TestProvider}]
+    test "providers: expands :all inside the list" do
+      assert Provider.providers_from_config(providers: [:all, TestProvider]) ==
+               Provider.builtins() ++ [TestProvider]
+    end
+
+    test "raises on bare provider-id atoms" do
+      assert_raise ArgumentError, ~r/no longer accepted/, fn ->
+        Provider.providers_from_config(providers: [:anthropic, :openai])
+      end
+    end
+
+    test "raises on {id, module} pairs" do
+      assert_raise ArgumentError, ~r/no longer accepted/, fn ->
+        Provider.providers_from_config(providers: [acme: TestProvider])
+      end
     end
 
     test "raises on an invalid providers: value" do
@@ -302,7 +332,7 @@ defmodule Omni.ProviderTest do
     setup do
       on_exit(fn ->
         try do
-          :persistent_term.erase({Omni, :test_load})
+          :persistent_term.erase({Omni, :test_provider})
         rescue
           ArgumentError -> :ok
         end
@@ -311,8 +341,8 @@ defmodule Omni.ProviderTest do
       :ok
     end
 
-    test "loads models into persistent_term for a builtin provider atom" do
-      Provider.load([:openai])
+    test "loads models into persistent_term under the module's id" do
+      Provider.load([Omni.Providers.OpenAI])
 
       models = :persistent_term.get({Omni, :openai})
       assert is_map(models)
@@ -320,25 +350,27 @@ defmodule Omni.ProviderTest do
       assert %Omni.Model{} = models |> Map.values() |> hd()
     end
 
-    test "loads models for a {id, module} custom provider" do
-      Provider.load(test_load: TestProvider)
+    test "loads a custom provider" do
+      ExUnit.CaptureLog.capture_log(fn -> Provider.load([TestProvider]) end)
 
-      models = :persistent_term.get({Omni, :test_load})
+      models = :persistent_term.get({Omni, :test_provider})
       assert models == %{}
     end
 
     test "merges with existing entries" do
-      :persistent_term.put({Omni, :test_load}, %{"existing" => :kept})
+      :persistent_term.put({Omni, :test_provider}, %{"existing" => :kept})
 
-      Provider.load(test_load: TestProvider)
+      ExUnit.CaptureLog.capture_log(fn -> Provider.load([TestProvider]) end)
 
-      models = :persistent_term.get({Omni, :test_load})
+      models = :persistent_term.get({Omni, :test_provider})
       assert models["existing"] == :kept
     end
 
-    test "raises on unknown atom" do
-      assert_raise ArgumentError, ~r/unknown built-in provider/, fn ->
-        Provider.load([:nonexistent_provider])
+    test "raises when two modules declare the same id" do
+      ExUnit.CaptureLog.capture_log(fn -> Provider.load([TestProvider]) end)
+
+      assert_raise ArgumentError, ~r/already registered by Omni.ProviderTest.TestProvider/, fn ->
+        Provider.load([DuplicateIdProvider])
       end
     end
   end

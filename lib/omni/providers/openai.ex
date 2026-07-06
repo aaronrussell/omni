@@ -17,7 +17,7 @@ defmodule Omni.Providers.OpenAI do
   `:base_url`. See `Omni.Provider` for details.
   """
 
-  use Omni.Provider, dialect: Omni.Dialects.OpenAIResponses
+  use Omni.Provider, id: :openai, dialect: Omni.Dialects.OpenAIResponses
 
   @impl true
   def config do
@@ -25,10 +25,5 @@ defmodule Omni.Providers.OpenAI do
       base_url: "https://api.openai.com",
       api_key: {:system, "OPENAI_API_KEY"}
     }
-  end
-
-  @impl true
-  def models do
-    Omni.Provider.load_models(__MODULE__)
   end
 end

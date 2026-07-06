@@ -22,7 +22,7 @@ defmodule Omni.Providers.Venice do
   at the API layer regardless of the underlying model's native modalities.
   """
 
-  use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+  use Omni.Provider, id: :venice, dialect: Omni.Dialects.OpenAICompletions
 
   @impl true
   def config do

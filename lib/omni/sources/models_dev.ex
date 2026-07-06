@@ -14,27 +14,25 @@ defmodule Omni.Sources.ModelsDev do
   back to the provider's declared dialect. Models that still fail to build
   are skipped with a warning.
 
-  Built-in providers are matched to their catalog entries automatically.
-  Custom providers pass `provider_id:` — any models.dev catalog id works,
-  including providers Omni ships no module for:
+  Providers are matched to catalog entries by their canonical id (the
+  module's `id/0`), translated mechanically to the models.dev key —
+  `:fireworks_ai` becomes `"fireworks-ai"`. Any catalog id works, including
+  providers Omni ships no module for:
 
       defmodule MyApp.Providers.Mistral do
-        use Omni.Provider, dialect: Omni.Dialects.OpenAICompletions
+        use Omni.Provider, id: :mistral, dialect: Omni.Dialects.OpenAICompletions
 
         @impl true
         def config do
           %{base_url: "https://api.mistral.ai", api_key: {:system, "MISTRAL_API_KEY"}}
         end
-
-        @impl true
-        def models, do: Omni.Provider.load_models(__MODULE__, provider_id: :mistral)
       end
 
   ## Options
 
-    * `:provider_id` — the models.dev catalog id to load models from.
-      Required for custom providers; built-in providers are matched
-      automatically.
+    * `:provider_id` — the catalog id to load models from, overriding the
+      module's `id/0`. An atom is translated like a canonical id; a string
+      is used as a verbatim models.dev catalog key.
     * `:live` — when `true`, fetch fresh catalog data from models.dev at
       load time instead of reading the bundled snapshot. Defaults to `false`.
     * `:cache_ttl` — how long a cached live catalog stays fresh, in
@@ -89,9 +87,6 @@ defmodule Omni.Sources.ModelsDev do
   @connect_timeout 2_000
   @receive_timeout 3_000
 
-  # Omni provider id -> models.dev catalog key
-  @renames %{moonshot: "moonshotai", ollama: "ollama-cloud"}
-
   @npm_to_dialect %{
     "@ai-sdk/alibaba" => "openai_completions",
     "@ai-sdk/anthropic" => "anthropic_messages",
@@ -108,22 +103,25 @@ defmodule Omni.Sources.ModelsDev do
 
   @impl Omni.Source
   def fetch(module, opts) do
-    with {:ok, catalog_id} <- resolve_catalog_id(module, opts),
+    with {:ok, catalog_id} <- resolve_catalog_id(opts),
          {:ok, provider_data} <- lookup(catalog_id, opts) do
       {:ok, transform_provider(provider_data, module, catalog_id)}
     end
   end
 
-  defp resolve_catalog_id(module, opts) do
+  # Canonical ids are models.dev catalog keys snake_cased, so translation is
+  # mechanical. A binary passes through verbatim — the escape hatch for a
+  # catalog key that doesn't round-trip.
+  defp resolve_catalog_id(opts) do
     case Keyword.fetch(opts, :provider_id) do
-      {:ok, id} ->
-        {:ok, to_string(id)}
+      {:ok, id} when is_atom(id) and not is_nil(id) ->
+        {:ok, id |> to_string() |> String.replace("_", "-")}
 
-      :error ->
-        case Enum.find(Provider.builtin_providers(), fn {_id, mod} -> mod == module end) do
-          {omni_id, _mod} -> {:ok, @renames[omni_id] || to_string(omni_id)}
-          nil -> {:error, :unknown_provider}
-        end
+      {:ok, id} when is_binary(id) ->
+        {:ok, id}
+
+      _ ->
+        {:error, :unknown_provider}
     end
   end
 

@@ -17,7 +17,7 @@ defmodule Omni.Providers.Google do
   `:base_url`. See `Omni.Provider` for details.
   """
 
-  use Omni.Provider, dialect: Omni.Dialects.GoogleGemini
+  use Omni.Provider, id: :google, dialect: Omni.Dialects.GoogleGemini
 
   @impl true
   def config do
@@ -26,10 +26,5 @@ defmodule Omni.Providers.Google do
       auth_header: "x-goog-api-key",
       api_key: {:system, "GEMINI_API_KEY"}
     }
-  end
-
-  @impl true
-  def models do
-    Omni.Provider.load_models(__MODULE__)
   end
 end

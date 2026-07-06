@@ -1,11 +1,11 @@
-defmodule Omni.Providers.MoonshotTest do
+defmodule Omni.Providers.MoonshotAITest do
   use ExUnit.Case, async: true
 
-  alias Omni.Providers.Moonshot
+  alias Omni.Providers.MoonshotAI
 
   describe "config/0" do
     test "returns expected configuration" do
-      config = Moonshot.config()
+      config = MoonshotAI.config()
 
       assert config.base_url == "https://api.moonshot.ai"
       assert config.api_key == {:system, "MOONSHOT_API_KEY"}
@@ -15,13 +15,13 @@ defmodule Omni.Providers.MoonshotTest do
 
   describe "dialect/0" do
     test "returns OpenAICompletions dialect" do
-      assert Moonshot.dialect() == Omni.Dialects.OpenAICompletions
+      assert MoonshotAI.dialect() == Omni.Dialects.OpenAICompletions
     end
   end
 
   describe "models/0" do
     test "returns a non-empty list of Model structs" do
-      models = Moonshot.models()
+      models = MoonshotAI.models()
 
       assert is_list(models)
       assert length(models) > 0
@@ -29,8 +29,8 @@ defmodule Omni.Providers.MoonshotTest do
     end
 
     test "stamps provider and dialect on every model" do
-      for model <- Moonshot.models() do
-        assert model.provider == Moonshot
+      for model <- MoonshotAI.models() do
+        assert model.provider == MoonshotAI
         assert model.dialect == Omni.Dialects.OpenAICompletions
       end
     end
@@ -40,7 +40,7 @@ defmodule Omni.Providers.MoonshotTest do
     test "converts reasoning_effort none to thinking disabled" do
       body = %{"model" => "kimi-k2.6", "reasoning_effort" => "none"}
 
-      result = Moonshot.modify_body(body, %Omni.Context{}, %{})
+      result = MoonshotAI.modify_body(body, %Omni.Context{}, %{})
 
       assert result["thinking"] == %{"type" => "disabled"}
       refute Map.has_key?(result, "reasoning_effort")
@@ -50,7 +50,7 @@ defmodule Omni.Providers.MoonshotTest do
       for level <- ["low", "medium", "high", "xhigh"] do
         body = %{"model" => "kimi-k2.6", "reasoning_effort" => level}
 
-        result = Moonshot.modify_body(body, %Omni.Context{}, %{})
+        result = MoonshotAI.modify_body(body, %Omni.Context{}, %{})
 
         assert result["thinking"] == %{"type" => "enabled"},
                "expected #{level} to map to thinking enabled"
@@ -62,7 +62,7 @@ defmodule Omni.Providers.MoonshotTest do
     test "passes through body without reasoning_effort" do
       body = %{"model" => "kimi-k2.6", "messages" => []}
 
-      result = Moonshot.modify_body(body, %Omni.Context{}, %{})
+      result = MoonshotAI.modify_body(body, %Omni.Context{}, %{})
 
       refute Map.has_key?(result, "thinking")
       refute Map.has_key?(result, "reasoning_effort")
