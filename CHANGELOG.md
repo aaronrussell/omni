@@ -8,23 +8,23 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ### Added
 
-- **Pluggable model sources** — model catalog data now loads through the new `Omni.Source` behaviour, configurable globally, per provider, or per call site. Custom sources implement the behaviour.
-- **`Omni.Sources.ModelsDev`** — the default source, reading a bundled verbatim [models.dev](https://models.dev) snapshot. Optional live mode (`live: true`) fetches fresh catalog data at boot, with disk caching and graceful fallback to the bundled snapshot when models.dev is unreachable.
+- **Pluggable model sources** — model catalog data now loads through the new `Omni.Source` behaviour, configurable globally or per provider.
+- **`Omni.Sources.ModelsDev`** — the default source: a bundled [models.dev](https://models.dev) snapshot, with an optional live mode (`live: true`) that fetches fresh catalog data at boot and degrades gracefully to the snapshot when offline.
 - **`Omni.Sources.LLMDB`** — alternative source backed by the optional [`llm_db`](https://hex.pm/packages/llm_db) package.
-- **`Omni.Providers.OllamaCloud`** — dedicated provider for Ollama's hosted cloud service (`:ollama_cloud`, `https://ollama.com`, `OLLAMA_API_KEY`), with catalog-backed models.
+- **`Omni.Providers.OllamaCloud`** — new provider for Ollama's hosted cloud service (`:ollama_cloud`, reads `OLLAMA_API_KEY`).
 
 ### Changed
 
-- **Canonical provider ids** (breaking) — every provider declares its id on the module: `use Omni.Provider, id: :mistral` (the models.dev catalog key, snake_cased). The one id serves registration, `Omni.get_model/2`, and source catalog lookup; sources translate it to their native key format themselves. `models/0` now defaults to loading from the configured source under the module's id — a catalog-backed custom provider is just an id plus `config/0`.
-- **Config key renamed to `config :omni, :models`** (breaking) — provider registration moves under `providers:`, the model source is set via `source:`. `providers:` is a list of provider modules — `:all` (the default) names all built-ins and may appear inside the list (`[:all, MyApp.Providers.Acme]`); bare atoms and `{id, module}` pairs are not accepted. `Omni.Provider.builtins/0` is public for list arithmetic, and `Omni.Provider.load/1` takes the same module list. The legacy `:providers` key raises at boot with instructions.
-- **`:moonshot` is now `:moonshotai`** (breaking) — `Omni.Providers.Moonshot` renamed to `Omni.Providers.MoonshotAI`, aligning with the models.dev/llm_db catalog id. Update `get_model/2` references and per-module config keys.
-- **Ollama split into local and cloud providers** (breaking) — `Omni.Providers.Ollama` (`:ollama`) now targets local instances only: localhost base URL, models from its `models:` config list, no catalog. Cloud users move to `Omni.Providers.OllamaCloud` (`:ollama_cloud`).
+- **Providers declare a canonical id** (breaking) — `use Omni.Provider, id: :mistral`, named after the provider's models.dev catalog key (snake_cased). The id drives registration, `Omni.get_model/2`, and catalog lookup, and `models/0` now defaults to loading from the configured source — a catalog-backed custom provider needs only `id:` and `config/0`.
+- **Provider config moved to `config :omni, :models`** (breaking) — registration goes under `providers:` (a list of provider modules; `:all`, the default, names the built-ins and may appear in the list), the model source under `source:`. The legacy `:providers` key raises at boot with migration instructions.
+- **`:moonshot` is now `:moonshotai`** (breaking) — `Omni.Providers.Moonshot` renamed to `Omni.Providers.MoonshotAI`, matching the catalog id.
+- **Ollama split into local and cloud providers** (breaking) — `Omni.Providers.Ollama` (`:ollama`) now targets local instances only, with models listed in its `models:` config. Cloud users switch to `Omni.Providers.OllamaCloud` (`:ollama_cloud`).
 - **Dialect resolution is now data-first** — a model's dialect from catalog data wins over the provider module's declared dialect, which is now a fallback. No behavior change for built-in providers.
-- **`Omni.Provider.load_models/2`** now takes options instead of a JSON file path; the only option is `:source`. The provider's catalog identity comes from the module's `id/0`, overridable per source via source opts (`{MySource, provider_id: :other}`). The curated per-provider JSON files in `priv/models/` are replaced by the verbatim snapshot, captured with the new `mix omni.snapshot` task.
+- **`Omni.Provider.load_models/2`** (breaking) — takes options instead of a JSON file path. The curated `priv/models/*.json` files are replaced by the verbatim snapshot, captured with the new `mix omni.snapshot` task.
 
 ### Removed
 
-- **Legacy mix tasks** — `mix models.update` and `mix models.update_llmdb` (unused at runtime since the model sources work) are deleted.
+- **Legacy mix tasks** — `mix models.update` and `mix models.update_llmdb`.
 
 ## [1.5.4] - 2026-06-25
 

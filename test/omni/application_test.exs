@@ -45,6 +45,9 @@ defmodule Omni.ApplicationTest do
       end
     end
 
+    # capture_log — stopping and failing to start :omni emits notice-level
+    # application-exit reports.
+    @tag capture_log: true
     test "the legacy :providers config key raises with a migration message at boot" do
       Application.put_env(:omni, :providers, [:anthropic])
 
