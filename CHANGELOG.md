@@ -6,6 +6,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [1.6.1] - 2026-07-10
+
+### Added
+
+- **Updated model catalog** — refreshed across all providers. Captures GPT-5.6 family (Sol, Terra, Luna).
+
 ## [1.6.0] - 2026-07-06
 
 ### Added

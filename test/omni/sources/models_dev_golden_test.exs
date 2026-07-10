@@ -98,7 +98,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
         provider: Omni.Providers.Anthropic,
         dialect: Omni.Dialects.AnthropicMessages,
         release_date: ~D[2025-09-29],
-        context_size: 200_000,
+        context_size: 1_000_000,
         max_output_tokens: 64_000,
         reasoning: true,
         input_modalities: [:text, :image, :pdf],
