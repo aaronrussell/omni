@@ -40,7 +40,10 @@ defmodule Omni.StreamingResponse do
 
   ## Event types
 
-  Content block lifecycle events follow a `start` → `delta` → `end` pattern:
+  Content block lifecycle events follow a `start` → `delta` → `end` pattern.
+  Blocks are sequential: a block's `end` event is emitted as soon as the next
+  block starts (or at stream completion, for the last block), so a block
+  always closes before another opens:
 
       {:text_start,     %{index: 0}, %Response{}}
       {:text_delta,     %{index: 0, delta: "Hello"}, %Response{}}
@@ -206,6 +209,7 @@ defmodule Omni.StreamingResponse do
     %{
       blocks: %{},
       block_order: [],
+      ended: MapSet.new(),
       model_id: nil,
       stop_reason: nil,
       usage: %{},
@@ -234,12 +238,14 @@ defmodule Omni.StreamingResponse do
     index = data.index
     key = {type, index}
 
+    {end_events, acc} = close_open_blocks(acc)
+
     block_acc = new_block_acc(type, data)
     acc = register_block(acc, key, block_acc)
 
     event_data = start_event_data(type, data)
     event = {start_atom(type), event_data, build_response(acc)}
-    {[event], acc}
+    {end_events ++ [event], acc}
   end
 
   defp process_delta({:block_delta, data}, acc) do
@@ -290,12 +296,23 @@ defmodule Omni.StreamingResponse do
   end
 
   defp finalize_blocks(acc) do
-    Enum.map(acc.block_order, fn key ->
-      block = Map.fetch!(acc.blocks, key)
-      content = build_block(block)
-      {type, index} = key
-      {end_atom(type), %{index: index, content: content}, build_response(acc)}
-    end)
+    acc.block_order
+    |> Enum.reject(&MapSet.member?(acc.ended, &1))
+    |> Enum.map(&end_event(acc, &1))
+  end
+
+  # A new block starting closes every block still open — blocks are
+  # sequential, so the end event can fire without waiting for stream
+  # completion. Finalization closes whatever remains (the last block).
+  defp close_open_blocks(acc) do
+    open = Enum.reject(acc.block_order, &MapSet.member?(acc.ended, &1))
+    events = Enum.map(open, &end_event(acc, &1))
+    {events, %{acc | ended: MapSet.union(acc.ended, MapSet.new(open))}}
+  end
+
+  defp end_event(acc, {type, index} = key) do
+    content = acc.blocks |> Map.fetch!(key) |> build_block()
+    {end_atom(type), %{index: index, content: content}, build_response(acc)}
   end
 
   defp finalize_done(acc) do
@@ -379,6 +396,8 @@ defmodule Omni.StreamingResponse do
     if Map.has_key?(acc.blocks, key) do
       {[], acc}
     else
+      {end_events, acc} = close_open_blocks(acc)
+
       block_acc = %{type: type, parts: [], signature: nil}
 
       block_acc =
@@ -386,7 +405,7 @@ defmodule Omni.StreamingResponse do
 
       acc = register_block(acc, key, block_acc)
       event = {start_atom(type), %{index: index}, build_response(acc)}
-      {[event], acc}
+      {end_events ++ [event], acc}
     end
   end
 

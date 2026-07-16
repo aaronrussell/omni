@@ -49,6 +49,59 @@ defmodule Omni.StreamingResponseTest do
     end
   end
 
+  describe "sequential block closure" do
+    test "a block's end is emitted when the next block starts" do
+      events = [
+        {:block_start, %{type: :thinking, index: 0}},
+        {:block_delta, %{type: :thinking, index: 0, delta: "hmm"}},
+        {:block_start, %{type: :text, index: 1}},
+        {:block_delta, %{type: :text, index: 1, delta: "Hello"}},
+        {:message, %{stop_reason: :stop}}
+      ]
+
+      result = collect_scripted(events)
+
+      assert event_types(result) ==
+               [:thinking_start, :thinking_delta, :thinking_end, :text_start, :text_delta] ++
+                 [:text_end, :done]
+
+      {_, %{content: content}, _} = Enum.find(result, &match?({:thinking_end, _, _}, &1))
+      assert %Thinking{text: "hmm"} = content
+    end
+
+    test "a synthesized start also closes the open block" do
+      events = [
+        {:block_start, %{type: :thinking, index: 0}},
+        {:block_delta, %{type: :text, index: 1, delta: "Hello"}},
+        {:message, %{stop_reason: :stop}}
+      ]
+
+      result = collect_scripted(events)
+
+      assert event_types(result) ==
+               [:thinking_start, :thinking_end, :text_start, :text_delta, :text_end, :done]
+    end
+
+    test "text before tool_use closes with full content, no duplicate ends" do
+      events = [
+        {:block_start, %{type: :text, index: 0}},
+        {:block_delta, %{type: :text, index: 0, delta: "Checking"}},
+        {:block_start, %{type: :tool_use, index: 1, id: "call_1", name: "search"}},
+        {:block_delta, %{type: :tool_use, index: 1, delta: ~s({"q": "elixir"})}},
+        {:message, %{stop_reason: :tool_use}}
+      ]
+
+      result = collect_scripted(events)
+
+      assert event_types(result) ==
+               [:text_start, :text_delta, :text_end, :tool_use_start, :tool_use_delta] ++
+                 [:tool_use_end, :done]
+
+      {_, %{content: content}, _} = Enum.find(result, &match?({:text_end, _, _}, &1))
+      assert %Text{text: "Checking"} = content
+    end
+  end
+
   describe "Google tool use (complete input in block_start)" do
     test "carries input without needing deltas" do
       events = [
