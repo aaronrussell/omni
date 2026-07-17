@@ -153,7 +153,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
         output_modalities: [:text],
         input_cost: 2.5,
         output_cost: 10,
-        cache_read_cost: 0,
+        cache_read_cost: 1.25,
         cache_write_cost: 0
       }
     }
