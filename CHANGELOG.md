@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+
+- **Updated model catalog** — refreshed across all providers.
+
 ## [1.6.2] - 2026-07-17
 
 ### Added

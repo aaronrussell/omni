@@ -28,27 +28,27 @@ prompts = %{
 models = %{
   #:alibaba => "qwen3.6-plus",
   #:anthropic => "claude-haiku-4-5",
-  #:openai => "gpt-5-mini",
+  :openai => "gpt-5.6-luna",
   #:google => "gemini-3-flash-preview",
   #:groq => "openai/gpt-oss-20b",
   #:moonshot => "kimi-k2.6",
   #:nearai => "zai-org/GLM-5.1-FP8",
   #:openrouter => "openai/gpt-4o-mini",
   #:opencode => "kimi-k2.5",
-  :venice => "qwen3-6-27b"
+  #:venice => "qwen3-6-27b"
   #:zai => "glm-4.7-flash"
 }
 
 for provider <- Map.keys(models) do
   {:ok, model} = Omni.get_model(provider, models[provider])
 
-  IO.puts("Capturing #{provider}_text...")
-  Capture.record(
-    model,
-    Omni.context(prompts[:text]),
-    "#{fixture_dir}/#{provider}_text.sse",
-    thinking: false
-  )
+  #IO.puts("Capturing #{provider}_text...")
+  #Capture.record(
+  #  model,
+  #  Omni.context(prompts[:text]),
+  #  "#{fixture_dir}/#{provider}_text.sse",
+  #  thinking: false
+  #)
 
   IO.puts("Capturing #{provider}_thinking...")
   Capture.record(
@@ -58,16 +58,16 @@ for provider <- Map.keys(models) do
     thinking: :low
   )
 
-  IO.puts("Capturing #{provider}_tool_use...")
-  Capture.record(
-    model,
-    Omni.context(
-      messages: [Omni.message("What is the weather in London?")],
-      tools: [weather_tool]
-    ),
-    "#{fixture_dir}/#{provider}_tool_use.sse",
-    thinking: false
-  )
+  #IO.puts("Capturing #{provider}_tool_use...")
+  #Capture.record(
+  #  model,
+  #  Omni.context(
+  #    messages: [Omni.message("What is the weather in London?")],
+  #    tools: [weather_tool]
+  #  ),
+  #  "#{fixture_dir}/#{provider}_tool_use.sse",
+  #  thinking: false
+  #)
 end
 
 IO.puts("Done! All fixtures captured.")

@@ -24,7 +24,7 @@ defmodule Integration.OpenAITest do
   end
 
   defp reasoning_model do
-    {:ok, model} = Omni.get_model(:openai, "o4-mini")
+    {:ok, model} = Omni.get_model(:openai, "gpt-5.6-luna")
     model
   end
 
