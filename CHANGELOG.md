@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [1.6.3] - 2026-08-26
+
 ### Added
 
 - **Updated model catalog** — refreshed across all providers.
@@ -223,7 +225,8 @@ Complete rewrite of Omni as a production-ready, multi-provider LLM client for El
 
 *Versions 0.1.0 and 0.1.1, released in 2024, were early prototypes with a different architecture. Version 1.0 is a complete rewrite and is not compatible with 0.1.x.*
 
-[Unreleased]: https://github.com/aaronrussell/omni/compare/v1.6.2...HEAD
+[Unreleased]: https://github.com/aaronrussell/omni/compare/v1.6.3...HEAD
+[1.6.3]: https://github.com/aaronrussell/omni/releases/tag/v1.6.3
 [1.6.2]: https://github.com/aaronrussell/omni/releases/tag/v1.6.2
 [1.6.1]: https://github.com/aaronrussell/omni/releases/tag/v1.6.1
 [1.6.0]: https://github.com/aaronrussell/omni/releases/tag/v1.6.0
