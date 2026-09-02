@@ -75,36 +75,59 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   defp apply_strict(schema), do: schema
 
-  # Parse events — OpenAI sends homogeneous `chat.completion.chunk` objects
+  # Parse events — OpenAI sends homogeneous `chat.completion.chunk` objects.
+  #
+  # Some providers (e.g. vLLM-backed Venice) pack multiple payload types into a
+  # single chunk (tool_call args + finish_reason, reasoning + content). Each
+  # field is extracted independently so nothing is silently dropped; deltas are
+  # emitted before finish_reason so downstream accumulation sees the final
+  # fragment before the block is finalized.
 
   @impl true
-  def handle_event(%{"choices" => [%{"finish_reason" => reason}]} = event)
-      when is_binary(reason) do
-    message =
-      %{stop_reason: normalize_stop_reason(reason)}
-      |> maybe_put(:usage, normalize_usage(event["usage"]))
+  def handle_event(%{"error" => %{"message" => message}}), do: [{:error, message}]
 
-    [{:message, message}]
+  def handle_event(%{"choices" => [choice | _]} = event) do
+    delta = choice["delta"] || %{}
+
+    extract_start(delta, event) ++
+      extract_tool_calls(delta) ++
+      extract_reasoning(delta) ++
+      extract_content(delta) ++
+      extract_finish(choice, event)
   end
 
-  def handle_event(
-        %{
-          "choices" => [
-            %{"delta" => %{"tool_calls" => [%{"function" => %{"name" => name}} = tool_call | _]}}
-          ]
-        } = event
-      )
-      when is_binary(name) do
-    message =
-      case event do
-        %{"model" => model_id} -> [{:message, %{model: model_id}}]
-        _ -> []
-      end
+  def handle_event(%{"usage" => %{} = usage}) do
+    [{:message, %{usage: normalize_usage(usage)}}]
+  end
 
-    index = tool_call["index"] || 0
+  def handle_event(_), do: []
+
+  defp extract_start(delta, event) do
+    if delta["role"] == "assistant" or has_tool_call_start?(delta) do
+      case event do
+        %{"model" => model_id} ->
+          [{:message, maybe_put(%{model: model_id}, :usage, normalize_usage(event["usage"]))}]
+
+        _ ->
+          []
+      end
+    else
+      []
+    end
+  end
+
+  defp has_tool_call_start?(%{"tool_calls" => [%{"function" => %{"name" => name}} | _]})
+       when is_binary(name),
+       do: true
+
+  defp has_tool_call_start?(_), do: false
+
+  defp extract_tool_calls(%{"tool_calls" => [%{"function" => %{"name" => name}} = tc | _]})
+       when is_binary(name) do
+    index = tc["index"] || 0
 
     args_delta =
-      case tool_call["function"]["arguments"] do
+      case tc["function"]["arguments"] do
         args when is_binary(args) and args != "" ->
           [{:block_delta, %{type: :tool_use, index: index, delta: args}}]
 
@@ -112,63 +135,50 @@ defmodule Omni.Dialects.OpenAICompletions do
           []
       end
 
-    message ++
-      [{:block_start, %{type: :tool_use, index: index, id: tool_call["id"], name: name}}] ++
-      args_delta
+    [{:block_start, %{type: :tool_use, index: index, id: tc["id"], name: name}}] ++ args_delta
   end
 
-  def handle_event(%{"choices" => [%{"delta" => %{"tool_calls" => [tool_call | _]}}]}) do
+  defp extract_tool_calls(%{"tool_calls" => [tc | _]}) do
     [
       {:block_delta,
-       %{
-         type: :tool_use,
-         index: tool_call["index"] || 0,
-         delta: tool_call["function"]["arguments"]
-       }}
+       %{type: :tool_use, index: tc["index"] || 0, delta: tc["function"]["arguments"]}}
     ]
   end
 
-  def handle_event(%{"choices" => [%{"delta" => %{"reasoning_content" => content}}]})
-      when is_binary(content) and content != "" do
+  defp extract_tool_calls(_), do: []
+
+  defp extract_reasoning(%{"reasoning_content" => content})
+       when is_binary(content) and content != "" do
     [{:block_delta, %{type: :thinking, index: 0, delta: content}}]
   end
 
   # OpenRouter and vLLM use "reasoning" instead of DeepSeek's "reasoning_content".
-  # Both are legitimate field names in the Completions wire format ecosystem.
-  def handle_event(%{"choices" => [%{"delta" => %{"reasoning" => content}}]})
-      when is_binary(content) and content != "" do
+  defp extract_reasoning(%{"reasoning" => content})
+       when is_binary(content) and content != "" do
     [{:block_delta, %{type: :thinking, index: 0, delta: content}}]
   end
 
-  def handle_event(%{"choices" => [%{"delta" => %{"content" => content}}]})
-      when is_binary(content) and content != "" do
+  defp extract_reasoning(_), do: []
+
+  defp extract_content(%{"content" => content})
+       when is_binary(content) and content != "" do
     [{:block_delta, %{type: :text, index: 0, delta: content}}]
   end
 
-  def handle_event(
-        %{
-          "choices" => [%{"delta" => %{"role" => "assistant"}}],
-          "model" => model_id
-        } = event
-      ) do
-    message =
-      %{model: model_id}
-      |> maybe_put(:usage, normalize_usage(event["usage"]))
+  defp extract_content(_), do: []
 
-    [{:message, message}]
+  defp extract_finish(%{"finish_reason" => reason}, event) when is_binary(reason) do
+    [
+      {:message,
+       maybe_put(
+         %{stop_reason: normalize_stop_reason(reason)},
+         :usage,
+         normalize_usage(event["usage"])
+       )}
+    ]
   end
 
-  # Usage may arrive in a standalone chunk or combined with choices (e.g.
-  # OpenRouter). Choices handlers above match first; this catches the rest.
-  def handle_event(%{"usage" => %{} = usage}) do
-    [{:message, %{usage: normalize_usage(usage)}}]
-  end
-
-  def handle_event(%{"error" => %{"message" => message}}) do
-    [{:error, message}]
-  end
-
-  def handle_event(_), do: []
+  defp extract_finish(_, _), do: []
 
   # Message encoding
 

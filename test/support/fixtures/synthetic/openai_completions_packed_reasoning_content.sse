@@ -1,0 +1,12 @@
+data: {"id":"chatcmpl-synth-packed-rc","object":"chat.completion.chunk","created":1776700000,"model":"deepseek-r1","choices":[{"index":0,"delta":{"role":"assistant","content":"","reasoning_content":""},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-synth-packed-rc","object":"chat.completion.chunk","created":1776700000,"model":"deepseek-r1","choices":[{"index":0,"delta":{"reasoning_content":"Let me think about this."},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-synth-packed-rc","object":"chat.completion.chunk","created":1776700000,"model":"deepseek-r1","choices":[{"index":0,"delta":{"reasoning_content":" Done.","content":"The answer"},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-synth-packed-rc","object":"chat.completion.chunk","created":1776700000,"model":"deepseek-r1","choices":[{"index":0,"delta":{"content":" is 42."},"finish_reason":null}]}
+
+data: {"id":"chatcmpl-synth-packed-rc","object":"chat.completion.chunk","created":1776700000,"model":"deepseek-r1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":20,"completion_tokens":30,"total_tokens":50}}
+
+data: [DONE]
+
