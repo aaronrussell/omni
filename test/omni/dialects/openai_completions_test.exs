@@ -816,6 +816,124 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert [{:error, "The server had an error while processing your request."}] =
                OpenAICompletions.handle_event(event)
     end
+
+    test "packed chunk: tool_call args + finish_reason extracts both" do
+      event = %{
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{
+              "tool_calls" => [
+                %{"index" => 0, "function" => %{"arguments" => "2+2\"}"}}
+              ],
+              "content" => ""
+            },
+            "finish_reason" => "tool_calls"
+          }
+        ],
+        "usage" => %{"prompt_tokens" => 50, "completion_tokens" => 12, "total_tokens" => 62}
+      }
+
+      result = OpenAICompletions.handle_event(event)
+
+      assert [
+               {:block_delta, %{type: :tool_use, index: 0, delta: "2+2\"}"}},
+               {:message, %{stop_reason: :tool_use, usage: usage}}
+             ] = result
+
+      assert usage["input_tokens"] == 50
+      assert usage["output_tokens"] == 12
+    end
+
+    test "packed chunk: reasoning_content + content extracts both" do
+      event = %{
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{"reasoning_content" => " Done.", "content" => "The answer"}
+          }
+        ]
+      }
+
+      assert [
+               {:block_delta, %{type: :thinking, index: 0, delta: " Done."}},
+               {:block_delta, %{type: :text, index: 0, delta: "The answer"}}
+             ] = OpenAICompletions.handle_event(event)
+    end
+
+    test "packed chunk: content + finish_reason extracts both" do
+      event = %{
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{"content" => "final word"},
+            "finish_reason" => "stop"
+          }
+        ]
+      }
+
+      assert [
+               {:block_delta, %{type: :text, index: 0, delta: "final word"}},
+               {:message, %{stop_reason: :stop}}
+             ] = OpenAICompletions.handle_event(event)
+    end
+
+    test "packed chunk: tool_call start + finish_reason extracts both" do
+      event = %{
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{
+              "tool_calls" => [
+                %{
+                  "index" => 0,
+                  "id" => "call_packed",
+                  "function" => %{"name" => "calc", "arguments" => "{\"x\":1}"}
+                }
+              ]
+            },
+            "finish_reason" => "tool_calls"
+          }
+        ],
+        "model" => "test-model"
+      }
+
+      assert [
+               {:message, %{model: "test-model"}},
+               {:block_start, %{type: :tool_use, index: 0, id: "call_packed", name: "calc"}},
+               {:block_delta, %{type: :tool_use, index: 0, delta: "{\"x\":1}"}},
+               {:message, %{stop_reason: :tool_use}}
+             ] = OpenAICompletions.handle_event(event)
+    end
+
+    test "packed chunk: reasoning + content + finish_reason extracts all" do
+      event = %{
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{"reasoning_content" => "think", "content" => "speak"},
+            "finish_reason" => "stop"
+          }
+        ],
+        "usage" => %{"prompt_tokens" => 10, "completion_tokens" => 5, "total_tokens" => 15}
+      }
+
+      assert [
+               {:block_delta, %{type: :thinking, index: 0, delta: "think"}},
+               {:block_delta, %{type: :text, index: 0, delta: "speak"}},
+               {:message, %{stop_reason: :stop, usage: usage}}
+             ] = OpenAICompletions.handle_event(event)
+
+      assert usage["input_tokens"] == 10
+    end
+
+    test "finish_reason without delta key still emits stop" do
+      event = %{
+        "choices" => [%{"index" => 0, "finish_reason" => "stop"}]
+      }
+
+      assert [{:message, %{stop_reason: :stop}}] = OpenAICompletions.handle_event(event)
+    end
   end
 
   describe "handle_body/3 output" do

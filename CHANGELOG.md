@@ -6,6 +6,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+
+- **Updated model catalog** — refreshed across all providers. Include GLM 5.3 and GLM 5.3 Flash.
+
+### Fixed
+
+- **Packed SSE chunks in OpenAI Completions dialect** — providers that bundle multiple payload types in a single chunk (e.g. tool_call arguments alongside `finish_reason`) no longer silently drop fields after the first match. All fields are now extracted in a single pass.
+
 ## [1.6.3] - 2026-08-26
 
 ### Added
