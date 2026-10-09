@@ -19,6 +19,7 @@ See the [Context Documents](#context-documents) section for when and how to use 
 ## Build & Development Commands
 
 ```bash
+mix precommit                 # Compile (warnings as errors), unlock unused deps, format, test
 mix compile                   # Compile the project
 mix test                      # Run all tests
 mix test --include live       # Run all tests including live API tests (needs API keys)
@@ -28,6 +29,8 @@ mix format                    # Format all code
 mix format --check-formatted  # Check formatting without changing files
 mix omni.snapshot             # Capture a models.dev snapshot into priv/models/
 ```
+
+Run `mix precommit` before considering any change done. It fixes formatting and prunes unused lock entries in place; CI runs the non-mutating equivalents (`format --check-formatted`, `deps.unlock --check-unused`) and fails on any warning. Don't run it with `OMNI_SKIP_LLMDB` set — the unlock step would drop `llm_db` from `mix.lock`.
 
 `mix omni.snapshot` writes the full [models.dev](https://models.dev) catalog to `priv/models/models_dev.json` (checked into the repo) — content verbatim, encoding normalized (pretty-printed, sorted keys) for diffable git history. `Omni.Sources.ModelsDev` transforms the snapshot at load time — filtering out deprecated models and those without tool use support, and inferring each model's `dialect` from models.dev's npm package metadata. A live mode (`source: {Omni.Sources.ModelsDev, live: true}`) fetches fresh catalog data from models.dev at boot with a tmp-dir disk cache, degrading to stale cache and then the bundled snapshot when unreachable. Run the task manually when model data needs refreshing, and update the golden test expectations (`test/omni/sources/models_dev_golden_test.exs`) alongside.
 

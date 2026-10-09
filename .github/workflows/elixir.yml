@@ -7,6 +7,24 @@ on:
     branches: [ main ]
 
 jobs:
+  # Version-independent checks run once, on the newest toolchain. These are
+  # the non-mutating counterparts of the `mix precommit` alias.
+  lint:
+    runs-on: ubuntu-latest
+    name: Lint
+    env:
+      MIX_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: erlef/setup-beam@v1
+        with:
+          otp-version: '29.x'
+          elixir-version: '1.20.x'
+      - run: mix deps.get
+      - run: mix deps.unlock --check-unused
+      - run: mix format --check-formatted
+      - run: mix compile --warnings-as-errors
+
   test:
     runs-on: ubuntu-latest
     name: OTP ${{matrix.otp}} / Elixir ${{matrix.elixir}}

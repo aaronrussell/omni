@@ -12,14 +12,12 @@ defmodule Omni.MixProject do
       elixir: "~> 1.18",
       start_permanent: Mix.env() == :prod,
       elixirc_paths: elixirc_paths(Mix.env()),
+      aliases: aliases(),
       deps: deps(),
       docs: docs(),
       package: pkg()
     ]
   end
-
-  defp elixirc_paths(:test), do: ["lib", "test/support"]
-  defp elixirc_paths(_), do: ["lib"]
 
   # Run "mix help compile.app" to learn about applications.
   def application do
@@ -28,6 +26,24 @@ defmodule Omni.MixProject do
       mod: {Omni.Application, []}
     ]
   end
+
+  def cli do
+    [preferred_envs: [precommit: :test]]
+  end
+
+  defp aliases do
+    [
+      precommit: [
+        "compile --warnings-as-errors",
+        "deps.unlock --unused",
+        "format",
+        "test"
+      ]
+    ]
+  end
+
+  defp elixirc_paths(:test), do: ["lib", "test/support"]
+  defp elixirc_paths(_), do: ["lib"]
 
   # Run "mix help deps" to learn about dependencies.
   defp deps do
@@ -42,8 +58,9 @@ defmodule Omni.MixProject do
   end
 
   # OMNI_SKIP_LLMDB=1 excludes the optional llm_db dep so CI can verify Omni
-  # compiles and tests green without it. Beware locally: a `mix deps.get` run
-  # with it set can rewrite mix.lock without the llm_db entry.
+  # compiles and tests green without it. Beware locally: running `mix deps.get`
+  # or `mix precommit` with it set can rewrite mix.lock without the llm_db
+  # entry.
   defp llm_db_dep do
     if System.get_env("OMNI_SKIP_LLMDB") do
       []
