@@ -6,6 +6,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+### Added
+
+- **Updated model catalog** — refreshed across all providers. Include latest Claude and GPT 6.1 models.
+
 ## [1.6.4] - 2026-09-02
 
 ### Added
