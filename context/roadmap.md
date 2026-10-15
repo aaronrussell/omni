@@ -4,7 +4,7 @@ Work tracking for `omni`. This is a live document — add to it freely, clean it
 
 - **Next** — work identified for the next release, grouped under the version it ships in.
 - **Backlog** — work we intend to do but haven't pinned to a release.
-- **Ideas** — scrappy reminders that aren't thought through enough to be backlog items yet.
+- **Ideas** — scrappy reminders that aren't fleshed out enough to be backlog items yet.
 
 ---
 
@@ -14,7 +14,7 @@ Work tracking for `omni`. This is a live document — add to it freely, clean it
 
 Two independent breaking changes, so they ship together as one major release. Order of work: providers as data first, then the Decisions API, then additional providers on top of the new provider model.
 
-- **Providers as data** — Replace provider modules with provider structs; dialects stay as modules. Design captured in `context/notes/providers-as-data.md` (pass one). Includes `filter:` — a predicate over loaded `%Model{}` structs — which resolves the old "model loading patterns" question (filtered loading by cost, modality, context size, etc.) and the per-provider `models:` key for additive custom models. Several points are deferred to later passes (see the note's "Deferred" section).
+- **Providers as data** — Replace provider modules with provider structs; dialects stay as modules. Design captured in `context/notes/providers-as-data.md` (pass one); phased outline in `context/notes/providers-as-data-plan.md`. Includes `filter:` — a predicate over loaded `%Model{}` structs — which resolves the old "model loading patterns" question (filtered loading by cost, modality, context size, etc.) and the per-provider `models:` key for additive custom models. Several points are deferred to later passes (see the note's "Deferred" section).
 - **Decisions API** — First non-text-generation capability: typed questions over a shared input, returning calibrated probabilities. Two wire formats (System One, OpenAI Decisions). Brainstorm in `context/notes/decisions-api.md`; a second, deeper pass is still owed before implementation. Introduces per-capability dialects on a model, which also lays the groundwork for future modalities.
 - **Mistral provider** — Support Mistral directly (`api.mistral.ai`, OpenAI-compatible). Mistral is one of the catalog providers without an `api` base URL, so Omni supplies it; expected to be a table entry once providers are data.
 - **Mistral models via OpenCode Zen** — models.dev lists OpenCode's `mistral-large-4` under `@ai-sdk/mistral`, which has no dialect mapping, so the model is skipped at load with a warning. Map it to `openai_completions` (confirm which endpoint Zen serves Mistral models on first). Expected to fall out of the providers-as-data work on mapping bespoke npm packages.
