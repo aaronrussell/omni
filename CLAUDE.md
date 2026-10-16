@@ -7,10 +7,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 Omni is an Elixir library for interacting with LLM APIs across multiple providers. It separates three concerns:
 
 - **Models** — data structs describing a specific LLM (loaded from a pluggable model source; the default reads the bundled models.dev snapshot in `priv/models/`)
-- **Providers** — authenticated HTTP layer (where to send requests, how to authenticate)
+- **Providers** — data structs for the authenticated HTTP layer (where to send requests, how to authenticate), assembled from catalog data, an optional provider module, and config
 - **Dialects** — wire format translation (how to build request bodies, parse streaming events)
 
-The relationship: ~4-5 dialects, ~20-30 providers (most speaking one dialect, though multi-model gateways like OpenCode Zen use multiple), hundreds of models (each belonging to one provider). The dialect is stored on each `%Model{}` struct, so dispatch is always per-model. All requests are streaming-first; `generate_text` is built on top of `stream_text`.
+The relationship: ~4-5 dialects, hundreds of possible providers (13 verified built-ins; any models.dev catalog provider loads by id; most speak one dialect, though multi-model gateways like OpenCode Zen use several), thousands of models (each belonging to one provider). Each `%Model{}` embeds its `%Provider{}` and names its dialect per capability, so dispatch is always per-model. All requests are streaming-first; `generate_text` is built on top of `stream_text`.
 
 The agent system (`Omni.Agent`) lives in a separate package — [`omni_agent`](https://github.com/aaronrussell/omni_agent). This package is purely the stateless LLM API layer.
 
@@ -45,24 +45,24 @@ Run `mix precommit` before considering any change done. It fixes formatting and 
 
 ### Key design patterns
 
-- **Streaming-first**: Every LLM request uses streaming HTTP via Req's `into: :self` async mode. The event pipeline is a lazy `Stream`: format parsing (SSE or NDJSON) → `Request.parse_event/2` (dialect `handle_event/1` + provider `modify_events/2`) → delta tuples. `StreamingResponse.new/2` builds the consumer pipeline via `Stream.transform/5`. The struct holds `stream` (the pipeline) and `cancel` (a zero-arity function). `Enumerable` yields `{event_type, data, partial_response}` tuples. Key functions: `on/3` (pipeline-composable side-effect handler), `text_stream/1`, `complete/1`, `cancel/1`. `:done` is only emitted when a stop reason was received; incomplete streams emit `{:error, :incomplete_stream}`.
+- **Streaming-first**: Every LLM request uses streaming HTTP via Req's `into: :self` async mode. The event pipeline is a lazy `Stream`: format parsing (SSE or NDJSON) → `Request.parse_event/2` (dialect `handle_event/1` + provider module `modify_deltas/3`) → delta tuples. `StreamingResponse.new/2` builds the consumer pipeline via `Stream.transform/5`. The struct holds `stream` (the pipeline) and `cancel` (a zero-arity function). `Enumerable` yields `{event_type, data, partial_response}` tuples. Key functions: `on/3` (pipeline-composable side-effect handler), `text_stream/1`, `complete/1`, `cancel/1`. `:done` is only emitted when a stop reason was received; incomplete streams emit `{:error, :incomplete_stream}`.
 
-- **Models are data, not modules**: `%Model{}` structs are loaded from the configured model source (`Omni.Source`) at startup into `:persistent_term`. Models carry direct module references to their provider and dialect — the dialect is on the model, not derived from the provider, enabling multi-dialect providers.
+- **Models and providers are data, not modules**: `%Provider{}` structs and their `%Model{}` structs are assembled by `Omni.Provider.Loader` at startup and stored in `:persistent_term`. Layers, later winning: source catalog data (`Omni.Source.fetch/2`) ← provider module `config/0` ← `config :omni, :providers, <id>: [...]`. Each model embeds its provider and carries `dialects: %{text: Module}`; the provider's `dialects: %{text: [Module, ...]}` list is derived from its models. Model data decides a model's dialect — configured `dialects:` only fills models with none. Nothing is looked up at request time.
 
-- **Request building separated from execution**: `Request.build/3` validates options via Peri and returns a `%Req.Request{}` via dialect + provider composition. `Request.stream/3` executes and returns a `StreamingResponse`. The dialect transforms Omni types ↔ native JSON. The provider optionally modifies via `modify_body/3` and `modify_events/2`.
+- **Request building separated from execution**: `Request.build/3` validates options via Peri and returns a `%Req.Request{}` via dialect + provider composition. `Request.stream/3` executes and returns a `StreamingResponse`. The dialect transforms Omni types ↔ native JSON. Auth is data on the provider (`:bearer`, `{:header, name}`, `:none`, or `:dialect` — the dialect's home scheme via `Dialect.auth/0`). An optional provider module adjusts via `modify_body/4`, `modify_request/3`, and `modify_deltas/3` (provisional hooks; most will become dialect compat flags).
 
 - **Two message roles only**: `:user` and `:assistant`. No `:tool` role — tool results are `Content.ToolResult` blocks inside user messages.
 
 - **Recursive stream loop**: `Omni.Loop` handles tool auto-execution and structured output validation via recursive `Stream.flat_map`. `stream_text/3` always delegates to `Loop.stream/3`. Tools execute in parallel via `Tool.Runner.run/3`. `:max_steps` (default `:infinity`) caps rounds. When `:output` is set, the loop validates against the schema and retries up to 3 times on failure.
 
-- **Single validation pass**: `Request.validate/2` merges universal + dialect option schemas, does a three-tier config merge (provider config ← app config ← call-site opts), and validates via Peri in one pass.
+- **Single validation pass**: `Request.validate/2` merges universal + dialect option schemas, merges the provider's `base_url`/`api_key`/`headers` (which already absorbed app config) with call-site opts, and validates via Peri in one pass.
 
 ### Module layout
 
 ```
 lib/omni.ex                         # Top-level API: generate_text, stream_text, get_model
 lib/omni/
-├── application.ex                  # Loads providers into :persistent_term at startup
+├── application.ex                  # Boots Omni.Provider.Loader at startup
 ├── model.ex                        # Model struct
 ├── context.ex                      # Context struct (system, messages, tools)
 ├── message.ex                      # Message struct (role, content blocks, timestamp)
@@ -78,8 +78,12 @@ lib/omni/
 ├── parsers/ndjson.ex               # NDJSON stream parser (Ollama)
 ├── request.ex                      # Request orchestration (build, stream, validate, parse_event)
 ├── loop.ex                         # Recursive stream loop (tool auto-execution)
-├── provider.ex                     # Provider behaviour + shared utilities + dialect registry
-├── providers/{anthropic,openai,ollama,open_code,...}.ex
+├── provider.ex                     # Provider struct + module behaviour + get/load/resolve_auth
+├── provider/builtins.ex            # Built-in provider ids → modules
+├── provider/loader.ex              # Assembly, merging, validation, store, boot config checks
+├── providers/{anthropic,openai,ollama,opencode,...}.ex   # Built-in provider modules
+├── source.ex                       # Source behaviour + build_model/1 + memo cache
+├── sources/{models_dev,llmdb}.ex
 ├── dialect.ex                      # Dialect behaviour + string→module registry
 └── dialects/{anthropic_messages,openai_completions,openai_responses,ollama_chat,...}.ex
 ```
@@ -88,8 +92,11 @@ lib/omni/
 
 - All public API functions return `{:ok, result} | {:error, reason}` tuples.
 - Content blocks are separate structs under `Omni.Content` — pattern match on struct name, not a type field.
-- Providers use `use Omni.Provider` with a required `:id` option — the provider's canonical id, its models.dev catalog key snake_cased as an atom (e.g. `:moonshotai`, `:ollama_cloud`). The id is the single provider identity: registration, `get_model/2` lookup, and source catalog lookup all use it (sources translate to their native key format themselves). `:dialect` is optional: single-dialect providers pass `dialect: Module`; multi-dialect providers omit it — each model gets its dialect from catalog data via `Omni.Dialect.get!/1`. `models/0` defaults to loading from the configured model source under the module's id; override it for post-processing (e.g. Venice's `:pdf` injection) or bespoke loading (e.g. local Ollama's config-driven list). Built-in provider modules are listed in `@builtins` on `Omni.Provider`; all load at startup by default. Users restrict or extend via the `providers:` key of `config :omni, :models` — a list of provider modules, with `:builtins` naming all built-ins (also allowed inside the list); the same config holds the global model source under `source:`. Models are stored in `:persistent_term` keyed as `{Omni, provider_id}`.
-- Provider `config/0` returns `%{base_url, auth_header, api_key, headers}`. API key resolution: call-site `:api_key` opt → app config → provider default. Accepts literal string, `{:system, "ENV"}`, or `{Mod, :fun, args}`.
+- A provider's id is its models.dev catalog key snake_cased as an atom (e.g. `:moonshotai`, `:ollama_cloud`). The id is the single identity: config keys, `get_model/2` lookup, and source catalog lookup all use it (sources translate to their native key format themselves). There is no renaming; an id the catalog doesn't know is a custom provider defined in config.
+- `config :omni, :models` selects: `providers:` (ids, `:builtins` expanding to `Omni.Provider.Builtins`), `source:`, `filter:`. `config :omni, :providers` configures by id: `name`, `base_url` (includes the version segment — dialect paths are resource paths only), `api_key`, `auth`, `headers`, `dialects`, `module`, `models`, `source`. Configuring never enables. Merge rule: values replace; `headers` merge by key, `dialects` by capability, `models` by id. v1-style config raises at boot with a migration message.
+- Provider modules declare `@behaviour Omni.Provider`; every callback is optional (`config/0`, `models/2`, `modify_request/3`, `modify_body/4`, `modify_deltas/3`). Modules carry no id — built-ins are mapped in `Omni.Provider.Builtins`, others are attached with `module:` in config. Built-in modules set their verified `base_url` and `api_key` explicitly in `config/0`.
+- API key resolution: call-site `:api_key` opt → provider value (source, module, app config). Accepts literal string, `{:system, "ENV"}`, or `{Mod, :fun, args}`.
+- Store: `{Omni, :providers}` holds `%{id => %Provider{}}`; `{Omni, :models, id}` holds `%{model_id => %Model{}}`. Writes go through the Loader. Unknown or unloaded providers return `{:error, {:unknown_provider, id}}`.
 - Tool modules use `use Omni.Tool, name: "string", description: "string"`. The `name:` and `description:` options are optional — omit them to implement `name/0` and `description/0` as callbacks directly. Override `description/1` to incorporate `init/1` state into the description. Import `Omni.Schema` inside the `schema/0` callback, not at module level.
 - The term is "tool use", not "tool call" (aligns with Anthropic's API).
 - Attachment sources use tagged tuples: `{:base64, data}` or `{:url, url_string}`.
@@ -107,8 +114,8 @@ lib/omni/
 
 Tests are organized in four layers, none of which require API keys except live tests:
 
-1. **Unit tests** (`test/omni/`) — pure logic, no HTTP. Parser, provider, and dialect tests in isolation.
-2. **Integration tests** (`test/integration/`) — use `Req.Test.stub/2` with a plug to simulate HTTP. One file per provider plus `error_test.exs`. All go through the top-level API. Assertions are loose/structural since fixtures are real API recordings.
+1. **Unit tests** (`test/omni/`) — pure logic, no HTTP. Parser, provider, and dialect tests in isolation. Build structs with `Omni.Test.Fixtures`; assemble providers with `Omni.Provider.Loader.assemble/2` (never writes the store) rather than loading them.
+2. **Integration tests** (`test/integration/`) — use `Req.Test.stub/2` with a plug to simulate HTTP. One file per provider plus `error_test.exs`; `request_target_test.exs` asserts every built-in's host, path and auth headers. All go through the top-level API. Assertions are loose/structural since fixtures are real API recordings.
 3. **Live tests** (`test/live/`) — tagged `@moduletag :live`, excluded by default. Run with `mix test --include live`. Require API keys via environment variables.
 4. **Capture helper** — `Omni.Test.Capture.record/5` records real API responses as fixture files.
 

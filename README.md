@@ -16,7 +16,7 @@ Streaming text generation, tool use, and structured output.
 - **Tool use** — define tools with schemas and handlers; the loop auto-executes and feeds results back
 - **Structured output** — JSON Schema validation with constrained decoding and automatic retries
 - **Pluggable model catalog** — bundled [models.dev](https://models.dev) snapshot by default, with optional live fetching or the [`llm_db`](https://hex.pm/packages/llm_db) package as alternative sources
-- **Extensible** — add custom providers by implementing a behaviour
+- **Extensible** — load any provider in the models.dev catalog by id, or define your own in config
 
 ## Installation
 
@@ -48,17 +48,37 @@ by default — if your keys are set, no configuration is needed:
 | Venice AI | `VENICE_API_KEY` |
 | Z.ai | `ZAI_API_KEY` |
 
-A local-Ollama provider (`Omni.Providers.Ollama`) is also included; it needs
-no API key — configure it with the models you have pulled locally.
-
-All built-in providers are loaded by default. To limit what loads at startup,
-list provider modules (`:builtins` names all built-ins and may appear in the list):
+A local-Ollama provider (`:ollama`) is also included; it needs no API key —
+configure it with the models you have pulled locally:
 
 ```elixir
-config :omni, :models, providers: [Omni.Providers.Anthropic, Omni.Providers.OpenAI]
+config :omni, :providers, ollama: [models: ["llama3.1:8b", "qwen3.5:4b"]]
+```
 
-# or: everything built-in plus a custom provider
-config :omni, :models, providers: [:builtins, MyApp.Providers.Acme]
+All built-in providers are loaded by default. To choose what loads at startup,
+list provider ids (`:builtins` names all built-ins and may appear in the list):
+
+```elixir
+config :omni, :models, providers: [:anthropic, :openai]
+
+# or: everything built-in plus a provider from the models.dev catalog
+config :omni, :models, providers: [:builtins, :togetherai]
+```
+
+Providers are configured by id, separately from selecting them. Any provider
+in the [models.dev](https://models.dev) catalog can be loaded this way, and a
+fully custom provider needs only config:
+
+```elixir
+config :omni, :providers,
+  anthropic: [api_key: {:system, "MY_ANTHROPIC_KEY"}],
+  togetherai: [base_url: "https://api.together.xyz/v1"],
+  gpu_box: [
+    base_url: "http://gpu-box:8000/v1",
+    dialects: %{text: Omni.Dialects.OpenAICompletions},
+    auth: :none,
+    models: ["llama-3.3-70b"]
+  ]
 ```
 
 ## Quick start
@@ -169,7 +189,7 @@ Or source the catalog from the optional [`llm_db`](https://hex.pm/packages/llm_d
 config :omni, :models, source: Omni.Sources.LLMDB
 ```
 
-Sources can also be pinned per provider (`config :omni, Omni.Providers.OpenAI, source: ...`), and custom sources implement the `Omni.Source` behaviour. See the [HexDocs](https://hexdocs.pm/omni) for details.
+Sources can also be pinned per provider (`config :omni, :providers, openai: [source: ...]`), and custom sources implement the `Omni.Source` behaviour. See the [HexDocs](https://hexdocs.pm/omni) for details.
 
 ## Documentation
 

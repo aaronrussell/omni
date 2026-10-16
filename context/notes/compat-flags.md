@@ -2,6 +2,8 @@
 
 *2026-10-15. Outcome of the compat research session defined in `providers-as-data-plan.md`. Surveys Pi, the Vercel AI SDK, LiteLLM, OpenRouter, llm_db and req_llm, then records the flag set, where compat lives, the `handle_event` signature, and what remains adapter code. Supersedes the provisional seven-flag table and the "Compat that varies within a provider" deferred item in `providers-as-data.md`.*
 
+> **Phase 1 adjustments (2026-10-16).** There is no `Omni.Provider.Builtins` data table: built-in compat will live in each built-in module's `config/0`, keyed by dialect as below. Dialect precedence also changed: model data decides each model's dialect and the provider's list is derived from its models (see the phase 1 section of `providers-as-data-plan.md`), replacing "the catalog's dialect if in the list, otherwise the first". Flexible routing (`Model.put_dialect/3`) moves to phase 4.
+
 ## What the research found
 
 Two points of convergence shaped everything else.

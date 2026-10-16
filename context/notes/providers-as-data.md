@@ -2,6 +2,8 @@
 
 *2026-10-10. Outcome of a design conversation about replacing provider modules with provider data for Omni v2.0.0. This records the shape we landed on, why, and what was deliberately left for later passes. It is a broad shape, not an implementation plan.*
 
+> **Partly superseded.** Phase 1 landed on 2026-10-16 with a different shape in places — built-ins keep modules (no Builtins data table), one provider id with no renaming, a single `Source.fetch/2`, dialect lists derived from models, `module` not `adapter`. See the phase 1 section of `providers-as-data-plan.md`. The compat sections are superseded by `compat-flags.md`.
+
 ## The problem
 
 Omni separates dialects (wire format) from providers (endpoint, auth, quirks). Dialects are modules, and that is right: they are code. Providers are also modules, and that is the thing being changed.
