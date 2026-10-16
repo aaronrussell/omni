@@ -10,22 +10,20 @@ defmodule Omni.Providers.Anthropic do
 
   Override the default API key or base URL via application config:
 
-      config :omni, Omni.Providers.Anthropic,
-        api_key: {:system, "MY_ANTHROPIC_KEY"}
+      config :omni, :providers,
+        anthropic: [api_key: {:system, "MY_ANTHROPIC_KEY"}]
 
-  Any key from the provider's `config/0` can be overridden: `:api_key`,
-  `:base_url`, `:headers`. See `Omni.Provider` for details.
+  Any provider key can be overridden — see `Omni.Provider`.
   """
 
-  use Omni.Provider, id: :anthropic, dialect: Omni.Dialects.AnthropicMessages
+  @behaviour Omni.Provider
 
   @impl true
   def config do
-    %{
+    [
       base_url: "https://api.anthropic.com/v1",
-      auth_header: "x-api-key",
       api_key: {:system, "ANTHROPIC_API_KEY"},
       headers: %{"anthropic-version" => "2023-06-01"}
-    }
+    ]
   end
 end

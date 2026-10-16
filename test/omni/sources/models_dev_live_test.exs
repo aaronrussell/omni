@@ -8,13 +8,6 @@ defmodule Omni.Sources.ModelsDevLiveTest do
 
   alias Omni.Sources.ModelsDev
 
-  defmodule LiveProvider do
-    use Omni.Provider, id: :livetest, dialect: Omni.Dialects.OpenAICompletions
-
-    @impl true
-    def config, do: %{base_url: "https://api.test.com", api_key: nil}
-  end
-
   @cache_file "models_dev.json"
 
   defp catalog_body(model_ids) do
@@ -77,16 +70,10 @@ defmodule Omni.Sources.ModelsDevLiveTest do
   end
 
   defp fetch_live(tmp_dir, plug, opts \\ []) do
-    ModelsDev.fetch(
-      LiveProvider,
-      Keyword.merge(
-        [live: true, cache_dir: tmp_dir, plug: plug, provider_id: :livetest],
-        opts
-      )
-    )
+    ModelsDev.fetch(:livetest, Keyword.merge([live: true, cache_dir: tmp_dir, plug: plug], opts))
   end
 
-  defp model_ids({:ok, models}), do: Enum.map(models, & &1.id)
+  defp model_ids({:ok, _provider, models}), do: Enum.map(models, & &1.id)
 
   describe "resilience ladder" do
     test "fresh cache is used without touching the network", %{tmp_dir: tmp_dir} do
@@ -131,16 +118,15 @@ defmodule Omni.Sources.ModelsDevLiveTest do
     test "fetch failure without a cache falls back to the bundled snapshot", %{tmp_dir: tmp_dir} do
       {result, log} =
         with_log(fn ->
-          ModelsDev.fetch(Omni.Providers.OpenAI,
+          ModelsDev.fetch(:openai,
             live: true,
             cache_dir: tmp_dir,
-            plug: transport_error(:timeout),
-            provider_id: :openai
+            plug: transport_error(:timeout)
           )
         end)
 
       assert log =~ "falling back to the bundled snapshot"
-      assert result == ModelsDev.fetch(Omni.Providers.OpenAI, provider_id: :openai)
+      assert result == ModelsDev.fetch(:openai, [])
     end
   end
 
@@ -204,8 +190,8 @@ defmodule Omni.Sources.ModelsDevLiveTest do
       plug = serve(catalog_body(["fetched-model"]))
 
       Omni.Source.with_cache(fn ->
-        assert {:ok, _} = fetch_live(tmp_dir, plug)
-        assert {:ok, _} = fetch_live(tmp_dir, plug)
+        assert {:ok, _, _} = fetch_live(tmp_dir, plug)
+        assert {:ok, _, _} = fetch_live(tmp_dir, plug)
       end)
 
       assert_received :fetched
@@ -214,27 +200,23 @@ defmodule Omni.Sources.ModelsDevLiveTest do
 
     test "live: false ignores cache opts and never dials out", %{tmp_dir: tmp_dir} do
       result =
-        ModelsDev.fetch(Omni.Providers.OpenAI,
-          cache_dir: tmp_dir,
-          cache_ttl: 0,
-          plug: poisoned(),
-          provider_id: :openai
-        )
+        ModelsDev.fetch(:openai, cache_dir: tmp_dir, cache_ttl: 0, plug: poisoned())
 
-      assert result == ModelsDev.fetch(Omni.Providers.OpenAI, provider_id: :openai)
+      assert result == ModelsDev.fetch(:openai, [])
       refute_received :fetched
       refute File.exists?(Path.join(tmp_dir, @cache_file))
     end
 
-    test "live opts survive the load_models/2 source resolution path", %{tmp_dir: tmp_dir} do
-      # provider_id comes from LiveProvider.id() — the default flow.
-      models =
-        Omni.Provider.load_models(LiveProvider,
+    test "live opts survive the loader's source resolution path", %{tmp_dir: tmp_dir} do
+      {provider, models} =
+        Omni.Provider.Loader.assemble(:livetest,
+          base_url: "https://api.test.com/v1",
           source: {ModelsDev, live: true, cache_dir: tmp_dir, plug: serve(catalog_body(["e2e"]))}
         )
 
       assert Enum.map(models, & &1.id) == ["e2e"]
-      assert Enum.all?(models, &(&1.provider == LiveProvider))
+      assert Enum.all?(models, &(&1.provider == provider))
+      assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
     end
   end
 end

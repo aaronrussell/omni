@@ -2,9 +2,9 @@ defmodule Omni.StreamingResponseTest do
   use ExUnit.Case, async: true
 
   alias Omni.StreamingResponse
-  alias Omni.{Model, Response}
+  alias Omni.Response
+  alias Omni.Test.Fixtures
   alias Omni.Content.{Text, Thinking, ToolUse}
-  alias Omni.Providers.Anthropic
   alias Omni.Dialects.AnthropicMessages
 
   # -- Helpers --
@@ -585,10 +585,9 @@ defmodule Omni.StreamingResponseTest do
   describe "usage computation" do
     test "token counts with model pricing" do
       model =
-        Model.new(
+        Fixtures.model(
           id: "test",
           name: "Test",
-          provider: Anthropic,
           dialect: AnthropicMessages,
           input_cost: 3.0,
           output_cost: 15.0,

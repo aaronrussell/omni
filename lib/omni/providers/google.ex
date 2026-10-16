@@ -10,21 +10,19 @@ defmodule Omni.Providers.Google do
 
   Override the default API key or base URL via application config:
 
-      config :omni, Omni.Providers.Google,
-        api_key: {:system, "MY_GEMINI_KEY"}
+      config :omni, :providers,
+        google: [api_key: {:system, "MY_GEMINI_KEY"}]
 
-  Any key from the provider's `config/0` can be overridden: `:api_key`,
-  `:base_url`. See `Omni.Provider` for details.
+  Any provider key can be overridden — see `Omni.Provider`.
   """
 
-  use Omni.Provider, id: :google, dialect: Omni.Dialects.GoogleGemini
+  @behaviour Omni.Provider
 
   @impl true
   def config do
-    %{
+    [
       base_url: "https://generativelanguage.googleapis.com/v1beta",
-      auth_header: "x-goog-api-key",
       api_key: {:system, "GEMINI_API_KEY"}
-    }
+    ]
   end
 end

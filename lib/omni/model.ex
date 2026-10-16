@@ -3,17 +3,19 @@ defmodule Omni.Model do
   A data struct describing a specific LLM.
 
   Models carry identity, capabilities, and pricing information. They are loaded
-  from the configured model source (see `Omni.Source`) at startup rather than
-  defined as individual modules. The `:provider` and `:dialect` fields hold direct module
-  references, making the struct self-contained for callback dispatch — given a
-  `%Model{}`, Omni knows where to send the request and how to format it.
+  from the configured model source (see `Omni.Source`) when their provider
+  loads, rather than defined as individual modules. Each model embeds its
+  `%Omni.Provider{}` and names its dialect per capability, making the struct
+  self-contained — given a `%Model{}`, Omni knows where to send the request
+  and how to format it.
 
   ## Struct fields
 
     * `:id` — the provider's string identifier (e.g. `"claude-sonnet-4-5-20250514"`)
     * `:name` — human-readable display name (e.g. `"Claude Sonnet 4.5"`)
-    * `:provider` — the provider module (e.g. `Omni.Providers.Anthropic`)
-    * `:dialect` — the dialect module (e.g. `Omni.Dialects.AnthropicMessages`)
+    * `:provider` — the `%Omni.Provider{}` serving the model
+    * `:dialects` — the dialect module per capability, e.g.
+      `%{text: Omni.Dialects.AnthropicMessages}`
     * `:context_size` — maximum input tokens the model accepts
     * `:max_output_tokens` — maximum tokens the model can generate
     * `:reasoning` — whether the model supports extended thinking
@@ -42,38 +44,44 @@ defmodule Omni.Model do
 
   ## Custom models
 
-  When a model isn't in the source's catalog (new releases, fine-tunes,
-  self-hosted endpoints), create and register it manually:
+  When a model isn't in the source's catalog (new releases, fine-tunes),
+  add it under its provider in config:
+
+      config :omni, :providers,
+        openai: [models: [[id: "ft:gpt-4o:acme::abc123", context_size: 128_000]]]
+
+  Or create and register one at runtime:
 
       model = Omni.Model.new(
         id: "my-fine-tune",
         name: "My Fine-Tune",
-        provider: Omni.Providers.OpenAI,
-        dialect: Omni.Dialects.OpenAICompletions,
+        provider: :openai,
         context_size: 128_000,
         max_output_tokens: 16_384,
         input_cost: 2.0,
         output_cost: 8.0
       )
 
-      Omni.put_model(:openai, model)
+      Omni.put_model(model)
 
   The model is now discoverable via `Omni.get_model/2` and `Omni.list_models/1`,
   and can be used directly as a struct with `generate_text/3` and `stream_text/3`.
   """
+
+  alias Omni.Provider
 
   @supported_modalities %{
     input: [:text, :image, :pdf],
     output: [:text]
   }
 
-  @enforce_keys [:id, :name, :provider, :dialect]
+  @enforce_keys [:id, :name]
   defstruct [
     :id,
     :name,
     :provider,
-    :dialect,
     :release_date,
+    dialects: %{},
     context_size: 0,
     max_output_tokens: 0,
     reasoning: false,
@@ -97,15 +105,15 @@ defmodule Omni.Model do
   @typedoc """
   An LLM model descriptor.
 
-  The `:provider` and `:dialect` fields are module references used for callback
-  dispatch. Cost fields are per million tokens. Modalities are filtered to the
-  supported set (see `new/1`).
+  `:provider` is the embedded provider struct and `:dialects` the dialect
+  module per capability. Cost fields are per million tokens. Modalities are
+  filtered to the supported set (see `new/1`).
   """
   @type t :: %__MODULE__{
           id: String.t(),
           name: String.t(),
-          provider: module(),
-          dialect: module(),
+          provider: Provider.t() | nil,
+          dialects: %{optional(atom()) => module()},
           context_size: non_neg_integer(),
           max_output_tokens: non_neg_integer(),
           reasoning: boolean(),
@@ -132,54 +140,60 @@ defmodule Omni.Model do
       #=> {:anthropic, "claude-sonnet-4-5-20250514"}
   """
   @spec to_ref(t()) :: ref()
-  def to_ref(%__MODULE__{} = model) do
-    {model.provider.id(), model.id}
+  def to_ref(%__MODULE__{provider: %Provider{id: provider_id}} = model) do
+    {provider_id, model.id}
   end
 
   @doc """
   Looks up a model by provider ID and model ID.
 
-  Returns `{:ok, model}` if found, or an error tuple identifying what's missing.
+  Returns `{:ok, model}` if found, or an error tuple identifying what's
+  missing. `{:unknown_provider, id}` means the provider isn't loaded — it
+  doesn't exist, or isn't selected in `config :omni, :models, providers:`.
   """
   @spec get(atom(), String.t()) :: {:ok, t()} | {:error, term()}
   def get(provider_id, model_id) do
-    case :persistent_term.get({Omni, provider_id}, nil) do
-      nil ->
-        {:error, {:unknown_provider, provider_id}}
-
-      models ->
-        case Map.get(models, model_id) do
-          nil -> {:error, {:unknown_model, provider_id, model_id}}
-          model -> {:ok, model}
-        end
+    with {:ok, models} <- models(provider_id) do
+      case Map.get(models, model_id) do
+        nil -> {:error, {:unknown_model, provider_id, model_id}}
+        model -> {:ok, model}
+      end
     end
   end
 
-  @doc "Returns all models for a provider, or an error if the provider is unknown."
+  @doc "Returns all models for a provider, or an error if the provider isn't loaded."
   @spec list(atom()) :: {:ok, [t()]} | {:error, term()}
   def list(provider_id) do
-    case :persistent_term.get({Omni, provider_id}, nil) do
-      nil -> {:error, {:unknown_provider, provider_id}}
-      models -> {:ok, Map.values(models)}
+    with {:ok, models} <- models(provider_id), do: {:ok, Map.values(models)}
+  end
+
+  defp models(provider_id) do
+    with {:ok, _provider} <- Provider.get(provider_id) do
+      {:ok, :persistent_term.get(Provider.models_key(provider_id), %{})}
     end
   end
 
   @doc """
-  Registers a model under the given provider ID.
+  Registers a model under its provider.
 
   Makes the model discoverable via `get/2` and `list/1`. If a model with the
-  same ID already exists for that provider, it is replaced. See the "Custom
-  models" section in the moduledoc for a full example.
+  same ID already exists for that provider, it is replaced. The model's
+  provider must be loaded. See the "Custom models" section in the moduledoc
+  for a full example.
   """
-  @spec put(atom(), t()) :: :ok
-  def put(provider_id, %__MODULE__{} = model) do
-    existing = :persistent_term.get({Omni, provider_id}, %{})
-    :persistent_term.put({Omni, provider_id}, Map.put(existing, model.id, model))
-    :ok
+  @spec put(t()) :: :ok
+  def put(%__MODULE__{provider: %Provider{}} = model), do: Omni.Provider.Loader.put_model(model)
+
+  def put(%__MODULE__{} = model) do
+    raise ArgumentError, "cannot register model #{inspect(model.id)}: it has no provider"
   end
 
   @doc """
   Creates a new model struct from a keyword list or map.
+
+  `:provider` may be a `%Omni.Provider{}` or the id of a loaded provider.
+  `:dialects` is optional: `%{text: Module}`, with any capability missing
+  filled from the provider's first dialect for it.
 
   Normalizes modalities to the supported set — unsupported values are silently
   dropped, and an empty list defaults to `[:text]`. Does not validate field
@@ -188,7 +202,16 @@ defmodule Omni.Model do
   """
   @spec new(Enumerable.t()) :: t()
   def new(attrs) do
-    model = struct!(__MODULE__, attrs)
+    attrs = Map.new(attrs)
+    provider = resolve_provider(Map.get(attrs, :provider))
+
+    dialects =
+      attrs
+      |> Map.get(:dialects, %{})
+      |> Map.new()
+      |> fill_dialects(provider)
+
+    model = struct!(__MODULE__, Map.merge(attrs, %{provider: provider, dialects: dialects}))
 
     %{
       model
@@ -196,6 +219,28 @@ defmodule Omni.Model do
         output_modalities:
           filter_modalities(model.output_modalities, supported_modalities(:output))
     }
+  end
+
+  defp resolve_provider(nil), do: nil
+  defp resolve_provider(%Provider{} = provider), do: provider
+
+  defp resolve_provider(id) when is_atom(id) do
+    case Provider.get(id) do
+      {:ok, provider} ->
+        provider
+
+      {:error, _} ->
+        raise ArgumentError, "cannot build model: provider #{inspect(id)} is not loaded"
+    end
+  end
+
+  defp fill_dialects(dialects, nil), do: dialects
+
+  defp fill_dialects(dialects, %Provider{dialects: defaults}) do
+    Enum.reduce(defaults, dialects, fn
+      {capability, [first | _]}, acc -> Map.put_new(acc, capability, first)
+      _, acc -> acc
+    end)
   end
 
   defp filter_modalities(modalities, supported) do

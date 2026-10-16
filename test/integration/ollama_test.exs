@@ -13,11 +13,10 @@ defmodule Integration.OllamaTest do
       Omni.Model.new(
         id: "qwen3.5:4b",
         name: "qwen3.5:4b",
-        provider: Omni.Providers.Ollama,
-        dialect: Omni.Dialects.OllamaChat
+        provider: :ollama
       )
 
-    Omni.Model.put(:ollama, model)
+    Omni.put_model(model)
     :ok
   end
 

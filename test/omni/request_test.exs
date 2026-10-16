@@ -11,7 +11,10 @@ defmodule Omni.RequestTest do
     def option_schema, do: %{}
 
     @impl true
-    def handle_path(_model, _opts), do: "/v1/dummy"
+    def auth, do: :bearer
+
+    @impl true
+    def handle_path(_model, _opts), do: "/dummy"
 
     @impl true
     def handle_body(model, _context, opts) do
@@ -24,82 +27,84 @@ defmodule Omni.RequestTest do
     def handle_event(_), do: []
   end
 
-  defmodule TestProvider do
-    use Omni.Provider, id: :request_test, dialect: Omni.RequestTest.DummyDialect
+  defmodule HeaderAuthDialect do
+    @moduledoc false
+    @behaviour Omni.Dialect
 
     @impl true
-    def config do
-      %{
-        base_url: "https://api.test.com",
-        auth_header: "authorization",
-        api_key: {:system, "TEST_PROVIDER_KEY"},
-        headers: %{"x-custom" => "from-config"}
-      }
+    def option_schema, do: %{}
+
+    @impl true
+    def auth, do: {:header, "x-api-key"}
+
+    @impl true
+    def handle_path(_model, _opts), do: "/dummy"
+
+    @impl true
+    def handle_body(_model, _context, _opts), do: %{}
+
+    @impl true
+    def handle_event(_), do: []
+  end
+
+  defmodule AugmentingModule do
+    @moduledoc false
+    @behaviour Omni.Provider
+
+    @impl true
+    def modify_body(body, model, _context, _opts), do: Map.put(body, "modified", model.id)
+
+    @impl true
+    def modify_deltas(deltas, _raw_event, _model), do: deltas ++ [{:extra, %{added: true}}]
+
+    @impl true
+    def modify_request(req, provider, _opts) do
+      {:ok, Req.Request.put_header(req, "x-provider", to_string(provider.id))}
     end
   end
 
-  defmodule AugmentingProvider do
-    use Omni.Provider, id: :request_test_augmenting, dialect: Omni.RequestTest.DummyDialect
+  @provider %Omni.Provider{
+    id: :request_test,
+    base_url: "https://api.test.com/v1",
+    api_key: {:system, "TEST_PROVIDER_KEY"},
+    auth: :dialect,
+    headers: %{"x-custom" => "from-config"},
+    dialects: %{text: [DummyDialect]}
+  }
 
-    @impl true
-    def config do
-      %{
-        base_url: "https://api.test.com",
-        api_key: {:system, "TEST_PROVIDER_KEY"}
-      }
-    end
+  defp provider(attrs), do: struct!(@provider, attrs)
 
-    @impl true
-    def modify_body(body, _context, _opts), do: Map.put(body, "modified", true)
-
-    @impl true
-    def modify_events(deltas, _raw_event) do
-      deltas ++ [{:extra, %{added: true}}]
-    end
-  end
-
-  defp make_model(provider \\ TestProvider) do
+  defp make_model(provider \\ @provider, dialect \\ DummyDialect) do
     Omni.Model.new(
       id: "test-model",
       name: "Test Model",
       provider: provider,
-      dialect: DummyDialect,
+      dialects: %{text: dialect},
       max_output_tokens: 2048
     )
   end
 
   describe "validate/2" do
-    test "three-tier merge and returns unified opts map" do
+    test "merges provider values with call-site opts" do
       model = make_model()
 
       {:ok, opts} =
         Request.validate(model, api_key: "sk-test", max_tokens: 1024, temperature: 0.7)
 
       assert opts.api_key == "sk-test"
-      assert opts.base_url == "https://api.test.com"
-      assert opts.auth_header == "authorization"
+      assert opts.base_url == "https://api.test.com/v1"
       assert opts[:max_tokens] == 1024
       assert opts[:temperature] == 0.7
     end
 
-    test "api_key three-tier merge: call-site wins" do
+    test "api_key: call-site wins" do
       model = make_model()
 
       {:ok, opts} = Request.validate(model, api_key: "from-call")
       assert opts.api_key == "from-call"
     end
 
-    test "api_key three-tier merge: app config second" do
-      model = make_model()
-      Application.put_env(:omni, TestProvider, api_key: "from-app-config")
-
-      {:ok, opts} = Request.validate(model, [])
-      assert opts.api_key == "from-app-config"
-    after
-      Application.delete_env(:omni, TestProvider)
-    end
-
-    test "api_key three-tier merge: provider config last" do
+    test "api_key: provider value otherwise" do
       model = make_model()
 
       {:ok, opts} = Request.validate(model, [])
@@ -113,18 +118,12 @@ defmodule Omni.RequestTest do
       assert opts.base_url == "https://custom.api.com"
     end
 
-    test "auth_header defaults from schema when provider omits it" do
-      model = make_model(AugmentingProvider)
-
-      {:ok, opts} = Request.validate(model, [])
-      assert opts.auth_header == "authorization"
-    end
-
-    test "auth_header from provider config" do
+    test "provider struct fields other than base_url, api_key and headers are not options" do
       model = make_model()
 
       {:ok, opts} = Request.validate(model, [])
-      assert opts.auth_header == "authorization"
+      refute Map.has_key?(opts, :dialects)
+      refute Map.has_key?(opts, :auth)
     end
 
     test "plug extraction" do
@@ -151,17 +150,13 @@ defmodule Omni.RequestTest do
       assert opts[:cache] == :short
     end
 
-    test "headers merge additively across all three tiers" do
+    test "headers merge additively: provider then call-site" do
       model = make_model()
-      Application.put_env(:omni, TestProvider, headers: %{"x-app" => "from-app"})
 
       {:ok, opts} = Request.validate(model, headers: %{"x-call" => "from-call"})
 
       assert opts.headers["x-custom"] == "from-config"
-      assert opts.headers["x-app"] == "from-app"
       assert opts.headers["x-call"] == "from-call"
-    after
-      Application.delete_env(:omni, TestProvider)
     end
 
     test "unknown keys rejected" do
@@ -289,7 +284,10 @@ defmodule Omni.RequestTest do
         def option_schema, do: %{max_tokens: {:integer, {:default, 4096}}}
 
         @impl true
-        def handle_path(_model, _opts), do: "/v1/override"
+        def auth, do: :bearer
+
+        @impl true
+        def handle_path(_model, _opts), do: "/override"
 
         @impl true
         def handle_body(_model, _context, _opts), do: %{}
@@ -298,14 +296,7 @@ defmodule Omni.RequestTest do
         def handle_event(_), do: []
       end
 
-      model =
-        Omni.Model.new(
-          id: "test-model",
-          name: "Test Model",
-          provider: TestProvider,
-          dialect: OverrideDialect,
-          max_output_tokens: 2048
-        )
+      model = make_model(@provider, OverrideDialect)
 
       {:ok, opts} = Request.validate(model, [])
       assert opts[:max_tokens] == 4096
@@ -320,8 +311,7 @@ defmodule Omni.RequestTest do
       {:ok, req} =
         Request.build(model, context, %{
           api_key: "sk-test",
-          base_url: "https://api.test.com",
-          auth_header: "authorization"
+          base_url: "https://api.test.com/v1"
         })
 
       assert %Req.Request{} = req
@@ -336,8 +326,7 @@ defmodule Omni.RequestTest do
       {:ok, req} =
         Request.build(model, context, %{
           api_key: "sk-test",
-          base_url: "https://api.test.com",
-          auth_header: "authorization",
+          base_url: "https://api.test.com/v1",
           headers: %{"x-custom" => "from-config", "x-extra" => "from-call"}
         })
 
@@ -352,24 +341,23 @@ defmodule Omni.RequestTest do
       {:ok, req} =
         Request.build(model, context, %{
           api_key: "sk-test",
-          base_url: "https://api.test.com"
+          base_url: "https://api.test.com/v1"
         })
 
       assert Req.Request.get_header(req, "authorization") == ["Bearer sk-test"]
     end
 
     test "modify_body is applied to dialect output" do
-      model = make_model(AugmentingProvider)
+      model = make_model(provider(module: AugmentingModule))
       context = Omni.Context.new("Hello")
 
       {:ok, req} =
         Request.build(model, context, %{
           api_key: "sk-test",
-          base_url: "https://api.test.com",
-          auth_header: "authorization"
+          base_url: "https://api.test.com/v1"
         })
 
-      assert req.options.json["modified"] == true
+      assert req.options.json["modified"] == "test-model"
     end
 
     test "plug is merged when present" do
@@ -380,8 +368,7 @@ defmodule Omni.RequestTest do
       {:ok, req} =
         Request.build(model, context, %{
           api_key: "sk-test",
-          base_url: "https://api.test.com",
-          auth_header: "authorization",
+          base_url: "https://api.test.com/v1",
           plug: plug
         })
 
@@ -395,8 +382,7 @@ defmodule Omni.RequestTest do
       assert {:error, :no_api_key} =
                Request.build(model, context, %{
                  api_key: nil,
-                 base_url: "https://api.test.com",
-                 auth_header: "authorization"
+                 base_url: "https://api.test.com/v1"
                })
     end
 
@@ -407,8 +393,7 @@ defmodule Omni.RequestTest do
       {:ok, req} =
         Request.build(model, context, %{
           api_key: "sk-test",
-          base_url: "https://api.test.com",
-          auth_header: "authorization"
+          base_url: "https://api.test.com/v1"
         })
 
       assert req.into == :self
@@ -432,8 +417,7 @@ defmodule Omni.RequestTest do
       {:ok, req} =
         Request.build(model, context, %{
           api_key: "sk-test",
-          base_url: "https://api.test.com",
-          auth_header: "authorization"
+          base_url: "https://api.test.com/v1"
         })
 
       assert req.options[:receive_timeout] == 300_000
@@ -446,12 +430,60 @@ defmodule Omni.RequestTest do
       {:ok, req} =
         Request.build(model, context, %{
           api_key: "sk-test",
-          base_url: "https://api.test.com",
-          auth_header: "authorization",
+          base_url: "https://api.test.com/v1",
           timeout: 60_000
         })
 
       assert req.options[:receive_timeout] == 60_000
+    end
+  end
+
+  describe "build/3 — auth" do
+    defp sent_auth(provider_attrs, dialect \\ DummyDialect) do
+      model = make_model(provider(provider_attrs), dialect)
+      {:ok, req} = Request.build(model, Omni.Context.new("Hello"), api_key: "sk-test")
+      Map.take(req.headers, ["authorization", "x-api-key", "x-key"])
+    end
+
+    test ":bearer sends an Authorization Bearer header" do
+      assert sent_auth(auth: :bearer) == %{"authorization" => ["Bearer sk-test"]}
+    end
+
+    test "{:header, name} sends the raw key on that header" do
+      assert sent_auth(auth: {:header, "x-key"}) == %{"x-key" => ["sk-test"]}
+    end
+
+    test ":none sends no credentials, even with a key" do
+      assert sent_auth(auth: :none) == %{}
+    end
+
+    test ":dialect uses the dialect's scheme" do
+      assert sent_auth([auth: :dialect], DummyDialect) == %{
+               "authorization" => ["Bearer sk-test"]
+             }
+
+      assert sent_auth([auth: :dialect], HeaderAuthDialect) == %{"x-api-key" => ["sk-test"]}
+    end
+
+    test "unset auth behaves as :dialect" do
+      assert sent_auth([auth: nil], HeaderAuthDialect) == %{"x-api-key" => ["sk-test"]}
+    end
+
+    test "a missing key is an error unless auth is :none" do
+      model = make_model(provider(api_key: nil))
+      assert {:error, :no_api_key} = Request.build(model, Omni.Context.new("Hello"), [])
+
+      model = make_model(provider(api_key: nil, auth: :none))
+      assert {:ok, _req} = Request.build(model, Omni.Context.new("Hello"), [])
+    end
+
+    test "modify_request runs after auth" do
+      model = make_model(provider(module: AugmentingModule))
+
+      {:ok, req} = Request.build(model, Omni.Context.new("Hello"), api_key: "sk-test")
+
+      assert Req.Request.get_header(req, "x-provider") == ["request_test"]
+      assert Req.Request.get_header(req, "authorization") == ["Bearer sk-test"]
     end
   end
 
@@ -653,14 +685,7 @@ defmodule Omni.RequestTest do
         |> Plug.Conn.send_resp(200, body)
       end)
 
-      model =
-        Omni.Model.new(
-          id: "test-model",
-          name: "Test Model",
-          provider: TestProvider,
-          dialect: Omni.Dialects.OllamaChat,
-          max_output_tokens: 2048
-        )
+      model = make_model(@provider, Omni.Dialects.OllamaChat)
 
       {:ok, req} =
         Request.build(model, Omni.Context.new("Hello"),
@@ -707,8 +732,8 @@ defmodule Omni.RequestTest do
       assert [] == Request.parse_event(model, event)
     end
 
-    test "modify_events augments dialect output" do
-      model = make_model(AugmentingProvider)
+    test "modify_deltas augments dialect output" do
+      model = make_model(provider(module: AugmentingModule))
       event = %{"type" => "message_start"}
 
       result = Request.parse_event(model, event)

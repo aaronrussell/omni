@@ -8,17 +8,21 @@ if Code.ensure_loaded?(LLMDB) do
     # — re-verify the loaded set, then refresh the version pin, counts, and
     # golden models below.
     #
-    # async: false — sets the global source config and calls each provider's
-    # models/0 (the real boot path).
+    # async: false — assembles each built-in through the real load path, which
+    # reads app config that other sync tests may set temporarily.
     use ExUnit.Case, async: false
 
-    setup_all do
-      Application.put_env(:omni, :models, source: Omni.Sources.LLMDB)
-      on_exit(fn -> Application.delete_env(:omni, :models) end)
+    alias Omni.Provider.Loader
 
+    # Assembled without touching the store, so llm_db models never leak into
+    # tests that read the boot-time catalog.
+    setup_all do
       models =
         Omni.Source.with_cache(fn ->
-          Map.new(Omni.Provider.builtins(), fn mod -> {mod.id(), mod.models()} end)
+          Map.new(Omni.Provider.builtins(), fn id ->
+            {_provider, models} = Loader.assemble(id, source: Omni.Sources.LLMDB)
+            {id, models}
+          end)
         end)
 
       %{models: models}
@@ -59,8 +63,7 @@ if Code.ensure_loaded?(LLMDB) do
     end
 
     test "every built-in provider loads a model set within the expected range", %{models: models} do
-      for mod <- Omni.Provider.builtins() do
-        id = mod.id()
+      for id <- Omni.Provider.builtins() do
         count = length(models[id])
         range = Map.fetch!(@expected_counts, id)
 
@@ -73,10 +76,10 @@ if Code.ensure_loaded?(LLMDB) do
       supported_input = Omni.Model.supported_modalities(:input)
       supported_output = Omni.Model.supported_modalities(:output)
 
-      for mod <- Omni.Provider.builtins(), id = mod.id(), model <- models[id] do
+      for id <- Omni.Provider.builtins(), model <- models[id] do
         assert is_binary(model.id), "#{id}: model without a string id: #{inspect(model)}"
-        assert model.provider == mod, "#{id}:#{model.id}: provider not stamped"
-        assert model.dialect in @known_dialects, "#{id}:#{model.id}: bad dialect"
+        assert model.provider.id == id, "#{id}:#{model.id}: provider not stamped"
+        assert model.dialects.text in @known_dialects, "#{id}:#{model.id}: bad dialect"
         assert Enum.all?(model.input_modalities, &(&1 in supported_input))
         assert Enum.all?(model.output_modalities, &(&1 in supported_output))
 
@@ -90,8 +93,7 @@ if Code.ensure_loaded?(LLMDB) do
     end
 
     test "model ids are unique per provider after alias expansion", %{models: models} do
-      for mod <- Omni.Provider.builtins() do
-        id = mod.id()
+      for id <- Omni.Provider.builtins() do
         ids = Enum.map(models[id], & &1.id)
 
         assert ids == Enum.uniq(ids), "#{id}: duplicate model ids after alias expansion"
@@ -100,7 +102,7 @@ if Code.ensure_loaded?(LLMDB) do
 
     test "ollama cloud models carry the native dialect", %{models: models} do
       assert models[:ollama_cloud] != []
-      assert Enum.all?(models[:ollama_cloud], &(&1.dialect == Omni.Dialects.OllamaChat))
+      assert Enum.all?(models[:ollama_cloud], &(&1.dialects.text == Omni.Dialects.OllamaChat))
     end
 
     test "venice models are enriched with the :pdf input modality", %{models: models} do
@@ -114,8 +116,7 @@ if Code.ensure_loaded?(LLMDB) do
         {:anthropic, "claude-sonnet-4-5"} => %Omni.Model{
           id: "claude-sonnet-4-5",
           name: "Claude Sonnet 4.5",
-          provider: Omni.Providers.Anthropic,
-          dialect: Omni.Dialects.AnthropicMessages,
+          dialects: %{text: Omni.Dialects.AnthropicMessages},
           release_date: ~D[2025-09-29],
           context_size: 1_000_000,
           max_output_tokens: 64_000,
@@ -130,8 +131,7 @@ if Code.ensure_loaded?(LLMDB) do
         {:openai, "gpt-5"} => %Omni.Model{
           id: "gpt-5",
           name: "GPT-5",
-          provider: Omni.Providers.OpenAI,
-          dialect: Omni.Dialects.OpenAIResponses,
+          dialects: %{text: Omni.Dialects.OpenAIResponses},
           release_date: ~D[2025-08-07],
           context_size: 400_000,
           max_output_tokens: 128_000,
@@ -146,7 +146,9 @@ if Code.ensure_loaded?(LLMDB) do
       }
 
       for {{provider_id, model_id}, expected} <- goldens do
-        actual = Enum.find(models[provider_id], &(&1.id == model_id))
+        found = Enum.find(models[provider_id], &(&1.id == model_id))
+        assert found.provider.id == provider_id
+        actual = %{found | provider: nil}
 
         assert actual == expected,
                "golden model #{provider_id} #{model_id} drifted:\n" <>

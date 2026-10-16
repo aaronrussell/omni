@@ -2,21 +2,23 @@ defmodule Omni.Request do
   # Request orchestration for LLM API calls.
   #
   # Handles validation, request building, streaming execution, and event parsing.
-  # Separates orchestration logic from the Provider behaviour and Dialect behaviour,
-  # composing them into a complete request pipeline.
+  # Composes the model's dialect (wire format) and provider (endpoint, auth,
+  # optional module hooks) into a complete request pipeline. Everything comes
+  # from the %Model{} — its embedded %Provider{} and its dialects — so nothing
+  # is looked up at request time.
   #
   # Public API:
   #   - build/3 — validates opts, builds a %Req.Request{} via dialect + provider
   #   - stream/3 — executes a built request, returns a %StreamingResponse{}
   #
   # Internal (public but undocumented):
-  #   - validate/2 — three-tier config merge + Peri validation
-  #   - parse_event/2 — dialect handle_event + provider modify_events
+  #   - validate/2 — provider + call-site merge + Peri validation
+  #   - parse_event/2 — dialect handle_event + provider module modify_deltas
   #   - validate_context/2 — checks attachment media types against model modalities
   @moduledoc false
 
   alias Omni.Content.Attachment
-  alias Omni.{Context, Model, Parsers, StreamingResponse}
+  alias Omni.{Context, Model, Parsers, Provider, StreamingResponse}
 
   import Omni.Util, only: [maybe_put: 3]
 
@@ -24,10 +26,8 @@ defmodule Omni.Request do
     # Config (type-loose — validated by infrastructure, not user input)
     api_key: :any,
     base_url: :any,
-    auth_header: {:string, {:default, "authorization"}},
     headers: {:map, {:default, %{}}},
     plug: :any,
-    models: :any,
 
     # Inference (type-strict)
     max_tokens: :integer,
@@ -46,23 +46,22 @@ defmodule Omni.Request do
   Builds an authenticated `%Req.Request{}` from a model, context, and options.
 
   Options can be a keyword list or map. Validates all options via `validate/2`,
-  then delegates body/path building to the dialect, applies provider modifications,
-  and returns the final request ready for execution.
+  then delegates body/path building to the dialect, applies the provider's
+  auth and module hooks, and returns the final request ready for execution.
   """
   @spec build(Model.t(), Context.t(), keyword() | map()) ::
           {:ok, Req.Request.t()} | {:error, term()}
-  def build(%Model{} = model, %Context{} = context, opts) do
+  def build(%Model{provider: %Provider{} = provider} = model, %Context{} = context, opts) do
+    dialect = dialect!(model)
+
     with {:ok, opts} <- validate(model, opts),
          :ok <- validate_context(model, context) do
-      url =
-        model
-        |> model.dialect.handle_path(opts)
-        |> model.provider.build_url(opts)
+      url = opts.base_url <> dialect.handle_path(model, opts)
 
       body =
         model
-        |> model.dialect.handle_body(context, opts)
-        |> model.provider.modify_body(context, opts)
+        |> dialect.handle_body(context, opts)
+        |> modify_body(provider, model, context, opts)
 
       req =
         [method: :post, url: url, json: body, receive_timeout: opts[:timeout], into: :self]
@@ -70,7 +69,9 @@ defmodule Omni.Request do
         |> maybe_put(:plug, opts[:plug])
         |> Req.new()
 
-      model.provider.authenticate(req, opts)
+      with {:ok, req} <- authenticate(req, auth_scheme(provider, dialect), opts[:api_key]) do
+        modify_request(req, provider, opts)
+      end
     end
   end
 
@@ -102,14 +103,13 @@ defmodule Omni.Request do
 
   @doc false
   @spec validate(Model.t(), keyword() | map()) :: {:ok, map()} | {:error, term()}
-  def validate(%Model{} = model, opts) do
-    config = Application.get_env(:omni, model.provider, [])
-    schema = Map.merge(@schema, model.dialect.option_schema())
+  def validate(%Model{provider: %Provider{} = provider} = model, opts) do
+    schema = Map.merge(@schema, dialect!(model).option_schema())
 
-    # Three-tier merge: provider config <- app config <- call-site opts
+    # Two tiers: the provider (which already absorbed app config) <- call site
     data =
-      model.provider.config()
-      |> Map.merge(Map.new(config), &merge_config/3)
+      provider
+      |> Map.take([:base_url, :api_key, :headers])
       |> Map.merge(Map.new(opts), &merge_config/3)
 
     with :ok <- check_unknown_keys(data, schema),
@@ -120,9 +120,12 @@ defmodule Omni.Request do
 
   @doc false
   @spec parse_event(Model.t(), map()) :: [{atom(), map() | term()}]
-  def parse_event(%Model{} = model, raw_event) do
-    deltas = model.dialect.handle_event(raw_event)
-    model.provider.modify_events(deltas, raw_event)
+  def parse_event(%Model{provider: provider} = model, raw_event) do
+    deltas = dialect!(model).handle_event(raw_event)
+
+    if Provider.callback?(provider, :modify_deltas, 3),
+      do: provider.module.modify_deltas(deltas, raw_event, model),
+      else: deltas
   end
 
   @doc false
@@ -168,6 +171,45 @@ defmodule Omni.Request do
   defp check_modality(mt, _modalities), do: {:error, {:unsupported_media_type, mt}}
 
   # -- Private helpers --
+
+  defp dialect!(%Model{dialects: %{text: dialect}}) when is_atom(dialect), do: dialect
+
+  defp dialect!(%Model{id: id}) do
+    raise ArgumentError, "model #{inspect(id)} has no text dialect"
+  end
+
+  defp modify_body(body, provider, model, context, opts) do
+    if Provider.callback?(provider, :modify_body, 4),
+      do: provider.module.modify_body(body, model, context, opts),
+      else: body
+  end
+
+  defp modify_request(req, provider, opts) do
+    if Provider.callback?(provider, :modify_request, 3),
+      do: provider.module.modify_request(req, provider, opts),
+      else: {:ok, req}
+  end
+
+  # :dialect (and unset, for hand-built structs) uses the scheme of the
+  # dialect's home API, so gateways authenticate each model correctly.
+  defp auth_scheme(%Provider{auth: auth}, dialect) when auth in [nil, :dialect],
+    do: dialect.auth()
+
+  defp auth_scheme(%Provider{auth: auth}, _dialect), do: auth
+
+  defp authenticate(req, :none, _api_key), do: {:ok, req}
+
+  defp authenticate(req, :bearer, api_key) do
+    with {:ok, key} <- Provider.resolve_auth(api_key) do
+      {:ok, Req.Request.put_header(req, "authorization", "Bearer #{key}")}
+    end
+  end
+
+  defp authenticate(req, {:header, name}, api_key) do
+    with {:ok, key} <- Provider.resolve_auth(api_key) do
+      {:ok, Req.Request.put_header(req, name, key)}
+    end
+  end
 
   defp select_parser(%Req.Response{} = resp) do
     if resp

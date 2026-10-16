@@ -10,20 +10,16 @@ defmodule Omni.Providers.OpenAI do
 
   Override the default API key or base URL via application config:
 
-      config :omni, Omni.Providers.OpenAI,
-        api_key: {:system, "MY_OPENAI_KEY"}
+      config :omni, :providers,
+        openai: [api_key: {:system, "MY_OPENAI_KEY"}]
 
-  Any key from the provider's `config/0` can be overridden: `:api_key`,
-  `:base_url`. See `Omni.Provider` for details.
+  Any provider key can be overridden — see `Omni.Provider`.
   """
 
-  use Omni.Provider, id: :openai, dialect: Omni.Dialects.OpenAIResponses
+  @behaviour Omni.Provider
 
   @impl true
   def config do
-    %{
-      base_url: "https://api.openai.com/v1",
-      api_key: {:system, "OPENAI_API_KEY"}
-    }
+    [base_url: "https://api.openai.com/v1", api_key: {:system, "OPENAI_API_KEY"}]
   end
 end

@@ -10,11 +10,10 @@ defmodule Omni.Providers.OpenRouter do
 
   Override the default API key or base URL via application config:
 
-      config :omni, Omni.Providers.OpenRouter,
-        api_key: {:system, "MY_OPENROUTER_KEY"}
+      config :omni, :providers,
+        openrouter: [api_key: {:system, "MY_OPENROUTER_KEY"}]
 
-  Any key from the provider's `config/0` can be overridden: `:api_key`,
-  `:base_url`. See `Omni.Provider` for details.
+  Any provider key can be overridden — see `Omni.Provider`.
 
   ## Reasoning
 
@@ -24,30 +23,27 @@ defmodule Omni.Providers.OpenRouter do
 
   alias Omni.Context
 
-  use Omni.Provider, id: :openrouter, dialect: Omni.Dialects.OpenAICompletions
+  @behaviour Omni.Provider
 
   @impl true
   def config do
-    %{
-      base_url: "https://openrouter.ai/api/v1",
-      api_key: {:system, "OPENROUTER_API_KEY"}
-    }
+    [base_url: "https://openrouter.ai/api/v1", api_key: {:system, "OPENROUTER_API_KEY"}]
   end
 
   @impl true
-  def modify_body(%{"reasoning_effort" => effort} = body, context, _opts) do
+  def modify_body(%{"reasoning_effort" => effort} = body, _model, context, _opts) do
     body
     |> Map.delete("reasoning_effort")
     |> Map.put("reasoning", %{"effort" => effort})
     |> attach_reasoning_details(context)
   end
 
-  def modify_body(body, context, _opts) do
+  def modify_body(body, _model, context, _opts) do
     attach_reasoning_details(body, context)
   end
 
   @impl true
-  def modify_events(deltas, raw_event) do
+  def modify_deltas(deltas, raw_event, _model) do
     case extract_error(raw_event) do
       {:error, _} = error ->
         [error]

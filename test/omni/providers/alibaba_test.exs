@@ -2,45 +2,38 @@ defmodule Omni.Providers.AlibabaTest do
   use ExUnit.Case, async: true
 
   alias Omni.Providers.Alibaba
+  alias Omni.Provider.Loader
 
   describe "config/0" do
     test "returns expected configuration" do
-      config = Alibaba.config()
+      config = Map.new(Alibaba.config())
 
       assert config.base_url == "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
       assert config.api_key == {:system, "DASHSCOPE_API_KEY"}
-      refute Map.has_key?(config, :auth_header)
     end
   end
 
-  describe "dialect/0" do
-    test "returns OpenAICompletions dialect" do
-      assert Alibaba.dialect() == Omni.Dialects.OpenAICompletions
-    end
-  end
+  describe "assembled provider" do
+    test "loads catalog models with the OpenAICompletions dialect" do
+      {provider, models} = Loader.assemble(:alibaba)
 
-  describe "models/0" do
-    test "returns a non-empty list of Model structs" do
-      models = Alibaba.models()
+      assert provider.module == Alibaba
+      assert provider.tier == :verified
+      assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
+      assert models != []
 
-      assert is_list(models)
-      assert length(models) > 0
-      assert Enum.all?(models, &match?(%Omni.Model{}, &1))
-    end
-
-    test "stamps provider and dialect on every model" do
-      for model <- Alibaba.models() do
-        assert model.provider == Alibaba
-        assert model.dialect == Omni.Dialects.OpenAICompletions
+      for model <- models do
+        assert model.provider == provider
+        assert model.dialects == %{text: Omni.Dialects.OpenAICompletions}
       end
     end
   end
 
-  describe "modify_body/3 — reasoning_effort" do
+  describe "modify_body/4 — reasoning_effort" do
     test "translates reasoning_effort=none to enable_thinking false" do
       body = %{"model" => "qwen3.6-plus", "reasoning_effort" => "none"}
 
-      result = Alibaba.modify_body(body, %Omni.Context{}, %{})
+      result = Alibaba.modify_body(body, nil, %Omni.Context{}, %{})
 
       assert result["enable_thinking"] == false
       refute Map.has_key?(result, "reasoning_effort")
@@ -58,7 +51,7 @@ defmodule Omni.Providers.AlibabaTest do
       for {level, expected_budget} <- levels do
         body = %{"model" => "qwen3.6-plus", "reasoning_effort" => level}
 
-        result = Alibaba.modify_body(body, %Omni.Context{}, %{})
+        result = Alibaba.modify_body(body, nil, %Omni.Context{}, %{})
 
         assert result["enable_thinking"] == true,
                "expected #{level} to enable thinking"
@@ -73,7 +66,7 @@ defmodule Omni.Providers.AlibabaTest do
     test "passes through body without reasoning_effort" do
       body = %{"model" => "qwen3.6-plus", "messages" => []}
 
-      result = Alibaba.modify_body(body, %Omni.Context{}, %{})
+      result = Alibaba.modify_body(body, nil, %Omni.Context{}, %{})
 
       refute Map.has_key?(result, "enable_thinking")
       refute Map.has_key?(result, "thinking_budget")
@@ -81,7 +74,7 @@ defmodule Omni.Providers.AlibabaTest do
     end
   end
 
-  describe "modify_body/3 — structured output" do
+  describe "modify_body/4 — structured output" do
     test "rewrites json_schema response_format to json_object with system instruction" do
       schema = %{"type" => "object", "properties" => %{"name" => %{"type" => "string"}}}
 
@@ -94,7 +87,7 @@ defmodule Omni.Providers.AlibabaTest do
         "messages" => [%{"role" => "user", "content" => "Give me a name"}]
       }
 
-      result = Alibaba.modify_body(body, %Omni.Context{}, %{})
+      result = Alibaba.modify_body(body, nil, %Omni.Context{}, %{})
 
       assert result["response_format"] == %{"type" => "json_object"}
 
@@ -120,7 +113,7 @@ defmodule Omni.Providers.AlibabaTest do
         ]
       }
 
-      result = Alibaba.modify_body(body, %Omni.Context{}, %{})
+      result = Alibaba.modify_body(body, nil, %Omni.Context{}, %{})
 
       [system, user] = result["messages"]
       assert system["content"] =~ "You are helpful."
@@ -134,13 +127,13 @@ defmodule Omni.Providers.AlibabaTest do
         "messages" => [%{"role" => "user", "content" => "Hello"}]
       }
 
-      result = Alibaba.modify_body(body, %Omni.Context{}, %{})
+      result = Alibaba.modify_body(body, nil, %Omni.Context{}, %{})
 
       refute Map.has_key?(result, "response_format")
     end
   end
 
-  describe "modify_body/3 — combined" do
+  describe "modify_body/4 — combined" do
     test "applies both reasoning_effort and structured output transforms" do
       schema = %{"type" => "object", "properties" => %{"answer" => %{"type" => "string"}}}
 
@@ -154,7 +147,7 @@ defmodule Omni.Providers.AlibabaTest do
         "messages" => [%{"role" => "user", "content" => "Test"}]
       }
 
-      result = Alibaba.modify_body(body, %Omni.Context{}, %{})
+      result = Alibaba.modify_body(body, nil, %Omni.Context{}, %{})
 
       assert result["enable_thinking"] == true
       assert result["thinking_budget"] == 16384

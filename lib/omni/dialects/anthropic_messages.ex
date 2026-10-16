@@ -26,6 +26,9 @@ defmodule Omni.Dialects.AnthropicMessages do
   def option_schema, do: %{max_tokens: {:integer, {:default, 4096}}}
 
   @impl true
+  def auth, do: {:header, "x-api-key"}
+
+  @impl true
   def handle_path(%Model{}, _opts), do: "/messages"
 
   @impl true

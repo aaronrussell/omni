@@ -26,8 +26,8 @@ defmodule Omni.Dialect do
   Built-in dialects are registered with string identifiers for use in model
   catalog data (e.g. `"anthropic_messages"`, `"openai_responses"`). Use `get/1`
   or `get!/1` to resolve a string to its module. This is primarily used by
-  `Omni.Provider.build_model/2` for multi-dialect providers where the dialect
-  varies per model.
+  model sources (see `Omni.Source.build_model/1`) when mapping catalog data
+  to dialects.
 
   ## Delta types
 
@@ -80,7 +80,7 @@ defmodule Omni.Dialect do
 
   ## Implementing a dialect
 
-  A dialect module declares `@behaviour Omni.Dialect` and implements all four
+  A dialect module declares `@behaviour Omni.Dialect` and implements all five
   callbacks. Dialects are stateless and pure — every callback receives
   already-validated inputs and returns plain data. No HTTP, no configuration,
   no side effects.
@@ -90,6 +90,9 @@ defmodule Omni.Dialect do
 
         @impl true
         def option_schema, do: %{}
+
+        @impl true
+        def auth, do: :bearer
 
         @impl true
         def handle_path(_model, _opts), do: "/generate"
@@ -165,6 +168,21 @@ defmodule Omni.Dialect do
   @callback option_schema() :: Peri.map_schema()
 
   @doc """
+  Returns how this dialect's home API expects the API key to be sent.
+
+  Used for providers whose `:auth` is `:dialect` (the default), so a
+  provider speaking a dialect authenticates the way that dialect's reference
+  API does — and a gateway serving several dialects authenticates each model
+  correctly:
+
+      def auth, do: {:header, "x-api-key"}
+
+  Return `:bearer` for an `Authorization: Bearer <key>` header, or
+  `{:header, name}` to send the raw key on a named header.
+  """
+  @callback auth() :: :bearer | {:header, String.t()}
+
+  @doc """
   Returns the URL path for the given model and options.
 
   The path is the API's resource path, appended to the provider's base URL.
@@ -188,8 +206,8 @@ defmodule Omni.Dialect do
 
   Always set `"stream" => true` (or the equivalent for the API format).
 
-  The returned map may be further adjusted by the provider's
-  `c:Omni.Provider.modify_body/3` before being sent as JSON.
+  The returned map may be further adjusted by the provider module's
+  `c:Omni.Provider.modify_body/4` before being sent as JSON.
   """
   @callback handle_body(Model.t(), Context.t(), map()) :: map()
 
@@ -205,8 +223,8 @@ defmodule Omni.Dialect do
   deltas with no knowledge of previous events. This makes dialects trivially
   testable: pass a JSON map, assert the tuples that come out.
 
-  The returned deltas may be further adjusted by the provider's
-  `c:Omni.Provider.modify_events/2` before reaching the consumer.
+  The returned deltas may be further adjusted by the provider module's
+  `c:Omni.Provider.modify_deltas/3` before reaching the consumer.
   """
   @callback handle_event(map()) :: [{atom(), map() | term()}]
 end

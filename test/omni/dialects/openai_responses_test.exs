@@ -3,12 +3,12 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
 
   alias Omni.Dialects.OpenAIResponses
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
-  alias Omni.{Context, Message, Model, Tool}
+  alias Omni.{Context, Message, Tool}
+  alias Omni.Test.Fixtures
 
-  @model Model.new(
+  @model Fixtures.model(
            id: "gpt-4.1-nano",
            name: "GPT-4.1 nano",
-           provider: Omni.Providers.OpenAI,
            dialect: OpenAIResponses,
            max_output_tokens: 32768
          )
@@ -424,10 +424,9 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
   end
 
   describe "handle_body/3 thinking" do
-    @reasoning_model Model.new(
+    @reasoning_model Fixtures.model(
                        id: "o3-mini",
                        name: "o3-mini",
-                       provider: Omni.Providers.OpenAI,
                        dialect: OpenAIResponses,
                        max_output_tokens: 32768,
                        reasoning: true

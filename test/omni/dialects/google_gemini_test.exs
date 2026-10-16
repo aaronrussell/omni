@@ -3,12 +3,12 @@ defmodule Omni.Dialects.GoogleGeminiTest do
 
   alias Omni.Dialects.GoogleGemini
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
-  alias Omni.{Context, Message, Model, Tool}
+  alias Omni.{Context, Message, Tool}
+  alias Omni.Test.Fixtures
 
-  @model Model.new(
+  @model Fixtures.model(
            id: "gemini-2.0-flash-lite",
            name: "Gemini 2.0 Flash Lite",
-           provider: Omni.Providers.Google,
            dialect: GoogleGemini,
            max_output_tokens: 8192
          )
@@ -434,10 +434,9 @@ defmodule Omni.Dialects.GoogleGeminiTest do
   end
 
   describe "handle_body/3 thinking — Gemini 2.5 (budget path)" do
-    @reasoning_model Model.new(
+    @reasoning_model Fixtures.model(
                        id: "gemini-2.5-flash-preview",
                        name: "Gemini 2.5 Flash Preview",
-                       provider: Omni.Providers.Google,
                        dialect: GoogleGemini,
                        max_output_tokens: 8192,
                        reasoning: true
@@ -517,10 +516,9 @@ defmodule Omni.Dialects.GoogleGeminiTest do
   end
 
   describe "handle_body/3 thinking — Gemini 3 (level path, shifted)" do
-    @gemini3_model Model.new(
+    @gemini3_model Fixtures.model(
                      id: "gemini-3-pro-preview",
                      name: "Gemini 3 Pro Preview",
-                     provider: Omni.Providers.Google,
                      dialect: GoogleGemini,
                      max_output_tokens: 8192,
                      reasoning: true

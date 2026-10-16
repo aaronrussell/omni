@@ -2,49 +2,31 @@ defmodule Omni.Providers.AnthropicTest do
   use ExUnit.Case, async: true
 
   alias Omni.Providers.Anthropic
+  alias Omni.Provider.Loader
 
   describe "config/0" do
     test "returns expected configuration" do
-      config = Anthropic.config()
+      config = Map.new(Anthropic.config())
 
       assert config.base_url == "https://api.anthropic.com/v1"
-      assert config.auth_header == "x-api-key"
       assert config.api_key == {:system, "ANTHROPIC_API_KEY"}
       assert config.headers == %{"anthropic-version" => "2023-06-01"}
     end
   end
 
-  describe "dialect/0" do
-    test "returns AnthropicMessages dialect" do
-      assert Anthropic.dialect() == Omni.Dialects.AnthropicMessages
-    end
-  end
+  describe "assembled provider" do
+    test "loads catalog models with the AnthropicMessages dialect" do
+      {provider, models} = Loader.assemble(:anthropic)
 
-  describe "models/0" do
-    test "returns a non-empty list of Model structs" do
-      models = Anthropic.models()
+      assert provider.module == Anthropic
+      assert provider.tier == :verified
+      assert provider.dialects == %{text: [Omni.Dialects.AnthropicMessages]}
+      assert models != []
 
-      assert is_list(models)
-      assert length(models) > 0
-      assert Enum.all?(models, &match?(%Omni.Model{}, &1))
-    end
-
-    test "stamps provider and dialect on every model" do
-      for model <- Anthropic.models() do
-        assert model.provider == Anthropic
-        assert model.dialect == Omni.Dialects.AnthropicMessages
+      for model <- models do
+        assert model.provider == provider
+        assert model.dialects == %{text: Omni.Dialects.AnthropicMessages}
       end
-    end
-  end
-
-  describe "authenticate/2" do
-    test "sets x-api-key header with literal key" do
-      req = Req.new()
-
-      {:ok, authed} =
-        Anthropic.authenticate(req, %{api_key: "sk-ant-test", auth_header: "x-api-key"})
-
-      assert Req.Request.get_header(authed, "x-api-key") == ["sk-ant-test"]
     end
   end
 end

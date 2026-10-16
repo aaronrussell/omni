@@ -2,45 +2,38 @@ defmodule Omni.Providers.GroqTest do
   use ExUnit.Case, async: true
 
   alias Omni.Providers.Groq
+  alias Omni.Provider.Loader
 
   describe "config/0" do
     test "returns expected configuration" do
-      config = Groq.config()
+      config = Map.new(Groq.config())
 
       assert config.base_url == "https://api.groq.com/openai/v1"
       assert config.api_key == {:system, "GROQ_API_KEY"}
-      refute Map.has_key?(config, :auth_header)
     end
   end
 
-  describe "dialect/0" do
-    test "returns OpenAICompletions dialect" do
-      assert Groq.dialect() == Omni.Dialects.OpenAICompletions
-    end
-  end
+  describe "assembled provider" do
+    test "loads catalog models with the OpenAICompletions dialect" do
+      {provider, models} = Loader.assemble(:groq)
 
-  describe "models/0" do
-    test "returns a non-empty list of Model structs" do
-      models = Groq.models()
+      assert provider.module == Groq
+      assert provider.tier == :verified
+      assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
+      assert models != []
 
-      assert is_list(models)
-      assert length(models) > 0
-      assert Enum.all?(models, &match?(%Omni.Model{}, &1))
-    end
-
-    test "stamps provider and dialect on every model" do
-      for model <- Groq.models() do
-        assert model.provider == Groq
-        assert model.dialect == Omni.Dialects.OpenAICompletions
+      for model <- models do
+        assert model.provider == provider
+        assert model.dialects == %{text: Omni.Dialects.OpenAICompletions}
       end
     end
   end
 
-  describe "modify_body/3" do
+  describe "modify_body/4" do
     test "does not set reasoning_format when no reasoning effort" do
       body = %{"model" => "llama-3.3-70b-versatile"}
 
-      result = Groq.modify_body(body, %Omni.Context{}, %{})
+      result = Groq.modify_body(body, nil, %Omni.Context{}, %{})
 
       refute Map.has_key?(result, "reasoning_format")
     end
@@ -49,7 +42,7 @@ defmodule Omni.Providers.GroqTest do
       for id <- ["openai/gpt-oss-20b", "openai/gpt-oss-120b", "openai/gpt-oss-safeguard-20b"] do
         body = %{"model" => id, "reasoning_effort" => "xhigh"}
 
-        result = Groq.modify_body(body, %Omni.Context{}, %{})
+        result = Groq.modify_body(body, nil, %Omni.Context{}, %{})
 
         assert result["reasoning_effort"] == "high", "expected #{id} to clamp xhigh to high"
       end
@@ -59,7 +52,7 @@ defmodule Omni.Providers.GroqTest do
       for level <- ["low", "medium", "high"] do
         body = %{"model" => "openai/gpt-oss-120b", "reasoning_effort" => level}
 
-        result = Groq.modify_body(body, %Omni.Context{}, %{})
+        result = Groq.modify_body(body, nil, %Omni.Context{}, %{})
 
         assert result["reasoning_effort"] == level
       end
@@ -68,7 +61,7 @@ defmodule Omni.Providers.GroqTest do
     test "passes none through unchanged on gpt-oss models" do
       body = %{"model" => "openai/gpt-oss-120b", "reasoning_effort" => "none"}
 
-      result = Groq.modify_body(body, %Omni.Context{}, %{})
+      result = Groq.modify_body(body, nil, %Omni.Context{}, %{})
 
       assert result["reasoning_effort"] == "none"
     end
@@ -77,7 +70,7 @@ defmodule Omni.Providers.GroqTest do
       for level <- ["low", "medium", "high", "xhigh"] do
         body = %{"model" => "qwen/qwen3-32b", "reasoning_effort" => level}
 
-        result = Groq.modify_body(body, %Omni.Context{}, %{})
+        result = Groq.modify_body(body, nil, %Omni.Context{}, %{})
 
         assert result["reasoning_effort"] == "default",
                "expected qwen #{level} to map to default"
@@ -87,7 +80,7 @@ defmodule Omni.Providers.GroqTest do
     test "passes none through unchanged on qwen models" do
       body = %{"model" => "qwen/qwen3-32b", "reasoning_effort" => "none"}
 
-      result = Groq.modify_body(body, %Omni.Context{}, %{})
+      result = Groq.modify_body(body, nil, %Omni.Context{}, %{})
 
       assert result["reasoning_effort"] == "none"
     end
@@ -95,7 +88,7 @@ defmodule Omni.Providers.GroqTest do
     test "leaves reasoning_effort untouched on non-reasoning models" do
       body = %{"model" => "llama-3.3-70b-versatile", "reasoning_effort" => "high"}
 
-      result = Groq.modify_body(body, %Omni.Context{}, %{})
+      result = Groq.modify_body(body, nil, %Omni.Context{}, %{})
 
       assert result["reasoning_effort"] == "high"
     end
@@ -103,7 +96,7 @@ defmodule Omni.Providers.GroqTest do
     test "passes through body without reasoning_effort" do
       body = %{"model" => "openai/gpt-oss-120b", "messages" => []}
 
-      result = Groq.modify_body(body, %Omni.Context{}, %{})
+      result = Groq.modify_body(body, nil, %Omni.Context{}, %{})
 
       refute Map.has_key?(result, "reasoning_effort")
     end

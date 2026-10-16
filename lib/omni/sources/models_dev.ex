@@ -8,31 +8,23 @@ defmodule Omni.Sources.ModelsDev do
   data-only patch releases for notable catalog changes and at least one
   release per month; use live mode (below) when you need fresher data than
   the release cadence provides. The snapshot is transformed into
-  `%Omni.Model{}` structs at load time: deprecated models and those without tool use or text modalities are
-  filtered out, modalities are narrowed to those Omni supports, and each
-  model's dialect is inferred from models.dev's npm package metadata, falling
-  back to the provider's declared dialect. Models that still fail to build
-  are skipped with a warning.
+  `%Omni.Model{}` structs at load time: deprecated models and those without
+  tool use or text modalities are filtered out, modalities are narrowed to
+  those Omni supports, and each model's dialect is inferred from models.dev's
+  npm package metadata — the model's own package if it has one, otherwise
+  its provider's. Models that can't be represented faithfully are skipped
+  with a warning: those whose own npm package maps to no dialect, and those
+  served from a different base URL than their provider.
 
-  Providers are matched to catalog entries by their canonical id (the
-  module's `id/0`), translated mechanically to the models.dev key —
+  Provider ids are translated mechanically to models.dev keys —
   `:fireworks_ai` becomes `"fireworks-ai"`. Any catalog id works, including
-  providers Omni ships no module for:
-
-      defmodule MyApp.Providers.Mistral do
-        use Omni.Provider, id: :mistral, dialect: Omni.Dialects.OpenAICompletions
-
-        @impl true
-        def config do
-          %{base_url: "https://api.mistral.ai/v1", api_key: {:system, "MISTRAL_API_KEY"}}
-        end
-      end
+  providers Omni ships no module for (see `Omni.Provider`). The catalog's
+  provider record supplies the provider's name, base URL (`api`), API key
+  environment variable (when exactly one is listed), and provider-level
+  dialect.
 
   ## Options
 
-    * `:provider_id` — the catalog id to load models from, overriding the
-      module's `id/0`. An atom is translated like a canonical id; a string
-      is used as a verbatim models.dev catalog key.
     * `:live` — when `true`, fetch fresh catalog data from models.dev at
       load time instead of reading the bundled snapshot. Defaults to `false`.
     * `:cache_ttl` — how long a cached live catalog stays fresh, in
@@ -73,7 +65,7 @@ defmodule Omni.Sources.ModelsDev do
 
   require Logger
 
-  alias Omni.{Model, Provider}
+  alias Omni.{Model, Provider, Source}
 
   @snapshot_file "priv/models/models_dev.json"
 
@@ -102,28 +94,31 @@ defmodule Omni.Sources.ModelsDev do
   @supported_output_modalities Enum.map(Model.supported_modalities(:output), &to_string/1)
 
   @impl Omni.Source
-  def fetch(module, opts) do
-    with {:ok, catalog_id} <- resolve_catalog_id(opts),
-         {:ok, provider_data} <- lookup(catalog_id, opts) do
-      {:ok, transform_provider(provider_data, module, catalog_id)}
+  def fetch(id, opts) when is_atom(id) do
+    catalog_id = id |> to_string() |> String.replace("_", "-")
+
+    with {:ok, provider_data} <- lookup(catalog_id, opts) do
+      {:ok, build_provider(id, provider_data), transform_provider(provider_data, catalog_id)}
     end
   end
 
-  # Canonical ids are models.dev catalog keys snake_cased, so translation is
-  # mechanical. A binary passes through verbatim — the escape hatch for a
-  # catalog key that doesn't round-trip.
-  defp resolve_catalog_id(opts) do
-    case Keyword.fetch(opts, :provider_id) do
-      {:ok, id} when is_atom(id) and not is_nil(id) ->
-        {:ok, id |> to_string() |> String.replace("_", "-")}
-
-      {:ok, id} when is_binary(id) ->
-        {:ok, id}
-
-      _ ->
-        {:error, :unknown_provider}
-    end
+  defp build_provider(id, provider_data) do
+    %Provider{
+      id: id,
+      name: provider_data["name"],
+      base_url: provider_data["api"],
+      api_key: api_key(provider_data["env"]),
+      dialects: provider_dialects(@npm_to_dialect[provider_data["npm"]])
+    }
   end
+
+  # Only an unambiguous single variable becomes the default key; providers
+  # listing several (alternatives or multi-part credentials) need config.
+  defp api_key([env_var]) when is_binary(env_var), do: {:system, env_var}
+  defp api_key(_), do: nil
+
+  defp provider_dialects(nil), do: %{}
+  defp provider_dialects(name), do: %{text: [Omni.Dialect.get!(name)]}
 
   defp lookup(catalog_id, opts) do
     case Map.fetch(catalog(opts), catalog_id) do
@@ -136,7 +131,7 @@ defmodule Omni.Sources.ModelsDev do
   # load pass — fetch/2 runs once per provider — and garbage collected when
   # the pass ends, instead of lingering for the VM's lifetime. The live
   # config is part of the memo key: providers with identical live opts share
-  # one fetch per pass, while per-module overrides with different opts fetch
+  # one fetch per pass, while per-provider overrides with different opts fetch
   # separately.
   defp catalog(opts) do
     if Keyword.get(opts, :live, false) do
@@ -302,14 +297,14 @@ defmodule Omni.Sources.ModelsDev do
   end
 
   @doc false
-  @spec transform_provider(map(), module(), String.t()) :: [Model.t()]
-  def transform_provider(provider_data, module, catalog_id) do
+  @spec transform_provider(map(), String.t()) :: [Model.t()]
+  def transform_provider(provider_data, catalog_id) do
     {models, skipped} =
       provider_data
       |> get_models()
       |> Enum.filter(&eligible?/1)
       |> Enum.reduce({[], 0}, fn model_data, {models, skipped} ->
-        case build(model_data, module, provider_data, catalog_id) do
+        case build(model_data, provider_data, catalog_id) do
           {:ok, model} -> {[model | models], skipped}
           :skip -> {models, skipped + 1}
         end
@@ -345,17 +340,64 @@ defmodule Omni.Sources.ModelsDev do
     end
   end
 
-  defp build(model_data, module, provider_data, catalog_id) do
+  defp build(model_data, provider_data, catalog_id) do
+    with :ok <- check_mount(model_data, provider_data),
+         {:ok, dialect} <- model_dialect(model_data, provider_data) do
+      {:ok, Source.build_model(model_data(model_data, dialect))}
+    else
+      {:skip, reason} -> skip(catalog_id, model_data, reason)
+    end
+  rescue
+    e -> skip(catalog_id, model_data, Exception.message(e))
+  end
+
+  defp skip(catalog_id, model_data, reason) do
+    Logger.warning(
+      "Omni.Sources.ModelsDev: skipping #{catalog_id}:#{model_data["id"]}: #{reason}"
+    )
+
+    :skip
+  end
+
+  # A model served from its own base URL (a gateway mounting each upstream
+  # API under a different prefix) can't use the provider's base URL.
+  defp check_mount(model_data, provider_data) do
+    provider_api = provider_data["api"]
+
+    case get_in(model_data, ["provider", "api"]) do
+      nil -> :ok
+      ^provider_api -> :ok
+      api -> {:skip, "served from #{api}, not the provider's base URL"}
+    end
+  end
+
+  # A model's own npm package overrides its provider's. An own package that
+  # maps to no dialect is skipped — it explicitly differs from the provider,
+  # so filling it from the provider would be a guess. An unmapped provider
+  # package yields nil, which provider config can fill.
+  defp model_dialect(model_data, provider_data) do
+    case get_in(model_data, ["provider", "npm"]) do
+      nil ->
+        {:ok, @npm_to_dialect[provider_data["npm"]]}
+
+      npm ->
+        case @npm_to_dialect[npm] do
+          nil -> {:skip, "npm package #{npm} maps to no dialect"}
+          dialect -> {:ok, dialect}
+        end
+    end
+  end
+
+  defp model_data(model_data, dialect) do
     cost = model_data["cost"] || %{}
     limit = model_data["limit"] || %{}
-    npm = get_in(model_data, ["provider", "npm"]) || provider_data["npm"]
 
-    data = %{
+    %{
       "id" => model_data["id"],
       "name" => model_data["name"],
       "reasoning" => model_data["reasoning"] || false,
       "release_date" => model_data["release_date"],
-      "dialect" => @npm_to_dialect[npm],
+      "dialect" => dialect,
       "input_modalities" =>
         filter_modalities(modality_list(model_data, "input"), @supported_input_modalities),
       "output_modalities" =>
@@ -367,19 +409,9 @@ defmodule Omni.Sources.ModelsDev do
       "context_size" => limit["context"] || 0,
       "max_output_tokens" => limit["output"] || 0
     }
-
-    {:ok, Provider.build_model(module, data)}
-  rescue
-    e ->
-      Logger.warning(
-        "Omni.Sources.ModelsDev: skipping #{catalog_id}:#{model_data["id"]}: " <>
-          Exception.message(e)
-      )
-
-      :skip
   end
 
-  # Filters modality strings before Provider.build_model/2 atomizes them —
+  # Filters modality strings before Source.build_model/1 atomizes them —
   # the unpruned snapshot carries modalities Omni has no atoms for.
   defp filter_modalities(modalities, supported) do
     Enum.filter(modalities, &(&1 in supported))

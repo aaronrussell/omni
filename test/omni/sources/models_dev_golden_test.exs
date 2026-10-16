@@ -6,16 +6,21 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
   # it runs offline on every commit, and updating the expectations below when
   # `mix omni.snapshot` refreshes the snapshot *is* the human review step.
   #
-  # async: false — calls each provider's models/0 (the real boot path), which
-  # reads per-module config that other sync tests may set temporarily.
+  # async: false — assembles each built-in through the real load path, which
+  # reads app config that other sync tests may set temporarily.
   use ExUnit.Case, async: false
 
+  alias Omni.Provider.Loader
+
   # One cache pass for the whole suite: the snapshot is decoded once instead
-  # of once per models/0 call.
+  # of once per provider. Assembled without touching the store.
   setup_all do
     models =
       Omni.Source.with_cache(fn ->
-        Map.new(Omni.Provider.builtins(), fn mod -> {mod.id(), mod.models()} end)
+        Map.new(Omni.Provider.builtins(), fn id ->
+          {_provider, models} = Loader.assemble(id)
+          {id, models}
+        end)
       end)
 
     %{models: models}
@@ -50,8 +55,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
   }
 
   test "every built-in provider loads a model set within the expected range", %{models: models} do
-    for mod <- Omni.Provider.builtins() do
-      id = mod.id()
+    for id <- Omni.Provider.builtins() do
       count = length(models[id])
       range = Map.fetch!(@expected_counts, id)
 
@@ -64,10 +68,10 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
     supported_input = Omni.Model.supported_modalities(:input)
     supported_output = Omni.Model.supported_modalities(:output)
 
-    for mod <- Omni.Provider.builtins(), id = mod.id(), model <- models[id] do
+    for id <- Omni.Provider.builtins(), model <- models[id] do
       assert is_binary(model.id), "#{id}: model without a string id: #{inspect(model)}"
-      assert model.provider == mod, "#{id}:#{model.id}: provider not stamped"
-      assert model.dialect in @known_dialects, "#{id}:#{model.id}: bad dialect"
+      assert model.provider.id == id, "#{id}:#{model.id}: provider not stamped"
+      assert model.dialects.text in @known_dialects, "#{id}:#{model.id}: bad dialect"
       assert Enum.all?(model.input_modalities, &(&1 in supported_input))
       assert Enum.all?(model.output_modalities, &(&1 in supported_output))
 
@@ -82,7 +86,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
 
   test "ollama cloud models re-apply the native dialect over the catalog's", %{models: models} do
     assert models[:ollama_cloud] != []
-    assert Enum.all?(models[:ollama_cloud], &(&1.dialect == Omni.Dialects.OllamaChat))
+    assert Enum.all?(models[:ollama_cloud], &(&1.dialects.text == Omni.Dialects.OllamaChat))
   end
 
   test "venice models are enriched with the :pdf input modality", %{models: models} do
@@ -95,8 +99,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
       {:anthropic, "claude-sonnet-4-5"} => %Omni.Model{
         id: "claude-sonnet-4-5",
         name: "Claude Sonnet 4.5 (latest)",
-        provider: Omni.Providers.Anthropic,
-        dialect: Omni.Dialects.AnthropicMessages,
+        dialects: %{text: Omni.Dialects.AnthropicMessages},
         release_date: ~D[2025-09-29],
         context_size: 200_000,
         max_output_tokens: 64_000,
@@ -111,8 +114,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
       {:openai, "gpt-5"} => %Omni.Model{
         id: "gpt-5",
         name: "GPT-5",
-        provider: Omni.Providers.OpenAI,
-        dialect: Omni.Dialects.OpenAIResponses,
+        dialects: %{text: Omni.Dialects.OpenAIResponses},
         release_date: ~D[2025-08-07],
         context_size: 400_000,
         max_output_tokens: 128_000,
@@ -127,8 +129,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
       {:google, "gemini-2.5-pro"} => %Omni.Model{
         id: "gemini-2.5-pro",
         name: "Gemini 2.5 Pro",
-        provider: Omni.Providers.Google,
-        dialect: Omni.Dialects.GoogleGemini,
+        dialects: %{text: Omni.Dialects.GoogleGemini},
         release_date: ~D[2025-06-17],
         context_size: 1_048_576,
         max_output_tokens: 65_536,
@@ -143,8 +144,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
       {:openrouter, "openai/gpt-4o"} => %Omni.Model{
         id: "openai/gpt-4o",
         name: "GPT-4o",
-        provider: Omni.Providers.OpenRouter,
-        dialect: Omni.Dialects.OpenAICompletions,
+        dialects: %{text: Omni.Dialects.OpenAICompletions},
         release_date: ~D[2024-05-13],
         context_size: 128_000,
         max_output_tokens: 16_384,
@@ -159,7 +159,9 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
     }
 
     for {{provider_id, model_id}, expected} <- goldens do
-      actual = Enum.find(models[provider_id], &(&1.id == model_id))
+      found = Enum.find(models[provider_id], &(&1.id == model_id))
+      assert found.provider.id == provider_id
+      actual = %{found | provider: nil}
 
       assert actual == expected,
              "golden model #{provider_id} #{model_id} drifted:\n" <>

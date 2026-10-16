@@ -2,45 +2,38 @@ defmodule Omni.Providers.ZaiTest do
   use ExUnit.Case, async: true
 
   alias Omni.Providers.Zai
+  alias Omni.Provider.Loader
 
   describe "config/0" do
     test "returns expected configuration" do
-      config = Zai.config()
+      config = Map.new(Zai.config())
 
       assert config.base_url == "https://api.z.ai/api/paas/v4"
       assert config.api_key == {:system, "ZAI_API_KEY"}
-      refute Map.has_key?(config, :auth_header)
     end
   end
 
-  describe "dialect/0" do
-    test "returns OpenAICompletions dialect" do
-      assert Zai.dialect() == Omni.Dialects.OpenAICompletions
-    end
-  end
+  describe "assembled provider" do
+    test "loads catalog models with the OpenAICompletions dialect" do
+      {provider, models} = Loader.assemble(:zai)
 
-  describe "models/0" do
-    test "returns a non-empty list of Model structs" do
-      models = Zai.models()
+      assert provider.module == Zai
+      assert provider.tier == :verified
+      assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
+      assert models != []
 
-      assert is_list(models)
-      assert length(models) > 0
-      assert Enum.all?(models, &match?(%Omni.Model{}, &1))
-    end
-
-    test "stamps provider and dialect on every model" do
-      for model <- Zai.models() do
-        assert model.provider == Zai
-        assert model.dialect == Omni.Dialects.OpenAICompletions
+      for model <- models do
+        assert model.provider == provider
+        assert model.dialects == %{text: Omni.Dialects.OpenAICompletions}
       end
     end
   end
 
-  describe "modify_body/3 — reasoning_effort" do
+  describe "modify_body/4 — reasoning_effort" do
     test "translates reasoning_effort=none to thinking disabled" do
       body = %{"model" => "glm-4.7-flash", "reasoning_effort" => "none"}
 
-      result = Zai.modify_body(body, %Omni.Context{}, %{})
+      result = Zai.modify_body(body, nil, %Omni.Context{}, %{})
 
       assert result["thinking"] == %{"type" => "disabled"}
       refute Map.has_key?(result, "reasoning_effort")
@@ -50,7 +43,7 @@ defmodule Omni.Providers.ZaiTest do
       for level <- ["low", "medium", "high", "xhigh"] do
         body = %{"model" => "glm-4.7-flash", "reasoning_effort" => level}
 
-        result = Zai.modify_body(body, %Omni.Context{}, %{})
+        result = Zai.modify_body(body, nil, %Omni.Context{}, %{})
 
         assert result["thinking"] == %{"type" => "enabled"},
                "expected #{level} to map to enabled"
@@ -62,13 +55,13 @@ defmodule Omni.Providers.ZaiTest do
     test "passes through body without reasoning_effort" do
       body = %{"model" => "glm-4.7-flash", "messages" => []}
 
-      result = Zai.modify_body(body, %Omni.Context{}, %{})
+      result = Zai.modify_body(body, nil, %Omni.Context{}, %{})
 
       assert result == body
     end
   end
 
-  describe "modify_body/3 — file attachments" do
+  describe "modify_body/4 — file attachments" do
     test "rewrites file blocks to file_url shape" do
       body = %{
         "model" => "glm-4.7-flash",
@@ -86,7 +79,7 @@ defmodule Omni.Providers.ZaiTest do
         ]
       }
 
-      result = Zai.modify_body(body, %Omni.Context{}, %{})
+      result = Zai.modify_body(body, nil, %Omni.Context{}, %{})
 
       [%{"content" => [text, file]}] = result["messages"]
       assert text == %{"type" => "text", "text" => "Summarise"}
@@ -111,7 +104,7 @@ defmodule Omni.Providers.ZaiTest do
         ]
       }
 
-      result = Zai.modify_body(body, %Omni.Context{}, %{})
+      result = Zai.modify_body(body, nil, %Omni.Context{}, %{})
 
       assert [%{"content" => content}] = result["messages"]
       assert content == hd(body["messages"])["content"]
@@ -123,7 +116,7 @@ defmodule Omni.Providers.ZaiTest do
         "messages" => [%{"role" => "user", "content" => "Hello"}]
       }
 
-      result = Zai.modify_body(body, %Omni.Context{}, %{})
+      result = Zai.modify_body(body, nil, %Omni.Context{}, %{})
 
       assert result["messages"] == body["messages"]
     end

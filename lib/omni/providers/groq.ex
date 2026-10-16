@@ -10,11 +10,10 @@ defmodule Omni.Providers.Groq do
 
   Override the default API key or base URL via application config:
 
-      config :omni, Omni.Providers.Groq,
-        api_key: {:system, "MY_GROQ_KEY"}
+      config :omni, :providers,
+        groq: [api_key: {:system, "MY_GROQ_KEY"}]
 
-  Any key from the provider's `config/0` can be overridden: `:api_key`,
-  `:base_url`. See `Omni.Provider` for details.
+  Any provider key can be overridden — see `Omni.Provider`.
 
   ## Reasoning
 
@@ -24,18 +23,15 @@ defmodule Omni.Providers.Groq do
   may be clamped to the model's maximum supported level.
   """
 
-  use Omni.Provider, id: :groq, dialect: Omni.Dialects.OpenAICompletions
+  @behaviour Omni.Provider
 
   @impl true
   def config do
-    %{
-      base_url: "https://api.groq.com/openai/v1",
-      api_key: {:system, "GROQ_API_KEY"}
-    }
+    [base_url: "https://api.groq.com/openai/v1", api_key: {:system, "GROQ_API_KEY"}]
   end
 
   @impl true
-  def modify_body(body, _context, _opts) do
+  def modify_body(body, _model, _context, _opts) do
     normalize_reasoning_effort(body)
   end
 

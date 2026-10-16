@@ -8,13 +8,12 @@ defmodule Live.OllamaTest do
       Omni.Model.new(
         id: "gemma4:latest",
         name: "gemma4:latest",
-        provider: Omni.Providers.Ollama,
-        dialect: Omni.Dialects.OllamaChat,
+        provider: :ollama,
         input_modalities: [:text, :image],
         reasoning: true
       )
 
-    Omni.Model.put(:ollama, model)
+    Omni.put_model(model)
     :ok
   end
 

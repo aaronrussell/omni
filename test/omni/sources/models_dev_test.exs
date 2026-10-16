@@ -5,21 +5,8 @@ defmodule Omni.Sources.ModelsDevTest do
 
   @moduletag :capture_log
 
+  alias Omni.Provider
   alias Omni.Sources.ModelsDev
-
-  defmodule CompletionsProvider do
-    use Omni.Provider, id: :completions_test, dialect: Omni.Dialects.OpenAICompletions
-
-    @impl true
-    def config, do: %{base_url: "https://api.test.com", api_key: nil}
-  end
-
-  defmodule GatewayProvider do
-    use Omni.Provider, id: :gateway_test
-
-    @impl true
-    def config, do: %{base_url: "https://api.test.com", api_key: nil}
-  end
 
   defp model_entry(id, overrides \\ %{}) do
     Map.merge(
@@ -42,7 +29,7 @@ defmodule Omni.Sources.ModelsDevTest do
     )
   end
 
-  describe "transform_provider/3 eligibility" do
+  describe "transform_provider/2 eligibility" do
     test "rejects deprecated models, missing tool use, and non-text modalities" do
       data =
         provider_data([
@@ -58,7 +45,7 @@ defmodule Omni.Sources.ModelsDevTest do
           })
         ])
 
-      models = ModelsDev.transform_provider(data, CompletionsProvider, "test")
+      models = ModelsDev.transform_provider(data, "test")
 
       assert Enum.map(models, & &1.id) == ["kept"]
     end
@@ -71,20 +58,20 @@ defmodule Omni.Sources.ModelsDevTest do
           model_entry("weird-modalities", %{"modalities" => "text"})
         ])
 
-      models = ModelsDev.transform_provider(data, CompletionsProvider, "test")
+      models = ModelsDev.transform_provider(data, "test")
 
       assert Enum.map(models, & &1.id) == ["kept"]
     end
   end
 
-  describe "transform_provider/3 dialect resolution" do
+  describe "transform_provider/2 dialect resolution" do
     test "derives the dialect from the provider-level npm package" do
       data =
         provider_data([model_entry("claude-x")], %{"npm" => "@ai-sdk/anthropic"})
 
-      [model] = ModelsDev.transform_provider(data, GatewayProvider, "test")
+      [model] = ModelsDev.transform_provider(data, "test")
 
-      assert model.dialect == Omni.Dialects.AnthropicMessages
+      assert model.dialects.text == Omni.Dialects.AnthropicMessages
     end
 
     test "per-model npm overrides the provider-level npm" do
@@ -97,41 +84,54 @@ defmodule Omni.Sources.ModelsDevTest do
           %{"npm" => "@ai-sdk/anthropic"}
         )
 
-      models = ModelsDev.transform_provider(data, GatewayProvider, "test")
+      models = ModelsDev.transform_provider(data, "test")
       by_id = Map.new(models, &{&1.id, &1})
 
-      assert by_id["gpt-x"].dialect == Omni.Dialects.OpenAIResponses
-      assert by_id["other"].dialect == Omni.Dialects.AnthropicMessages
+      assert by_id["gpt-x"].dialects.text == Omni.Dialects.OpenAIResponses
+      assert by_id["other"].dialects.text == Omni.Dialects.AnthropicMessages
     end
 
-    test "unmapped npm falls back to the module's declared dialect" do
+    test "an unmapped provider-level npm leaves the dialect empty" do
       data = provider_data([model_entry("local")], %{"npm" => "some-unknown-sdk"})
 
-      [model] = ModelsDev.transform_provider(data, CompletionsProvider, "test")
+      [model] = ModelsDev.transform_provider(data, "test")
 
-      assert model.dialect == Omni.Dialects.OpenAICompletions
+      assert model.dialects == %{}
     end
 
-    test "skips with a warning when no dialect resolves" do
+    test "skips with a warning when a model's own npm maps to no dialect" do
+      data =
+        provider_data([
+          model_entry("own-unmapped", %{"provider" => %{"npm" => "@ai-sdk/mistral"}}),
+          model_entry("kept")
+        ])
+
+      {models, log} = with_log(fn -> ModelsDev.transform_provider(data, "test") end)
+
+      assert Enum.map(models, & &1.id) == ["kept"]
+      assert log =~ "skipping test:own-unmapped: npm package @ai-sdk/mistral maps to no dialect"
+      assert log =~ "loaded 1 models, skipped 1"
+    end
+
+    test "skips with a warning when a model is served from another base URL" do
       data =
         provider_data(
           [
-            model_entry("no-dialect"),
-            model_entry("kept", %{"provider" => %{"npm" => "@ai-sdk/openai"}})
+            model_entry("elsewhere", %{"provider" => %{"api" => "https://other.test/v1"}}),
+            model_entry("same", %{"provider" => %{"api" => "https://api.test/v1"}}),
+            model_entry("kept")
           ],
-          %{"npm" => "some-unknown-sdk"}
+          %{"api" => "https://api.test/v1"}
         )
 
-      {models, log} =
-        with_log(fn -> ModelsDev.transform_provider(data, GatewayProvider, "test") end)
+      {models, log} = with_log(fn -> ModelsDev.transform_provider(data, "test") end)
 
-      assert Enum.map(models, & &1.id) == ["kept"]
-      assert log =~ "skipping test:no-dialect"
-      assert log =~ "loaded 1 models, skipped 1"
+      assert Enum.map(models, & &1.id) == ["kept", "same"]
+      assert log =~ "skipping test:elsewhere: served from https://other.test/v1"
     end
   end
 
-  describe "transform_provider/3 field mapping" do
+  describe "transform_provider/2 field mapping" do
     test "maps costs, limits, reasoning, and release date" do
       data =
         provider_data([
@@ -148,11 +148,11 @@ defmodule Omni.Sources.ModelsDevTest do
           })
         ])
 
-      [model] = ModelsDev.transform_provider(data, CompletionsProvider, "test")
+      [model] = ModelsDev.transform_provider(data, "test")
 
       assert %Omni.Model{
                name: "full",
-               provider: CompletionsProvider,
+               provider: nil,
                reasoning: true,
                release_date: ~D[2025-08-05],
                input_cost: 3.0,
@@ -170,7 +170,7 @@ defmodule Omni.Sources.ModelsDevTest do
           model_entry("bare") |> Map.drop(["cost", "limit"])
         ])
 
-      [model] = ModelsDev.transform_provider(data, CompletionsProvider, "test")
+      [model] = ModelsDev.transform_provider(data, "test")
 
       assert %Omni.Model{
                input_cost: 0,
@@ -195,7 +195,7 @@ defmodule Omni.Sources.ModelsDevTest do
           })
         ])
 
-      [model] = ModelsDev.transform_provider(data, CompletionsProvider, "test")
+      [model] = ModelsDev.transform_provider(data, "test")
 
       assert model.input_modalities == [:text, :image]
       assert model.output_modalities == [:text]
@@ -209,7 +209,7 @@ defmodule Omni.Sources.ModelsDevTest do
         ])
 
       {models, log} =
-        with_log(fn -> ModelsDev.transform_provider(data, CompletionsProvider, "test") end)
+        with_log(fn -> ModelsDev.transform_provider(data, "test") end)
 
       assert Enum.map(models, & &1.id) == ["kept"]
       assert log =~ "skipping test:bad-date"
@@ -218,51 +218,58 @@ defmodule Omni.Sources.ModelsDevTest do
     test "sorts models by id" do
       data = provider_data([model_entry("zeta"), model_entry("alpha"), model_entry("mid")])
 
-      models = ModelsDev.transform_provider(data, CompletionsProvider, "test")
+      models = ModelsDev.transform_provider(data, "test")
 
       assert Enum.map(models, & &1.id) == ["alpha", "mid", "zeta"]
     end
   end
 
   describe "fetch/2 against the bundled snapshot" do
-    test "loads models under the given provider_id" do
-      assert {:ok, models} = ModelsDev.fetch(Omni.Providers.OpenAI, provider_id: :openai)
+    test "returns the provider record and its models" do
+      assert {:ok, %Provider{} = provider, models} = ModelsDev.fetch(:openai, [])
 
+      assert provider.id == :openai
+      assert provider.name == "OpenAI"
+      assert provider.api_key == {:system, "OPENAI_API_KEY"}
+      assert provider.dialects == %{text: [Omni.Dialects.OpenAIResponses]}
       assert models != []
-      assert Enum.all?(models, &(&1.provider == Omni.Providers.OpenAI))
+      assert Enum.all?(models, &(&1.provider == nil))
+    end
+
+    test "maps the catalog base URL, and leaves it unset when absent" do
+      assert {:ok, %Provider{base_url: "https://api.moonshot.ai/v1"}, _} =
+               ModelsDev.fetch(:moonshotai, [])
+
+      assert {:ok, %Provider{base_url: nil}, _} = ModelsDev.fetch(:openai, [])
+    end
+
+    test "sets api_key only when the catalog lists exactly one variable" do
+      assert {:ok, %Provider{api_key: nil}, _} = ModelsDev.fetch(:google, [])
     end
 
     test "translates canonical ids to models.dev catalog keys" do
       # snake_case atom -> kebab-case key
-      assert {:ok, [_ | _]} = ModelsDev.fetch(CompletionsProvider, provider_id: :fireworks_ai)
-      assert {:ok, [_ | _]} = ModelsDev.fetch(CompletionsProvider, provider_id: :moonshotai)
+      assert {:ok, _, [_ | _]} = ModelsDev.fetch(:fireworks_ai, [])
 
-      assert {:ok, [_ | _] = ollama} =
-               ModelsDev.fetch(CompletionsProvider, provider_id: :ollama_cloud)
+      assert {:ok, provider, [_ | _] = ollama} = ModelsDev.fetch(:ollama_cloud, [])
 
       # The catalog reports Ollama's OpenAI-compatible endpoint; the native
-      # dialect preference is re-applied by OllamaCloud's models/0.
-      assert Enum.all?(ollama, &(&1.dialect == Omni.Dialects.OpenAICompletions))
+      # dialect preference is re-applied by OllamaCloud's models/2.
+      assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
+      assert Enum.all?(ollama, &(&1.dialects.text == Omni.Dialects.OpenAICompletions))
     end
 
-    test "a binary provider_id is used as a verbatim catalog key" do
-      assert {:ok, [_ | _] = models} =
-               ModelsDev.fetch(CompletionsProvider, provider_id: "fireworks-ai")
+    test "resolves per-model dialects for a gateway" do
+      assert {:ok, _provider, models} = ModelsDev.fetch(:opencode, [])
 
-      assert Enum.all?(models, &(&1.provider == CompletionsProvider))
-
-      # no translation for binaries — the snake_cased form misses
-      assert {:error, :unknown_provider} =
-               ModelsDev.fetch(CompletionsProvider, provider_id: "fireworks_ai")
+      by_id = Map.new(models, &{&1.id, &1.dialects.text})
+      assert by_id["claude-haiku-4-5"] == Omni.Dialects.AnthropicMessages
+      assert by_id["gpt-5.2"] == Omni.Dialects.OpenAIResponses
+      refute Map.has_key?(by_id, "mistral-large-4")
     end
 
-    test "returns :unknown_provider for a catalog id not in the snapshot" do
-      assert {:error, :unknown_provider} =
-               ModelsDev.fetch(CompletionsProvider, provider_id: :does_not_exist)
-    end
-
-    test "returns :unknown_provider when provider_id is absent" do
-      assert {:error, :unknown_provider} = ModelsDev.fetch(CompletionsProvider, [])
+    test "returns :unknown_provider for an id not in the snapshot" do
+      assert {:error, :unknown_provider} = ModelsDev.fetch(:does_not_exist, [])
     end
   end
 end

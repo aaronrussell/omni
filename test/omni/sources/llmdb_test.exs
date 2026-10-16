@@ -8,21 +8,8 @@ if Code.ensure_loaded?(LLMDB) do
 
     @moduletag :capture_log
 
+    alias Omni.Provider
     alias Omni.Sources.LLMDB, as: Source
-
-    defmodule CompletionsProvider do
-      use Omni.Provider, id: :completions_test, dialect: Omni.Dialects.OpenAICompletions
-
-      @impl true
-      def config, do: %{base_url: "https://api.test.com", api_key: nil}
-    end
-
-    defmodule GatewayProvider do
-      use Omni.Provider, id: :gateway_test
-
-      @impl true
-      def config, do: %{base_url: "https://api.test.com", api_key: nil}
-    end
 
     # Merges are shallow: an override replaces its whole top-level key.
     defp llmdb_model(id, overrides \\ %{}) do
@@ -39,7 +26,7 @@ if Code.ensure_loaded?(LLMDB) do
       |> LLMDB.Model.new!()
     end
 
-    describe "transform_provider/3 eligibility" do
+    describe "transform_provider/2 eligibility" do
       test "rejects non-chat, tool-less, retired, and non-text models" do
         models = [
           llmdb_model("kept"),
@@ -51,7 +38,7 @@ if Code.ensure_loaded?(LLMDB) do
           llmdb_model("no-text-out", %{modalities: %{input: [:text], output: [:image]}})
         ]
 
-        loaded = Source.transform_provider(models, CompletionsProvider, :test)
+        loaded = Source.transform_provider(models, :test)
 
         assert Enum.map(loaded, & &1.id) == ["kept"]
       end
@@ -64,7 +51,7 @@ if Code.ensure_loaded?(LLMDB) do
           })
         ]
 
-        loaded = Source.transform_provider(models, CompletionsProvider, :test)
+        loaded = Source.transform_provider(models, :test)
 
         assert Enum.map(loaded, & &1.id) == ["deprecated-dated", "deprecated-flag"]
       end
@@ -72,13 +59,13 @@ if Code.ensure_loaded?(LLMDB) do
       test "rejects models with missing modalities without crashing" do
         models = [llmdb_model("kept"), llmdb_model("no-modalities", %{modalities: nil})]
 
-        loaded = Source.transform_provider(models, CompletionsProvider, :test)
+        loaded = Source.transform_provider(models, :test)
 
         assert Enum.map(loaded, & &1.id) == ["kept"]
       end
     end
 
-    describe "transform_provider/3 reasoning" do
+    describe "transform_provider/2 reasoning" do
       # capabilities.reasoning.enabled is unreliable upstream — the transform
       # ORs it with signals from the extra passthrough.
       test "reads capabilities.reasoning.enabled" do
@@ -89,7 +76,7 @@ if Code.ensure_loaded?(LLMDB) do
           llmdb_model("plain")
         ]
 
-        loaded = Source.transform_provider(models, CompletionsProvider, :test)
+        loaded = Source.transform_provider(models, :test)
         by_id = Map.new(loaded, &{&1.id, &1})
 
         assert by_id["thinker"].reasoning
@@ -103,7 +90,7 @@ if Code.ensure_loaded?(LLMDB) do
           llmdb_model("options", %{extra: %{reasoning_options: [%{effort: "low"}]}})
         ]
 
-        loaded = Source.transform_provider(models, CompletionsProvider, :test)
+        loaded = Source.transform_provider(models, :test)
 
         assert Enum.all?(loaded, & &1.reasoning)
       end
@@ -116,32 +103,31 @@ if Code.ensure_loaded?(LLMDB) do
           llmdb_model("empty-options", %{extra: %{reasoning_options: []}})
         ]
 
-        loaded = Source.transform_provider(models, CompletionsProvider, :test)
+        loaded = Source.transform_provider(models, :test)
 
         refute Enum.any?(loaded, & &1.reasoning)
       end
     end
 
-    describe "transform_provider/3 dialect resolution" do
-      test "the wire protocol beats the module's declared dialect" do
-        # catalog data wins — the module dialect is only a fallback
+    describe "transform_provider/2 dialect resolution" do
+      test "the wire protocol resolves the dialect" do
         models = [
           llmdb_model("data-first", %{
             execution: %{text: %{supported: true, wire_protocol: "anthropic_messages"}}
           })
         ]
 
-        [model] = Source.transform_provider(models, CompletionsProvider, :test)
+        [model] = Source.transform_provider(models, :test)
 
-        assert model.dialect == Omni.Dialects.AnthropicMessages
+        assert model.dialects.text == Omni.Dialects.AnthropicMessages
       end
 
       test "npm metadata resolves models of multi-dialect providers" do
         models = [llmdb_model("claude-x", %{extra: %{provider: %{npm: "@ai-sdk/anthropic"}}})]
 
-        [model] = Source.transform_provider(models, GatewayProvider, :test)
+        [model] = Source.transform_provider(models, :test)
 
-        assert model.dialect == Omni.Dialects.AnthropicMessages
+        assert model.dialects.text == Omni.Dialects.AnthropicMessages
       end
 
       test "the wire protocol beats npm" do
@@ -152,9 +138,9 @@ if Code.ensure_loaded?(LLMDB) do
           })
         ]
 
-        [model] = Source.transform_provider(models, GatewayProvider, :test)
+        [model] = Source.transform_provider(models, :test)
 
-        assert model.dialect == Omni.Dialects.OpenAICompletions
+        assert model.dialects.text == Omni.Dialects.OpenAICompletions
       end
 
       test "wire protocols map to dialects, renaming the divergent ones" do
@@ -168,8 +154,8 @@ if Code.ensure_loaded?(LLMDB) do
           llmdb_model("responses", wire.("openai_responses"))
         ]
 
-        loaded = Source.transform_provider(models, GatewayProvider, :test)
-        by_id = Map.new(loaded, &{&1.id, &1.dialect})
+        loaded = Source.transform_provider(models, :test)
+        by_id = Map.new(loaded, &{&1.id, &1.dialects[:text]})
 
         assert by_id["chat"] == Omni.Dialects.OpenAICompletions
         assert by_id["gemini"] == Omni.Dialects.GoogleGemini
@@ -184,44 +170,45 @@ if Code.ensure_loaded?(LLMDB) do
           })
         ]
 
-        [model] = Source.transform_provider(models, GatewayProvider, :test)
+        [model] = Source.transform_provider(models, :test)
 
-        assert model.dialect == Omni.Dialects.AnthropicMessages
+        assert model.dialects.text == Omni.Dialects.AnthropicMessages
       end
 
-      test "the gateway fallback covers opencode models with no dialect signals" do
-        models = [llmdb_model("bare")]
+      test "a model with no dialect signal is left for the provider to fill" do
+        [model] = Source.transform_provider([llmdb_model("bare")], :test)
 
-        [model] = Source.transform_provider(models, GatewayProvider, :opencode)
-
-        assert model.dialect == Omni.Dialects.OpenAICompletions
+        assert model.dialects == %{}
       end
 
-      test "falls back to the module's declared dialect when no signal resolves" do
-        models = [llmdb_model("bare")]
-
-        [model] = Source.transform_provider(models, CompletionsProvider, :test)
-
-        assert model.dialect == Omni.Dialects.OpenAICompletions
-      end
-
-      test "skips with a warning when no dialect resolves" do
+      test "skips with a warning when the model's npm maps to no dialect" do
         models = [
-          llmdb_model("no-dialect"),
+          llmdb_model("unmapped", %{extra: %{provider: %{npm: "@ai-sdk/mistral"}}}),
           llmdb_model("kept", %{extra: %{provider: %{npm: "@ai-sdk/openai"}}})
         ]
 
-        {loaded, log} =
-          with_log(fn -> Source.transform_provider(models, GatewayProvider, :test) end)
+        {loaded, log} = with_log(fn -> Source.transform_provider(models, :test) end)
 
         assert Enum.map(loaded, & &1.id) == ["kept"]
-        assert log =~ "skipping test:no-dialect"
-        assert log =~ "declares no dialect"
+        assert log =~ "skipping test:unmapped: npm package @ai-sdk/mistral maps to no dialect"
         assert log =~ "loaded 1 models, skipped 1"
+      end
+
+      test "skips with a warning when a model is served from another base URL" do
+        models = [
+          llmdb_model("elsewhere", %{base_url: "https://other.test/v1"}),
+          llmdb_model("kept")
+        ]
+
+        {loaded, log} =
+          with_log(fn -> Source.transform_provider(models, :test, "https://api.test/v1") end)
+
+        assert Enum.map(loaded, & &1.id) == ["kept"]
+        assert log =~ "served from https://other.test/v1"
       end
     end
 
-    describe "transform_provider/3 field mapping" do
+    describe "transform_provider/2 field mapping" do
       test "maps costs, limits, and release date" do
         models = [
           llmdb_model("full", %{
@@ -231,11 +218,11 @@ if Code.ensure_loaded?(LLMDB) do
           })
         ]
 
-        [model] = Source.transform_provider(models, CompletionsProvider, :test)
+        [model] = Source.transform_provider(models, :test)
 
         assert %Omni.Model{
                  name: "full",
-                 provider: CompletionsProvider,
+                 provider: nil,
                  release_date: ~D[2025-08-05],
                  input_cost: 3.0,
                  output_cost: 15.0,
@@ -252,7 +239,7 @@ if Code.ensure_loaded?(LLMDB) do
           llmdb_model("bare", %{cost: nil, limits: nil})
         ]
 
-        loaded = Source.transform_provider(models, CompletionsProvider, :test)
+        loaded = Source.transform_provider(models, :test)
         by_id = Map.new(loaded, &{&1.id, &1})
 
         assert %Omni.Model{input_cost: 0, output_cost: 0} = by_id["router"]
@@ -274,7 +261,7 @@ if Code.ensure_loaded?(LLMDB) do
           })
         ]
 
-        [model] = Source.transform_provider(models, CompletionsProvider, :test)
+        [model] = Source.transform_provider(models, :test)
 
         assert model.input_modalities == [:text, :image]
         assert model.output_modalities == [:text]
@@ -286,7 +273,7 @@ if Code.ensure_loaded?(LLMDB) do
           llmdb_model("nameless", %{name: nil})
         ]
 
-        loaded = Source.transform_provider(models, CompletionsProvider, :test)
+        loaded = Source.transform_provider(models, :test)
         by_id = Map.new(loaded, &{&1.id, &1.name})
 
         assert by_id["claude-x"] == "Claude X"
@@ -300,7 +287,7 @@ if Code.ensure_loaded?(LLMDB) do
         ]
 
         {loaded, log} =
-          with_log(fn -> Source.transform_provider(models, CompletionsProvider, :test) end)
+          with_log(fn -> Source.transform_provider(models, :test) end)
 
         assert Enum.map(loaded, & &1.id) == ["kept"]
         assert log =~ "skipping test:bad-date"
@@ -309,19 +296,19 @@ if Code.ensure_loaded?(LLMDB) do
       test "sorts models by id" do
         models = [llmdb_model("zeta"), llmdb_model("alpha"), llmdb_model("mid")]
 
-        loaded = Source.transform_provider(models, CompletionsProvider, :test)
+        loaded = Source.transform_provider(models, :test)
 
         assert Enum.map(loaded, & &1.id) == ["alpha", "mid", "zeta"]
       end
     end
 
-    describe "transform_provider/3 alias expansion" do
+    describe "transform_provider/2 alias expansion" do
       test "expands one model per alias, sharing the canonical's data" do
         models = [
           llmdb_model("claude-x-20260101", %{name: "Claude X", aliases: ["claude-x"]})
         ]
 
-        loaded = Source.transform_provider(models, CompletionsProvider, :test)
+        loaded = Source.transform_provider(models, :test)
 
         assert Enum.map(loaded, & &1.id) == ["claude-x", "claude-x-20260101"]
         assert Enum.map(loaded, & &1.name) == ["Claude X", "Claude X"]
@@ -333,7 +320,7 @@ if Code.ensure_loaded?(LLMDB) do
           llmdb_model("claude-x-20260101", %{name: "Aliased", aliases: ["claude-x"]})
         ]
 
-        loaded = Source.transform_provider(models, CompletionsProvider, :test)
+        loaded = Source.transform_provider(models, :test)
         by_id = Map.new(loaded, &{&1.id, &1.name})
 
         assert map_size(by_id) == 2
@@ -347,7 +334,7 @@ if Code.ensure_loaded?(LLMDB) do
           llmdb_model("model-b", %{name: "B", aliases: ["shared"]})
         ]
 
-        loaded = Source.transform_provider(models, CompletionsProvider, :test)
+        loaded = Source.transform_provider(models, :test)
         by_id = Map.new(loaded, &{&1.id, &1.name})
 
         assert map_size(by_id) == 3
@@ -356,49 +343,34 @@ if Code.ensure_loaded?(LLMDB) do
     end
 
     describe "fetch/2 against the llm_db catalog" do
-      test "loads models under the given provider_id with the declared dialect" do
-        assert {:ok, models} =
-                 Source.fetch(Omni.Providers.Anthropic, provider_id: :anthropic)
+      test "returns the provider record and its models" do
+        assert {:ok, %Provider{} = provider, models} = Source.fetch(:anthropic, [])
 
+        assert provider.id == :anthropic
+        assert provider.api_key == {:system, "ANTHROPIC_API_KEY"}
         assert models != []
-        assert Enum.all?(models, &(&1.provider == Omni.Providers.Anthropic))
-        assert Enum.all?(models, &(&1.dialect == Omni.Dialects.AnthropicMessages))
+        assert Enum.all?(models, &(&1.provider == nil))
+        assert Enum.all?(models, &(&1.dialects.text == Omni.Dialects.AnthropicMessages))
       end
 
       test "canonical ids are llm_db catalog ids verbatim" do
-        assert {:ok, [_ | _]} = Source.fetch(CompletionsProvider, provider_id: :moonshotai)
+        assert {:ok, _, [_ | _]} = Source.fetch(:moonshotai, [])
 
-        assert {:ok, [_ | _] = ollama} =
-                 Source.fetch(CompletionsProvider, provider_id: :ollama_cloud)
+        assert {:ok, _, [_ | _] = ollama} = Source.fetch(:ollama_cloud, [])
 
         # The catalog reports Ollama's OpenAI-compatible endpoint; the native
-        # dialect preference is re-applied by OllamaCloud's models/0.
-        assert Enum.all?(ollama, &(&1.dialect == Omni.Dialects.OpenAICompletions))
+        # dialect preference is re-applied by OllamaCloud's models/2.
+        assert Enum.all?(ollama, &(&1.dialects.text == Omni.Dialects.OpenAICompletions))
       end
 
-      test "resolves every opencode model through npm or the gateway fallback" do
-        assert {:ok, [_ | _] = models} =
-                 Source.fetch(Omni.Providers.OpenCode, provider_id: :opencode)
+      test "gives opencode a provider-level dialect for models with no signal" do
+        assert {:ok, provider, [_ | _]} = Source.fetch(:opencode, [])
 
-        assert Enum.all?(models, &is_atom(&1.dialect))
-      end
-
-      test "provider_id: resolves any catalog id for a custom module" do
-        assert {:ok, [_ | _] = models} = Source.fetch(CompletionsProvider, provider_id: :mistral)
-        assert Enum.all?(models, &(&1.provider == CompletionsProvider))
+        assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
       end
 
       test "returns :unknown_provider for a catalog id llm_db doesn't know" do
-        assert {:error, :unknown_provider} =
-                 Source.fetch(CompletionsProvider, provider_id: :does_not_exist)
-
-        # binaries are not accepted — llm_db ids are atoms
-        assert {:error, :unknown_provider} =
-                 Source.fetch(CompletionsProvider, provider_id: "mistral")
-      end
-
-      test "returns :unknown_provider when provider_id is absent" do
-        assert {:error, :unknown_provider} = Source.fetch(CompletionsProvider, [])
+        assert {:error, :unknown_provider} = Source.fetch(:does_not_exist, [])
       end
     end
   end

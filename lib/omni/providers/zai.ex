@@ -10,11 +10,10 @@ defmodule Omni.Providers.Zai do
 
   Override the default API key or base URL via application config:
 
-      config :omni, Omni.Providers.Zai,
-        api_key: {:system, "MY_ZAI_KEY"}
+      config :omni, :providers,
+        zai: [api_key: {:system, "MY_ZAI_KEY"}]
 
-  Any key from the provider's `config/0` can be overridden: `:api_key`,
-  `:base_url`. See `Omni.Provider` for details.
+  Any provider key can be overridden — see `Omni.Provider`.
 
   ## Reasoning
 
@@ -28,18 +27,15 @@ defmodule Omni.Providers.Zai do
   fallback.
   """
 
-  use Omni.Provider, id: :zai, dialect: Omni.Dialects.OpenAICompletions
+  @behaviour Omni.Provider
 
   @impl true
   def config do
-    %{
-      base_url: "https://api.z.ai/api/paas/v4",
-      api_key: {:system, "ZAI_API_KEY"}
-    }
+    [base_url: "https://api.z.ai/api/paas/v4", api_key: {:system, "ZAI_API_KEY"}]
   end
 
   @impl true
-  def modify_body(body, _context, _opts) do
+  def modify_body(body, _model, _context, _opts) do
     body
     |> normalize_reasoning_effort()
     |> normalize_structured_output()

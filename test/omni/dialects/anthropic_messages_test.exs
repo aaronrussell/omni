@@ -3,12 +3,12 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
   alias Omni.Dialects.AnthropicMessages
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
-  alias Omni.{Context, Message, Model, Tool}
+  alias Omni.{Context, Message, Tool}
+  alias Omni.Test.Fixtures
 
-  @model Model.new(
+  @model Fixtures.model(
            id: "claude-sonnet-4-20250514",
            name: "Claude Sonnet 4",
-           provider: Omni.Providers.Anthropic,
            dialect: AnthropicMessages,
            max_output_tokens: 8192
          )
@@ -367,28 +367,25 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
   end
 
   describe "handle_body/3 thinking" do
-    @reasoning_model Model.new(
+    @reasoning_model Fixtures.model(
                        id: "claude-3.5-sonnet-20241022",
                        name: "Claude 3.5 Sonnet",
-                       provider: Omni.Providers.Anthropic,
                        dialect: AnthropicMessages,
                        max_output_tokens: 8192,
                        reasoning: true
                      )
 
-    @adaptive_model Model.new(
+    @adaptive_model Fixtures.model(
                       id: "claude-sonnet-4-6-20260214",
                       name: "Claude Sonnet 4.6",
-                      provider: Omni.Providers.Anthropic,
                       dialect: AnthropicMessages,
                       max_output_tokens: 8192,
                       reasoning: true
                     )
 
-    @opus_47_model Model.new(
+    @opus_47_model Fixtures.model(
                      id: "claude-opus-4-7",
                      name: "Claude Opus 4.7",
-                     provider: Omni.Providers.Anthropic,
                      dialect: AnthropicMessages,
                      max_output_tokens: 128_000,
                      reasoning: true
@@ -894,10 +891,9 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
     test "output schema merges with thinking output_config" do
       adaptive_model =
-        Model.new(
+        Fixtures.model(
           id: "claude-sonnet-4-6-20260214",
           name: "Claude Sonnet 4.6",
-          provider: Omni.Providers.Anthropic,
           dialect: AnthropicMessages,
           max_output_tokens: 8192,
           reasoning: true

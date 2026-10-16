@@ -44,7 +44,7 @@ defmodule Integration.OpenCodeTest do
     end
 
     test "model has the correct dialect" do
-      assert model("claude-haiku-4-5").dialect == Omni.Dialects.AnthropicMessages
+      assert model("claude-haiku-4-5").dialects.text == Omni.Dialects.AnthropicMessages
     end
   end
 
@@ -67,7 +67,7 @@ defmodule Integration.OpenCodeTest do
     end
 
     test "model has the correct dialect" do
-      assert model("gpt-5.2").dialect == Omni.Dialects.OpenAIResponses
+      assert model("gpt-5.2").dialects.text == Omni.Dialects.OpenAIResponses
     end
   end
 
@@ -106,7 +106,7 @@ defmodule Integration.OpenCodeTest do
     end
 
     test "model has the correct dialect" do
-      assert model("kimi-k2.5").dialect == Omni.Dialects.OpenAICompletions
+      assert model("kimi-k2.5").dialects.text == Omni.Dialects.OpenAICompletions
     end
   end
 
@@ -129,7 +129,7 @@ defmodule Integration.OpenCodeTest do
     end
 
     test "model has the correct dialect" do
-      assert model("gemini-3-flash").dialect == Omni.Dialects.GoogleGemini
+      assert model("gemini-3-flash").dialects.text == Omni.Dialects.GoogleGemini
     end
   end
 end

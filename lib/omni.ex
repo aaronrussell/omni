@@ -35,20 +35,21 @@ defmodule Omni do
   | Z.ai | `ZAI_API_KEY` |
 
   To override a key — for example, to use a different variable name or load
-  from a vault at runtime — use per-provider application config:
+  from a vault at runtime — configure the provider by id:
 
       # config/runtime.exs
-      config :omni, Omni.Providers.Anthropic, api_key: {:system, "MY_ANTHROPIC_KEY"}
-      config :omni, Omni.Providers.OpenAI, api_key: {MyApp.Secrets, :fetch, ["openai"]}
+      config :omni, :providers,
+        anthropic: [api_key: {:system, "MY_ANTHROPIC_KEY"}],
+        openai: [api_key: {MyApp.Secrets, :fetch, ["openai"]}]
 
   You can also pass `:api_key` directly to `generate_text/3` or `stream_text/3`.
 
-  All built-in providers are loaded by default. To limit what loads at
-  startup, list provider modules (`:builtins` names all built-ins and may appear
+  All built-in providers are loaded by default. To choose what loads at
+  startup, list provider ids (`:builtins` names all built-ins and may appear
   in the list):
 
       config :omni, :models,
-        providers: [Omni.Providers.Anthropic, Omni.Providers.OpenAI]
+        providers: [:anthropic, :openai]
 
   ## Text generation
 
@@ -149,7 +150,7 @@ defmodule Omni do
   ## Providers
 
   Omni ships with built-in providers for all of the services listed in the
-  table above. Each provider is paired with one or more dialects that handle
+  table above. Each provider's models are paired with dialects that handle
   wire format translation — most providers use a single dialect, while
   multi-model gateways like OpenCode Zen use different dialects per model.
 
@@ -158,8 +159,8 @@ defmodule Omni do
 
       {:ok, models} = Omni.list_models(:anthropic)
 
-  To add a custom provider, implement the `Omni.Provider` behaviour and load
-  it at runtime — see `Omni.Provider` for details.
+  Any provider in the models.dev catalog can be loaded by id, and fully custom
+  providers can be defined in config — see `Omni.Provider` for details.
   """
 
   alias Omni.{Context, Loop, Model, Response, StreamingResponse}
@@ -234,8 +235,10 @@ defmodule Omni do
   Looks up a model by provider and model ID.
 
   Returns `{:ok, model}` if found, `{:error, {:unknown_provider, id}}` if the
-  provider isn't loaded, or `{:error, {:unknown_model, provider_id, model_id}}`
-  if the model doesn't exist.
+  provider isn't loaded (it doesn't exist, or isn't selected in
+  `config :omni, :models, providers:`), or
+  `{:error, {:unknown_model, provider_id, model_id}}` if the model doesn't
+  exist.
 
       {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-4-5-20250514")
       model.context_size  #=> 200000
@@ -245,15 +248,29 @@ defmodule Omni do
 
   @doc group: :models
   @doc """
-  Registers a model for lookup by `get_model/2` and `list_models/1`.
+  Registers a model for lookup by `get_model/2` and `list_models/1`, under its
+  provider.
 
-  See `Omni.Model.put/2` for details.
+  See `Omni.Model.put/1` for details.
 
-      model = Omni.Model.new(...)
-      Omni.put_model(:openai, model)
+      model = Omni.Model.new(id: "my-fine-tune", name: "My Fine-Tune", provider: :openai)
+      Omni.put_model(model)
   """
-  @spec put_model(atom(), Model.t()) :: :ok
-  defdelegate put_model(provider_id, model), to: Omni.Model, as: :put
+  @spec put_model(Model.t()) :: :ok
+  defdelegate put_model(model), to: Omni.Model, as: :put
+
+  @doc group: :models
+  @doc """
+  Looks up a loaded provider by id.
+
+  Returns `{:ok, provider}`, or `{:error, {:unknown_provider, id}}` if no
+  provider with that id is loaded.
+
+      {:ok, provider} = Omni.get_provider(:anthropic)
+      provider.base_url  #=> "https://api.anthropic.com/v1"
+  """
+  @spec get_provider(atom()) :: {:ok, Omni.Provider.t()} | {:error, term()}
+  defdelegate get_provider(id), to: Omni.Provider, as: :get
 
   @doc group: :models
   @doc """

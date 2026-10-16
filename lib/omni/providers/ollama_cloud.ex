@@ -5,17 +5,16 @@ defmodule Omni.Providers.OllamaCloud do
 
   Reads the API key from the `OLLAMA_API_KEY` environment variable — no
   further configuration is needed if the variable is set. For a local
-  Ollama instance, use `Omni.Providers.Ollama` instead.
+  Ollama instance, use the `:ollama` provider instead.
 
   ## Configuration
 
   Override the default API key or base URL via application config:
 
-      config :omni, Omni.Providers.OllamaCloud,
-        api_key: {:system, "MY_OLLAMA_KEY"}
+      config :omni, :providers,
+        ollama_cloud: [api_key: {:system, "MY_OLLAMA_KEY"}]
 
-  Any key from the provider's `config/0` can be overridden: `:api_key`,
-  `:base_url`. See `Omni.Provider` for details.
+  Any provider key can be overridden — see `Omni.Provider`.
 
   ## Limitations
 
@@ -24,22 +23,21 @@ defmodule Omni.Providers.OllamaCloud do
     has no URL image input mechanism.
   """
 
-  use Omni.Provider, id: :ollama_cloud, dialect: Omni.Dialects.OllamaChat
+  @behaviour Omni.Provider
 
   @impl true
   def config do
-    %{
+    [
       base_url: "https://ollama.com",
-      api_key: {:system, "OLLAMA_API_KEY"}
-    }
+      api_key: {:system, "OLLAMA_API_KEY"},
+      dialects: %{text: Omni.Dialects.OllamaChat}
+    ]
   end
 
+  # Catalog data describes Ollama's OpenAI-compatible endpoint; Omni uses the
+  # native chat API, so every model is re-stamped with its dialect.
   @impl true
-  def models do
-    # Catalog data reports Ollama's OpenAI-compatible endpoint; Omni prefers
-    # the native chat API, so re-apply the declared dialect.
-    __MODULE__
-    |> Omni.Provider.load_models()
-    |> Enum.map(&%{&1 | dialect: dialect()})
+  def models(models, _provider) do
+    Enum.map(models, &%{&1 | dialects: Map.put(&1.dialects, :text, Omni.Dialects.OllamaChat)})
   end
 end

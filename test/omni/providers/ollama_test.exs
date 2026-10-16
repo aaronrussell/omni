@@ -2,99 +2,70 @@ defmodule Omni.Providers.OllamaTest do
   use ExUnit.Case, async: true
 
   alias Omni.Providers.Ollama
+  alias Omni.Provider.Loader
 
   describe "config/0" do
-    test "returns localhost base_url and nil api_key" do
-      config = Ollama.config()
+    test "targets localhost with no auth and the native dialect" do
+      config = Map.new(Ollama.config())
+
       assert config.base_url == "http://localhost:11434"
-      assert config.api_key == nil
+      assert config.auth == :none
+      assert config.dialects == %{text: Omni.Dialects.OllamaChat}
+      refute Map.has_key?(config, :api_key)
     end
   end
 
-  describe "dialect/0" do
-    test "returns OllamaChat" do
-      assert Ollama.dialect() == Omni.Dialects.OllamaChat
-    end
-  end
-
-  describe "models/0" do
-    test "returns no models without a models: config" do
+  describe "assembled provider" do
+    test "loads no models without a models: entry" do
       # A local instance's models are unknowable to any catalog — they come
-      # from user config only.
-      assert Ollama.models() == []
+      # from config only.
+      assert {provider, []} = Loader.assemble(:ollama)
+      assert provider.module == Ollama
+      assert provider.tier == :verified
+      assert provider.auth == :none
+      assert provider.dialects == %{text: [Omni.Dialects.OllamaChat]}
     end
 
-    test "builds model from string shorthand" do
-      Application.put_env(:omni, Ollama, models: ["qwen3.5:4b"])
+    test "builds a model from a string id" do
+      {provider, [model]} = Loader.assemble(:ollama, models: ["qwen3.5:4b"])
 
-      [model] = Ollama.models()
       assert model.id == "qwen3.5:4b"
       assert model.name == "qwen3.5:4b"
-      assert model.provider == Ollama
-      assert model.dialect == Omni.Dialects.OllamaChat
-    after
-      Application.delete_env(:omni, Ollama)
+      assert model.provider == provider
+      assert model.dialects == %{text: Omni.Dialects.OllamaChat}
     end
 
-    test "builds model from keyword list with full details" do
-      Application.put_env(:omni, Ollama,
-        models: [
-          [
-            id: "llama3.1:8b",
-            name: "Llama 3.1 8B",
-            context_size: 128_000,
-            max_output_tokens: 8192
+    test "builds a model from a keyword list" do
+      {_provider, [model]} =
+        Loader.assemble(:ollama,
+          models: [
+            [
+              id: "llama3.1:8b",
+              name: "Llama 3.1 8B",
+              context_size: 128_000,
+              max_output_tokens: 8192
+            ]
           ]
-        ]
-      )
+        )
 
-      [model] = Ollama.models()
       assert model.id == "llama3.1:8b"
       assert model.name == "Llama 3.1 8B"
       assert model.context_size == 128_000
       assert model.max_output_tokens == 8192
-      assert model.provider == Ollama
-      assert model.dialect == Omni.Dialects.OllamaChat
-    after
-      Application.delete_env(:omni, Ollama)
+      assert model.dialects == %{text: Omni.Dialects.OllamaChat}
     end
 
     test "mixes string and keyword list entries" do
-      Application.put_env(:omni, Ollama,
-        models: [
-          "mistral:7b",
-          [id: "qwen3.5:4b", name: "Qwen 3.5 4B", reasoning: true]
-        ]
-      )
+      {_provider, [m1, m2]} =
+        Loader.assemble(:ollama,
+          models: ["mistral:7b", [id: "qwen3.5:4b", name: "Qwen 3.5 4B", reasoning: true]]
+        )
 
-      [m1, m2] = Ollama.models()
       assert m1.id == "mistral:7b"
       assert m1.name == "mistral:7b"
       assert m2.id == "qwen3.5:4b"
       assert m2.name == "Qwen 3.5 4B"
       assert m2.reasoning == true
-    after
-      Application.delete_env(:omni, Ollama)
-    end
-  end
-
-  describe "authenticate/2" do
-    test "passes through when api_key is nil" do
-      req = Req.new()
-      assert {:ok, ^req} = Ollama.authenticate(req, %{api_key: nil})
-    end
-
-    test "sets Bearer authorization header when api_key is provided" do
-      req = Req.new()
-      {:ok, authed} = Ollama.authenticate(req, %{api_key: "test-key-123"})
-      assert Req.Request.get_header(authed, "authorization") == ["Bearer test-key-123"]
-    end
-
-    test "returns error when api_key is {:system, missing_var}" do
-      req = Req.new()
-
-      assert {:error, {:missing_env_var, _}} =
-               Ollama.authenticate(req, %{api_key: {:system, "OMNI_TEST_NONEXISTENT_KEY"}})
     end
   end
 end

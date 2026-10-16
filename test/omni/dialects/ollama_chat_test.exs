@@ -3,19 +3,18 @@ defmodule Omni.Dialects.OllamaChatTest do
 
   alias Omni.Dialects.OllamaChat
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
-  alias Omni.{Context, Message, Model}
+  alias Omni.{Context, Message}
+  alias Omni.Test.Fixtures
 
-  @model Model.new(
+  @model Fixtures.model(
            id: "qwen3.5:4b",
            name: "qwen3.5:4b",
-           provider: Omni.Providers.Ollama,
            dialect: OllamaChat
          )
 
-  @reasoning_model Model.new(
+  @reasoning_model Fixtures.model(
                      id: "qwen3.5:4b",
                      name: "qwen3.5:4b",
-                     provider: Omni.Providers.Ollama,
                      dialect: OllamaChat,
                      reasoning: true
                    )
@@ -211,10 +210,9 @@ defmodule Omni.Dialects.OllamaChatTest do
 
     test "gpt-oss models accept string thinking levels" do
       gpt_oss =
-        Model.new(
+        Fixtures.model(
           id: "gpt-oss:latest",
           name: "gpt-oss",
-          provider: Omni.Providers.Ollama,
           dialect: OllamaChat,
           reasoning: true
         )

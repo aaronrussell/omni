@@ -9,13 +9,12 @@ defmodule Live.ZaiTest do
       Omni.Model.new(
         id: "glm-4.6v-flash",
         name: "glm-4.6v-flash",
-        provider: Omni.Providers.Zai,
-        dialect: Omni.Dialects.OpenAICompletions,
+        provider: :zai,
         input_modalities: [:text, :image],
         reasoning: true
       )
 
-    Omni.Model.put(:zai, vision_model)
+    Omni.put_model(vision_model)
     :ok
   end
 

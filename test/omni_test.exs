@@ -6,12 +6,17 @@ defmodule OmniTest do
 
   describe "delegates" do
     test "get_model/2 delegates to Model.get/2" do
-      [model_id | _] = :persistent_term.get({Omni, :anthropic}) |> Map.keys()
+      {:ok, [%Model{id: model_id} | _]} = Model.list(:anthropic)
       assert {:ok, %Model{id: ^model_id}} = Omni.get_model(:anthropic, model_id)
     end
 
     test "get_model/2 returns error for unknown provider" do
       assert {:error, {:unknown_provider, :nonexistent}} = Omni.get_model(:nonexistent, "any")
+    end
+
+    test "get_provider/1 delegates to Provider.get/1" do
+      assert {:ok, %Omni.Provider{id: :anthropic}} = Omni.get_provider(:anthropic)
+      assert {:error, {:unknown_provider, :nonexistent}} = Omni.get_provider(:nonexistent)
     end
 
     test "list_models/1 delegates to Model.list/1" do

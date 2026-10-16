@@ -2,52 +2,45 @@ defmodule Omni.Providers.NearAITest do
   use ExUnit.Case, async: true
 
   alias Omni.Providers.NearAI
+  alias Omni.Provider.Loader
 
   describe "config/0" do
     test "returns expected configuration" do
-      config = NearAI.config()
+      config = Map.new(NearAI.config())
 
       assert config.base_url == "https://cloud-api.near.ai/v1"
       assert config.api_key == {:system, "NEARAI_API_KEY"}
-      refute Map.has_key?(config, :auth_header)
     end
   end
 
-  describe "dialect/0" do
-    test "returns OpenAICompletions dialect" do
-      assert NearAI.dialect() == Omni.Dialects.OpenAICompletions
-    end
-  end
+  describe "assembled provider" do
+    test "loads catalog models with the OpenAICompletions dialect" do
+      {provider, models} = Loader.assemble(:nearai)
 
-  describe "models/0" do
-    test "returns a non-empty list of Model structs" do
-      models = NearAI.models()
+      assert provider.module == NearAI
+      assert provider.tier == :verified
+      assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
+      assert models != []
 
-      assert is_list(models)
-      assert length(models) > 0
-      assert Enum.all?(models, &match?(%Omni.Model{}, &1))
-    end
-
-    test "stamps provider and dialect on every model" do
-      for model <- NearAI.models() do
-        assert model.provider == NearAI
-        assert model.dialect == Omni.Dialects.OpenAICompletions
+      for model <- models do
+        assert model.provider == provider
+        assert model.dialects == %{text: Omni.Dialects.OpenAICompletions}
       end
     end
 
     test "includes TEE-backed NEAR AI models from the catalog" do
-      models = NearAI.models()
+      {_provider, models} = Loader.assemble(:nearai)
 
       assert Enum.any?(models, &(&1.id == "zai-org/GLM-5.1-FP8"))
       assert Enum.any?(models, &(&1.id == "Qwen/Qwen3.6-35B-A3B-FP8"))
     end
   end
 
-  describe "modify_body/3" do
+  describe "modify_body/4" do
     test "renames max_completion_tokens to max_tokens" do
       body = %{"model" => "test", "max_completion_tokens" => 128}
 
-      result = NearAI.modify_body(body, %Omni.Context{}, %{})
+      result = NearAI.modify_body(body, nil, %Omni.Context{}, %{})
 
       assert result["max_tokens"] == 128
       refute Map.has_key?(result, "max_completion_tokens")
@@ -56,7 +49,7 @@ defmodule Omni.Providers.NearAITest do
     test "preserves an existing max_tokens value" do
       body = %{"model" => "test", "max_completion_tokens" => 128, "max_tokens" => 64}
 
-      result = NearAI.modify_body(body, %Omni.Context{}, %{})
+      result = NearAI.modify_body(body, nil, %Omni.Context{}, %{})
 
       assert result["max_tokens"] == 64
       refute Map.has_key?(result, "max_completion_tokens")
@@ -70,7 +63,7 @@ defmodule Omni.Providers.NearAITest do
         "store" => true
       }
 
-      result = NearAI.modify_body(body, %Omni.Context{}, %{})
+      result = NearAI.modify_body(body, nil, %Omni.Context{}, %{})
 
       refute Map.has_key?(result, "prompt_cache_retention")
       refute Map.has_key?(result, "reasoning_effort")
@@ -90,28 +83,12 @@ defmodule Omni.Providers.NearAITest do
         }
       }
 
-      result = NearAI.modify_body(body, %Omni.Context{}, %{})
+      result = NearAI.modify_body(body, nil, %Omni.Context{}, %{})
 
       json_schema = result["response_format"]["json_schema"]
       assert json_schema["name"] == "output"
       assert json_schema["schema"] == %{"type" => "object"}
       refute Map.has_key?(json_schema, "strict")
-    end
-  end
-
-  describe "authenticate/2" do
-    test "sets Bearer authorization header" do
-      req = Req.new()
-
-      {:ok, authed} = NearAI.authenticate(req, %{api_key: "nearai-test-key"})
-
-      assert Req.Request.get_header(authed, "authorization") == ["Bearer nearai-test-key"]
-    end
-
-    test "returns error when api_key is nil" do
-      req = Req.new()
-
-      assert {:error, :no_api_key} = NearAI.authenticate(req, %{api_key: nil})
     end
   end
 end

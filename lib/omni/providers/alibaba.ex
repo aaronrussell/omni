@@ -10,19 +10,18 @@ defmodule Omni.Providers.Alibaba do
 
   Override the default API key or base URL via application config:
 
-      config :omni, Omni.Providers.Alibaba,
-        api_key: {:system, "MY_DASHSCOPE_KEY"}
+      config :omni, :providers,
+        alibaba: [api_key: {:system, "MY_DASHSCOPE_KEY"}]
 
-  Any key from the provider's `config/0` can be overridden: `:api_key`,
-  `:base_url`. See `Omni.Provider` for details.
+  Any provider key can be overridden — see `Omni.Provider`.
 
   ## Regions
 
   Defaults to the International (Singapore) endpoint. To use a different
   region, override `:base_url`:
 
-      config :omni, Omni.Providers.Alibaba,
-        base_url: "https://dashscope-us.aliyuncs.com/compatible-mode/v1"
+      config :omni, :providers,
+        alibaba: [base_url: "https://dashscope-us.aliyuncs.com/compatible-mode/v1"]
 
   Available regions:
 
@@ -46,18 +45,18 @@ defmodule Omni.Providers.Alibaba do
   prompt fallback.
   """
 
-  use Omni.Provider, id: :alibaba, dialect: Omni.Dialects.OpenAICompletions
+  @behaviour Omni.Provider
 
   @impl true
   def config do
-    %{
+    [
       base_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
       api_key: {:system, "DASHSCOPE_API_KEY"}
-    }
+    ]
   end
 
   @impl true
-  def modify_body(body, _context, _opts) do
+  def modify_body(body, _model, _context, _opts) do
     body
     |> normalize_reasoning_effort()
     |> normalize_structured_output()

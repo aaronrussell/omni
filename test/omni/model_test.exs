@@ -1,7 +1,8 @@
 defmodule Omni.ModelTest do
   use ExUnit.Case, async: true
 
-  alias Omni.Model
+  alias Omni.{Model, Provider}
+  alias Omni.Test.Fixtures
 
   describe "new/1" do
     test "creates model from keyword list with all fields" do
@@ -9,8 +10,8 @@ defmodule Omni.ModelTest do
         Model.new(
           id: "claude-sonnet-4-20250514",
           name: "Claude Sonnet 4",
-          provider: SomeProvider,
-          dialect: SomeDialect,
+          provider: Fixtures.provider(),
+          dialects: %{text: Omni.Dialects.AnthropicMessages},
           context_size: 200_000,
           max_output_tokens: 8192,
           reasoning: true,
@@ -24,8 +25,8 @@ defmodule Omni.ModelTest do
 
       assert model.id == "claude-sonnet-4-20250514"
       assert model.name == "Claude Sonnet 4"
-      assert model.provider == SomeProvider
-      assert model.dialect == SomeDialect
+      assert model.provider == Fixtures.provider()
+      assert model.dialects == %{text: Omni.Dialects.AnthropicMessages}
       assert model.context_size == 200_000
       assert model.max_output_tokens == 8192
       assert model.reasoning == true
@@ -38,7 +39,7 @@ defmodule Omni.ModelTest do
     end
 
     test "defaults numeric fields to zero" do
-      model = Model.new(id: "test", name: "Test", provider: P, dialect: D)
+      model = Model.new(id: "test", name: "Test")
 
       assert model.context_size == 0
       assert model.max_output_tokens == 0
@@ -49,12 +50,12 @@ defmodule Omni.ModelTest do
     end
 
     test "defaults reasoning to false" do
-      model = Model.new(id: "test", name: "Test", provider: P, dialect: D)
+      model = Model.new(id: "test", name: "Test")
       assert model.reasoning == false
     end
 
     test "defaults modalities to [:text]" do
-      model = Model.new(id: "test", name: "Test", provider: P, dialect: D)
+      model = Model.new(id: "test", name: "Test")
       assert model.input_modalities == [:text]
       assert model.output_modalities == [:text]
     end
@@ -65,9 +66,55 @@ defmodule Omni.ModelTest do
       end
     end
 
+    test "leaves provider and dialects empty when not given" do
+      model = Model.new(id: "test", name: "Test")
+
+      assert model.provider == nil
+      assert model.dialects == %{}
+    end
+
+    test "fills missing dialects from the provider's first dialect" do
+      provider =
+        Fixtures.provider(
+          dialects: %{text: [Omni.Dialects.OpenAIResponses, Omni.Dialects.OpenAICompletions]}
+        )
+
+      model = Model.new(id: "test", name: "Test", provider: provider)
+
+      assert model.dialects == %{text: Omni.Dialects.OpenAIResponses}
+    end
+
+    test "keeps a given dialect over the provider's" do
+      provider = Fixtures.provider(dialects: %{text: [Omni.Dialects.OpenAIResponses]})
+
+      model =
+        Model.new(
+          id: "test",
+          name: "Test",
+          provider: provider,
+          dialects: %{text: Omni.Dialects.OpenAICompletions}
+        )
+
+      assert model.dialects == %{text: Omni.Dialects.OpenAICompletions}
+    end
+
+    test "resolves a loaded provider id to its struct" do
+      {:ok, anthropic} = Provider.get(:anthropic)
+      model = Model.new(id: "test", name: "Test", provider: :anthropic)
+
+      assert model.provider == anthropic
+      assert model.dialects == %{text: Omni.Dialects.AnthropicMessages}
+    end
+
+    test "raises for a provider id that isn't loaded" do
+      assert_raise ArgumentError, ~r/not loaded/, fn ->
+        Model.new(id: "test", name: "Test", provider: :nonexistent)
+      end
+    end
+
     test "raises on unknown keys" do
       assert_raise KeyError, fn ->
-        Model.new(id: "test", name: "Test", provider: P, dialect: D, bogus: true)
+        Model.new(id: "test", name: "Test", bogus: true)
       end
     end
 
@@ -76,8 +123,6 @@ defmodule Omni.ModelTest do
         Model.new(
           id: "test",
           name: "Test",
-          provider: P,
-          dialect: D,
           input_modalities: [:text, :image, :audio, :video]
         )
 
@@ -89,8 +134,6 @@ defmodule Omni.ModelTest do
         Model.new(
           id: "test",
           name: "Test",
-          provider: P,
-          dialect: D,
           output_modalities: [:text, :audio]
         )
 
@@ -102,8 +145,6 @@ defmodule Omni.ModelTest do
         Model.new(
           id: "test",
           name: "Test",
-          provider: P,
-          dialect: D,
           input_modalities: [:audio, :video]
         )
 
@@ -127,7 +168,7 @@ defmodule Omni.ModelTest do
   describe "get/2" do
     test "returns {:ok, model} for a loaded model" do
       # Application loads anthropic at startup
-      [model_id | _] = :persistent_term.get({Omni, :anthropic}) |> Map.keys()
+      {:ok, [%Model{id: model_id} | _]} = Model.list(:anthropic)
 
       assert {:ok, %Model{id: ^model_id}} = Model.get(:anthropic, model_id)
     end
@@ -142,54 +183,59 @@ defmodule Omni.ModelTest do
     end
   end
 
-  describe "put/2" do
+  describe "put/1" do
     setup do
-      provider_id = :"test_put_#{System.unique_integer([:positive])}"
-
-      on_exit(fn ->
-        :persistent_term.erase({Omni, provider_id})
-      end)
-
-      %{provider_id: provider_id}
+      %{provider: Fixtures.load_provider()}
     end
 
-    test "registers a model retrievable via get/2", %{provider_id: provider_id} do
-      model = Model.new(id: "custom-1", name: "Custom 1", provider: P, dialect: D)
-      assert :ok = Model.put(provider_id, model)
-      assert {:ok, ^model} = Model.get(provider_id, "custom-1")
+    test "registers a model retrievable via get/2", %{provider: id} do
+      model = Model.new(id: "custom-1", name: "Custom 1", provider: id)
+      assert :ok = Model.put(model)
+      assert {:ok, ^model} = Model.get(id, "custom-1")
     end
 
-    test "merges with existing models without clobbering", %{provider_id: provider_id} do
-      model_a = Model.new(id: "model-a", name: "A", provider: P, dialect: D)
-      model_b = Model.new(id: "model-b", name: "B", provider: P, dialect: D)
+    test "merges with existing models without clobbering", %{provider: id} do
+      model_a = Model.new(id: "model-a", name: "A", provider: id)
+      model_b = Model.new(id: "model-b", name: "B", provider: id)
 
-      Model.put(provider_id, model_a)
-      Model.put(provider_id, model_b)
+      Model.put(model_a)
+      Model.put(model_b)
 
-      assert {:ok, ^model_a} = Model.get(provider_id, "model-a")
-      assert {:ok, ^model_b} = Model.get(provider_id, "model-b")
+      assert {:ok, ^model_a} = Model.get(id, "model-a")
+      assert {:ok, ^model_b} = Model.get(id, "model-b")
     end
 
-    test "replaces a model with the same ID", %{provider_id: provider_id} do
-      original = Model.new(id: "model-x", name: "Original", provider: P, dialect: D)
+    test "replaces a model with the same ID", %{provider: id} do
+      original = Model.new(id: "model-x", name: "Original", provider: id)
+      updated = Model.new(id: "model-x", name: "Updated", provider: id, context_size: 100_000)
 
-      updated =
-        Model.new(id: "model-x", name: "Updated", provider: P, dialect: D, context_size: 100_000)
+      Model.put(original)
+      Model.put(updated)
 
-      Model.put(provider_id, original)
-      Model.put(provider_id, updated)
-
-      assert {:ok, result} = Model.get(provider_id, "model-x")
+      assert {:ok, result} = Model.get(id, "model-x")
       assert result.name == "Updated"
       assert result.context_size == 100_000
     end
 
-    test "appears in list/1 results", %{provider_id: provider_id} do
-      model = Model.new(id: "listed-model", name: "Listed", provider: P, dialect: D)
-      Model.put(provider_id, model)
+    test "appears in list/1 results", %{provider: id} do
+      model = Model.new(id: "listed-model", name: "Listed", provider: id)
+      Model.put(model)
 
-      assert {:ok, models} = Model.list(provider_id)
+      assert {:ok, models} = Model.list(id)
       assert model in models
+    end
+
+    test "raises when the model's provider isn't loaded" do
+      model =
+        Model.new(id: "orphan", name: "Orphan", provider: Fixtures.provider(id: :not_loaded))
+
+      assert_raise ArgumentError, ~r/not loaded/, fn -> Model.put(model) end
+    end
+
+    test "raises when the model has no provider" do
+      assert_raise ArgumentError, ~r/no provider/, fn ->
+        Model.put(Model.new(id: "bare", name: "Bare"))
+      end
     end
   end
 
@@ -201,8 +247,8 @@ defmodule Omni.ModelTest do
       assert model_id == model.id
     end
 
-    test "derives the id from the provider module without loading" do
-      model = Model.new(id: "test", name: "Test", provider: Omni.Providers.Venice, dialect: D)
+    test "reads the id from the embedded provider" do
+      model = Model.new(id: "test", name: "Test", provider: Fixtures.provider(id: :venice))
 
       assert Model.to_ref(model) == {:venice, "test"}
     end

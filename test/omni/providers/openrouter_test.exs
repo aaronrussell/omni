@@ -3,45 +3,38 @@ defmodule Omni.Providers.OpenRouterTest do
 
   alias Omni.{Context, Message}
   alias Omni.Providers.OpenRouter
+  alias Omni.Provider.Loader
 
   describe "config/0" do
     test "returns expected configuration" do
-      config = OpenRouter.config()
+      config = Map.new(OpenRouter.config())
 
       assert config.base_url == "https://openrouter.ai/api/v1"
       assert config.api_key == {:system, "OPENROUTER_API_KEY"}
-      refute Map.has_key?(config, :auth_header)
     end
   end
 
-  describe "dialect/0" do
-    test "returns OpenAICompletions dialect" do
-      assert OpenRouter.dialect() == Omni.Dialects.OpenAICompletions
-    end
-  end
+  describe "assembled provider" do
+    test "loads catalog models with the OpenAICompletions dialect" do
+      {provider, models} = Loader.assemble(:openrouter)
 
-  describe "models/0" do
-    test "returns a non-empty list of Model structs" do
-      models = OpenRouter.models()
+      assert provider.module == OpenRouter
+      assert provider.tier == :verified
+      assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
+      assert models != []
 
-      assert is_list(models)
-      assert length(models) > 0
-      assert Enum.all?(models, &match?(%Omni.Model{}, &1))
-    end
-
-    test "stamps provider and dialect on every model" do
-      for model <- OpenRouter.models() do
-        assert model.provider == OpenRouter
-        assert model.dialect == Omni.Dialects.OpenAICompletions
+      for model <- models do
+        assert model.provider == provider
+        assert model.dialects == %{text: Omni.Dialects.OpenAICompletions}
       end
     end
   end
 
-  describe "modify_body/3" do
+  describe "modify_body/4" do
     test "converts reasoning_effort to reasoning object" do
       body = %{"model" => "test", "reasoning_effort" => "high"}
 
-      result = OpenRouter.modify_body(body, %Omni.Context{}, %{})
+      result = OpenRouter.modify_body(body, nil, %Omni.Context{}, %{})
 
       assert result["reasoning"] == %{"effort" => "high"}
       refute Map.has_key?(result, "reasoning_effort")
@@ -50,7 +43,7 @@ defmodule Omni.Providers.OpenRouterTest do
     test "passes through xhigh effort unchanged" do
       body = %{"model" => "test", "reasoning_effort" => "xhigh"}
 
-      result = OpenRouter.modify_body(body, %Omni.Context{}, %{})
+      result = OpenRouter.modify_body(body, nil, %Omni.Context{}, %{})
 
       assert result["reasoning"] == %{"effort" => "xhigh"}
     end
@@ -58,7 +51,7 @@ defmodule Omni.Providers.OpenRouterTest do
     test "passes through body without reasoning_effort" do
       body = %{"model" => "test", "messages" => []}
 
-      result = OpenRouter.modify_body(body, %Omni.Context{}, %{})
+      result = OpenRouter.modify_body(body, nil, %Omni.Context{}, %{})
 
       assert result == body
     end
@@ -67,7 +60,7 @@ defmodule Omni.Providers.OpenRouterTest do
       for level <- ["low", "medium", "high"] do
         body = %{"model" => "test", "reasoning_effort" => level}
 
-        result = OpenRouter.modify_body(body, %Omni.Context{}, %{})
+        result = OpenRouter.modify_body(body, nil, %Omni.Context{}, %{})
 
         assert result["reasoning"]["effort"] == level,
                "expected #{level} to pass through"
@@ -75,7 +68,7 @@ defmodule Omni.Providers.OpenRouterTest do
     end
   end
 
-  describe "modify_body/3 — reasoning_details outbound" do
+  describe "modify_body/4 — reasoning_details outbound" do
     test "attaches reasoning_details from assistant message private data" do
       context =
         Context.new([
@@ -102,7 +95,7 @@ defmodule Omni.Providers.OpenRouterTest do
         ]
       }
 
-      result = OpenRouter.modify_body(body, context, %{})
+      result = OpenRouter.modify_body(body, nil, context, %{})
 
       assert [user1, assistant, user2] = result["messages"]
       refute Map.has_key?(user1, "reasoning_details")
@@ -131,7 +124,7 @@ defmodule Omni.Providers.OpenRouterTest do
         ]
       }
 
-      result = OpenRouter.modify_body(body, context, %{})
+      result = OpenRouter.modify_body(body, nil, context, %{})
 
       assistant = Enum.find(result["messages"], &(&1["role"] == "assistant"))
       refute Map.has_key?(assistant, "reasoning_details")
@@ -157,7 +150,7 @@ defmodule Omni.Providers.OpenRouterTest do
         ]
       }
 
-      result = OpenRouter.modify_body(body, context, %{})
+      result = OpenRouter.modify_body(body, nil, context, %{})
 
       assert result["reasoning"] == %{"effort" => "high"}
       refute Map.has_key?(result, "reasoning_effort")
@@ -167,7 +160,7 @@ defmodule Omni.Providers.OpenRouterTest do
     end
   end
 
-  describe "modify_events/2" do
+  describe "modify_deltas/3" do
     test "extracts reasoning_details from raw SSE event" do
       details = [%{"type" => "reasoning.summary", "summary" => "thinking"}]
 
@@ -177,7 +170,7 @@ defmodule Omni.Providers.OpenRouterTest do
         ]
       }
 
-      result = OpenRouter.modify_events([], raw_event)
+      result = OpenRouter.modify_deltas([], raw_event, nil)
 
       assert [{:message, %{private: %{reasoning_details: ^details}}}] = result
     end
@@ -188,7 +181,7 @@ defmodule Omni.Providers.OpenRouterTest do
       }
 
       existing = [{:block_delta, %{type: :text, index: 0, delta: "hello"}}]
-      result = OpenRouter.modify_events(existing, raw_event)
+      result = OpenRouter.modify_deltas(existing, raw_event, nil)
 
       assert result == existing
     end
@@ -199,7 +192,7 @@ defmodule Omni.Providers.OpenRouterTest do
       }
 
       existing = [{:message, %{model: "test"}}]
-      result = OpenRouter.modify_events(existing, raw_event)
+      result = OpenRouter.modify_deltas(existing, raw_event, nil)
 
       assert result == existing
     end
@@ -211,7 +204,7 @@ defmodule Omni.Providers.OpenRouterTest do
       }
 
       existing = [{:message, %{stop_reason: :stop}}]
-      result = OpenRouter.modify_events(existing, raw_event)
+      result = OpenRouter.modify_deltas(existing, raw_event, nil)
 
       assert [{:error, "Provider disconnected"}] = result
     end
@@ -224,27 +217,11 @@ defmodule Omni.Providers.OpenRouterTest do
       }
 
       existing = [{:block_delta, %{type: :thinking, index: 0, delta: "text"}}]
-      result = OpenRouter.modify_events(existing, raw_event)
+      result = OpenRouter.modify_deltas(existing, raw_event, nil)
 
       assert length(result) == 2
       assert List.first(result) == List.first(existing)
       assert {:message, %{private: %{reasoning_details: ^details}}} = List.last(result)
-    end
-  end
-
-  describe "authenticate/2" do
-    test "sets Bearer authorization header" do
-      req = Req.new()
-
-      {:ok, authed} = OpenRouter.authenticate(req, %{api_key: "sk-or-test-123"})
-
-      assert Req.Request.get_header(authed, "authorization") == ["Bearer sk-or-test-123"]
-    end
-
-    test "returns error when api_key is nil" do
-      req = Req.new()
-
-      assert {:error, :no_api_key} = OpenRouter.authenticate(req, %{api_key: nil})
     end
   end
 end

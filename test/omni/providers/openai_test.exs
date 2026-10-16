@@ -2,53 +2,30 @@ defmodule Omni.Providers.OpenAITest do
   use ExUnit.Case, async: true
 
   alias Omni.Providers.OpenAI
+  alias Omni.Provider.Loader
 
   describe "config/0" do
     test "returns expected configuration" do
-      config = OpenAI.config()
+      config = Map.new(OpenAI.config())
 
       assert config.base_url == "https://api.openai.com/v1"
       assert config.api_key == {:system, "OPENAI_API_KEY"}
-      refute Map.has_key?(config, :auth_header)
     end
   end
 
-  describe "dialect/0" do
-    test "returns OpenAIResponses dialect" do
-      assert OpenAI.dialect() == Omni.Dialects.OpenAIResponses
-    end
-  end
+  describe "assembled provider" do
+    test "loads catalog models with the OpenAIResponses dialect" do
+      {provider, models} = Loader.assemble(:openai)
 
-  describe "models/0" do
-    test "returns a non-empty list of Model structs" do
-      models = OpenAI.models()
+      assert provider.module == OpenAI
+      assert provider.tier == :verified
+      assert provider.dialects == %{text: [Omni.Dialects.OpenAIResponses]}
+      assert models != []
 
-      assert is_list(models)
-      assert length(models) > 0
-      assert Enum.all?(models, &match?(%Omni.Model{}, &1))
-    end
-
-    test "stamps provider and dialect on every model" do
-      for model <- OpenAI.models() do
-        assert model.provider == OpenAI
-        assert model.dialect == Omni.Dialects.OpenAIResponses
+      for model <- models do
+        assert model.provider == provider
+        assert model.dialects == %{text: Omni.Dialects.OpenAIResponses}
       end
-    end
-  end
-
-  describe "authenticate/2" do
-    test "sets Bearer authorization header" do
-      req = Req.new()
-
-      {:ok, authed} = OpenAI.authenticate(req, %{api_key: "sk-test-123"})
-
-      assert Req.Request.get_header(authed, "authorization") == ["Bearer sk-test-123"]
-    end
-
-    test "returns error when api_key is nil" do
-      req = Req.new()
-
-      assert {:error, :no_api_key} = OpenAI.authenticate(req, %{api_key: nil})
     end
   end
 end

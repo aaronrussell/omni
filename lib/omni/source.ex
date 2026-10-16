@@ -6,57 +6,51 @@ defmodule Omni.Source do
   >
   > This behaviour is experimental and may change in a future release.
 
-  A source answers one question: *give me the models for this provider*.
-  `Omni.Provider.load_models/2` resolves the configured source and calls
-  `c:fetch/2`; where the data comes from — a bundled snapshot, another
-  package's catalog, a file, a network fetch — is entirely the source's
-  concern.
+  A source answers one question: *what does your catalog say about this
+  provider?* It returns the provider's catalog-level data and its models, in
+  one go. Where the data comes from — a bundled snapshot, another package's
+  catalog, a file, a network fetch — is entirely the source's concern.
 
   Omni ships `Omni.Sources.ModelsDev` (the default, reading a bundled
-  [models.dev](https://models.dev) snapshot). See `Omni.Provider` for how
-  sources are configured and resolved.
+  [models.dev](https://models.dev) snapshot) and `Omni.Sources.LLMDB`. Select
+  a source globally or per provider:
+
+      config :omni, :models, source: Omni.Sources.LLMDB
+
+      config :omni, :providers, openai: [source: Omni.Sources.ModelsDev]
+
+  A source value is a module or a `{module, opts}` tuple; `opts` are passed
+  to `c:fetch/2`.
 
   ## The `fetch/2` contract
 
-  `c:fetch/2` receives the provider module and a keyword list of options.
-  `Omni.Provider.load_models/2` builds the options in layers: the module's
-  canonical id as `provider_id:`, then the source's configured opts (from
-  `{module, opts}` config), then the remaining call-site opts — later
-  layers winning. All options are passed through, so sources may define
-  their own.
-
-  Every source must honor `:provider_id` — the provider's canonical Omni
-  id, a snake_cased models.dev catalog key (`:anthropic`, `:fireworks_ai`).
-  Translating it to the source's native catalog key is the source's job:
+  `c:fetch/2` receives the provider's canonical id — its catalog key,
+  snake_cased (`:anthropic`, `:fireworks_ai`) — and the source's opts.
+  Translating the id to the catalog's native key is the source's job:
   `Omni.Sources.ModelsDev` hyphenates it, `Omni.Sources.LLMDB` uses it
   verbatim.
 
-  On success, return `{:ok, models}` — an empty list is a valid result
-  (a known provider whose models were all filtered out). Return
-  `{:error, :unknown_provider}` when the provider is not in the source's
-  catalog; any other error term is also legal and treated the same way by
-  `load_models/2` (a logged warning and an empty model list — there is no
-  cross-source fallback).
+  Return `{:ok, provider, models}` with **raw catalog data only** — Omni
+  layers provider modules and config over it afterwards:
 
-  ## Model struct invariants
+    * `provider` — a `%Omni.Provider{}` with `id`, and whatever the catalog
+      knows of `name`, `base_url`, `api_key` (`{:system, var}` when the
+      catalog names exactly one environment variable), and `dialects` (from
+      a provider-level dialect hint). Leave the rest unset.
+    * `models` — `%Omni.Model{}` structs **without** a provider. Each model's
+      `dialects` comes from the catalog's own data (for example, an npm
+      package mapped to a dialect); leave it empty when nothing maps. Omni
+      fills empty dialects from the provider afterwards.
 
-  Sources return ready-to-use `%Omni.Model{}` structs, not intermediate maps.
-  Every returned model must satisfy:
+  Skip (with a warning) models the source can't represent faithfully — for
+  example, a model whose own dialect hint is set but unrecognised, or one
+  served from a different base URL than its provider.
 
-    * `id` — present; the provider's model identifier string
-    * `provider` — the module passed to `fetch/2`
-    * `dialect` — a resolved dialect **module, never `nil`**
+  Return `{:error, :unknown_provider}` when the catalog has no such provider;
+  Omni then treats it as a custom provider defined in config. Any other error
+  is logged and treated the same way.
 
-  Beware the dialect invariant: `Omni.Model` enforces the `:dialect` key, but
-  `@enforce_keys` only rejects an *omitted* key — `Omni.Model.new(dialect: nil)`
-  builds silently. Dialect resolution is the source's responsibility; a model
-  whose dialect cannot be resolved must be skipped (with a warning) or raise,
-  per the source's error policy.
-
-  Use `Omni.Provider.build_model/2` to construct models from string-keyed data
-  maps — it implements the dialect precedence (data `"dialect"` wins, the
-  provider's declared dialect is the fallback), date parsing, and field
-  defaults shared by the built-in sources.
+  Use `build_model/1` to construct models from string-keyed data maps.
 
   ## Caching expensive work
 
@@ -68,20 +62,62 @@ defmodule Omni.Source do
   `Omni.Sources.ModelsDev` for an example.
   """
 
+  alias Omni.{Model, Provider}
+
   @typedoc "A source in configuration: a module or a `{module, opts}` tuple."
   @type t :: module() | {module(), keyword()}
 
   @doc """
-  Returns the models for the given provider module.
+  Returns the catalog's provider data and models for a provider id.
 
-  See the module documentation for the option-merging semantics, the
-  `{:error, :unknown_provider}` convention, and the invariants returned
-  models must satisfy.
+  See the module documentation for the contract.
   """
-  @callback fetch(provider :: module(), opts :: keyword()) ::
-              {:ok, [Omni.Model.t()]} | {:error, term()}
+  @callback fetch(id :: atom(), opts :: keyword()) ::
+              {:ok, Provider.t(), [Model.t()]} | {:error, term()}
 
   @cache_key {__MODULE__, :cache}
+
+  @doc """
+  Builds a provider-less `%Omni.Model{}` from a string-keyed data map.
+
+  The shared constructor for model sources. Recognized keys: `"id"`,
+  `"name"`, `"dialect"` (a dialect string id, see `Omni.Dialect.get/1`, or
+  `nil`), `"release_date"` (ISO 8601 `YYYY-MM-DD`, or `YYYY-MM` which parses
+  as the first of the month), `"reasoning"`,
+  `"input_modalities"`/`"output_modalities"` (lists of strings),
+  `"input_cost"`, `"output_cost"`, `"cache_read_cost"`, `"cache_write_cost"`,
+  `"context_size"`, `"max_output_tokens"`. Costs and limits default to `0`,
+  modalities to `["text"]`, reasoning to `false`, and the name to the id.
+
+  Raises `ArgumentError` for an unknown dialect string. Modality strings are
+  converted with `String.to_atom/1` — filter untrusted data to the modalities
+  Omni supports (`:text`, `:image`, `:pdf`) first.
+  """
+  @spec build_model(map()) :: Model.t()
+  def build_model(data) do
+    Model.new(
+      id: data["id"],
+      name: data["name"] || data["id"],
+      dialects: build_dialects(data["dialect"]),
+      release_date: parse_date(data["release_date"]),
+      reasoning: data["reasoning"] || false,
+      input_modalities: Enum.map(data["input_modalities"] || ["text"], &String.to_atom/1),
+      output_modalities: Enum.map(data["output_modalities"] || ["text"], &String.to_atom/1),
+      input_cost: data["input_cost"] || 0,
+      output_cost: data["output_cost"] || 0,
+      cache_read_cost: data["cache_read_cost"] || 0,
+      cache_write_cost: data["cache_write_cost"] || 0,
+      context_size: data["context_size"] || 0,
+      max_output_tokens: data["max_output_tokens"] || 0
+    )
+  end
+
+  defp build_dialects(nil), do: %{}
+  defp build_dialects(name), do: %{text: Omni.Dialect.get!(name)}
+
+  defp parse_date(<<_::binary-size(7)>> = date), do: Date.from_iso8601!(date <> "-01")
+  defp parse_date(date) when is_binary(date), do: Date.from_iso8601!(date)
+  defp parse_date(_), do: nil
 
   @doc """
   Runs `fun` inside a cache scope for `memo/2`, on the calling process.
@@ -112,9 +148,9 @@ defmodule Omni.Source do
   Memoizes `fun`'s result under `key` for the duration of the enclosing cache
   scope (see `with_cache/1`).
 
-  Outside a scope — a one-off `Omni.Provider.load_models/2` call, for
-  example — there is nothing to share the result with, so `fun` simply runs.
-  Keys are namespaced by convention: use `{YourSource, :name}` tuples.
+  Outside a scope — a one-off `c:fetch/2` call, for example — there is
+  nothing to share the result with, so `fun` simply runs. Keys are namespaced
+  by convention: use `{YourSource, :name}` tuples.
   """
   @spec memo(term(), (-> result)) :: result when result: var
   def memo(key, fun) do

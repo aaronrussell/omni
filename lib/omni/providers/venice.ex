@@ -10,11 +10,10 @@ defmodule Omni.Providers.Venice do
 
   Override the default API key or base URL via application config:
 
-      config :omni, Omni.Providers.Venice,
-        api_key: {:system, "MY_VENICE_KEY"}
+      config :omni, :providers,
+        venice: [api_key: {:system, "MY_VENICE_KEY"}]
 
-  Any key from the provider's `config/0` can be overridden: `:api_key`,
-  `:base_url`. See `Omni.Provider` for details.
+  Any provider key can be overridden — see `Omni.Provider`.
 
   ## PDF input
 
@@ -22,21 +21,16 @@ defmodule Omni.Providers.Venice do
   at the API layer regardless of the underlying model's native modalities.
   """
 
-  use Omni.Provider, id: :venice, dialect: Omni.Dialects.OpenAICompletions
+  @behaviour Omni.Provider
 
   @impl true
   def config do
-    %{
-      base_url: "https://api.venice.ai/api/v1",
-      api_key: {:system, "VENICE_API_KEY"}
-    }
+    [base_url: "https://api.venice.ai/api/v1", api_key: {:system, "VENICE_API_KEY"}]
   end
 
   @impl true
-  def models do
-    __MODULE__
-    |> Omni.Provider.load_models()
-    |> Enum.map(fn model ->
+  def models(models, _provider) do
+    Enum.map(models, fn model ->
       case :pdf in model.input_modalities do
         true -> model
         false -> Map.update!(model, :input_modalities, &[:pdf | &1])
@@ -45,7 +39,7 @@ defmodule Omni.Providers.Venice do
   end
 
   @impl true
-  def modify_body(body, _context, _opts) do
+  def modify_body(body, _model, _context, _opts) do
     disable_reasoning(body)
   end
 

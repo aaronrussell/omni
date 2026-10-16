@@ -25,6 +25,9 @@ defmodule Omni.Dialects.OllamaChat do
   def option_schema, do: %{}
 
   @impl true
+  def auth, do: :bearer
+
+  @impl true
   def handle_path(%Model{}, _opts), do: "/api/chat"
 
   @impl true

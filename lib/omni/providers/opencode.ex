@@ -6,7 +6,8 @@ defmodule Omni.Providers.OpenCode do
   OpenAI, Google, and others) through a single service. Unlike single-dialect
   providers, the wire format depends on the model — Claude models use the
   Anthropic Messages format, GPT models use OpenAI Responses, and so on. The
-  correct dialect is resolved per-model from the catalog data.
+  correct dialect is resolved per-model from the catalog data, and each
+  request authenticates the way that dialect's upstream API does.
 
   Reads the API key from the `OPENCODE_API_KEY` environment variable — no
   further configuration is needed if the variable is set.
@@ -15,34 +16,16 @@ defmodule Omni.Providers.OpenCode do
 
   Override the default API key or base URL via application config:
 
-      config :omni, Omni.Providers.OpenCode,
-        api_key: {:system, "MY_OPENCODE_KEY"}
+      config :omni, :providers,
+        opencode: [api_key: {:system, "MY_OPENCODE_KEY"}]
 
-  Any key from the provider's `config/0` can be overridden: `:api_key`,
-  `:base_url`. See `Omni.Provider` for details.
+  Any provider key can be overridden — see `Omni.Provider`.
   """
 
-  use Omni.Provider, id: :opencode
+  @behaviour Omni.Provider
 
   @impl true
   def config do
-    %{
-      base_url: "https://opencode.ai/zen/v1",
-      api_key: {:system, "OPENCODE_API_KEY"}
-    }
+    [base_url: "https://opencode.ai/zen/v1", api_key: {:system, "OPENCODE_API_KEY"}]
   end
-
-  @impl true
-  def authenticate(req, opts) do
-    with {:ok, key} <- Omni.Provider.resolve_auth(opts.api_key) do
-      {header, value} = auth_for_path(req.url.path, key)
-      {:ok, Req.Request.put_header(req, header, value)}
-    end
-  end
-
-  # Zen mirrors each upstream API's auth scheme — the required header depends
-  # on which dialect (and therefore which URL path) the model uses.
-  defp auth_for_path("/zen/v1/messages" <> _, key), do: {"x-api-key", key}
-  defp auth_for_path("/zen/v1/models" <> _, key), do: {"x-goog-api-key", key}
-  defp auth_for_path(_path, key), do: {"authorization", "Bearer #{key}"}
 end

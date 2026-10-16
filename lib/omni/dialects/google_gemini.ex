@@ -22,6 +22,9 @@ defmodule Omni.Dialects.GoogleGemini do
   def option_schema, do: %{}
 
   @impl true
+  def auth, do: {:header, "x-goog-api-key"}
+
+  @impl true
   def handle_path(%Model{id: model_id}, _opts) do
     "/models/#{model_id}:streamGenerateContent?alt=sse"
   end
