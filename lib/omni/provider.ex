@@ -3,8 +3,9 @@ defmodule Omni.Provider do
   The provider struct, the provider module behaviour, and provider loading.
 
   A provider is an LLM service: where requests go (`:base_url`), how they are
-  authenticated (`:api_key`, `:auth`), extra `:headers`, and which wire
-  formats its models speak (`:dialects`). Providers are data — a
+  authenticated (`:api_key`, `:auth`), extra `:headers`, which wire formats
+  its models speak (`:dialects`), and how it deviates from them (`:compat`).
+  Providers are data — a
   `%Omni.Provider{}` struct assembled once, when the provider loads, and
   embedded in every `%Omni.Model{}` it serves. At request time nothing is
   looked up: the model carries everything.
@@ -22,8 +23,9 @@ defmodule Omni.Provider do
      models and requests. Built-in providers have one (`Omni.Providers.*`).
   3. **App config** — `config :omni, :providers, <id>: [...]`.
 
-  Values replace; `:headers` merge by key, `:dialects` by capability, and
-  `:models` by model id. Keyword lists are treated as maps.
+  Values replace; `:headers` merge by key, `:dialects` by capability,
+  `:compat` by dialect and then by flag, and `:models` by model id. Keyword
+  lists are treated as maps.
 
   ## Provider ids
 
@@ -66,6 +68,7 @@ defmodule Omni.Provider do
     * `:headers` — extra headers sent on every request (map)
     * `:dialects` — `%{text: Module}` or `%{text: [Module, ...]}`; the
       default for models that don't name one
+    * `:compat` — compat flags for the provider's dialects (see below)
     * `:module` — a module implementing this behaviour
     * `:models` — additional models, as model ids or keyword lists of
       `Omni.Model.new/1` attributes
@@ -82,6 +85,34 @@ defmodule Omni.Provider do
   have none and adds to the list — it never changes a model that already has a
   dialect. To change catalog models' dialects, use a provider module's
   `c:models/2` callback.
+
+  ## Compat flags
+
+  Many providers speak a dialect with small deviations from the API it is
+  named after — a different field for max tokens, another way of switching
+  thinking on. Compat flags describe those deviations, and the dialect reads
+  them while it encodes. The flags a dialect understands are listed in its
+  moduledoc (see `Omni.Dialects.OpenAICompletions`); unknown flags are a boot
+  error.
+
+  For a provider that speaks one dialect, list the flags directly:
+
+      config :omni, :providers,
+        togetherai: [compat: [max_tokens_field: "max_tokens"]]
+
+  `like:` copies a built-in provider's flags, with your own layered over
+  them:
+
+      config :omni, :providers,
+        fireworks_ai: [compat: [like: :zai, attachment_format: :file]]
+
+  A provider whose models speak several dialects keys flags by dialect:
+
+      config :omni, :providers,
+        opencode: [compat: %{Omni.Dialects.OpenAICompletions => [max_tokens_field: "max_tokens"]}]
+
+  Flags merge one at a time over a built-in's own, so setting one flag
+  leaves the others in place.
 
   ## Provider modules
 
@@ -103,11 +134,8 @@ defmodule Omni.Provider do
 
       config :omni, :providers, togetherai: [module: MyApp.Together]
 
-  > #### Provisional {: .warning}
-  >
-  > The request-time callbacks (`c:modify_request/3`, `c:modify_body/4`,
-  > `c:modify_deltas/3`) are provisional and expected to change as provider
-  > quirks move into dialect compatibility flags.
+  Reach for compat flags first; module callbacks are for what flags can't
+  express, such as a quirk only some of a provider's models have.
 
   ## Loading at runtime
 
@@ -122,7 +150,18 @@ defmodule Omni.Provider do
   alias Omni.{Context, Model}
 
   @enforce_keys [:id]
-  defstruct [:id, :name, :base_url, :api_key, :auth, :module, :tier, headers: %{}, dialects: %{}]
+  defstruct [
+    :id,
+    :name,
+    :base_url,
+    :api_key,
+    :auth,
+    :module,
+    :tier,
+    headers: %{},
+    dialects: %{},
+    compat: %{}
+  ]
 
   @typedoc "How the API key is sent with each request."
   @type auth :: :bearer | {:header, String.t()} | :none | :dialect
@@ -133,9 +172,6 @@ defmodule Omni.Provider do
   @typedoc "How a provider was defined: a built-in, catalog data alone, or config alone."
   @type tier :: :verified | :catalog | :custom
 
-  @typedoc "A streaming delta tuple, as produced by `c:Omni.Dialect.handle_event/1`."
-  @type delta :: {atom(), map() | term()}
-
   @typedoc "An LLM provider."
   @type t :: %__MODULE__{
           id: atom(),
@@ -145,6 +181,7 @@ defmodule Omni.Provider do
           auth: auth() | nil,
           headers: %{optional(String.t()) => String.t()},
           dialects: %{optional(atom()) => [module()]},
+          compat: %{optional(module()) => map()},
           module: module() | nil,
           tier: tier() | nil
         }
@@ -157,8 +194,14 @@ defmodule Omni.Provider do
 
       @impl true
       def config do
-        [base_url: "https://api.acme.ai/v1", api_key: {:system, "ACME_API_KEY"}]
+        [
+          base_url: "https://api.acme.ai/v1",
+          api_key: {:system, "ACME_API_KEY"},
+          compat: %{Omni.Dialects.OpenAICompletions => [max_tokens_field: "max_tokens"]}
+        ]
       end
+
+  Built-in modules key `:compat` by dialect, so `like:` can copy it.
   """
   @callback config() :: keyword()
 
@@ -181,25 +224,21 @@ defmodule Omni.Provider do
 
   Use it for request signing, token fetching, or URL rewriting. Returns
   `{:ok, req}`, or `{:error, reason}` when credentials can't be resolved.
-  Provisional.
   """
   @callback modify_request(req :: Req.Request.t(), provider :: t(), opts :: map()) ::
               {:ok, Req.Request.t()} | {:error, term()}
 
   @doc """
-  Adjusts the request body built by the dialect. Provisional.
+  Adjusts the request body built by the dialect.
+
+  For quirks compat flags can't express — typically ones that depend on the
+  model. The body is the dialect's output, already shaped by any compat
+  flags.
   """
   @callback modify_body(body :: map(), model :: Model.t(), context :: Context.t(), opts :: map()) ::
               map()
 
-  @doc """
-  Adjusts the deltas the dialect parsed from one streaming event. Receives
-  the raw event so fields the dialect ignores can be read. Provisional.
-  """
-  @callback modify_deltas(deltas :: [delta()], raw_event :: map(), model :: Model.t()) ::
-              [delta()]
-
-  @optional_callbacks config: 0, models: 2, modify_request: 3, modify_body: 4, modify_deltas: 3
+  @optional_callbacks config: 0, models: 2, modify_request: 3, modify_body: 4
 
   @doc """
   Returns a loaded provider by id.

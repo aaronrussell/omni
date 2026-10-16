@@ -372,15 +372,15 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
                        name: "Claude 3.5 Sonnet",
                        dialect: AnthropicMessages,
                        max_output_tokens: 8192,
-                       reasoning: true
+                       thinking: true
                      )
 
     @adaptive_model Fixtures.model(
-                      id: "claude-sonnet-4-6-20260214",
-                      name: "Claude Sonnet 4.6",
+                      id: "claude-sonnet-5-5",
+                      name: "Claude Sonnet 5.5",
                       dialect: AnthropicMessages,
                       max_output_tokens: 8192,
-                      reasoning: true
+                      thinking: %{efforts: ["low", "medium", "high", "xhigh", "max"]}
                     )
 
     @opus_47_model Fixtures.model(
@@ -388,10 +388,18 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
                      name: "Claude Opus 4.7",
                      dialect: AnthropicMessages,
                      max_output_tokens: 128_000,
-                     reasoning: true
+                     thinking: %{efforts: ["low", "medium", "high", "xhigh", "max"]}
                    )
 
-    test "thinking: :high with non-4.6 model uses manual format" do
+    @budget_model Fixtures.model(
+                    id: "claude-haiku-4-5",
+                    name: "Claude Haiku 4.5",
+                    dialect: AnthropicMessages,
+                    max_output_tokens: 64_000,
+                    thinking: %{budget: {1024, nil}}
+                  )
+
+    test "thinking: :high with a model with no thinking data uses manual format" do
       context = Context.new("Hello")
 
       body =
@@ -404,7 +412,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       assert body["max_tokens"] == 4096 + 16384
     end
 
-    test "thinking: :high with 4.6 model uses adaptive format" do
+    test "thinking: :high with an effort model uses adaptive format" do
       context = Context.new("Hello")
 
       body =
@@ -464,6 +472,55 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         assert body["thinking"] == %{"type" => "adaptive", "display" => "summarized"}
         assert body["output_config"]["effort"] == to_string(level)
       end
+    end
+
+    test "effort levels clamp to the model's values in adaptive mode" do
+      model = %{@adaptive_model | thinking: %{efforts: ["low", "medium", "high", "max"]}}
+      body = AnthropicMessages.handle_body(model, Context.new("Hello"), %{thinking: :xhigh})
+
+      assert body["output_config"] == %{"effort" => "max"}
+    end
+
+    test "a model with efforts and a budget range uses manual format" do
+      model = %{@adaptive_model | thinking: %{efforts: ["low", "high"], budget: {1024, nil}}}
+
+      body =
+        AnthropicMessages.handle_body(model, Context.new("Hello"), %{
+          thinking: :low,
+          max_tokens: 4096
+        })
+
+      assert body["thinking"] == %{"type" => "enabled", "budget_tokens" => 1024}
+      refute Map.has_key?(body, "output_config")
+    end
+
+    test "thinking: true on an adaptive model sends no effort" do
+      body =
+        AnthropicMessages.handle_body(@adaptive_model, Context.new("Hello"), %{
+          thinking: true,
+          max_tokens: 4096
+        })
+
+      assert body["thinking"] == %{"type" => "adaptive", "display" => "summarized"}
+      refute Map.has_key?(body, "output_config")
+      assert body["max_tokens"] == 4096
+    end
+
+    test "thinking: true on a budget model uses the medium budget" do
+      body =
+        AnthropicMessages.handle_body(@budget_model, Context.new("Hello"), %{
+          thinking: true,
+          max_tokens: 4096
+        })
+
+      assert body["thinking"] == %{"type" => "enabled", "budget_tokens" => 4096}
+    end
+
+    test "thinking: false sends nothing to a model that shows no off switch" do
+      body =
+        AnthropicMessages.handle_body(@budget_model, Context.new("Hello"), %{thinking: false})
+
+      refute Map.has_key?(body, "thinking")
     end
 
     test "explicit budget in map form (manual path)" do
@@ -649,7 +706,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
     end
   end
 
-  describe "handle_event/1" do
+  describe "handle_event/2" do
     test "message_start" do
       event = %{
         "type" => "message_start",
@@ -657,7 +714,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       }
 
       assert [{:message, %{model: "claude-sonnet-4-20250514"}}] =
-               AnthropicMessages.handle_event(event)
+               AnthropicMessages.handle_event(event, @model)
     end
 
     test "content_block_start text" do
@@ -667,7 +724,8 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         "content_block" => %{"type" => "text", "text" => ""}
       }
 
-      assert [{:block_start, %{type: :text, index: 0}}] = AnthropicMessages.handle_event(event)
+      assert [{:block_start, %{type: :text, index: 0}}] =
+               AnthropicMessages.handle_event(event, @model)
     end
 
     test "content_block_start thinking" do
@@ -678,7 +736,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       }
 
       assert [{:block_start, %{type: :thinking, index: 0}}] =
-               AnthropicMessages.handle_event(event)
+               AnthropicMessages.handle_event(event, @model)
     end
 
     test "content_block_start tool_use" do
@@ -694,7 +752,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       }
 
       assert [{:block_start, %{type: :tool_use, index: 1, id: "toolu_01", name: "get_weather"}}] =
-               AnthropicMessages.handle_event(event)
+               AnthropicMessages.handle_event(event, @model)
     end
 
     test "content_block_delta text_delta" do
@@ -705,7 +763,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       }
 
       assert [{:block_delta, %{type: :text, index: 0, delta: "Hello"}}] =
-               AnthropicMessages.handle_event(event)
+               AnthropicMessages.handle_event(event, @model)
     end
 
     test "content_block_delta thinking_delta" do
@@ -716,7 +774,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       }
 
       assert [{:block_delta, %{type: :thinking, index: 0, delta: "Hmm..."}}] =
-               AnthropicMessages.handle_event(event)
+               AnthropicMessages.handle_event(event, @model)
     end
 
     test "content_block_delta input_json_delta" do
@@ -727,13 +785,13 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       }
 
       assert [{:block_delta, %{type: :tool_use, index: 1, delta: "{\"city\""}}] =
-               AnthropicMessages.handle_event(event)
+               AnthropicMessages.handle_event(event, @model)
     end
 
     test "content_block_stop returns empty list" do
       event = %{"type" => "content_block_stop", "index" => 0}
 
-      assert [] == AnthropicMessages.handle_event(event)
+      assert [] == AnthropicMessages.handle_event(event, @model)
     end
 
     test "message_delta" do
@@ -744,19 +802,19 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       }
 
       assert [{:message, %{stop_reason: :stop, usage: %{"output_tokens" => 5}}}] =
-               AnthropicMessages.handle_event(event)
+               AnthropicMessages.handle_event(event, @model)
     end
 
     test "ping returns empty list" do
-      assert [] == AnthropicMessages.handle_event(%{"type" => "ping"})
+      assert [] == AnthropicMessages.handle_event(%{"type" => "ping"}, @model)
     end
 
     test "message_stop returns empty list" do
-      assert [] == AnthropicMessages.handle_event(%{"type" => "message_stop"})
+      assert [] == AnthropicMessages.handle_event(%{"type" => "message_stop"}, @model)
     end
 
     test "unknown event returns empty list" do
-      assert [] == AnthropicMessages.handle_event(%{"type" => "unknown_event"})
+      assert [] == AnthropicMessages.handle_event(%{"type" => "unknown_event"}, @model)
     end
 
     test "content_block_start redacted_thinking" do
@@ -767,7 +825,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       }
 
       assert [{:block_start, %{type: :thinking, index: 2, redacted_data: "encrypted_blob_data"}}] =
-               AnthropicMessages.handle_event(event)
+               AnthropicMessages.handle_event(event, @model)
     end
 
     test "content_block_delta signature_delta" do
@@ -778,7 +836,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       }
 
       assert [{:block_delta, %{type: :thinking, index: 0, signature: "sig_abc123"}}] =
-               AnthropicMessages.handle_event(event)
+               AnthropicMessages.handle_event(event, @model)
     end
 
     test "stop reason normalization" do
@@ -791,28 +849,31 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       end
 
       assert [{:message, %{stop_reason: :stop}}] =
-               AnthropicMessages.handle_event(make_event.("end_turn"))
+               AnthropicMessages.handle_event(make_event.("end_turn"), @model)
 
       assert [{:message, %{stop_reason: :stop}}] =
-               AnthropicMessages.handle_event(make_event.("stop_sequence"))
+               AnthropicMessages.handle_event(make_event.("stop_sequence"), @model)
 
       assert [{:message, %{stop_reason: :length}}] =
-               AnthropicMessages.handle_event(make_event.("max_tokens"))
+               AnthropicMessages.handle_event(make_event.("max_tokens"), @model)
 
       assert [{:message, %{stop_reason: :tool_use}}] =
-               AnthropicMessages.handle_event(make_event.("tool_use"))
+               AnthropicMessages.handle_event(make_event.("tool_use"), @model)
 
       assert [{:message, %{stop_reason: :length}}] =
-               AnthropicMessages.handle_event(make_event.("pause_turn"))
+               AnthropicMessages.handle_event(make_event.("pause_turn"), @model)
 
       assert [{:message, %{stop_reason: :refusal}}] =
-               AnthropicMessages.handle_event(make_event.("refusal"))
+               AnthropicMessages.handle_event(make_event.("refusal"), @model)
 
       assert [{:message, %{stop_reason: :length}}] =
-               AnthropicMessages.handle_event(make_event.("model_context_window_exceeded"))
+               AnthropicMessages.handle_event(
+                 make_event.("model_context_window_exceeded"),
+                 @model
+               )
 
       assert [{:message, %{stop_reason: :stop}}] =
-               AnthropicMessages.handle_event(make_event.("unknown_reason"))
+               AnthropicMessages.handle_event(make_event.("unknown_reason"), @model)
     end
 
     test "message_start normalizes cache usage keys" do
@@ -829,7 +890,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         }
       }
 
-      assert [{:message, %{usage: usage}}] = AnthropicMessages.handle_event(event)
+      assert [{:message, %{usage: usage}}] = AnthropicMessages.handle_event(event, @model)
       assert usage["input_tokens"] == 100
       assert usage["cache_read_tokens"] == 50
       assert usage["cache_write_tokens"] == 25
@@ -848,7 +909,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         }
       }
 
-      assert [{:message, %{usage: usage}}] = AnthropicMessages.handle_event(event)
+      assert [{:message, %{usage: usage}}] = AnthropicMessages.handle_event(event, @model)
       assert usage["output_tokens"] == 50
       assert usage["cache_read_tokens"] == 30
       assert usage["cache_write_tokens"] == 10
@@ -861,7 +922,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         "usage" => %{"output_tokens" => 31}
       }
 
-      assert [{:message, %{usage: usage}}] = AnthropicMessages.handle_event(event)
+      assert [{:message, %{usage: usage}}] = AnthropicMessages.handle_event(event, @model)
       assert usage == %{"output_tokens" => 31}
     end
   end
@@ -892,11 +953,11 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
     test "output schema merges with thinking output_config" do
       adaptive_model =
         Fixtures.model(
-          id: "claude-sonnet-4-6-20260214",
-          name: "Claude Sonnet 4.6",
+          id: "claude-sonnet-5-5",
+          name: "Claude Sonnet 5.5",
           dialect: AnthropicMessages,
           max_output_tokens: 8192,
-          reasoning: true
+          thinking: %{efforts: ["low", "medium", "high", "xhigh", "max"]}
         )
 
       context = Context.new("Hello")

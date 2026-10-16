@@ -58,14 +58,14 @@ defmodule Omni.Providers.OllamaTest do
     test "mixes string and keyword list entries" do
       {_provider, [m1, m2]} =
         Loader.assemble(:ollama,
-          models: ["mistral:7b", [id: "qwen3.5:4b", name: "Qwen 3.5 4B", reasoning: true]]
+          models: ["mistral:7b", [id: "qwen3.5:4b", name: "Qwen 3.5 4B", thinking: true]]
         )
 
       assert m1.id == "mistral:7b"
       assert m1.name == "mistral:7b"
       assert m2.id == "qwen3.5:4b"
       assert m2.name == "Qwen 3.5 4B"
-      assert m2.reasoning == true
+      assert m2.thinking == true
     end
   end
 end

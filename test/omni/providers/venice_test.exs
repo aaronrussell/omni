@@ -51,34 +51,13 @@ defmodule Omni.Providers.VeniceTest do
     end
   end
 
-  describe "modify_body/4" do
-    test "converts reasoning_effort none to reasoning enabled: false" do
-      body = %{"model" => "qwen3-6-27b", "reasoning_effort" => "none"}
+  describe "compat" do
+    test "assembles with its Completions flags" do
+      {provider, _models} = Loader.assemble(:venice)
 
-      result = Venice.modify_body(body, nil, %Omni.Context{}, %{})
-
-      assert result["reasoning"] == %{"enabled" => false}
-      refute Map.has_key?(result, "reasoning_effort")
-    end
-
-    test "leaves positive reasoning_effort values untouched" do
-      for level <- ["low", "medium", "high", "xhigh"] do
-        body = %{"model" => "qwen3-6-27b", "reasoning_effort" => level}
-
-        result = Venice.modify_body(body, nil, %Omni.Context{}, %{})
-
-        assert result["reasoning_effort"] == level
-        refute Map.has_key?(result, "reasoning")
-      end
-    end
-
-    test "passes through body without reasoning_effort" do
-      body = %{"model" => "qwen3-6-27b", "messages" => []}
-
-      result = Venice.modify_body(body, nil, %Omni.Context{}, %{})
-
-      refute Map.has_key?(result, "reasoning")
-      refute Map.has_key?(result, "reasoning_effort")
+      assert provider.compat == %{
+               Omni.Dialects.OpenAICompletions => %{thinking_toggle_format: :reasoning_enabled}
+             }
     end
   end
 end

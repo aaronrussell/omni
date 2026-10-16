@@ -18,7 +18,8 @@ defmodule Omni.Model do
       `%{text: Omni.Dialects.AnthropicMessages}`
     * `:context_size` — maximum input tokens the model accepts
     * `:max_output_tokens` — maximum tokens the model can generate
-    * `:reasoning` — whether the model supports extended thinking
+    * `:thinking` — what thinking the model supports: `false` (none), `true`
+      (supported, with no detail), or a map of what it accepts (see below)
     * `:input_modalities` — supported input types (`:text`, `:image`, `:pdf`)
     * `:output_modalities` — supported output types (`:text`)
     * `:input_cost` — USD cost per million input tokens
@@ -26,6 +27,24 @@ defmodule Omni.Model do
     * `:cache_read_cost` — USD cost per million cached input tokens (read)
     * `:cache_write_cost` — USD cost per million cached input tokens (write)
     * `:release_date` — date the model was released (from models.dev)
+
+  ## Thinking
+
+  `:thinking` tells dialects how to translate the `:thinking` request option
+  into something the model accepts. A map carries any of:
+
+    * `:efforts` — the effort values the model takes, as wire strings
+      (`["low", "medium", "high"]`). `"none"` means it can be switched off.
+    * `:toggle` — `true` when thinking is switched on and off as a whole
+    * `:budget` — `{min, max}` when the model takes a token budget; either
+      bound may be `nil`
+
+      %Omni.Model{thinking: %{efforts: ["none", "low", "medium", "high"]}}
+      %Omni.Model{thinking: %{toggle: true, budget: {0, 24_576}}}
+
+  Sources fill it from catalog data. `true` means the model reasons but
+  nothing more is known; requests then fall back to each dialect's plain
+  encoding.
 
   ## Looking up models
 
@@ -84,7 +103,7 @@ defmodule Omni.Model do
     dialects: %{},
     context_size: 0,
     max_output_tokens: 0,
-    reasoning: false,
+    thinking: false,
     input_modalities: [:text],
     output_modalities: [:text],
     input_cost: 0,
@@ -102,6 +121,15 @@ defmodule Omni.Model do
   """
   @type ref :: {atom(), String.t()}
 
+  @typedoc "What thinking a model supports: none, unknown detail, or what it accepts."
+  @type thinking ::
+          boolean()
+          | %{
+              optional(:efforts) => [String.t()],
+              optional(:toggle) => true,
+              optional(:budget) => {non_neg_integer() | nil, non_neg_integer() | nil}
+            }
+
   @typedoc """
   An LLM model descriptor.
 
@@ -116,7 +144,7 @@ defmodule Omni.Model do
           dialects: %{optional(atom()) => module()},
           context_size: non_neg_integer(),
           max_output_tokens: non_neg_integer(),
-          reasoning: boolean(),
+          thinking: thinking(),
           input_modalities: [atom()],
           output_modalities: [atom()],
           input_cost: number(),
@@ -193,7 +221,9 @@ defmodule Omni.Model do
 
   `:provider` may be a `%Omni.Provider{}` or the id of a loaded provider.
   `:dialects` is optional: `%{text: Module}`, with any capability missing
-  filled from the provider's first dialect for it.
+  filled from the provider's first dialect for it. `:thinking` takes a
+  boolean or a map (or keyword list) of `:efforts`, `:toggle` and `:budget`;
+  an empty map means `true`.
 
   Normalizes modalities to the supported set — unsupported values are silently
   dropped, and an empty list defaults to `[:text]`. Does not validate field
@@ -203,6 +233,13 @@ defmodule Omni.Model do
   @spec new(Enumerable.t()) :: t()
   def new(attrs) do
     attrs = Map.new(attrs)
+
+    if Map.has_key?(attrs, :reasoning) do
+      raise ArgumentError,
+            "the model :reasoning attribute was renamed to :thinking — use thinking: true, " <>
+              "or a map such as thinking: %{efforts: [\"low\", \"high\"]}"
+    end
+
     provider = resolve_provider(Map.get(attrs, :provider))
 
     dialects =
@@ -211,7 +248,15 @@ defmodule Omni.Model do
       |> Map.new()
       |> fill_dialects(provider)
 
-    model = struct!(__MODULE__, Map.merge(attrs, %{provider: provider, dialects: dialects}))
+    model =
+      struct!(
+        __MODULE__,
+        Map.merge(attrs, %{
+          provider: provider,
+          dialects: dialects,
+          thinking: normalize_thinking(Map.get(attrs, :thinking, false))
+        })
+      )
 
     %{
       model
@@ -241,6 +286,31 @@ defmodule Omni.Model do
       {capability, [first | _]}, acc -> Map.put_new(acc, capability, first)
       _, acc -> acc
     end)
+  end
+
+  defp normalize_thinking(thinking) when is_boolean(thinking), do: thinking
+  defp normalize_thinking(nil), do: false
+
+  defp normalize_thinking(thinking) when is_map(thinking) or is_list(thinking) do
+    thinking
+    |> Map.new()
+    |> Enum.reduce(%{}, fn
+      {:efforts, [_ | _] = efforts}, acc ->
+        Map.put(acc, :efforts, Enum.map(efforts, &to_string/1))
+
+      {:toggle, true}, acc ->
+        Map.put(acc, :toggle, true)
+
+      {:budget, {min, max}}, acc ->
+        Map.put(acc, :budget, {min, max})
+
+      _, acc ->
+        acc
+    end)
+    |> case do
+      empty when map_size(empty) == 0 -> true
+      thinking -> thinking
+    end
   end
 
   defp filter_modalities(modalities, supported) do

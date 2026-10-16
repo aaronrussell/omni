@@ -17,7 +17,7 @@ defmodule Omni.Providers.Ollama do
           models: [
             "mistral:7b",
             [id: "llama3.1:8b", name: "Llama 3.1 8B", context_size: 128_000, max_output_tokens: 8192],
-            [id: "qwen3.5:4b", name: "Qwen 3.5 4B", context_size: 32_768, reasoning: true]
+            [id: "qwen3.5:4b", name: "Qwen 3.5 4B", context_size: 32_768, thinking: true]
           ]
         ]
 

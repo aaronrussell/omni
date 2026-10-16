@@ -14,7 +14,7 @@ defmodule Omni.ModelTest do
           dialects: %{text: Omni.Dialects.AnthropicMessages},
           context_size: 200_000,
           max_output_tokens: 8192,
-          reasoning: true,
+          thinking: true,
           input_modalities: [:text, :image],
           output_modalities: [:text],
           input_cost: 3.0,
@@ -29,7 +29,7 @@ defmodule Omni.ModelTest do
       assert model.dialects == %{text: Omni.Dialects.AnthropicMessages}
       assert model.context_size == 200_000
       assert model.max_output_tokens == 8192
-      assert model.reasoning == true
+      assert model.thinking == true
       assert model.input_modalities == [:text, :image]
       assert model.output_modalities == [:text]
       assert model.input_cost == 3.0
@@ -49,9 +49,33 @@ defmodule Omni.ModelTest do
       assert model.cache_write_cost == 0
     end
 
-    test "defaults reasoning to false" do
+    test "defaults thinking to false" do
       model = Model.new(id: "test", name: "Test")
-      assert model.reasoning == false
+      assert model.thinking == false
+    end
+
+    test "normalizes a thinking map or keyword list" do
+      model =
+        Model.new(
+          id: "test",
+          name: "Test",
+          thinking: [efforts: [:low, "high"], toggle: true, budget: {1024, nil}]
+        )
+
+      assert model.thinking == %{efforts: ["low", "high"], toggle: true, budget: {1024, nil}}
+    end
+
+    test "an empty thinking map means true" do
+      assert Model.new(id: "a", name: "A", thinking: %{}).thinking == true
+
+      assert Model.new(id: "b", name: "B", thinking: [efforts: [], toggle: false]).thinking ==
+               true
+    end
+
+    test "raises a migration message for :reasoning" do
+      assert_raise ArgumentError, ~r/renamed to :thinking/, fn ->
+        Model.new(id: "test", name: "Test", reasoning: true)
+      end
     end
 
     test "defaults modalities to [:text]" do

@@ -9,18 +9,25 @@ defmodule Omni.Dialects.GoogleGemini do
   - Model ID is embedded in the URL path, not the request body
   - No `:tool_use_delta` events — Gemini sends function call arguments
     complete rather than as streamed JSON fragments
+
+  ## Compat flags
+
+  None yet: providers speaking this dialect get its home API's behaviour.
+  Flags are added as verified providers need them.
   """
 
   @behaviour Omni.Dialect
 
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
-  alias Omni.{Context, Model}
+  alias Omni.{Context, Dialect, Model}
 
   import Omni.Util, only: [maybe_put: 3, maybe_merge: 2]
 
   @impl true
   def option_schema, do: %{}
 
+  @impl true
+  def compat_schema, do: %{}
   @impl true
   def auth, do: {:header, "x-goog-api-key"}
 
@@ -43,55 +50,36 @@ defmodule Omni.Dialects.GoogleGemini do
 
   # Thinking
   #
-  # Gemini 3 models use thinkingLevel with its own 4-level scale
-  # (minimal/low/medium/high). Omni levels shift down so that :low → "minimal"
-  # exposes the provider's floor and :xhigh/:max both cap at Gemini's "high".
-  #
-  # Gemini 2.5 (and older) models only accept thinkingBudget as an integer.
-  # Levels map to token allowances; :max uses -1 (dynamic) to let the model
-  # self-manage.
+  # Models listing effort values (Gemini 3) take thinkingLevel, matched by
+  # name; the rest (Gemini 2.5) take thinkingBudget, where -1 is "dynamic"
+  # (the model picks a budget). Gemini 3 is dynamic when no level is sent.
 
-  defp encode_thinking(_model, nil), do: nil
-  defp encode_thinking(%Model{reasoning: false}, _thinking), do: nil
-  defp encode_thinking(_model, false), do: %{"thinkingConfig" => %{"thinkingBudget" => 0}}
+  defp encode_thinking(model, option) do
+    case Dialect.Thinking.resolve(model, option) do
+      nil ->
+        nil
 
-  defp encode_thinking(model, level) when is_atom(level) do
-    if gemini_3_model?(model) do
-      %{"thinkingConfig" => %{"thinkingLevel" => gemini3_level(level), "includeThoughts" => true}}
-    else
-      %{
-        "thinkingConfig" => %{
-          "thinkingBudget" => level_to_budget(level),
-          "includeThoughts" => true
-        }
-      }
+      :off ->
+        thinking_config(%{"thinkingBudget" => 0})
+
+      :dynamic ->
+        if efforts?(model),
+          do: thinking_config(%{"includeThoughts" => true}),
+          else: thinking_config(%{"thinkingBudget" => -1, "includeThoughts" => true})
+
+      %{effort: effort} when is_binary(effort) ->
+        thinking_config(%{"thinkingLevel" => effort, "includeThoughts" => true})
+
+      %{level: level, budget: budget} ->
+        budget = budget || Dialect.Thinking.budget(model, level)
+        thinking_config(%{"thinkingBudget" => budget, "includeThoughts" => true})
     end
   end
 
-  defp encode_thinking(_model, %{budget: budget}) when is_integer(budget) do
-    %{"thinkingConfig" => %{"thinkingBudget" => budget, "includeThoughts" => true}}
-  end
+  defp thinking_config(config), do: %{"thinkingConfig" => config}
 
-  defp encode_thinking(model, %{} = opts) do
-    encode_thinking(model, Map.get(opts, :effort, :high))
-  end
-
-  defp gemini_3_model?(%Model{id: "gemini-3" <> _}), do: true
-  defp gemini_3_model?(_), do: false
-
-  defp gemini3_level(:low), do: "minimal"
-  defp gemini3_level(:medium), do: "low"
-  defp gemini3_level(:high), do: "medium"
-  defp gemini3_level(:xhigh), do: "high"
-  defp gemini3_level(:max), do: "high"
-
-  defp level_to_budget(:low), do: 2048
-  defp level_to_budget(:medium), do: 4096
-  defp level_to_budget(:high), do: 8192
-  defp level_to_budget(:xhigh), do: 16384
-  # -1 enables Gemini's "dynamic thinking": the model picks a budget up to its
-  # per-variant ceiling (Pro 32768, Flash/Lite 24576). Universal across 2.5.
-  defp level_to_budget(:max), do: -1
+  defp efforts?(%Model{thinking: %{efforts: _}}), do: true
+  defp efforts?(_model), do: false
 
   # Output schema
 
@@ -108,11 +96,11 @@ defmodule Omni.Dialects.GoogleGemini do
   # Each event is decomposed into envelope (:message) + content (:block_delta/:block_start).
 
   @impl true
-  def handle_event(%{"error" => %{"message" => message}}) do
+  def handle_event(%{"error" => %{"message" => message}}, _model) do
     [{:error, message}]
   end
 
-  def handle_event(event) do
+  def handle_event(event, _model) do
     message = extract_message(event)
     content = extract_content(event)
 

@@ -17,95 +17,37 @@ defmodule Omni.Providers.Zai do
 
   ## Reasoning
 
-  The `:thinking` option is supported. Z.ai exposes no effort granularity —
-  all positive levels (`:low` through `:max`) enable reasoning equally.
+  The `:thinking` option is supported. Models that take effort levels get
+  the nearest level the model supports; the rest switch thinking on and off
+  with `thinking: {type: "enabled" | "disabled"}`. Z.ai's `clear_thinking`
+  defaults to true, so earlier turns' reasoning is not sent back.
 
   ## Structured output
 
   The `:output` option is supported. Z.ai doesn't natively support JSON
-  Schema constraints, so structured output is achieved via a system prompt
-  fallback.
+  Schema constraints, so structured output uses JSON mode with the schema
+  described in the system prompt.
+
+  ## Attachments
+
+  File attachments are sent as `file_url` content parts.
   """
 
   @behaviour Omni.Provider
 
   @impl true
   def config do
-    [base_url: "https://api.z.ai/api/paas/v4", api_key: {:system, "ZAI_API_KEY"}]
+    [
+      base_url: "https://api.z.ai/api/paas/v4",
+      api_key: {:system, "ZAI_API_KEY"},
+      compat: %{
+        Omni.Dialects.OpenAICompletions => [
+          max_tokens_field: "max_tokens",
+          thinking_toggle_format: :thinking_type,
+          output_format: :json_object,
+          attachment_format: :file_url
+        ]
+      }
+    ]
   end
-
-  @impl true
-  def modify_body(body, _model, _context, _opts) do
-    body
-    |> normalize_reasoning_effort()
-    |> normalize_structured_output()
-    |> reshape_file_attachments()
-  end
-
-  # Z.ai's `clear_thinking` defaults to true — prior-turn `reasoning_content`
-  # is dropped on each request.
-  defp normalize_reasoning_effort(%{"reasoning_effort" => "none"} = body) do
-    body
-    |> Map.put("thinking", %{"type" => "disabled"})
-    |> Map.delete("reasoning_effort")
-  end
-
-  defp normalize_reasoning_effort(%{"reasoning_effort" => _} = body) do
-    body
-    |> Map.put("thinking", %{"type" => "enabled"})
-    |> Map.delete("reasoning_effort")
-  end
-
-  defp normalize_reasoning_effort(body), do: body
-
-  # Z.ai doesn't support `response_format: {type: "json_schema"}`. Instead it
-  # needs `{type: "json_object"}` with the schema described in the system prompt.
-  defp normalize_structured_output(
-         %{
-           "response_format" => %{"type" => "json_schema", "json_schema" => %{"schema" => schema}}
-         } =
-           body
-       ) do
-    instruction =
-      "Respond with JSON matching this schema:\n```json\n#{JSON.encode!(schema)}\n```"
-
-    body
-    |> Map.put("response_format", %{"type" => "json_object"})
-    |> append_system_instruction(instruction)
-  end
-
-  defp normalize_structured_output(body), do: body
-
-  defp append_system_instruction(
-         %{"messages" => [%{"role" => "system"} = system | rest]} = body,
-         instruction
-       ) do
-    system = Map.update!(system, "content", &(&1 <> "\n\n" <> instruction))
-    Map.put(body, "messages", [system | rest])
-  end
-
-  defp append_system_instruction(%{"messages" => messages} = body, instruction) do
-    Map.put(body, "messages", [%{"role" => "system", "content" => instruction} | messages])
-  end
-
-  # Z.ai expects file attachments as `{"type": "file_url", "file_url": ...}`
-  # rather than the OpenAI Completions `{"type": "file", "file": ...}` shape.
-  defp reshape_file_attachments(%{"messages" => messages} = body) do
-    Map.put(body, "messages", Enum.map(messages, &reshape_message_content/1))
-  end
-
-  defp reshape_file_attachments(body), do: body
-
-  defp reshape_message_content(%{"role" => "user", "content" => content} = msg)
-       when is_list(content) do
-    Map.put(msg, "content", Enum.map(content, &reshape_block/1))
-  end
-
-  defp reshape_message_content(msg), do: msg
-
-  defp reshape_block(%{"type" => "file", "file" => %{"file_data" => data}}) do
-    %{"type" => "file_url", "file_url" => %{"url" => data}}
-  end
-
-  defp reshape_block(block), do: block
 end

@@ -4,6 +4,8 @@
 
 > **Phase 1 adjustments (2026-10-16).** There is no `Omni.Provider.Builtins` data table: built-in compat will live in each built-in module's `config/0`, keyed by dialect as below. Dialect precedence also changed: model data decides each model's dialect and the provider's list is derived from its models (see the phase 1 section of `providers-as-data-plan.md`), replacing "the catalog's dialect if in the list, otherwise the first". Flexible routing (`Model.put_dialect/3`) moves to phase 4.
 
+> **Phase 2 adjustments (2026-10-16).** Model capability data is a single field, `%Omni.Model{thinking: false | true | %{efforts, toggle, budget}}`, replacing `reasoning`; resolution is shared in `Omni.Dialect.Thinking` and used by all five dialects (not only Completions). `thinking: true` is dynamic thinking. With no data and a toggle format set, the Completions dialect uses the toggle (preserving pre-phase-2 behaviour). Built-in modules key compat by dialect in `config/0`; user config may use a flat list for single-dialect providers. `thinking_replay_field: "reasoning_content"` (Moonshot) was not added: the suspected replay bug didn't reproduce live. The `_format` enums include their home values. See `providers-as-data-phase2.md`.
+
 ## What the research found
 
 Two points of convergence shaped everything else.

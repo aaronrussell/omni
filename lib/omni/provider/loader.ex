@@ -11,7 +11,9 @@ defmodule Omni.Provider.Loader do
   #   4. Pass models through the module's models/2.
   #   5. Fill dialect-less models from the provider; derive the provider's
   #      dialect list from its own plus its models'.
-  #   6. Validate (raise on a broken provider, skip broken models), stamp
+  #   6. Resolve compat: each layer's flags (module config/0, then app
+  #      config) keyed by dialect, now that the dialects are known.
+  #   7. Validate (raise on a broken provider, skip broken models), stamp
   #      the provider onto every model, apply the global filter.
   #
   # assemble/2 does all of that without touching the store; load/1 stores.
@@ -22,8 +24,19 @@ defmodule Omni.Provider.Loader do
   alias Omni.{Model, Provider, Source}
   alias Omni.Provider.Builtins
 
-  @config_keys [:name, :base_url, :api_key, :auth, :headers, :dialects, :module, :models, :source]
-  @module_config_keys [:name, :base_url, :api_key, :auth, :headers, :dialects]
+  @config_keys [
+    :name,
+    :base_url,
+    :api_key,
+    :auth,
+    :headers,
+    :dialects,
+    :compat,
+    :module,
+    :models,
+    :source
+  ]
+  @module_config_keys [:name, :base_url, :api_key, :auth, :headers, :dialects, :compat]
   @models_keys [:providers, :source, :filter]
 
   @default_source Omni.Sources.ModelsDev
@@ -71,11 +84,12 @@ defmodule Omni.Provider.Loader do
     module = resolve_module!(id, config)
     {source, source_opts} = resolve_source!(config)
     {source_provider, source_models, found?} = fetch(source, id, source_opts)
+    module_config = module_config(id, module)
 
     provider =
       source_provider
-      |> merge_provider(module_config(id, module))
-      |> merge_provider(Map.drop(config, [:models, :source, :module]))
+      |> merge_provider(Map.delete(module_config, :compat))
+      |> merge_provider(Map.drop(config, [:models, :source, :module, :compat]))
       |> Map.put(:module, module)
 
     models =
@@ -88,6 +102,8 @@ defmodule Omni.Provider.Loader do
       end)
 
     {provider, models} = resolve_dialects(provider, models)
+    compat_layers = Map.get(module_config, :compat, []) ++ Map.get(config, :compat, [])
+    provider = %{provider | compat: resolve_compat!(provider, compat_layers)}
     provider = fill_defaults(provider, found?)
     validate_provider!(provider, models, found?)
 
@@ -178,11 +194,12 @@ defmodule Omni.Provider.Loader do
   # -- Merging ----------------------------------------------------------------
 
   # Values replace; headers merge by key, dialects by capability (the list
-  # replaces), models by id.
+  # replaces), models by id. Compat layers stack, resolved after dialects.
   defp merge_config(a, b) do
     Map.merge(a, b, fn
       :headers, x, y -> Map.merge(x, y)
       :dialects, x, y -> Map.merge(x, y)
+      :compat, x, y -> x ++ y
       :models, x, y -> merge_entries(x, y)
       _key, _x, y -> y
     end)
@@ -262,6 +279,72 @@ defmodule Omni.Provider.Loader do
     end)
   end
 
+  # -- Compat -----------------------------------------------------------------
+
+  # Each layer is {like, own}: `like` is a built-in's keyed compat, `own` the
+  # layer's flags, flat (for the provider's single dialect) or keyed by
+  # dialect. Layers merge in order, by dialect and then by flag.
+  defp resolve_compat!(%Provider{id: id, dialects: dialects}, layers) do
+    modules = dialects |> Map.values() |> List.flatten() |> Enum.uniq()
+
+    Enum.reduce(layers, %{}, fn {like, own}, acc ->
+      acc
+      |> merge_compat(like)
+      |> merge_compat(keyed_compat!(id, own, modules))
+    end)
+  end
+
+  defp merge_compat(a, b), do: Map.merge(a, b, fn _dialect, x, y -> Map.merge(x, y) end)
+
+  defp keyed_compat!(_id, {:keyed, compat}, _modules), do: compat
+  defp keyed_compat!(_id, {:flat, flags}, _modules) when map_size(flags) == 0, do: %{}
+  defp keyed_compat!(_id, {:flat, flags}, [dialect]), do: %{dialect => flags}
+
+  defp keyed_compat!(id, {:flat, _flags}, []) do
+    raise ArgumentError, "provider #{inspect(id)}: compat flags are set but it has no dialect"
+  end
+
+  defp keyed_compat!(id, {:flat, flags}, modules) do
+    raise ArgumentError,
+          "provider #{inspect(id)} speaks several dialects (#{Enum.map_join(modules, ", ", &inspect/1)}), " <>
+            "so its compat flags must be keyed by dialect: " <>
+            "compat: %{#{inspect(hd(modules))} => #{inspect(Map.to_list(flags))}}"
+  end
+
+  defp validate_compat!(%Provider{id: id, dialects: dialects, compat: compat}) do
+    modules = dialects |> Map.values() |> List.flatten()
+
+    for {dialect, flags} <- compat do
+      unless dialect in modules do
+        raise ArgumentError,
+              "provider #{inspect(id)}: compat is set for #{inspect(dialect)}, which none " <>
+                "of its models speak"
+      end
+
+      schema = dialect.compat_schema()
+
+      case Map.keys(flags) -- Map.keys(schema) do
+        [] ->
+          :ok
+
+        unknown ->
+          raise ArgumentError,
+                "provider #{inspect(id)}: unknown compat flags #{inspect(unknown)} for " <>
+                  "#{inspect(dialect)} — expected any of #{inspect(Map.keys(schema))}"
+      end
+
+      case Peri.validate(schema, flags) do
+        {:ok, _} ->
+          :ok
+
+        {:error, errors} ->
+          raise ArgumentError,
+                "provider #{inspect(id)}: invalid compat flags for #{inspect(dialect)} — " <>
+                  inspect(errors)
+      end
+    end
+  end
+
   # -- Defaults and validation ------------------------------------------------
 
   defp fill_defaults(%Provider{id: id} = provider, found?) do
@@ -307,13 +390,16 @@ defmodule Omni.Provider.Loader do
       validate_dialect!(id, dialect)
     end
 
+    validate_compat!(provider)
+
     validate_auth!(id, provider.auth)
   end
 
   defp validate_dialect!(id, dialect) do
     unless is_atom(dialect) and Code.ensure_loaded?(dialect) and
              function_exported?(dialect, :handle_body, 3) and
-             function_exported?(dialect, :auth, 0) do
+             function_exported?(dialect, :auth, 0) and
+             function_exported?(dialect, :compat_schema, 0) do
       raise ArgumentError,
             "provider #{inspect(id)}: #{inspect(dialect)} is not an Omni.Dialect module"
     end
@@ -467,11 +553,78 @@ defmodule Omni.Provider.Loader do
     end)
   end
 
-  defp normalize_value!(id, key, value) when key in [:headers, :models] do
+  defp normalize_value!(id, :compat, compat) when is_list(compat) or is_map(compat) do
+    unless is_map(compat) or Keyword.keyword?(compat) do
+      raise ArgumentError, "provider #{inspect(id)}: invalid compat #{inspect(compat)}"
+    end
+
+    {keyed, flat} = compat |> Map.new() |> Enum.split_with(fn {key, _} -> module_atom?(key) end)
+
+    case {keyed, flat} do
+      {[], flat} ->
+        {like, flags} = flat |> Map.new() |> Map.pop(:like)
+        [{like_compat!(id, like), {:flat, flags}}]
+
+      {keyed, []} ->
+        [{%{}, {:keyed, Map.new(keyed, fn {dialect, flags} -> {dialect, flags!(id, flags)} end)}}]
+
+      _ ->
+        raise ArgumentError,
+              "provider #{inspect(id)}: compat mixes flags with dialect keys — use flags " <>
+                "(for a single-dialect provider) or %{Dialect => flags}, not both"
+    end
+  end
+
+  defp normalize_value!(id, key, value) when key in [:headers, :models, :compat] do
     raise ArgumentError, "provider #{inspect(id)}: invalid #{key} #{inspect(value)}"
   end
 
   defp normalize_value!(_id, _key, value), do: value
+
+  defp flags!(id, flags) when is_map(flags) or is_list(flags) do
+    unless is_map(flags) or Keyword.keyword?(flags) do
+      raise ArgumentError, "provider #{inspect(id)}: invalid compat flags #{inspect(flags)}"
+    end
+
+    flags = Map.new(flags)
+
+    if Map.has_key?(flags, :like) do
+      raise ArgumentError,
+            "provider #{inspect(id)}: like: goes at the top of compat, not under a dialect"
+    end
+
+    flags
+  end
+
+  defp flags!(id, flags) do
+    raise ArgumentError, "provider #{inspect(id)}: invalid compat flags #{inspect(flags)}"
+  end
+
+  # `like:` copies a built-in's whole compat, which its module keys by dialect.
+  defp like_compat!(_id, nil), do: %{}
+
+  defp like_compat!(id, target) when is_atom(target) do
+    case Builtins.module(target) do
+      nil ->
+        raise ArgumentError,
+              "provider #{inspect(id)}: compat like: #{inspect(target)} is not a built-in " <>
+                "provider — expected one of #{inspect(Builtins.ids())}"
+
+      module ->
+        case module.config() |> Map.new() |> Map.get(:compat, %{}) do
+          compat when map_size(compat) == 0 ->
+            %{}
+
+          compat ->
+            [{%{}, {:keyed, keyed}}] = normalize_value!(target, :compat, compat)
+            keyed
+        end
+    end
+  end
+
+  defp like_compat!(id, target) do
+    raise ArgumentError, "provider #{inspect(id)}: invalid compat like: #{inspect(target)}"
+  end
 
   # %{text: Mod} and %{text: [Mod]} (or keyword lists) → %{text: [Mod]}
   defp normalize_dialects!(id, dialects) when is_list(dialects) or is_map(dialects) do

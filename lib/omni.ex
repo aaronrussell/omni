@@ -180,9 +180,13 @@ defmodule Omni do
 
     * `:max_tokens` — maximum output tokens (Anthropic defaults to 4096)
     * `:temperature` — sampling temperature (number)
-    * `:thinking` — enable extended thinking. Pass an effort level
-      (`:low`, `:medium`, `:high`, `:xhigh`, `:max`), `%{budget: tokens}`,
-      or `false` to disable
+    * `:thinking` — extended thinking. `true` switches it on and lets the
+      model decide how much (its dynamic mode where it has one, otherwise
+      `:medium`); an effort level (`:low`, `:medium`, `:high`, `:xhigh`,
+      `:max`) is rounded to the nearest the model supports, or turned into a
+      token budget for models that take one; `%{effort: level, budget: tokens}`
+      sets an exact budget on those models; `false` switches thinking off
+      where the model allows it. Ignored for models that don't reason
     * `:output` — a JSON Schema map for structured output (see the
       [Structured output](#module-structured-output) section above)
     * `:max_steps` — maximum tool execution rounds (default `:infinity`).

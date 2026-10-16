@@ -13,7 +13,7 @@ defmodule Omni.Request do
   #
   # Internal (public but undocumented):
   #   - validate/2 — provider + call-site merge + Peri validation
-  #   - parse_event/2 — dialect handle_event + provider module modify_deltas
+  #   - parse_event/2 — dialect handle_event
   #   - validate_context/2 — checks attachment media types against model modalities
   @moduledoc false
 
@@ -37,7 +37,7 @@ defmodule Omni.Request do
     metadata: :map,
     thinking:
       {:either,
-       {{:enum, [false, :low, :medium, :high, :xhigh, :max]},
+       {{:enum, [false, true, :low, :medium, :high, :xhigh, :max]},
         {:schema, %{effort: {:enum, [:low, :medium, :high, :xhigh, :max]}, budget: :integer}}}},
     output: {:either, {:map, {:tuple, [:atom, :any]}}}
   }
@@ -120,12 +120,8 @@ defmodule Omni.Request do
 
   @doc false
   @spec parse_event(Model.t(), map()) :: [{atom(), map() | term()}]
-  def parse_event(%Model{provider: provider} = model, raw_event) do
-    deltas = dialect!(model).handle_event(raw_event)
-
-    if Provider.callback?(provider, :modify_deltas, 3),
-      do: provider.module.modify_deltas(deltas, raw_event, model),
-      else: deltas
+  def parse_event(%Model{} = model, raw_event) do
+    dialect!(model).handle_event(raw_event, model)
   end
 
   @doc false

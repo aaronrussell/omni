@@ -31,7 +31,7 @@ defmodule Omni.Dialect do
 
   ## Delta types
 
-  `c:handle_event/1` returns a list of `{type, map}` delta tuples.
+  `c:handle_event/2` returns a list of `{type, map}` delta tuples.
   `Omni.StreamingResponse` consumes these to build the event stream users
   interact with. There are four delta types:
 
@@ -78,9 +78,22 @@ defmodule Omni.Dialect do
 
       {:error, "overloaded_error"}
 
+  ## Compat flags
+
+  Providers that speak a dialect with small deviations from its home API
+  describe them as compat flags, which the dialect declares in
+  `c:compat_schema/0` and reads with `compat/2` while it encodes. A
+  provider's flags are validated against the schema when it loads. See
+  `Omni.Dialects.OpenAICompletions` for the flags it understands.
+
+  ## Thinking
+
+  Dialects translate the `:thinking` option with `Omni.Dialect.Thinking`,
+  which resolves it against the model's thinking data.
+
   ## Implementing a dialect
 
-  A dialect module declares `@behaviour Omni.Dialect` and implements all five
+  A dialect module declares `@behaviour Omni.Dialect` and implements all six
   callbacks. Dialects are stateless and pure — every callback receives
   already-validated inputs and returns plain data. No HTTP, no configuration,
   no side effects.
@@ -90,6 +103,9 @@ defmodule Omni.Dialect do
 
         @impl true
         def option_schema, do: %{}
+
+        @impl true
+        def compat_schema, do: %{}
 
         @impl true
         def auth, do: :bearer
@@ -107,15 +123,15 @@ defmodule Omni.Dialect do
         end
 
         @impl true
-        def handle_event(%{"type" => "text", "content" => text}) do
+        def handle_event(%{"type" => "text", "content" => text}, _model) do
           [{:block_delta, %{type: :text, index: 0, delta: text}}]
         end
 
-        def handle_event(_), do: []
+        def handle_event(_event, _model), do: []
       end
   """
 
-  alias Omni.{Context, Model}
+  alias Omni.{Context, Model, Provider}
 
   @registry %{
     "anthropic_messages" => Omni.Dialects.AnthropicMessages,
@@ -151,6 +167,21 @@ defmodule Omni.Dialect do
   end
 
   @doc """
+  Returns the compat flags a provider has set for a dialect.
+
+  Reads `model.provider.compat[dialect]`, returning `%{}` when the provider
+  sets none (or the model has no provider):
+
+      compat = Omni.Dialect.compat(model, __MODULE__)
+      field = Map.get(compat, :max_tokens_field, "max_completion_tokens")
+  """
+  @spec compat(Model.t(), module()) :: map()
+  def compat(%Model{provider: %Provider{compat: compat}}, dialect),
+    do: Map.get(compat, dialect, %{})
+
+  def compat(%Model{}, _dialect), do: %{}
+
+  @doc """
   Returns a Peri schema map for dialect-specific options.
 
   The returned schema is merged with Omni's universal option schema (which
@@ -166,6 +197,22 @@ defmodule Omni.Dialect do
   Return an empty map if the dialect has no additional options.
   """
   @callback option_schema() :: Peri.map_schema()
+
+  @doc """
+  Returns a Peri schema map for the compat flags this dialect understands.
+
+  A provider's `:compat` flags for the dialect are validated against it when
+  the provider loads; unknown flags are a boot error. Each flag describes a
+  deviation from the dialect's home API, so an absent flag means home-API
+  behaviour:
+
+      def compat_schema do
+        %{max_tokens_field: :string, omit: {:list, {:enum, [:cache]}}}
+      end
+
+  Return an empty map if the dialect has no flags.
+  """
+  @callback compat_schema() :: Peri.map_schema()
 
   @doc """
   Returns how this dialect's home API expects the API key to be sent.
@@ -206,15 +253,17 @@ defmodule Omni.Dialect do
 
   Always set `"stream" => true` (or the equivalent for the API format).
 
-  The returned map may be further adjusted by the provider module's
-  `c:Omni.Provider.modify_body/4` before being sent as JSON.
+  Read the provider's compat flags with `compat/2`. The returned map may be
+  further adjusted by the provider module's `c:Omni.Provider.modify_body/4`
+  before being sent as JSON.
   """
   @callback handle_body(Model.t(), Context.t(), map()) :: map()
 
   @doc """
-  Parses a single decoded SSE event map into a list of delta tuples.
+  Parses a single decoded stream event into a list of delta tuples.
 
-  Receives one JSON-decoded event from the SSE stream. Returns a list of
+  Receives one JSON-decoded event from the stream, and the model the request
+  was made with (for its compat flags). Returns a list of
   delta tuples (see the "Delta types" section in the moduledoc). Most deltas
   are `{type, map}` pairs; `:error` is `{:error, reason}` with a bare term.
   Return `[]` to skip an event the dialect doesn't need to handle.
@@ -222,9 +271,6 @@ defmodule Omni.Dialect do
   The function must be stateless and pure — it receives one event and returns
   deltas with no knowledge of previous events. This makes dialects trivially
   testable: pass a JSON map, assert the tuples that come out.
-
-  The returned deltas may be further adjusted by the provider module's
-  `c:Omni.Provider.modify_deltas/3` before reaching the consumer.
   """
-  @callback handle_event(map()) :: [{atom(), map() | term()}]
+  @callback handle_event(event :: map(), Model.t()) :: [{atom(), map() | term()}]
 end

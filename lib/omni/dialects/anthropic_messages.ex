@@ -3,20 +3,21 @@ defmodule Omni.Dialects.AnthropicMessages do
   Dialect implementation for the Anthropic Messages wire format.
 
   See `Omni.Dialect` for the behaviour specification and delta types.
+
+  ## Compat flags
+
+  None yet: providers speaking this dialect get its home API's behaviour.
+  Flags are added as verified providers need them.
   """
 
   @behaviour Omni.Dialect
 
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
-  alias Omni.{Context, Model}
+  alias Omni.{Context, Dialect, Model}
 
   import Omni.Util, only: [maybe_put: 3]
 
   @image_media_types ~w(image/jpeg image/png image/gif image/webp)
-
-  # Models that support adaptive thinking (type: "adaptive" + output_config.effort)
-  # instead of budget-based thinking. Maintained manually as new models are released.
-  @adaptive_prefixes ["claude-opus-4-6", "claude-sonnet-4-6", "claude-opus-4-7"]
 
   # Models that reject non-default sampling parameters (temperature/top_p/top_k).
   # Opus 4.7 returns a 400 on any non-default value, even when thinking is off.
@@ -25,6 +26,8 @@ defmodule Omni.Dialects.AnthropicMessages do
   @impl true
   def option_schema, do: %{max_tokens: {:integer, {:default, 4096}}}
 
+  @impl true
+  def compat_schema, do: %{}
   @impl true
   def auth, do: {:header, "x-api-key"}
 
@@ -52,84 +55,111 @@ defmodule Omni.Dialects.AnthropicMessages do
   end
 
   @impl true
-  def handle_event(%{"type" => "message_start", "message" => %{"model" => model_id} = message}) do
+  def handle_event(
+        %{"type" => "message_start", "message" => %{"model" => model_id} = message},
+        _model
+      ) do
     [{:message, %{model: model_id} |> maybe_put(:usage, normalize_usage(message["usage"]))}]
   end
 
-  def handle_event(%{
-        "type" => "content_block_start",
-        "index" => idx,
-        "content_block" => %{"type" => "text"}
-      }) do
+  def handle_event(
+        %{
+          "type" => "content_block_start",
+          "index" => idx,
+          "content_block" => %{"type" => "text"}
+        },
+        _model
+      ) do
     [{:block_start, %{type: :text, index: idx}}]
   end
 
-  def handle_event(%{
-        "type" => "content_block_start",
-        "index" => idx,
-        "content_block" => %{"type" => "thinking"}
-      }) do
+  def handle_event(
+        %{
+          "type" => "content_block_start",
+          "index" => idx,
+          "content_block" => %{"type" => "thinking"}
+        },
+        _model
+      ) do
     [{:block_start, %{type: :thinking, index: idx}}]
   end
 
-  def handle_event(%{
-        "type" => "content_block_start",
-        "index" => idx,
-        "content_block" => %{"type" => "redacted_thinking", "data" => data}
-      }) do
+  def handle_event(
+        %{
+          "type" => "content_block_start",
+          "index" => idx,
+          "content_block" => %{"type" => "redacted_thinking", "data" => data}
+        },
+        _model
+      ) do
     [{:block_start, %{type: :thinking, index: idx, redacted_data: data}}]
   end
 
-  def handle_event(%{
-        "type" => "content_block_start",
-        "index" => idx,
-        "content_block" => %{"type" => "tool_use", "id" => id, "name" => name}
-      }) do
+  def handle_event(
+        %{
+          "type" => "content_block_start",
+          "index" => idx,
+          "content_block" => %{"type" => "tool_use", "id" => id, "name" => name}
+        },
+        _model
+      ) do
     [{:block_start, %{type: :tool_use, index: idx, id: id, name: name}}]
   end
 
-  def handle_event(%{
-        "type" => "content_block_delta",
-        "index" => idx,
-        "delta" => %{"type" => "text_delta", "text" => text}
-      }) do
+  def handle_event(
+        %{
+          "type" => "content_block_delta",
+          "index" => idx,
+          "delta" => %{"type" => "text_delta", "text" => text}
+        },
+        _model
+      ) do
     [{:block_delta, %{type: :text, index: idx, delta: text}}]
   end
 
-  def handle_event(%{
-        "type" => "content_block_delta",
-        "index" => idx,
-        "delta" => %{"type" => "thinking_delta", "thinking" => text}
-      })
+  def handle_event(
+        %{
+          "type" => "content_block_delta",
+          "index" => idx,
+          "delta" => %{"type" => "thinking_delta", "thinking" => text}
+        },
+        _model
+      )
       when is_binary(text) and text != "" do
     [{:block_delta, %{type: :thinking, index: idx, delta: text}}]
   end
 
-  def handle_event(%{
-        "type" => "content_block_delta",
-        "index" => idx,
-        "delta" => %{"type" => "signature_delta", "signature" => sig}
-      }) do
+  def handle_event(
+        %{
+          "type" => "content_block_delta",
+          "index" => idx,
+          "delta" => %{"type" => "signature_delta", "signature" => sig}
+        },
+        _model
+      ) do
     [{:block_delta, %{type: :thinking, index: idx, signature: sig}}]
   end
 
-  def handle_event(%{
-        "type" => "content_block_delta",
-        "index" => idx,
-        "delta" => %{"type" => "input_json_delta", "partial_json" => json}
-      }) do
+  def handle_event(
+        %{
+          "type" => "content_block_delta",
+          "index" => idx,
+          "delta" => %{"type" => "input_json_delta", "partial_json" => json}
+        },
+        _model
+      ) do
     [{:block_delta, %{type: :tool_use, index: idx, delta: json}}]
   end
 
-  def handle_event(%{"type" => "content_block_stop"}) do
+  def handle_event(%{"type" => "content_block_stop"}, _model) do
     []
   end
 
-  def handle_event(%{"type" => "error", "error" => %{"message" => message}}) do
+  def handle_event(%{"type" => "error", "error" => %{"message" => message}}, _model) do
     [{:error, message}]
   end
 
-  def handle_event(%{"type" => "message_delta", "delta" => delta} = event) do
+  def handle_event(%{"type" => "message_delta", "delta" => delta} = event, _model) do
     message =
       %{}
       |> maybe_put(:stop_reason, normalize_stop_reason(delta["stop_reason"]))
@@ -138,46 +168,51 @@ defmodule Omni.Dialects.AnthropicMessages do
     [{:message, message}]
   end
 
-  def handle_event(_), do: []
+  def handle_event(_, _model), do: []
 
   # Thinking
 
-  defp apply_thinking(body, _model, nil), do: body
-  defp apply_thinking(body, %Model{reasoning: false}, _thinking), do: body
+  # Models listing effort values and no budget range use adaptive thinking
+  # (type: "adaptive" + output_config.effort); the rest, including models
+  # with no thinking data, use budget-based thinking.
+  defp apply_thinking(body, model, option) do
+    case Dialect.Thinking.resolve(model, option) do
+      nil ->
+        body
 
-  defp apply_thinking(body, _model, false) do
-    Map.put(body, "thinking", %{"type" => "disabled"})
-  end
+      :off ->
+        Map.put(body, "thinking", %{"type" => "disabled"})
 
-  defp apply_thinking(body, model, level) when is_atom(level) do
-    put_thinking_config(body, model, level, nil)
-  end
+      :dynamic ->
+        if adaptive?(model),
+          do: put_adaptive(body, nil),
+          else: apply_thinking(body, model, :medium)
 
-  defp apply_thinking(body, model, %{} = opts) do
-    level = Map.get(opts, :effort, :high)
-    put_thinking_config(body, model, level, opts[:budget])
-  end
-
-  defp put_thinking_config(body, model, level, budget) do
-    body = Map.delete(body, "temperature")
-
-    if adaptive_model?(model) do
-      body
-      |> Map.put("thinking", %{"type" => "adaptive", "display" => "summarized"})
-      |> Map.put("output_config", %{"effort" => to_string(level)})
-    else
-      budget = budget || effort_to_budget(level)
-      max_tokens = body["max_tokens"] + budget
-
-      body
-      |> Map.put("thinking", %{"type" => "enabled", "budget_tokens" => budget})
-      |> Map.put("max_tokens", max_tokens)
+      %{effort: effort, level: level, budget: budget} ->
+        if adaptive?(model),
+          do: put_adaptive(body, effort || Atom.to_string(level)),
+          else: put_budget(body, budget || Dialect.Thinking.budget(model, level))
     end
   end
 
-  defp adaptive_model?(%Model{id: id}) do
-    Enum.any?(@adaptive_prefixes, &String.starts_with?(id, &1))
+  defp put_adaptive(body, effort) do
+    body
+    |> Map.delete("temperature")
+    |> Map.put("thinking", %{"type" => "adaptive", "display" => "summarized"})
+    |> maybe_put("output_config", if(effort, do: %{"effort" => effort}))
   end
+
+  defp put_budget(body, budget) do
+    body
+    |> Map.delete("temperature")
+    |> Map.put("thinking", %{"type" => "enabled", "budget_tokens" => budget})
+    |> Map.put("max_tokens", body["max_tokens"] + budget)
+  end
+
+  defp adaptive?(%Model{thinking: %{efforts: _} = thinking}),
+    do: not Map.has_key?(thinking, :budget)
+
+  defp adaptive?(_model), do: false
 
   defp strict_sampling_model?(%Model{id: id}) do
     Enum.any?(@strict_sampling_prefixes, &String.starts_with?(id, &1))
@@ -186,12 +221,6 @@ defmodule Omni.Dialects.AnthropicMessages do
   defp sampling_temperature(model, opts) do
     if strict_sampling_model?(model), do: nil, else: opts[:temperature]
   end
-
-  defp effort_to_budget(:low), do: 1024
-  defp effort_to_budget(:medium), do: 4096
-  defp effort_to_budget(:high), do: 16384
-  defp effort_to_budget(:xhigh), do: 24576
-  defp effort_to_budget(:max), do: 32768
 
   # Output schema
 

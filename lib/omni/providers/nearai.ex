@@ -14,42 +14,26 @@ defmodule Omni.Providers.NearAI do
         nearai: [api_key: {:system, "MY_NEARAI_KEY"}]
 
   Any provider key can be overridden — see `Omni.Provider`.
+
+  ## Limitations
+
+  The `:thinking` and `:cache` options are not sent, and structured output
+  schemas are not marked strict.
   """
 
   @behaviour Omni.Provider
 
   @impl true
   def config do
-    [base_url: "https://cloud-api.near.ai/v1", api_key: {:system, "NEARAI_API_KEY"}]
+    [
+      base_url: "https://cloud-api.near.ai/v1",
+      api_key: {:system, "NEARAI_API_KEY"},
+      compat: %{
+        Omni.Dialects.OpenAICompletions => [
+          max_tokens_field: "max_tokens",
+          omit: [:cache, :thinking, :strict_schema]
+        ]
+      }
+    ]
   end
-
-  @impl true
-  def modify_body(body, _model, _context, _opts) do
-    body
-    |> normalize_max_tokens()
-    |> drop_unsupported_fields()
-    |> drop_strict_json_schema()
-  end
-
-  defp normalize_max_tokens(%{"max_completion_tokens" => tokens} = body) do
-    body
-    |> Map.delete("max_completion_tokens")
-    |> Map.put_new("max_tokens", tokens)
-  end
-
-  defp normalize_max_tokens(body), do: body
-
-  defp drop_unsupported_fields(body) do
-    Map.drop(body, ["prompt_cache_retention", "reasoning_effort", "store"])
-  end
-
-  defp drop_strict_json_schema(
-         %{"response_format" => %{"json_schema" => json_schema} = response_format} = body
-       )
-       when is_map(json_schema) do
-    response_format = Map.put(response_format, "json_schema", Map.delete(json_schema, "strict"))
-    Map.put(body, "response_format", response_format)
-  end
-
-  defp drop_strict_json_schema(body), do: body
 end

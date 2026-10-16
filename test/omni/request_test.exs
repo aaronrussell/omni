@@ -11,6 +11,9 @@ defmodule Omni.RequestTest do
     def option_schema, do: %{}
 
     @impl true
+    def compat_schema, do: %{}
+
+    @impl true
     def auth, do: :bearer
 
     @impl true
@@ -22,9 +25,9 @@ defmodule Omni.RequestTest do
     end
 
     @impl true
-    def handle_event(%{"type" => "message_start"}), do: [{:message, %{model: "test"}}]
-    def handle_event(%{"type" => "delta", "text" => t}), do: [{:block_delta, %{delta: t}}]
-    def handle_event(_), do: []
+    def handle_event(%{"type" => "message_start"}, _model), do: [{:message, %{model: "test"}}]
+    def handle_event(%{"type" => "delta", "text" => t}, _model), do: [{:block_delta, %{delta: t}}]
+    def handle_event(_, _model), do: []
   end
 
   defmodule HeaderAuthDialect do
@@ -33,6 +36,9 @@ defmodule Omni.RequestTest do
 
     @impl true
     def option_schema, do: %{}
+
+    @impl true
+    def compat_schema, do: %{}
 
     @impl true
     def auth, do: {:header, "x-api-key"}
@@ -44,7 +50,7 @@ defmodule Omni.RequestTest do
     def handle_body(_model, _context, _opts), do: %{}
 
     @impl true
-    def handle_event(_), do: []
+    def handle_event(_, _model), do: []
   end
 
   defmodule AugmentingModule do
@@ -53,9 +59,6 @@ defmodule Omni.RequestTest do
 
     @impl true
     def modify_body(body, model, _context, _opts), do: Map.put(body, "modified", model.id)
-
-    @impl true
-    def modify_deltas(deltas, _raw_event, _model), do: deltas ++ [{:extra, %{added: true}}]
 
     @impl true
     def modify_request(req, provider, _opts) do
@@ -187,10 +190,10 @@ defmodule Omni.RequestTest do
       assert opts[:temperature] == 0.5
     end
 
-    test "thinking rejects true" do
+    test "thinking accepts true" do
       model = make_model()
 
-      assert {:error, _} = Request.validate(model, thinking: true)
+      assert {:ok, %{thinking: true}} = Request.validate(model, thinking: true)
     end
 
     test "thinking rejects :none" do
@@ -284,6 +287,9 @@ defmodule Omni.RequestTest do
         def option_schema, do: %{max_tokens: {:integer, {:default, 4096}}}
 
         @impl true
+        def compat_schema, do: %{}
+
+        @impl true
         def auth, do: :bearer
 
         @impl true
@@ -293,7 +299,7 @@ defmodule Omni.RequestTest do
         def handle_body(_model, _context, _opts), do: %{}
 
         @impl true
-        def handle_event(_), do: []
+        def handle_event(_, _model), do: []
       end
 
       model = make_model(@provider, OverrideDialect)
@@ -732,13 +738,11 @@ defmodule Omni.RequestTest do
       assert [] == Request.parse_event(model, event)
     end
 
-    test "modify_deltas augments dialect output" do
+    test "passes the model to the dialect" do
       model = make_model(provider(module: AugmentingModule))
-      event = %{"type" => "message_start"}
 
-      result = Request.parse_event(model, event)
-
-      assert [{:message, %{model: "test"}}, {:extra, %{added: true}}] = result
+      assert [{:message, %{model: "test"}}] =
+               Request.parse_event(model, %{"type" => "message_start"})
     end
   end
 end

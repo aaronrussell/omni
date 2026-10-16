@@ -35,14 +35,16 @@ defmodule Omni.Providers.Alibaba do
 
   ## Reasoning
 
-  The `:thinking` option is supported. Effort levels map to token budgets
-  for the reasoning step — higher effort allows more reasoning tokens.
+  The `:thinking` option is supported. Most models switch thinking on with
+  `enable_thinking` and take a token budget, which effort levels map to —
+  higher effort allows more reasoning tokens. Models that take effort levels
+  get the nearest level the model supports.
 
   ## Structured output
 
   The `:output` option is supported. Alibaba doesn't natively support
-  JSON Schema constraints, so structured output is achieved via a system
-  prompt fallback.
+  JSON Schema constraints, so structured output uses JSON mode with the
+  schema described in the system prompt.
   """
 
   @behaviour Omni.Provider
@@ -51,63 +53,14 @@ defmodule Omni.Providers.Alibaba do
   def config do
     [
       base_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
-      api_key: {:system, "DASHSCOPE_API_KEY"}
+      api_key: {:system, "DASHSCOPE_API_KEY"},
+      compat: %{
+        Omni.Dialects.OpenAICompletions => [
+          thinking_toggle_format: :enable_thinking,
+          thinking_budget_field: "thinking_budget",
+          output_format: :json_object
+        ]
+      }
     ]
-  end
-
-  @impl true
-  def modify_body(body, _model, _context, _opts) do
-    body
-    |> normalize_reasoning_effort()
-    |> normalize_structured_output()
-  end
-
-  defp normalize_reasoning_effort(%{"reasoning_effort" => "none"} = body) do
-    body
-    |> Map.put("enable_thinking", false)
-    |> Map.delete("reasoning_effort")
-  end
-
-  defp normalize_reasoning_effort(%{"reasoning_effort" => effort} = body) do
-    body
-    |> Map.put("enable_thinking", true)
-    |> Map.put("thinking_budget", effort_to_budget(effort))
-    |> Map.delete("reasoning_effort")
-  end
-
-  defp normalize_reasoning_effort(body), do: body
-
-  defp effort_to_budget("none"), do: 0
-  defp effort_to_budget("low"), do: 1024
-  defp effort_to_budget("medium"), do: 4096
-  defp effort_to_budget("high"), do: 16384
-  defp effort_to_budget("xhigh"), do: 24576
-
-  defp normalize_structured_output(
-         %{
-           "response_format" => %{"type" => "json_schema", "json_schema" => %{"schema" => schema}}
-         } =
-           body
-       ) do
-    instruction =
-      "Respond with JSON matching this schema:\n```json\n#{JSON.encode!(schema)}\n```"
-
-    body
-    |> Map.put("response_format", %{"type" => "json_object"})
-    |> append_system_instruction(instruction)
-  end
-
-  defp normalize_structured_output(body), do: body
-
-  defp append_system_instruction(
-         %{"messages" => [%{"role" => "system"} = system | rest]} = body,
-         instruction
-       ) do
-    system = Map.update!(system, "content", &(&1 <> "\n\n" <> instruction))
-    Map.put(body, "messages", [system | rest])
-  end
-
-  defp append_system_instruction(%{"messages" => messages} = body, instruction) do
-    Map.put(body, "messages", [%{"role" => "system", "content" => instruction} | messages])
   end
 end

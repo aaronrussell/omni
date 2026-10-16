@@ -458,7 +458,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
                        name: "o3-mini",
                        dialect: OpenAICompletions,
                        max_output_tokens: 32768,
-                       reasoning: true
+                       thinking: true
                      )
 
     test "thinking: :high sets reasoning_effort to high" do
@@ -503,6 +503,27 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert body["reasoning_effort"] == "none"
     end
 
+    test "levels clamp to the model's effort values" do
+      model = %{@reasoning_model | thinking: %{efforts: ["low", "medium", "high"]}}
+      body = OpenAICompletions.handle_body(model, Context.new("Hello"), %{thinking: :max})
+
+      assert body["reasoning_effort"] == "high"
+    end
+
+    test "thinking: false sends nothing to a model that can't switch off" do
+      model = %{@reasoning_model | thinking: %{efforts: ["low", "medium", "high"]}}
+      body = OpenAICompletions.handle_body(model, Context.new("Hello"), %{thinking: false})
+
+      refute Map.has_key?(body, "reasoning_effort")
+    end
+
+    test "thinking: true sends medium" do
+      body =
+        OpenAICompletions.handle_body(@reasoning_model, Context.new("Hello"), %{thinking: true})
+
+      assert body["reasoning_effort"] == "medium"
+    end
+
     test "non-reasoning model ignores thinking option" do
       context = Context.new("Hello")
       body = OpenAICompletions.handle_body(@model, context, %{thinking: :high})
@@ -518,14 +539,15 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
     end
   end
 
-  describe "handle_event/1" do
+  describe "handle_event/2" do
     test "message from role delta" do
       event = %{
         "choices" => [%{"index" => 0, "delta" => %{"role" => "assistant", "content" => ""}}],
         "model" => "gpt-4.1-nano"
       }
 
-      assert [{:message, %{model: "gpt-4.1-nano"}}] = OpenAICompletions.handle_event(event)
+      assert [{:message, %{model: "gpt-4.1-nano"}}] =
+               OpenAICompletions.handle_event(event, @model)
     end
 
     test "text delta" do
@@ -534,7 +556,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       }
 
       assert [{:block_delta, %{type: :text, index: 0, delta: "Hello"}}] =
-               OpenAICompletions.handle_event(event)
+               OpenAICompletions.handle_event(event, @model)
     end
 
     test "empty content in start returns message not block_delta" do
@@ -543,7 +565,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "model" => "gpt-4.1-nano"
       }
 
-      assert [{:message, _}] = OpenAICompletions.handle_event(event)
+      assert [{:message, _}] = OpenAICompletions.handle_event(event, @model)
     end
 
     test "message with stop" do
@@ -551,7 +573,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "stop"}]
       }
 
-      assert [{:message, %{stop_reason: :stop}}] = OpenAICompletions.handle_event(event)
+      assert [{:message, %{stop_reason: :stop}}] = OpenAICompletions.handle_event(event, @model)
     end
 
     test "message with tool_calls" do
@@ -559,7 +581,8 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "tool_calls"}]
       }
 
-      assert [{:message, %{stop_reason: :tool_use}}] = OpenAICompletions.handle_event(event)
+      assert [{:message, %{stop_reason: :tool_use}}] =
+               OpenAICompletions.handle_event(event, @model)
     end
 
     test "message with length" do
@@ -567,7 +590,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "length"}]
       }
 
-      assert [{:message, %{stop_reason: :length}}] = OpenAICompletions.handle_event(event)
+      assert [{:message, %{stop_reason: :length}}] = OpenAICompletions.handle_event(event, @model)
     end
 
     test "message with content_filter" do
@@ -575,7 +598,8 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "content_filter"}]
       }
 
-      assert [{:message, %{stop_reason: :refusal}}] = OpenAICompletions.handle_event(event)
+      assert [{:message, %{stop_reason: :refusal}}] =
+               OpenAICompletions.handle_event(event, @model)
     end
 
     test "message with function_call" do
@@ -583,7 +607,8 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "function_call"}]
       }
 
-      assert [{:message, %{stop_reason: :tool_use}}] = OpenAICompletions.handle_event(event)
+      assert [{:message, %{stop_reason: :tool_use}}] =
+               OpenAICompletions.handle_event(event, @model)
     end
 
     test "unknown finish_reason maps to :stop" do
@@ -591,7 +616,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "unknown_reason"}]
       }
 
-      assert [{:message, %{stop_reason: :stop}}] = OpenAICompletions.handle_event(event)
+      assert [{:message, %{stop_reason: :stop}}] = OpenAICompletions.handle_event(event, @model)
     end
 
     test "Z.ai sensitive finish_reason maps to :refusal" do
@@ -599,7 +624,8 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "sensitive"}]
       }
 
-      assert [{:message, %{stop_reason: :refusal}}] = OpenAICompletions.handle_event(event)
+      assert [{:message, %{stop_reason: :refusal}}] =
+               OpenAICompletions.handle_event(event, @model)
     end
 
     test "Z.ai model_context_window_exceeded finish_reason maps to :length" do
@@ -609,7 +635,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         ]
       }
 
-      assert [{:message, %{stop_reason: :length}}] = OpenAICompletions.handle_event(event)
+      assert [{:message, %{stop_reason: :length}}] = OpenAICompletions.handle_event(event, @model)
     end
 
     test "Z.ai network_error finish_reason maps to :error" do
@@ -617,7 +643,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "network_error"}]
       }
 
-      assert [{:message, %{stop_reason: :error}}] = OpenAICompletions.handle_event(event)
+      assert [{:message, %{stop_reason: :error}}] = OpenAICompletions.handle_event(event, @model)
     end
 
     test "message with usage from final chunk" do
@@ -626,7 +652,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "usage" => %{"prompt_tokens" => 10, "completion_tokens" => 5, "total_tokens" => 15}
       }
 
-      assert [{:message, %{usage: usage}}] = OpenAICompletions.handle_event(event)
+      assert [{:message, %{usage: usage}}] = OpenAICompletions.handle_event(event, @model)
       assert usage["input_tokens"] == 10
       assert usage["output_tokens"] == 5
     end
@@ -642,7 +668,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         }
       }
 
-      assert [{:message, %{usage: usage}}] = OpenAICompletions.handle_event(event)
+      assert [{:message, %{usage: usage}}] = OpenAICompletions.handle_event(event, @model)
       assert usage["input_tokens"] == 46
       assert usage["output_tokens"] == 17
       assert usage["cache_read_tokens"] == 20
@@ -654,7 +680,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "usage" => %{"prompt_tokens" => 10, "completion_tokens" => 5, "total_tokens" => 15}
       }
 
-      assert [{:message, %{usage: usage}}] = OpenAICompletions.handle_event(event)
+      assert [{:message, %{usage: usage}}] = OpenAICompletions.handle_event(event, @model)
       refute Map.has_key?(usage, "cache_read_tokens")
     end
 
@@ -683,7 +709,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
                {:message, %{model: "gpt-4.1-nano"}},
                {:block_start,
                 %{type: :tool_use, index: 0, id: "call_abc123", name: "get_weather"}}
-             ] = OpenAICompletions.handle_event(event)
+             ] = OpenAICompletions.handle_event(event, @model)
     end
 
     test "tool use delta without id" do
@@ -701,7 +727,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       }
 
       assert [{:block_delta, %{type: :tool_use, index: 0, delta: "{\"city\""}}] =
-               OpenAICompletions.handle_event(event)
+               OpenAICompletions.handle_event(event, @model)
     end
 
     test "tool_calls with role emits message and block_start" do
@@ -725,7 +751,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "model" => "gpt-4.1-nano"
       }
 
-      assert [{:message, _}, {:block_start, _}] = OpenAICompletions.handle_event(event)
+      assert [{:message, _}, {:block_start, _}] = OpenAICompletions.handle_event(event, @model)
     end
 
     test "parallel tool call start uses tool_call index not choice index" do
@@ -752,7 +778,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert [
                {:message, %{model: "gpt-4.1-nano"}},
                {:block_start, %{type: :tool_use, index: 1, id: "call_second", name: "get_time"}}
-             ] = OpenAICompletions.handle_event(event)
+             ] = OpenAICompletions.handle_event(event, @model)
     end
 
     test "parallel tool call delta uses tool_call index not choice index" do
@@ -770,7 +796,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       }
 
       assert [{:block_delta, %{type: :tool_use, index: 1, delta: "{\"city\""}}] =
-               OpenAICompletions.handle_event(event)
+               OpenAICompletions.handle_event(event, @model)
     end
 
     test "empty delta returns empty list" do
@@ -778,7 +804,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => nil}]
       }
 
-      assert [] == OpenAICompletions.handle_event(event)
+      assert [] == OpenAICompletions.handle_event(event, @model)
     end
 
     test "reasoning_content delta emits thinking block_delta" do
@@ -787,7 +813,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       }
 
       assert [{:block_delta, %{type: :thinking, index: 0, delta: "Let me think..."}}] =
-               OpenAICompletions.handle_event(event)
+               OpenAICompletions.handle_event(event, @model)
     end
 
     test "empty reasoning_content returns empty list" do
@@ -795,11 +821,11 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "delta" => %{"reasoning_content" => ""}}]
       }
 
-      assert [] == OpenAICompletions.handle_event(event)
+      assert [] == OpenAICompletions.handle_event(event, @model)
     end
 
     test "unknown event returns empty list" do
-      assert [] == OpenAICompletions.handle_event(%{"type" => "something_else"})
+      assert [] == OpenAICompletions.handle_event(%{"type" => "something_else"}, @model)
     end
 
     test "error event returns error delta" do
@@ -813,7 +839,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       }
 
       assert [{:error, "The server had an error while processing your request."}] =
-               OpenAICompletions.handle_event(event)
+               OpenAICompletions.handle_event(event, @model)
     end
 
     test "packed chunk: tool_call args + finish_reason extracts both" do
@@ -833,7 +859,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "usage" => %{"prompt_tokens" => 50, "completion_tokens" => 12, "total_tokens" => 62}
       }
 
-      result = OpenAICompletions.handle_event(event)
+      result = OpenAICompletions.handle_event(event, @model)
 
       assert [
                {:block_delta, %{type: :tool_use, index: 0, delta: "2+2\"}"}},
@@ -857,7 +883,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert [
                {:block_delta, %{type: :thinking, index: 0, delta: " Done."}},
                {:block_delta, %{type: :text, index: 0, delta: "The answer"}}
-             ] = OpenAICompletions.handle_event(event)
+             ] = OpenAICompletions.handle_event(event, @model)
     end
 
     test "packed chunk: content + finish_reason extracts both" do
@@ -874,7 +900,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert [
                {:block_delta, %{type: :text, index: 0, delta: "final word"}},
                {:message, %{stop_reason: :stop}}
-             ] = OpenAICompletions.handle_event(event)
+             ] = OpenAICompletions.handle_event(event, @model)
     end
 
     test "packed chunk: tool_call start + finish_reason extracts both" do
@@ -902,7 +928,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
                {:block_start, %{type: :tool_use, index: 0, id: "call_packed", name: "calc"}},
                {:block_delta, %{type: :tool_use, index: 0, delta: "{\"x\":1}"}},
                {:message, %{stop_reason: :tool_use}}
-             ] = OpenAICompletions.handle_event(event)
+             ] = OpenAICompletions.handle_event(event, @model)
     end
 
     test "packed chunk: reasoning + content + finish_reason extracts all" do
@@ -921,7 +947,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
                {:block_delta, %{type: :thinking, index: 0, delta: "think"}},
                {:block_delta, %{type: :text, index: 0, delta: "speak"}},
                {:message, %{stop_reason: :stop, usage: usage}}
-             ] = OpenAICompletions.handle_event(event)
+             ] = OpenAICompletions.handle_event(event, @model)
 
       assert usage["input_tokens"] == 10
     end
@@ -931,7 +957,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         "choices" => [%{"index" => 0, "finish_reason" => "stop"}]
       }
 
-      assert [{:message, %{stop_reason: :stop}}] = OpenAICompletions.handle_event(event)
+      assert [{:message, %{stop_reason: :stop}}] = OpenAICompletions.handle_event(event, @model)
     end
   end
 
@@ -953,6 +979,219 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       body = OpenAICompletions.handle_body(@model, context, %{})
 
       refute Map.has_key?(body, "response_format")
+    end
+  end
+
+  describe "compat flags" do
+    defp flagged(flags, attrs \\ []) do
+      Fixtures.model(
+        Keyword.merge(
+          [
+            id: "flagged",
+            dialect: OpenAICompletions,
+            provider: %{compat: %{OpenAICompletions => Map.new(flags)}}
+          ],
+          attrs
+        )
+      )
+    end
+
+    defp body(model, opts, context \\ Context.new("Hello")) do
+      OpenAICompletions.handle_body(model, context, opts)
+    end
+
+    test "compat_schema/0 declares every flag" do
+      assert OpenAICompletions.compat_schema() |> Map.keys() |> Enum.sort() == [
+               :attachment_format,
+               :extra_body,
+               :max_tokens_field,
+               :omit,
+               :output_format,
+               :thinking_budget_field,
+               :thinking_effort_field,
+               :thinking_replay_field,
+               :thinking_toggle_format
+             ]
+    end
+
+    test "max_tokens_field renames max_completion_tokens" do
+      result = body(flagged(max_tokens_field: "max_tokens"), %{max_tokens: 100})
+
+      assert result["max_tokens"] == 100
+      refute Map.has_key?(result, "max_completion_tokens")
+    end
+
+    test "thinking_effort_field nests the effort, including off" do
+      model = flagged([thinking_effort_field: "reasoning.effort"], thinking: true)
+
+      assert body(model, %{thinking: :high})["reasoning"] == %{"effort" => "high"}
+      assert body(model, %{thinking: false})["reasoning"] == %{"effort" => "none"}
+      refute Map.has_key?(body(model, %{thinking: :high}), "reasoning_effort")
+    end
+
+    test "thinking_toggle_format :thinking_type switches toggle models" do
+      model = flagged([thinking_toggle_format: :thinking_type], thinking: %{toggle: true})
+
+      assert body(model, %{thinking: :low})["thinking"] == %{"type" => "enabled"}
+      assert body(model, %{thinking: true})["thinking"] == %{"type" => "enabled"}
+      assert body(model, %{thinking: false})["thinking"] == %{"type" => "disabled"}
+      refute Map.has_key?(body(model, %{thinking: :low}), "reasoning_effort")
+    end
+
+    test "a toggle format applies to models with no thinking data" do
+      model = flagged([thinking_toggle_format: :thinking_type], thinking: true)
+
+      assert body(model, %{thinking: :high})["thinking"] == %{"type" => "enabled"}
+      assert body(model, %{thinking: false})["thinking"] == %{"type" => "disabled"}
+    end
+
+    test "effort models take the effort even when a toggle format is set" do
+      model =
+        flagged([thinking_toggle_format: :thinking_type],
+          thinking: %{efforts: ["low", "high", "max"]}
+        )
+
+      result = body(model, %{thinking: :medium})
+      assert result["reasoning_effort"] == "high"
+      refute Map.has_key?(result, "thinking")
+    end
+
+    test "effort models with a toggle switch off with the toggle" do
+      model =
+        flagged([thinking_toggle_format: :thinking_type],
+          thinking: %{toggle: true, efforts: ["high", "max"]}
+        )
+
+      assert body(model, %{thinking: false})["thinking"] == %{"type" => "disabled"}
+      assert body(model, %{thinking: :high})["reasoning_effort"] == "high"
+    end
+
+    test "enable_thinking with a budget field sends a budget" do
+      model =
+        flagged(
+          [thinking_toggle_format: :enable_thinking, thinking_budget_field: "thinking_budget"],
+          thinking: %{toggle: true, budget: {nil, nil}}
+        )
+
+      result = body(model, %{thinking: :high})
+      assert result["enable_thinking"] == true
+      assert result["thinking_budget"] == 16_384
+
+      assert body(model, %{thinking: false}) |> Map.take(["enable_thinking", "thinking_budget"]) ==
+               %{"enable_thinking" => false}
+
+      assert body(model, %{thinking: true}) |> Map.take(["enable_thinking", "thinking_budget"]) ==
+               %{"enable_thinking" => true}
+    end
+
+    test "no budget is sent to models without a budget range" do
+      model =
+        flagged(
+          [thinking_toggle_format: :enable_thinking, thinking_budget_field: "thinking_budget"],
+          thinking: %{toggle: true}
+        )
+
+      refute Map.has_key?(body(model, %{thinking: :high}), "thinking_budget")
+    end
+
+    test "thinking_toggle_format :reasoning_enabled" do
+      model =
+        flagged([thinking_toggle_format: :reasoning_enabled],
+          thinking: %{efforts: ["none", "low", "medium", "high"]}
+        )
+
+      assert body(model, %{thinking: false})["reasoning"] == %{"enabled" => false}
+      assert body(model, %{thinking: :high})["reasoning_effort"] == "high"
+    end
+
+    test "output_format :json_object puts the schema in the system prompt" do
+      schema = %{type: "object", properties: %{city: %{type: "string"}}}
+      model = flagged(output_format: :json_object)
+
+      result = body(model, %{output: schema})
+      assert result["response_format"] == %{"type" => "json_object"}
+      assert [%{"role" => "system", "content" => instruction} | _] = result["messages"]
+      assert instruction =~ "Respond with JSON matching this schema"
+      assert instruction =~ ~s("city")
+
+      context = Context.new(system: "Be brief.", messages: [Message.new("Hi")])
+      [system | _] = body(model, %{output: schema}, context)["messages"]
+      assert system["content"] =~ ~r/^Be brief\.\n\nRespond with JSON/
+    end
+
+    test "attachment_format :file_url wraps non-image files" do
+      context =
+        Context.new([
+          Message.new(
+            role: :user,
+            content: [
+              Text.new("Read this"),
+              Attachment.new(source: {:base64, "pdf"}, media_type: "application/pdf"),
+              Attachment.new(source: {:base64, "img"}, media_type: "image/png")
+            ]
+          )
+        ])
+
+      [%{"content" => [_text, file, image]}] =
+        body(flagged(attachment_format: :file_url), %{}, context)["messages"]
+
+      assert file == %{
+               "type" => "file_url",
+               "file_url" => %{"url" => "data:application/pdf;base64,pdf"}
+             }
+
+      assert image["type"] == "image_url"
+    end
+
+    test "omit drops cache, thinking and strict schemas" do
+      model = flagged([omit: [:cache, :thinking, :strict_schema]], thinking: true)
+      schema = %{type: "object", properties: %{city: %{type: "string"}}}
+
+      result = body(model, %{cache: :long, thinking: :high, output: schema})
+
+      refute Map.has_key?(result, "prompt_cache_retention")
+      refute Map.has_key?(result, "reasoning_effort")
+      refute Map.has_key?(result["response_format"]["json_schema"], "strict")
+      assert result["response_format"]["type"] == "json_schema"
+    end
+
+    test "extra_body merges literal fields" do
+      result = body(flagged(extra_body: %{"safe_prompt" => true}), %{})
+      assert result["safe_prompt"] == true
+    end
+
+    test "thinking_replay_field captures reasoning_details from the stream" do
+      model = flagged(thinking_replay_field: "reasoning_details")
+      details = [%{"type" => "reasoning.text", "text" => "hmm"}]
+      event = %{"choices" => [%{"delta" => %{"reasoning_details" => details}}]}
+
+      assert {:message, %{private: %{reasoning_details: ^details}}} =
+               List.last(OpenAICompletions.handle_event(event, model))
+
+      refute Enum.any?(OpenAICompletions.handle_event(event, @model), &match?({:message, _}, &1))
+    end
+
+    test "thinking_replay_field sends reasoning_details back on assistant messages" do
+      details = [%{"type" => "reasoning.text", "text" => "hmm"}]
+
+      context =
+        Context.new([
+          Message.new("Hi"),
+          Message.new(
+            role: :assistant,
+            content: [Text.new("Hello")],
+            private: %{reasoning_details: details}
+          ),
+          Message.new("Again")
+        ])
+
+      [_, assistant, _] =
+        body(flagged(thinking_replay_field: "reasoning_details"), %{}, context)["messages"]
+
+      assert assistant["reasoning_details"] == details
+
+      [_, plain, _] = body(@model, %{}, context)["messages"]
+      refute Map.has_key?(plain, "reasoning_details")
     end
   end
 end

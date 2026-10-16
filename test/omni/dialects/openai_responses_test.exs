@@ -429,7 +429,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
                        name: "o3-mini",
                        dialect: OpenAIResponses,
                        max_output_tokens: 32768,
-                       reasoning: true
+                       thinking: true
                      )
 
     test "thinking: :high sets reasoning with high effort and summary auto" do
@@ -477,6 +477,27 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       assert body["reasoning"] == %{"effort" => "none"}
     end
 
+    test "levels clamp to the model's effort values" do
+      model = %{@reasoning_model | thinking: %{efforts: ["high"]}}
+      body = OpenAIResponses.handle_body(model, Context.new("Hello"), %{thinking: :low})
+
+      assert body["reasoning"] == %{"effort" => "high", "summary" => "auto"}
+    end
+
+    test "thinking: false sends nothing to a model without none" do
+      model = %{@reasoning_model | thinking: %{efforts: ["minimal", "low", "medium", "high"]}}
+      body = OpenAIResponses.handle_body(model, Context.new("Hello"), %{thinking: false})
+
+      refute Map.has_key?(body, "reasoning")
+    end
+
+    test "thinking: true sends medium" do
+      body =
+        OpenAIResponses.handle_body(@reasoning_model, Context.new("Hello"), %{thinking: true})
+
+      assert body["reasoning"] == %{"effort" => "medium", "summary" => "auto"}
+    end
+
     test "non-reasoning model ignores thinking option" do
       context = Context.new("Hello")
       body = OpenAIResponses.handle_body(@model, context, %{thinking: :high})
@@ -492,14 +513,14 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
     end
   end
 
-  describe "handle_event/1" do
+  describe "handle_event/2" do
     test "response.created returns message with model" do
       event = %{
         "type" => "response.created",
         "response" => %{"id" => "resp_123", "model" => "gpt-4.1-nano", "status" => "in_progress"}
       }
 
-      assert [{:message, %{model: "gpt-4.1-nano"}}] = OpenAIResponses.handle_event(event)
+      assert [{:message, %{model: "gpt-4.1-nano"}}] = OpenAIResponses.handle_event(event, @model)
     end
 
     test "response.output_text.delta returns block_delta" do
@@ -511,7 +532,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       }
 
       assert [{:block_delta, %{type: :text, index: 0, delta: "Hello"}}] =
-               OpenAIResponses.handle_event(event)
+               OpenAIResponses.handle_event(event, @model)
     end
 
     test "response.output_item.added with function_call returns block_start" do
@@ -530,7 +551,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
                {:block_start,
                 %{type: :tool_use, index: 0, id: "call_abc123", name: "get_weather"}}
              ] =
-               OpenAIResponses.handle_event(event)
+               OpenAIResponses.handle_event(event, @model)
     end
 
     test "response.function_call_arguments.delta returns block_delta" do
@@ -541,7 +562,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       }
 
       assert [{:block_delta, %{type: :tool_use, index: 0, delta: "{\"city\""}}] =
-               OpenAIResponses.handle_event(event)
+               OpenAIResponses.handle_event(event, @model)
     end
 
     test "response.reasoning_summary_text.delta returns block_delta" do
@@ -553,7 +574,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       }
 
       assert [{:block_delta, %{type: :thinking, index: 0, delta: "Let me think about this..."}}] =
-               OpenAIResponses.handle_event(event)
+               OpenAIResponses.handle_event(event, @model)
     end
 
     test "response.completed with text output returns message with :stop" do
@@ -569,7 +590,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       }
 
       assert [{:message, %{stop_reason: :stop, usage: usage}}] =
-               OpenAIResponses.handle_event(event)
+               OpenAIResponses.handle_event(event, @model)
 
       assert usage["input_tokens"] == 10
       assert usage["output_tokens"] == 5
@@ -587,7 +608,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
         }
       }
 
-      assert [{:message, %{stop_reason: :tool_use}}] = OpenAIResponses.handle_event(event)
+      assert [{:message, %{stop_reason: :tool_use}}] = OpenAIResponses.handle_event(event, @model)
     end
 
     test "response.completed with incomplete status returns message with :length" do
@@ -600,7 +621,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
         }
       }
 
-      assert [{:message, %{stop_reason: :length}}] = OpenAIResponses.handle_event(event)
+      assert [{:message, %{stop_reason: :length}}] = OpenAIResponses.handle_event(event, @model)
     end
 
     test "response.failed returns error with message" do
@@ -612,7 +633,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
         }
       }
 
-      assert [{:error, "Internal server error"}] = OpenAIResponses.handle_event(event)
+      assert [{:error, "Internal server error"}] = OpenAIResponses.handle_event(event, @model)
     end
 
     test "response.output_item.added with non-function_call returns empty list" do
@@ -622,15 +643,15 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
         "item" => %{"type" => "message", "role" => "assistant"}
       }
 
-      assert [] == OpenAIResponses.handle_event(event)
+      assert [] == OpenAIResponses.handle_event(event, @model)
     end
 
     test "unknown event returns empty list" do
-      assert [] == OpenAIResponses.handle_event(%{"type" => "response.output_text.done"})
+      assert [] == OpenAIResponses.handle_event(%{"type" => "response.output_text.done"}, @model)
     end
 
     test "completely unknown structure returns empty list" do
-      assert [] == OpenAIResponses.handle_event(%{"something" => "else"})
+      assert [] == OpenAIResponses.handle_event(%{"something" => "else"}, @model)
     end
 
     test "response.completed extracts cached tokens from input_tokens_details" do
@@ -649,7 +670,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
         }
       }
 
-      assert [{:message, %{usage: usage}}] = OpenAIResponses.handle_event(event)
+      assert [{:message, %{usage: usage}}] = OpenAIResponses.handle_event(event, @model)
       assert usage["input_tokens"] == 17
       assert usage["output_tokens"] == 22
       assert usage["cache_read_tokens"] == 12
@@ -665,7 +686,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
         }
       }
 
-      assert [{:message, %{usage: usage}}] = OpenAIResponses.handle_event(event)
+      assert [{:message, %{usage: usage}}] = OpenAIResponses.handle_event(event, @model)
       refute Map.has_key?(usage, "cache_read_tokens")
     end
 
@@ -677,7 +698,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       }
 
       assert [{:error, "An error occurred during streaming."}] =
-               OpenAIResponses.handle_event(event)
+               OpenAIResponses.handle_event(event, @model)
     end
   end
 

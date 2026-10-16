@@ -29,96 +29,18 @@ defmodule Omni.Providers.ZaiTest do
     end
   end
 
-  describe "modify_body/4 — reasoning_effort" do
-    test "translates reasoning_effort=none to thinking disabled" do
-      body = %{"model" => "glm-4.7-flash", "reasoning_effort" => "none"}
+  describe "compat" do
+    test "assembles with its Completions flags" do
+      {provider, _models} = Loader.assemble(:zai)
 
-      result = Zai.modify_body(body, nil, %Omni.Context{}, %{})
-
-      assert result["thinking"] == %{"type" => "disabled"}
-      refute Map.has_key?(result, "reasoning_effort")
-    end
-
-    test "translates any positive effort to thinking enabled" do
-      for level <- ["low", "medium", "high", "xhigh"] do
-        body = %{"model" => "glm-4.7-flash", "reasoning_effort" => level}
-
-        result = Zai.modify_body(body, nil, %Omni.Context{}, %{})
-
-        assert result["thinking"] == %{"type" => "enabled"},
-               "expected #{level} to map to enabled"
-
-        refute Map.has_key?(result, "reasoning_effort")
-      end
-    end
-
-    test "passes through body without reasoning_effort" do
-      body = %{"model" => "glm-4.7-flash", "messages" => []}
-
-      result = Zai.modify_body(body, nil, %Omni.Context{}, %{})
-
-      assert result == body
-    end
-  end
-
-  describe "modify_body/4 — file attachments" do
-    test "rewrites file blocks to file_url shape" do
-      body = %{
-        "model" => "glm-4.7-flash",
-        "messages" => [
-          %{
-            "role" => "user",
-            "content" => [
-              %{"type" => "text", "text" => "Summarise"},
-              %{
-                "type" => "file",
-                "file" => %{"file_data" => "data:application/pdf;base64,JVBERi0..."}
-              }
-            ]
-          }
-        ]
-      }
-
-      result = Zai.modify_body(body, nil, %Omni.Context{}, %{})
-
-      [%{"content" => [text, file]}] = result["messages"]
-      assert text == %{"type" => "text", "text" => "Summarise"}
-
-      assert file == %{
-               "type" => "file_url",
-               "file_url" => %{"url" => "data:application/pdf;base64,JVBERi0..."}
+      assert provider.compat == %{
+               Omni.Dialects.OpenAICompletions => %{
+                 max_tokens_field: "max_tokens",
+                 thinking_toggle_format: :thinking_type,
+                 output_format: :json_object,
+                 attachment_format: :file_url
+               }
              }
-    end
-
-    test "leaves image_url and text blocks untouched" do
-      body = %{
-        "model" => "glm-4.7-flash",
-        "messages" => [
-          %{
-            "role" => "user",
-            "content" => [
-              %{"type" => "text", "text" => "Hi"},
-              %{"type" => "image_url", "image_url" => %{"url" => "https://example.com/img.png"}}
-            ]
-          }
-        ]
-      }
-
-      result = Zai.modify_body(body, nil, %Omni.Context{}, %{})
-
-      assert [%{"content" => content}] = result["messages"]
-      assert content == hd(body["messages"])["content"]
-    end
-
-    test "passes through messages with string content" do
-      body = %{
-        "model" => "glm-4.7-flash",
-        "messages" => [%{"role" => "user", "content" => "Hello"}]
-      }
-
-      result = Zai.modify_body(body, nil, %Omni.Context{}, %{})
-
-      assert result["messages"] == body["messages"]
     end
   end
 end

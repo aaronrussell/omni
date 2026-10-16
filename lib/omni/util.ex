@@ -45,4 +45,33 @@ defmodule Omni.Util do
 
   def maybe_merge(container, other) when is_map(container) and is_map(other),
     do: Map.merge(container, other)
+
+  @doc """
+  Puts `value` at a dotted string `path` in `map` unless `value` is `nil`,
+  creating or merging into nested maps.
+
+      iex> put_path(%{}, "reasoning.effort", "high")
+      %{"reasoning" => %{"effort" => "high"}}
+
+      iex> put_path(%{"reasoning" => %{"enabled" => true}}, "reasoning.effort", "high")
+      %{"reasoning" => %{"enabled" => true, "effort" => "high"}}
+
+      iex> put_path(%{}, "max_tokens", nil)
+      %{}
+  """
+  @spec put_path(map(), String.t(), term()) :: map()
+  def put_path(map, _path, nil), do: map
+  def put_path(map, path, value), do: do_put_path(map, String.split(path, "."), value)
+
+  defp do_put_path(map, [key], value), do: Map.put(map, key, value)
+
+  defp do_put_path(map, [key | rest], value) do
+    inner =
+      case Map.get(map, key) do
+        %{} = inner -> inner
+        _ -> %{}
+      end
+
+    Map.put(map, key, do_put_path(inner, rest, value))
+  end
 end

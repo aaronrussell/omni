@@ -65,6 +65,21 @@ Applies the research. Dialects become the single home for wire-format variation.
 
 **Done when** the quirk code in the pass-one audit table is either a flag or explicitly retained module code, and no dialect pattern-matches on a provider name.
 
+**Landed 2026-10-16.** Live verification closed the same day; results and the remaining unverified items are in `providers-as-data-phase2.md`. It added `max_tokens_field: "max_tokens"` to Z.ai and retargeted Groq's `modify_body/4`.
+
+**Design pass outcome (2026-10-16).** Implementation plan in `providers-as-data-phase2.md`. Decided on top of `compat-flags.md`:
+
+- **`%Model{}` `reasoning` becomes `thinking`**: `false | true | %{efforts, toggle, budget}`. `true` means reasoning with no data. Effort values are wire strings.
+- **Effort resolution** is shared (`Omni.Dialect.Thinking`): ladder `minimal < low < medium < high < xhigh < max`, round up then down, never across on/off; `"none"` marks off-able; `"default"` stands in for any "on" when it is the only on value. Levels give budgets via one shared table, clamped to the model's range.
+- **Dynamic thinking lands as `thinking: true`**: the API's native dynamic mode where one exists, switch on for toggle-only models, else `:medium`. Closes the roadmap item.
+- **All five dialects** use the capability data; thinking-related model-name prefix lists go. Older models (Opus 4.5/4.6) need not be perfect; Gemini 3 levels match by name.
+- **Compat config**: flat keyword applies to the provider's single dialect (error on a multi-dialect provider, which must key by dialect module); `like:` copies a built-in's whole compat; merge per dialect then per flag. Built-in modules key compat by dialect explicitly.
+- **Hooks**: `config/0`, `models/2`, `modify_request/3`, `modify_body/4` stay and lose "provisional"; `modify_deltas/3` goes.
+- **`anthropic-version`** stays in the Anthropic module: other Anthropic-compatible endpoints ignore it and none require it. No dialect header callback.
+- **Live verification** by a script Aaron runs; built-in compat is adjusted from the results.
+
+What landed, beyond the decisions above: `compat` merges as stacked layers (module `config/0`, app config, inline opts) resolved once dialects are derived; flat flags with an empty set (e.g. `like:` alone) are fine on multi-dialect providers. The `_format` enums include the home value (`output_format: :json_schema`, `attachment_format: :file`) so a borrowed flag can be reset. `thinking_replay_field` ships with `"reasoning_details"` only. Residual module code: Venice `models/2`, Ollama Cloud `models/2`, Groq `modify_body/4` (`reasoning_format: "parsed"` for reasoning models other than gpt-oss, unless thinking is off).
+
 ## Phase 3 — Documentation
 
 Builds the real reference for built-in providers from their moduledocs.

@@ -29,36 +29,13 @@ defmodule Omni.Providers.MoonshotTest do
     end
   end
 
-  describe "modify_body/4" do
-    test "converts reasoning_effort none to thinking disabled" do
-      body = %{"model" => "kimi-k2.6", "reasoning_effort" => "none"}
+  describe "compat" do
+    test "assembles with its Completions flags" do
+      {provider, _models} = Loader.assemble(:moonshotai)
 
-      result = Moonshot.modify_body(body, nil, %Omni.Context{}, %{})
-
-      assert result["thinking"] == %{"type" => "disabled"}
-      refute Map.has_key?(result, "reasoning_effort")
-    end
-
-    test "converts positive reasoning_effort to thinking enabled" do
-      for level <- ["low", "medium", "high", "xhigh"] do
-        body = %{"model" => "kimi-k2.6", "reasoning_effort" => level}
-
-        result = Moonshot.modify_body(body, nil, %Omni.Context{}, %{})
-
-        assert result["thinking"] == %{"type" => "enabled"},
-               "expected #{level} to map to thinking enabled"
-
-        refute Map.has_key?(result, "reasoning_effort")
-      end
-    end
-
-    test "passes through body without reasoning_effort" do
-      body = %{"model" => "kimi-k2.6", "messages" => []}
-
-      result = Moonshot.modify_body(body, nil, %Omni.Context{}, %{})
-
-      refute Map.has_key?(result, "thinking")
-      refute Map.has_key?(result, "reasoning_effort")
+      assert provider.compat == %{
+               Omni.Dialects.OpenAICompletions => %{thinking_toggle_format: :thinking_type}
+             }
     end
   end
 end

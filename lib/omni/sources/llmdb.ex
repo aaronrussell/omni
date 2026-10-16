@@ -219,6 +219,7 @@ defmodule Omni.Sources.LLMDB do
          "id" => model.id,
          "name" => strip_provider_prefix(model.name || model.id),
          "reasoning" => reasoning?(model),
+         "reasoning_options" => reasoning_options(model),
          "release_date" => model.release_date,
          "dialect" => dialect,
          "input_modalities" => filter_modalities(input, @supported_input_modalities),
@@ -271,27 +272,59 @@ defmodule Omni.Sources.LLMDB do
 
   defp wire_dialect(_model), do: nil
 
-  defp npm_dialect(%{extra: %{provider: %{npm: npm}}}) when is_binary(npm) do
-    case @npm_to_dialect[npm] do
-      nil -> {:skip, "npm package #{npm} maps to no dialect"}
-      dialect -> {:ok, dialect}
+  defp npm_dialect(model) do
+    case extra(model, [:provider, :npm]) do
+      npm when is_binary(npm) ->
+        case @npm_to_dialect[npm] do
+          nil -> {:skip, "npm package #{npm} maps to no dialect"}
+          dialect -> {:ok, dialect}
+        end
+
+      _ ->
+        {:ok, nil}
     end
   end
-
-  defp npm_dialect(_model), do: {:ok, nil}
 
   # capabilities.reasoning.enabled is a materialized schema default upstream,
   # wrong on some models — OR it with the extra passthrough signals. The list
   # checks must be non-empty checks: [] is truthy.
   defp reasoning?(%{capabilities: capabilities} = model) do
-    extra = model.extra || %{}
-    extra_reasoning = if is_map(extra[:reasoning]), do: extra[:reasoning], else: %{}
-
     match?(%{reasoning: %{enabled: true}}, capabilities) or
-      extra_reasoning[:mandatory] == true or
-      (extra_reasoning[:supported_efforts] || []) != [] or
-      (extra[:reasoning_options] || []) != []
+      extra(model, [:reasoning, :mandatory]) == true or
+      list(extra(model, [:reasoning, :supported_efforts])) != [] or
+      list(extra(model, [:reasoning_options])) != []
   end
+
+  # models.dev's reasoning_options pass through as-is (Source.build_model/1
+  # reads either key type); OpenRouter's supported_efforts stand in when
+  # they are absent.
+  defp reasoning_options(model) do
+    case list(extra(model, [:reasoning_options])) do
+      [] ->
+        case list(extra(model, [:reasoning, :supported_efforts])) do
+          [] -> nil
+          efforts -> [%{"type" => "effort", "values" => Enum.map(efforts, &to_string/1)}]
+        end
+
+      options ->
+        options
+    end
+  end
+
+  # llm_db's extra keeps atom keys up to 2026.7.0 and JSON string keys from
+  # 2026.7.2, so read either.
+  defp extra(model, path) do
+    Enum.reduce_while(path, model.extra, fn key, acc ->
+      case acc do
+        %{^key => value} -> {:cont, value}
+        %{} -> {:cont, Map.get(acc, Atom.to_string(key))}
+        _ -> {:halt, nil}
+      end
+    end)
+  end
+
+  defp list(value) when is_list(value), do: value
+  defp list(_value), do: []
 
   # Missing and nil cost entries become 0; negatives are clamped — OpenRouter
   # router models carry a -1.0e6 sentinel.

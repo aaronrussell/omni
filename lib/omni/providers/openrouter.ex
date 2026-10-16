@@ -21,75 +21,19 @@ defmodule Omni.Providers.OpenRouter do
   automatically in multi-turn conversations without any special handling.
   """
 
-  alias Omni.Context
-
   @behaviour Omni.Provider
 
   @impl true
   def config do
-    [base_url: "https://openrouter.ai/api/v1", api_key: {:system, "OPENROUTER_API_KEY"}]
+    [
+      base_url: "https://openrouter.ai/api/v1",
+      api_key: {:system, "OPENROUTER_API_KEY"},
+      compat: %{
+        Omni.Dialects.OpenAICompletions => [
+          thinking_effort_field: "reasoning.effort",
+          thinking_replay_field: "reasoning_details"
+        ]
+      }
+    ]
   end
-
-  @impl true
-  def modify_body(%{"reasoning_effort" => effort} = body, _model, context, _opts) do
-    body
-    |> Map.delete("reasoning_effort")
-    |> Map.put("reasoning", %{"effort" => effort})
-    |> attach_reasoning_details(context)
-  end
-
-  def modify_body(body, _model, context, _opts) do
-    attach_reasoning_details(body, context)
-  end
-
-  @impl true
-  def modify_deltas(deltas, raw_event, _model) do
-    case extract_error(raw_event) do
-      {:error, _} = error ->
-        [error]
-
-      nil ->
-        case extract_reasoning_details(raw_event) do
-          [] -> deltas
-          details -> deltas ++ [{:message, %{private: %{reasoning_details: details}}}]
-        end
-    end
-  end
-
-  defp extract_error(%{"error" => %{"message" => message}}), do: {:error, message}
-  defp extract_error(_), do: nil
-
-  defp attach_reasoning_details(body, %Context{messages: messages}) do
-    assistant_privates =
-      messages
-      |> Enum.filter(&match?(%{role: :assistant}, &1))
-      |> Enum.map(& &1.private)
-
-    {updated, _rest} =
-      Enum.map_reduce(body["messages"] || [], assistant_privates, fn
-        %{"role" => "assistant"} = msg, [private | rest] ->
-          {maybe_put_reasoning_details(msg, private), rest}
-
-        msg, privates ->
-          {msg, privates}
-      end)
-
-    Map.put(body, "messages", updated)
-  end
-
-  defp maybe_put_reasoning_details(msg, %{reasoning_details: details})
-       when is_list(details) and details != [] do
-    Map.put(msg, "reasoning_details", details)
-  end
-
-  defp maybe_put_reasoning_details(msg, _), do: msg
-
-  defp extract_reasoning_details(%{
-         "choices" => [%{"delta" => %{"reasoning_details" => details}}]
-       })
-       when is_list(details) and details != [] do
-    details
-  end
-
-  defp extract_reasoning_details(_), do: []
 end

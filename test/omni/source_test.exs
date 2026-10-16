@@ -83,7 +83,7 @@ defmodule Omni.SourceTest do
                output_cost: 1.5,
                cache_read_cost: 0.05,
                cache_write_cost: 0.5,
-               reasoning: false
+               thinking: false
              } = Source.build_model(small)
     end
 
@@ -114,11 +114,43 @@ defmodule Omni.SourceTest do
                cache_write_cost: 0,
                context_size: 0,
                max_output_tokens: 0,
-               reasoning: false,
+               thinking: false,
                input_modalities: [:text],
                output_modalities: [:text],
                release_date: nil
              } = model
+    end
+
+    test "builds thinking data from reasoning_options" do
+      model =
+        Source.build_model(%{
+          "id" => "a",
+          "reasoning" => true,
+          "reasoning_options" => [
+            %{"type" => "toggle"},
+            %{"type" => "effort", "values" => ["none", "low", nil, "high"]},
+            %{type: "budget_tokens", min: 1024},
+            %{"type" => "unknown"}
+          ]
+        })
+
+      assert model.thinking == %{
+               efforts: ["none", "low", "high"],
+               toggle: true,
+               budget: {1024, nil}
+             }
+    end
+
+    test "reasoning without options, or with an empty list, is true" do
+      assert Source.build_model(%{"id" => "a", "reasoning" => true}).thinking == true
+
+      assert Source.build_model(%{"id" => "b", "reasoning" => true, "reasoning_options" => []}).thinking ==
+               true
+    end
+
+    test "options without reasoning are ignored" do
+      data = %{"id" => "a", "reasoning" => false, "reasoning_options" => [%{"type" => "toggle"}]}
+      assert Source.build_model(data).thinking == false
     end
 
     test "parses full and year-month release dates" do

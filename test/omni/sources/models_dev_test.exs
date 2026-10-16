@@ -153,7 +153,7 @@ defmodule Omni.Sources.ModelsDevTest do
       assert %Omni.Model{
                name: "full",
                provider: nil,
-               reasoning: true,
+               thinking: true,
                release_date: ~D[2025-08-05],
                input_cost: 3.0,
                output_cost: 15.0,
@@ -179,7 +179,7 @@ defmodule Omni.Sources.ModelsDevTest do
                cache_write_cost: 0,
                context_size: 0,
                max_output_tokens: 0,
-               reasoning: false,
+               thinking: false,
                release_date: nil
              } = model
     end

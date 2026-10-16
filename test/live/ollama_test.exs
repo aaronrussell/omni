@@ -10,7 +10,7 @@ defmodule Live.OllamaTest do
         name: "gemma4:latest",
         provider: :ollama,
         input_modalities: [:text, :image],
-        reasoning: true
+        thinking: true
       )
 
     Omni.put_model(model)

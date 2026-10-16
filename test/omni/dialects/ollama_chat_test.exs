@@ -16,7 +16,7 @@ defmodule Omni.Dialects.OllamaChatTest do
                      id: "qwen3.5:4b",
                      name: "qwen3.5:4b",
                      dialect: OllamaChat,
-                     reasoning: true
+                     thinking: true
                    )
 
   describe "option_schema/0" do
@@ -208,13 +208,13 @@ defmodule Omni.Dialects.OllamaChatTest do
       assert body["think"] == true
     end
 
-    test "gpt-oss models accept string thinking levels" do
+    test "models listing effort values take clamped level strings" do
       gpt_oss =
         Fixtures.model(
           id: "gpt-oss:latest",
           name: "gpt-oss",
           dialect: OllamaChat,
-          reasoning: true
+          thinking: %{efforts: ["low", "medium", "high"]}
         )
 
       context = Context.new("Hello")
@@ -224,6 +224,12 @@ defmodule Omni.Dialects.OllamaChatTest do
       assert OllamaChat.handle_body(gpt_oss, context, %{thinking: :high})["think"] == "high"
       assert OllamaChat.handle_body(gpt_oss, context, %{thinking: :xhigh})["think"] == "high"
       assert OllamaChat.handle_body(gpt_oss, context, %{thinking: :max})["think"] == "high"
+      assert OllamaChat.handle_body(gpt_oss, context, %{thinking: true})["think"] == "medium"
+    end
+
+    test "thinking: true switches thinking on for boolean models" do
+      body = OllamaChat.handle_body(@reasoning_model, Context.new("Hello"), %{thinking: true})
+      assert body["think"] == true
     end
 
     test "thinking false explicitly sets think to false" do
@@ -279,7 +285,7 @@ defmodule Omni.Dialects.OllamaChatTest do
     end
   end
 
-  describe "handle_event/1" do
+  describe "handle_event/2" do
     test "first chunk with model" do
       event = %{
         "model" => "qwen3.5:4b",
@@ -287,7 +293,7 @@ defmodule Omni.Dialects.OllamaChatTest do
         "done" => false
       }
 
-      deltas = OllamaChat.handle_event(event)
+      deltas = OllamaChat.handle_event(event, @model)
 
       assert {:message, %{model: "qwen3.5:4b"}} in deltas
       assert {:block_delta, %{type: :text, index: 0, delta: "Hello"}} in deltas
@@ -300,7 +306,7 @@ defmodule Omni.Dialects.OllamaChatTest do
         "done" => false
       }
 
-      deltas = OllamaChat.handle_event(event)
+      deltas = OllamaChat.handle_event(event, @model)
 
       assert {:block_delta, %{type: :text, index: 0, delta: "world"}} in deltas
     end
@@ -312,7 +318,7 @@ defmodule Omni.Dialects.OllamaChatTest do
         "done" => false
       }
 
-      deltas = OllamaChat.handle_event(event)
+      deltas = OllamaChat.handle_event(event, @model)
 
       refute Enum.any?(deltas, fn {type, _} -> type == :block_delta end)
     end
@@ -324,7 +330,7 @@ defmodule Omni.Dialects.OllamaChatTest do
         "done" => false
       }
 
-      deltas = OllamaChat.handle_event(event)
+      deltas = OllamaChat.handle_event(event, @model)
 
       assert {:block_delta, %{type: :thinking, index: 0, delta: "Let me think"}} in deltas
     end
@@ -348,7 +354,7 @@ defmodule Omni.Dialects.OllamaChatTest do
         "done" => false
       }
 
-      deltas = OllamaChat.handle_event(event)
+      deltas = OllamaChat.handle_event(event, @model)
 
       assert {:block_start, data} =
                Enum.find(deltas, fn {type, _} -> type == :block_start end)
@@ -377,7 +383,7 @@ defmodule Omni.Dialects.OllamaChatTest do
         "done" => false
       }
 
-      deltas = OllamaChat.handle_event(event)
+      deltas = OllamaChat.handle_event(event, @model)
 
       assert {:block_start, data} =
                Enum.find(deltas, fn {type, _} -> type == :block_start end)
@@ -396,7 +402,7 @@ defmodule Omni.Dialects.OllamaChatTest do
         "eval_count" => 50
       }
 
-      deltas = OllamaChat.handle_event(event)
+      deltas = OllamaChat.handle_event(event, @model)
 
       assert {:message, data} = Enum.find(deltas, fn {type, _} -> type == :message end)
       assert data.stop_reason == :stop
@@ -413,21 +419,21 @@ defmodule Omni.Dialects.OllamaChatTest do
         "eval_count" => 100
       }
 
-      deltas = OllamaChat.handle_event(event)
+      deltas = OllamaChat.handle_event(event, @model)
 
       assert {:message, data} = Enum.find(deltas, fn {type, _} -> type == :message end)
       assert data.stop_reason == :length
     end
 
     test "unknown events return empty list" do
-      assert [] = OllamaChat.handle_event(%{"unknown" => "event"})
+      assert [] = OllamaChat.handle_event(%{"unknown" => "event"}, @model)
     end
 
     test "error event returns error delta" do
       event = %{"error" => "an error was encountered while running the model"}
 
       assert [{:error, "an error was encountered while running the model"}] =
-               OllamaChat.handle_event(event)
+               OllamaChat.handle_event(event, @model)
     end
 
     test "multiple tool calls in one event" do
@@ -456,7 +462,7 @@ defmodule Omni.Dialects.OllamaChatTest do
         "done" => false
       }
 
-      deltas = OllamaChat.handle_event(event)
+      deltas = OllamaChat.handle_event(event, @model)
 
       tool_starts = Enum.filter(deltas, fn {type, _} -> type == :block_start end)
       assert length(tool_starts) == 2

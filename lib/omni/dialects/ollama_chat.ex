@@ -12,18 +12,26 @@ defmodule Omni.Dialects.OllamaChat do
   - Thinking content arrives in a `message.thinking` field alongside `message.content`
   - Options like `max_tokens` and `temperature` are nested under `"options"` in the
     request body
+
+  ## Compat flags
+
+  None yet: providers speaking this dialect get its home API's behaviour.
+  Flags are added as verified providers need them.
   """
 
   @behaviour Omni.Dialect
 
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Model}
+  alias Omni.Dialect
 
   import Omni.Util, only: [maybe_put: 3]
 
   @impl true
   def option_schema, do: %{}
 
+  @impl true
+  def compat_schema, do: %{}
   @impl true
   def auth, do: :bearer
 
@@ -47,21 +55,20 @@ defmodule Omni.Dialects.OllamaChat do
 
   # Thinking
 
-  defp encode_thinking(_model, nil), do: nil
-  defp encode_thinking(%Model{reasoning: false}, _thinking), do: nil
-  defp encode_thinking(_model, false), do: false
-
-  # gpt-oss models (via Ollama) accept string thinking levels; :max downgrades to "high".
-  # All other Ollama models only accept a boolean.
-  defp encode_thinking(%Model{id: id}, level) when is_atom(level) do
-    if String.starts_with?(id, "gpt-oss"), do: level_string(level), else: true
+  # Models listing effort values (gpt-oss) take them as strings; every other
+  # model takes a boolean.
+  defp encode_thinking(model, option) do
+    case Dialect.Thinking.resolve(model, option) do
+      nil -> nil
+      :off -> false
+      :dynamic -> if efforts?(model), do: encode_thinking(model, :medium), else: true
+      %{effort: nil} -> true
+      %{effort: effort} -> effort
+    end
   end
 
-  defp encode_thinking(_model, %{} = _opts), do: true
-
-  defp level_string(:xhigh), do: "high"
-  defp level_string(:max), do: "high"
-  defp level_string(level), do: Atom.to_string(level)
+  defp efforts?(%Model{thinking: %{efforts: _}}), do: true
+  defp efforts?(_model), do: false
 
   # Output schema
 
@@ -85,7 +92,7 @@ defmodule Omni.Dialects.OllamaChat do
   # Parse events — Ollama sends one JSON object per NDJSON line
 
   @impl true
-  def handle_event(%{"done" => true} = event) do
+  def handle_event(%{"done" => true} = event, _model) do
     message =
       %{}
       |> maybe_put_stop_reason(event)
@@ -100,7 +107,7 @@ defmodule Omni.Dialects.OllamaChat do
     end
   end
 
-  def handle_event(%{"message" => _} = event) do
+  def handle_event(%{"message" => _} = event, _model) do
     message = extract_model(event)
     content = extract_content(event)
 
@@ -110,11 +117,11 @@ defmodule Omni.Dialects.OllamaChat do
     end
   end
 
-  def handle_event(%{"error" => message}) when is_binary(message) do
+  def handle_event(%{"error" => message}, _model) when is_binary(message) do
     [{:error, message}]
   end
 
-  def handle_event(_), do: []
+  def handle_event(_, _model), do: []
 
   defp extract_model(%{"model" => model_id}), do: %{model: model_id}
   defp extract_model(_), do: %{}

@@ -396,6 +396,7 @@ defmodule Omni.Sources.ModelsDev do
       "id" => model_data["id"],
       "name" => model_data["name"],
       "reasoning" => model_data["reasoning"] || false,
+      "reasoning_options" => model_data["reasoning_options"],
       "release_date" => model_data["release_date"],
       "dialect" => dialect,
       "input_modalities" =>

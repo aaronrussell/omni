@@ -17,34 +17,23 @@ defmodule Omni.Providers.Moonshot do
 
   ## Reasoning
 
-  The `:thinking` option is supported. Moonshot exposes no effort
-  granularity — all positive levels (`:low` through `:max`) enable
-  reasoning equally.
+  The `:thinking` option is supported. Models that take effort levels get
+  the nearest level the model supports; the rest switch thinking on and off
+  with `thinking: {type: "enabled" | "disabled"}`.
   """
 
   @behaviour Omni.Provider
 
   @impl true
   def config do
-    [base_url: "https://api.moonshot.ai/v1", api_key: {:system, "MOONSHOT_API_KEY"}]
+    [
+      base_url: "https://api.moonshot.ai/v1",
+      api_key: {:system, "MOONSHOT_API_KEY"},
+      compat: %{
+        Omni.Dialects.OpenAICompletions => [
+          thinking_toggle_format: :thinking_type
+        ]
+      }
+    ]
   end
-
-  @impl true
-  def modify_body(body, _model, _context, _opts) do
-    normalize_reasoning_effort(body)
-  end
-
-  defp normalize_reasoning_effort(%{"reasoning_effort" => "none"} = body) do
-    body
-    |> Map.put("thinking", %{"type" => "disabled"})
-    |> Map.delete("reasoning_effort")
-  end
-
-  defp normalize_reasoning_effort(%{"reasoning_effort" => _} = body) do
-    body
-    |> Map.put("thinking", %{"type" => "enabled"})
-    |> Map.delete("reasoning_effort")
-  end
-
-  defp normalize_reasoning_effort(body), do: body
 end

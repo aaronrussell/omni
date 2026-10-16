@@ -25,7 +25,13 @@ defmodule Omni.Providers.Venice do
 
   @impl true
   def config do
-    [base_url: "https://api.venice.ai/api/v1", api_key: {:system, "VENICE_API_KEY"}]
+    [
+      base_url: "https://api.venice.ai/api/v1",
+      api_key: {:system, "VENICE_API_KEY"},
+      # Venice recommends `reasoning: {enabled: false}` over
+      # `reasoning_effort: "none"`, which has limited support.
+      compat: %{Omni.Dialects.OpenAICompletions => [thinking_toggle_format: :reasoning_enabled]}
+    ]
   end
 
   @impl true
@@ -37,19 +43,4 @@ defmodule Omni.Providers.Venice do
       end
     end)
   end
-
-  @impl true
-  def modify_body(body, _model, _context, _opts) do
-    disable_reasoning(body)
-  end
-
-  # Venice docs note that `reasoning_effort: "none"` has limited support and
-  # recommend `reasoning: {enabled: false}` as the canonical disable form.
-  defp disable_reasoning(%{"reasoning_effort" => "none"} = body) do
-    body
-    |> Map.put("reasoning", %{"enabled" => false})
-    |> Map.delete("reasoning_effort")
-  end
-
-  defp disable_reasoning(body), do: body
 end

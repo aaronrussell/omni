@@ -11,7 +11,7 @@ defmodule Live.ZaiTest do
         name: "glm-4.6v-flash",
         provider: :zai,
         input_modalities: [:text, :image],
-        reasoning: true
+        thinking: true
       )
 
     Omni.put_model(vision_model)

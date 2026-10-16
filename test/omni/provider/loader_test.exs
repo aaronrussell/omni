@@ -27,6 +27,22 @@ defmodule Omni.Provider.LoaderTest do
     end
   end
 
+  defmodule CompatModule do
+    @behaviour Omni.Provider
+
+    @impl true
+    def config do
+      [
+        compat: %{
+          Omni.Dialects.OpenAICompletions => [
+            max_tokens_field: "max_tokens",
+            omit: [:cache]
+          ]
+        }
+      ]
+    end
+  end
+
   defmodule RestampModule do
     @behaviour Omni.Provider
 
@@ -137,6 +153,134 @@ defmodule Omni.Provider.LoaderTest do
       assemble(source: catalog([], [model("m", @completions)]), module: ConfigModule)
 
       assert_received {:models_called, %Provider{base_url: "https://module.test/v1"}}
+    end
+  end
+
+  describe "compat" do
+    test "flat flags apply to the provider's single dialect" do
+      {provider, [model]} =
+        assemble(
+          source: catalog([], [model("m", @completions)]),
+          compat: [max_tokens_field: "max_tokens"]
+        )
+
+      assert provider.compat == %{@completions => %{max_tokens_field: "max_tokens"}}
+      assert model.provider.compat == provider.compat
+    end
+
+    test "flags keyed by dialect are kept as given" do
+      {provider, _} =
+        assemble(
+          source: catalog([], [model("a", @completions), model("b", @messages)]),
+          compat: %{@completions => [max_tokens_field: "max_tokens"], @messages => %{}}
+        )
+
+      assert provider.compat == %{
+               @completions => %{max_tokens_field: "max_tokens"},
+               @messages => %{}
+             }
+    end
+
+    test "like: copies a built-in's flags, with the layer's own over them" do
+      {provider, _} =
+        assemble(
+          source: catalog([], [model("m", @completions)]),
+          compat: [like: :zai, attachment_format: :file]
+        )
+
+      assert provider.compat == %{
+               @completions => %{
+                 max_tokens_field: "max_tokens",
+                 thinking_toggle_format: :thinking_type,
+                 output_format: :json_object,
+                 attachment_format: :file
+               }
+             }
+    end
+
+    test "app config flags merge one at a time over a module's" do
+      Application.put_env(:omni, :providers, cat: [compat: [max_tokens_field: "max_tokens_v2"]])
+
+      {provider, _} =
+        assemble(source: catalog([], [model("m", @completions)]), module: CompatModule)
+
+      assert provider.compat == %{
+               @completions => %{max_tokens_field: "max_tokens_v2", omit: [:cache]}
+             }
+    end
+
+    test "inline flags layer over app config" do
+      Application.put_env(:omni, :providers, cat: [compat: [omit: [:cache]]])
+
+      {provider, _} =
+        assemble(source: catalog([], [model("m", @completions)]), compat: [omit: [:thinking]])
+
+      assert provider.compat == %{@completions => %{omit: [:thinking]}}
+    end
+
+    test "flat flags on a multi-dialect provider raise, naming the fix" do
+      source = catalog([], [model("a", @completions), model("b", @messages)])
+
+      assert_raise ArgumentError, ~r/must be keyed by dialect/, fn ->
+        assemble(source: source, compat: [max_tokens_field: "max_tokens"])
+      end
+    end
+
+    test "like: alone is fine on a multi-dialect provider" do
+      source = catalog([], [model("a", @completions), model("b", @messages)])
+
+      {provider, _} = assemble(source: source, compat: [like: :moonshotai])
+
+      assert provider.compat == %{@completions => %{thinking_toggle_format: :thinking_type}}
+    end
+
+    test "unknown flags raise" do
+      assert_raise ArgumentError, ~r/unknown compat flags \[:max_token_field\]/, fn ->
+        assemble(source: catalog([], [model("m", @completions)]), compat: [max_token_field: "x"])
+      end
+    end
+
+    test "invalid flag values raise" do
+      assert_raise ArgumentError, ~r/invalid compat flags/, fn ->
+        assemble(
+          source: catalog([], [model("m", @completions)]),
+          compat: [output_format: :yaml]
+        )
+      end
+    end
+
+    test "flags for a dialect the provider doesn't speak raise" do
+      assert_raise ArgumentError, ~r/none of its models speak/, fn ->
+        assemble(
+          source: catalog([], [model("m", @completions)]),
+          compat: %{@messages => []}
+        )
+      end
+    end
+
+    test "like: must name a built-in" do
+      assert_raise ArgumentError, ~r/is not a built-in provider/, fn ->
+        assemble(source: catalog([], [model("m", @completions)]), compat: [like: :nope])
+      end
+    end
+
+    test "mixing flags and dialect keys raises" do
+      assert_raise ArgumentError, ~r/mixes flags with dialect keys/, fn ->
+        assemble(
+          source: catalog([], [model("m", @completions)]),
+          compat: %{@completions => [], :omit => [:cache]}
+        )
+      end
+    end
+
+    test "every built-in's compat is keyed by dialect and validates" do
+      for id <- Provider.builtins() do
+        {provider, _models} = Loader.assemble(id)
+
+        for {dialect, flags} <- provider.compat do
+          assert is_atom(dialect) and is_map(flags)
+        end
+      end
     end
   end
 
@@ -301,13 +445,13 @@ defmodule Omni.Provider.LoaderTest do
       Application.put_env(:omni, :models, filter: {__MODULE__, :reasoning?})
 
       {_provider, models} =
-        assemble(source: catalog([], []), models: [[id: "r", reasoning: true], "plain"])
+        assemble(source: catalog([], []), models: [[id: "r", thinking: true], "plain"])
 
       assert Enum.map(models, & &1.id) == ["r"]
     end
   end
 
-  def reasoning?(model), do: model.reasoning
+  def reasoning?(model), do: model.thinking != false
 
   describe "sources" do
     test "defaults to the ModelsDev source" do

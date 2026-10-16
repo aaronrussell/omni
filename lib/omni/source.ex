@@ -83,11 +83,20 @@ defmodule Omni.Source do
   The shared constructor for model sources. Recognized keys: `"id"`,
   `"name"`, `"dialect"` (a dialect string id, see `Omni.Dialect.get/1`, or
   `nil`), `"release_date"` (ISO 8601 `YYYY-MM-DD`, or `YYYY-MM` which parses
-  as the first of the month), `"reasoning"`,
+  as the first of the month), `"reasoning"` (boolean), `"reasoning_options"`,
   `"input_modalities"`/`"output_modalities"` (lists of strings),
   `"input_cost"`, `"output_cost"`, `"cache_read_cost"`, `"cache_write_cost"`,
   `"context_size"`, `"max_output_tokens"`. Costs and limits default to `0`,
   modalities to `["text"]`, reasoning to `false`, and the name to the id.
+
+  `"reasoning_options"` is a list in models.dev's form, which becomes the
+  model's `:thinking` map (see `Omni.Model`) when `"reasoning"` is true:
+
+      [%{"type" => "effort", "values" => ["low", "medium", "high"]},
+       %{"type" => "toggle"},
+       %{"type" => "budget_tokens", "min" => 1024, "max" => 32_000}]
+
+  Option maps may have string or atom keys. Unknown types are ignored.
 
   Raises `ArgumentError` for an unknown dialect string. Modality strings are
   converted with `String.to_atom/1` — filter untrusted data to the modalities
@@ -100,7 +109,7 @@ defmodule Omni.Source do
       name: data["name"] || data["id"],
       dialects: build_dialects(data["dialect"]),
       release_date: parse_date(data["release_date"]),
-      reasoning: data["reasoning"] || false,
+      thinking: build_thinking(data["reasoning"], data["reasoning_options"]),
       input_modalities: Enum.map(data["input_modalities"] || ["text"], &String.to_atom/1),
       output_modalities: Enum.map(data["output_modalities"] || ["text"], &String.to_atom/1),
       input_cost: data["input_cost"] || 0,
@@ -114,6 +123,30 @@ defmodule Omni.Source do
 
   defp build_dialects(nil), do: %{}
   defp build_dialects(name), do: %{text: Omni.Dialect.get!(name)}
+
+  defp build_thinking(reasoning, _options) when reasoning in [nil, false], do: false
+  defp build_thinking(_reasoning, options) when not is_list(options), do: true
+
+  defp build_thinking(_reasoning, options) do
+    Enum.reduce(options, %{}, fn option, acc ->
+      option = Map.new(option, fn {key, value} -> {to_string(key), value} end)
+
+      case option["type"] do
+        "effort" ->
+          values = Enum.filter(option["values"] || [], &is_binary/1)
+          Map.update(acc, :efforts, values, &Enum.uniq(&1 ++ values))
+
+        "toggle" ->
+          Map.put(acc, :toggle, true)
+
+        "budget_tokens" ->
+          Map.put(acc, :budget, {option["min"], option["max"]})
+
+        _ ->
+          acc
+      end
+    end)
+  end
 
   defp parse_date(<<_::binary-size(7)>> = date), do: Date.from_iso8601!(date <> "-01")
   defp parse_date(date) when is_binary(date), do: Date.from_iso8601!(date)

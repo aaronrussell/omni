@@ -79,8 +79,8 @@ if Code.ensure_loaded?(LLMDB) do
         loaded = Source.transform_provider(models, :test)
         by_id = Map.new(loaded, &{&1.id, &1})
 
-        assert by_id["thinker"].reasoning
-        refute by_id["plain"].reasoning
+        assert by_id["thinker"].thinking
+        refute by_id["plain"].thinking
       end
 
       test "extra signals override a false reasoning capability" do
@@ -92,7 +92,27 @@ if Code.ensure_loaded?(LLMDB) do
 
         loaded = Source.transform_provider(models, :test)
 
-        assert Enum.all?(loaded, & &1.reasoning)
+        assert Enum.all?(loaded, & &1.thinking)
+      end
+
+      test "reasoning_options become thinking data, with atom or string keys" do
+        models = [
+          llmdb_model("atoms", %{
+            extra: %{reasoning_options: [%{type: "effort", values: ["low", "high"]}]}
+          }),
+          llmdb_model("strings", %{
+            extra: %{"reasoning_options" => [%{"type" => "toggle"}]}
+          }),
+          llmdb_model("openrouter", %{
+            extra: %{"reasoning" => %{"supported_efforts" => ["low", "medium"]}}
+          })
+        ]
+
+        by_id = models |> Source.transform_provider(:test) |> Map.new(&{&1.id, &1})
+
+        assert by_id["atoms"].thinking == %{efforts: ["low", "high"]}
+        assert by_id["strings"].thinking == %{toggle: true}
+        assert by_id["openrouter"].thinking == %{efforts: ["low", "medium"]}
       end
 
       test "empty extra lists do not count as reasoning support" do
@@ -105,7 +125,7 @@ if Code.ensure_loaded?(LLMDB) do
 
         loaded = Source.transform_provider(models, :test)
 
-        refute Enum.any?(loaded, & &1.reasoning)
+        refute Enum.any?(loaded, & &1.thinking)
       end
     end
 
@@ -124,6 +144,16 @@ if Code.ensure_loaded?(LLMDB) do
 
       test "npm metadata resolves models of multi-dialect providers" do
         models = [llmdb_model("claude-x", %{extra: %{provider: %{npm: "@ai-sdk/anthropic"}}})]
+
+        [model] = Source.transform_provider(models, :test)
+
+        assert model.dialects.text == Omni.Dialects.AnthropicMessages
+      end
+
+      test "npm metadata is read from string-keyed extra (llm_db 2026.7.2+)" do
+        models = [
+          llmdb_model("claude-x", %{extra: %{"provider" => %{"npm" => "@ai-sdk/anthropic"}}})
+        ]
 
         [model] = Source.transform_provider(models, :test)
 

@@ -433,13 +433,13 @@ defmodule Omni.Dialects.GoogleGeminiTest do
     end
   end
 
-  describe "handle_body/3 thinking — Gemini 2.5 (budget path)" do
+  describe "handle_body/3 thinking — budget models (Gemini 2.5)" do
     @reasoning_model Fixtures.model(
-                       id: "gemini-2.5-flash-preview",
-                       name: "Gemini 2.5 Flash Preview",
+                       id: "gemini-2.5-flash",
+                       name: "Gemini 2.5 Flash",
                        dialect: GoogleGemini,
                        max_output_tokens: 8192,
-                       reasoning: true
+                       thinking: %{toggle: true, budget: {0, 24_576}}
                      )
 
     test "thinking: :high sets thinkingBudget" do
@@ -447,7 +447,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: :high})
 
       assert body["generationConfig"]["thinkingConfig"] == %{
-               "thinkingBudget" => 8192,
+               "thinkingBudget" => 16_384,
                "includeThoughts" => true
              }
     end
@@ -460,15 +460,15 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       refute Map.has_key?(body, "thinkingConfig")
     end
 
-    test "effort levels map to budget integers, :max uses dynamic (-1)" do
+    test "effort levels map to budgets clamped to the model's range" do
       context = Context.new("Hello")
 
       for {level, expected} <- [
-            low: 2048,
+            low: 1024,
             medium: 4096,
-            high: 8192,
-            xhigh: 16384,
-            max: -1
+            high: 16_384,
+            xhigh: 24_576,
+            max: 24_576
           ] do
         body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: level})
 
@@ -478,6 +478,16 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         assert body["generationConfig"]["thinkingConfig"]["includeThoughts"] == true
         refute Map.has_key?(body["generationConfig"]["thinkingConfig"], "thinkingLevel")
       end
+    end
+
+    test "thinking: true uses dynamic thinking (-1)" do
+      context = Context.new("Hello")
+      body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: true})
+
+      assert body["generationConfig"]["thinkingConfig"] == %{
+               "thinkingBudget" => -1,
+               "includeThoughts" => true
+             }
     end
 
     test "explicit budget sets thinkingBudget directly" do
@@ -500,6 +510,20 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert body["generationConfig"]["thinkingConfig"] == %{"thinkingBudget" => 0}
     end
 
+    test "thinking: false sends nothing to a model that can't switch off" do
+      model = %{@reasoning_model | thinking: %{budget: {128, 32_768}}}
+      body = GoogleGemini.handle_body(model, Context.new("Hello"), %{thinking: false})
+
+      refute Map.has_key?(body["generationConfig"], "thinkingConfig")
+    end
+
+    test "a model with no thinking data uses the budget path" do
+      model = %{@reasoning_model | thinking: true}
+      body = GoogleGemini.handle_body(model, Context.new("Hello"), %{thinking: :medium})
+
+      assert body["generationConfig"]["thinkingConfig"]["thinkingBudget"] == 4096
+    end
+
     test "non-reasoning model ignores thinking option" do
       context = Context.new("Hello")
       body = GoogleGemini.handle_body(@model, context, %{thinking: :high})
@@ -515,22 +539,22 @@ defmodule Omni.Dialects.GoogleGeminiTest do
     end
   end
 
-  describe "handle_body/3 thinking — Gemini 3 (level path, shifted)" do
+  describe "handle_body/3 thinking — effort models (Gemini 3)" do
     @gemini3_model Fixtures.model(
-                     id: "gemini-3-pro-preview",
-                     name: "Gemini 3 Pro Preview",
+                     id: "gemini-3-flash-preview",
+                     name: "Gemini 3 Flash Preview",
                      dialect: GoogleGemini,
                      max_output_tokens: 8192,
-                     reasoning: true
+                     thinking: %{efforts: ["minimal", "low", "medium", "high"]}
                    )
 
-    test "effort levels shift down onto Gemini's 4-level scale" do
+    test "effort levels match the model's levels by name" do
       context = Context.new("Hello")
 
       for {level, expected} <- [
-            low: "minimal",
-            medium: "low",
-            high: "medium",
+            low: "low",
+            medium: "medium",
+            high: "high",
             xhigh: "high",
             max: "high"
           ] do
@@ -544,35 +568,40 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       end
     end
 
-    test "effort map form uses the same shifted mapping" do
-      context = Context.new("Hello")
-
-      body = GoogleGemini.handle_body(@gemini3_model, context, %{thinking: %{effort: :max}})
+    test "levels round up to the nearest the model supports" do
+      model = %{@gemini3_model | thinking: %{efforts: ["minimal", "high"]}}
+      body = GoogleGemini.handle_body(model, Context.new("Hello"), %{thinking: :low})
 
       assert body["generationConfig"]["thinkingConfig"]["thinkingLevel"] == "high"
     end
 
-    test "explicit budget still wins on Gemini 3" do
+    test "an explicit budget is ignored in favour of the effort" do
       context = Context.new("Hello")
 
       body =
         GoogleGemini.handle_body(@gemini3_model, context, %{
-          thinking: %{effort: :high, budget: 4096}
+          thinking: %{effort: :medium, budget: 4096}
         })
 
-      assert body["generationConfig"]["thinkingConfig"]["thinkingBudget"] == 4096
-      refute Map.has_key?(body["generationConfig"]["thinkingConfig"], "thinkingLevel")
+      assert body["generationConfig"]["thinkingConfig"]["thinkingLevel"] == "medium"
+      refute Map.has_key?(body["generationConfig"]["thinkingConfig"], "thinkingBudget")
     end
 
-    test "thinking: false sets thinkingBudget to 0" do
+    test "thinking: true sends no level, leaving the model dynamic" do
+      body = GoogleGemini.handle_body(@gemini3_model, Context.new("Hello"), %{thinking: true})
+
+      assert body["generationConfig"]["thinkingConfig"] == %{"includeThoughts" => true}
+    end
+
+    test "thinking: false sends nothing — Gemini 3 can't switch thinking off" do
       context = Context.new("Hello")
       body = GoogleGemini.handle_body(@gemini3_model, context, %{thinking: false})
 
-      assert body["generationConfig"]["thinkingConfig"] == %{"thinkingBudget" => 0}
+      refute Map.has_key?(body["generationConfig"], "thinkingConfig")
     end
   end
 
-  describe "handle_event/1" do
+  describe "handle_event/2" do
     test "text content emits message with usage and block_delta" do
       event = %{
         "candidates" => [
@@ -592,7 +621,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert [
                {:message, %{usage: usage}},
                {:block_delta, %{type: :text, index: 0, delta: "Hello"}}
-             ] = GoogleGemini.handle_event(event)
+             ] = GoogleGemini.handle_event(event, @model)
 
       assert usage["input_tokens"] == 5
       assert usage["output_tokens"] == 1
@@ -623,7 +652,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert [
                {:message, %{stop_reason: :stop}},
                {:block_start, result}
-             ] = GoogleGemini.handle_event(event)
+             ] = GoogleGemini.handle_event(event, @model)
 
       assert result.type == :tool_use
       assert result.name == "get_weather"
@@ -640,7 +669,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert [{:message, %{stop_reason: :stop}}] = GoogleGemini.handle_event(event)
+      assert [{:message, %{stop_reason: :stop}}] = GoogleGemini.handle_event(event, @model)
     end
 
     test "MAX_TOKENS maps to :length" do
@@ -650,7 +679,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert [{:message, %{stop_reason: :length}}] = GoogleGemini.handle_event(event)
+      assert [{:message, %{stop_reason: :length}}] = GoogleGemini.handle_event(event, @model)
     end
 
     for reason <- ~w(SAFETY RECITATION LANGUAGE BLOCKLIST PROHIBITED_CONTENT SPII) do
@@ -661,7 +690,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
           ]
         }
 
-        assert [{:message, %{stop_reason: :refusal}}] = GoogleGemini.handle_event(event)
+        assert [{:message, %{stop_reason: :refusal}}] = GoogleGemini.handle_event(event, @model)
       end
     end
 
@@ -672,7 +701,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert [{:message, %{stop_reason: :stop}}] = GoogleGemini.handle_event(event)
+      assert [{:message, %{stop_reason: :stop}}] = GoogleGemini.handle_event(event, @model)
     end
 
     test "usage emits message with normalized usage" do
@@ -684,7 +713,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         }
       }
 
-      assert [{:message, %{usage: usage}}] = GoogleGemini.handle_event(event)
+      assert [{:message, %{usage: usage}}] = GoogleGemini.handle_event(event, @model)
       assert usage["input_tokens"] == 10
       assert usage["output_tokens"] == 5
     end
@@ -702,7 +731,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       }
 
       assert [{:message, %{stop_reason: :stop, usage: usage}}] =
-               GoogleGemini.handle_event(event)
+               GoogleGemini.handle_event(event, @model)
 
       assert usage["input_tokens"] == 10
       assert usage["output_tokens"] == 5
@@ -720,7 +749,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         }
       }
 
-      assert [{:message, %{usage: usage}}] = GoogleGemini.handle_event(event)
+      assert [{:message, %{usage: usage}}] = GoogleGemini.handle_event(event, @model)
       assert usage["input_tokens"] == 100
       assert usage["output_tokens"] == 50
       assert usage["cache_read_tokens"] == 80
@@ -735,7 +764,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         }
       }
 
-      assert [{:message, %{usage: usage}}] = GoogleGemini.handle_event(event)
+      assert [{:message, %{usage: usage}}] = GoogleGemini.handle_event(event, @model)
       refute Map.has_key?(usage, "cache_read_tokens")
     end
 
@@ -753,7 +782,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert [
                {:message, %{stop_reason: :stop}},
                {:block_delta, %{type: :text, delta: "Final words"}}
-             ] = GoogleGemini.handle_event(event)
+             ] = GoogleGemini.handle_event(event, @model)
     end
 
     test "functionCall and empty text emits only block_start" do
@@ -773,11 +802,11 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       }
 
       assert [{:block_start, %{type: :tool_use, name: "search"}}] =
-               GoogleGemini.handle_event(event)
+               GoogleGemini.handle_event(event, @model)
     end
 
     test "unknown event returns empty list" do
-      assert [] == GoogleGemini.handle_event(%{"type" => "something_else"})
+      assert [] == GoogleGemini.handle_event(%{"type" => "something_else"}, @model)
     end
 
     test "error event returns error delta" do
@@ -789,7 +818,8 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         }
       }
 
-      assert [{:error, "You've exceeded the rate limit."}] = GoogleGemini.handle_event(event)
+      assert [{:error, "You've exceeded the rate limit."}] =
+               GoogleGemini.handle_event(event, @model)
     end
 
     test "empty text with finishReason emits only message" do
@@ -803,7 +833,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert [{:message, %{stop_reason: :stop}}] = GoogleGemini.handle_event(event)
+      assert [{:message, %{stop_reason: :stop}}] = GoogleGemini.handle_event(event, @model)
     end
 
     test "thought part emits thinking block_delta" do
@@ -820,7 +850,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       }
 
       assert [{:block_delta, %{type: :thinking, index: 0, delta: "Let me reason..."}}] =
-               GoogleGemini.handle_event(event)
+               GoogleGemini.handle_event(event, @model)
     end
 
     test "thought part with thoughtSignature emits signature" do
@@ -842,7 +872,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
                {:block_delta,
                 %{type: :thinking, index: 0, delta: "Let me reason...", signature: "sig_t1"}}
              ] =
-               GoogleGemini.handle_event(event)
+               GoogleGemini.handle_event(event, @model)
     end
 
     test "text part with thoughtSignature emits signature" do
@@ -859,7 +889,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       }
 
       assert [{:block_delta, %{type: :text, index: 0, delta: "Answer text", signature: "sig_x1"}}] =
-               GoogleGemini.handle_event(event)
+               GoogleGemini.handle_event(event, @model)
     end
 
     test "functionCall with thoughtSignature emits signature" do
@@ -881,7 +911,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       }
 
       assert [{:block_start, %{type: :tool_use, name: "search", signature: "sig_fc1"}}] =
-               GoogleGemini.handle_event(event)
+               GoogleGemini.handle_event(event, @model)
     end
 
     test "multiple function calls in one event emit unique indices" do
@@ -911,7 +941,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
                {:message, %{stop_reason: :stop}},
                {:block_start, first},
                {:block_start, second}
-             ] = GoogleGemini.handle_event(event)
+             ] = GoogleGemini.handle_event(event, @model)
 
       assert first.type == :tool_use
       assert is_integer(first.index)
@@ -948,7 +978,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert [
                {:block_delta, %{type: :thinking, delta: "Thinking..."}},
                {:block_delta, %{type: :text, delta: "Answer here"}}
-             ] = GoogleGemini.handle_event(event)
+             ] = GoogleGemini.handle_event(event, @model)
     end
 
     test "modelVersion is extracted into message" do
@@ -970,7 +1000,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert [
                {:message, %{model: "gemini-2.0-flash-lite", usage: _}},
                {:block_delta, %{type: :text, delta: "Hi"}}
-             ] = GoogleGemini.handle_event(event)
+             ] = GoogleGemini.handle_event(event, @model)
     end
   end
 

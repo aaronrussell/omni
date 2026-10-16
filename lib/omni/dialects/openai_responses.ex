@@ -3,12 +3,18 @@ defmodule Omni.Dialects.OpenAIResponses do
   Dialect implementation for the OpenAI Responses wire format.
 
   See `Omni.Dialect` for the behaviour specification and delta types.
+
+  ## Compat flags
+
+  None yet: providers speaking this dialect get its home API's behaviour.
+  Flags are added as verified providers need them.
   """
 
   @behaviour Omni.Dialect
 
   alias Omni.Content.{Text, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Model}
+  alias Omni.Dialect.Thinking
 
   import Omni.Util, only: [maybe_put: 3]
 
@@ -17,6 +23,8 @@ defmodule Omni.Dialects.OpenAIResponses do
   @impl true
   def option_schema, do: %{}
 
+  @impl true
+  def compat_schema, do: %{}
   @impl true
   def auth, do: :bearer
 
@@ -69,69 +77,84 @@ defmodule Omni.Dialects.OpenAIResponses do
   # Parse events — OpenAI Responses sends named events with "type" field
 
   @impl true
-  def handle_event(%{"type" => "response.created", "response" => %{"model" => model_id}}) do
+  def handle_event(%{"type" => "response.created", "response" => %{"model" => model_id}}, _model) do
     [{:message, %{model: model_id}}]
   end
 
-  def handle_event(%{
-        "type" => "response.output_text.delta",
-        "output_index" => output_index,
-        "delta" => delta
-      }) do
+  def handle_event(
+        %{
+          "type" => "response.output_text.delta",
+          "output_index" => output_index,
+          "delta" => delta
+        },
+        _model
+      ) do
     [{:block_delta, %{type: :text, index: output_index, delta: delta}}]
   end
 
-  def handle_event(%{
-        "type" => "response.output_item.added",
-        "output_index" => output_index,
-        "item" => %{"type" => "function_call", "call_id" => call_id, "name" => name}
-      }) do
+  def handle_event(
+        %{
+          "type" => "response.output_item.added",
+          "output_index" => output_index,
+          "item" => %{"type" => "function_call", "call_id" => call_id, "name" => name}
+        },
+        _model
+      ) do
     [{:block_start, %{type: :tool_use, index: output_index, id: call_id, name: name}}]
   end
 
-  def handle_event(%{
-        "type" => "response.function_call_arguments.delta",
-        "output_index" => output_index,
-        "delta" => delta
-      }) do
+  def handle_event(
+        %{
+          "type" => "response.function_call_arguments.delta",
+          "output_index" => output_index,
+          "delta" => delta
+        },
+        _model
+      ) do
     [{:block_delta, %{type: :tool_use, index: output_index, delta: delta}}]
   end
 
-  def handle_event(%{
-        "type" => "response.reasoning_summary_text.delta",
-        "output_index" => output_index,
-        "delta" => delta
-      }) do
+  def handle_event(
+        %{
+          "type" => "response.reasoning_summary_text.delta",
+          "output_index" => output_index,
+          "delta" => delta
+        },
+        _model
+      ) do
     [{:block_delta, %{type: :thinking, index: output_index, delta: delta}}]
   end
 
-  def handle_event(%{"type" => "response.completed", "response" => response}) do
+  def handle_event(%{"type" => "response.completed", "response" => response}, _model) do
     [{:message, %{stop_reason: infer_stop_reason(response), usage: normalize_usage(response)}}]
   end
 
-  def handle_event(%{"type" => "response.failed", "response" => %{"error" => error}}) do
+  def handle_event(%{"type" => "response.failed", "response" => %{"error" => error}}, _model) do
     [{:error, error["message"] || "Response failed"}]
   end
 
-  def handle_event(%{"type" => "error", "message" => message}) do
+  def handle_event(%{"type" => "error", "message" => message}, _model) do
     [{:error, message}]
   end
 
-  def handle_event(_), do: []
+  def handle_event(_, _model), do: []
 
   # Thinking
 
-  defp encode_thinking(_model, nil), do: nil
-  defp encode_thinking(%Model{reasoning: false}, _thinking), do: nil
-  defp encode_thinking(_model, false), do: %{"effort" => "none"}
+  defp encode_thinking(model, option) do
+    case Thinking.resolve(model, option) do
+      nil ->
+        nil
 
-  defp encode_thinking(_model, level) when is_atom(level) do
-    %{"effort" => effort_string(level), "summary" => "auto"}
-  end
+      :off ->
+        %{"effort" => "none"}
 
-  defp encode_thinking(_model, %{} = opts) do
-    level = Map.get(opts, :effort, :high)
-    %{"effort" => effort_string(level), "summary" => "auto"}
+      :dynamic ->
+        encode_thinking(model, :medium)
+
+      %{effort: effort, level: level} ->
+        %{"effort" => effort || effort_string(level), "summary" => "auto"}
+    end
   end
 
   defp effort_string(:low), do: "low"
