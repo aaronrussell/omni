@@ -7,7 +7,7 @@ defmodule Omni.Providers.VeniceTest do
     test "returns expected configuration" do
       config = Venice.config()
 
-      assert config.base_url == "https://api.venice.ai/api"
+      assert config.base_url == "https://api.venice.ai/api/v1"
       assert config.api_key == {:system, "VENICE_API_KEY"}
       refute Map.has_key?(config, :auth_header)
     end

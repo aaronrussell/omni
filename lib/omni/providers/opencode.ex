@@ -27,7 +27,7 @@ defmodule Omni.Providers.OpenCode do
   @impl true
   def config do
     %{
-      base_url: "https://opencode.ai/zen",
+      base_url: "https://opencode.ai/zen/v1",
       api_key: {:system, "OPENCODE_API_KEY"}
     }
   end
@@ -38,11 +38,6 @@ defmodule Omni.Providers.OpenCode do
       {header, value} = auth_for_path(req.url.path, key)
       {:ok, Req.Request.put_header(req, header, value)}
     end
-  end
-
-  @impl true
-  def build_url(path, opts) do
-    opts.base_url <> String.replace(path, "/v1beta", "/v1")
   end
 
   # Zen mirrors each upstream API's auth scheme — the required header depends

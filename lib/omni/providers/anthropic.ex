@@ -22,7 +22,7 @@ defmodule Omni.Providers.Anthropic do
   @impl true
   def config do
     %{
-      base_url: "https://api.anthropic.com",
+      base_url: "https://api.anthropic.com/v1",
       auth_header: "x-api-key",
       api_key: {:system, "ANTHROPIC_API_KEY"},
       headers: %{"anthropic-version" => "2023-06-01"}

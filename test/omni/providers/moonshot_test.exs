@@ -7,7 +7,7 @@ defmodule Omni.Providers.MoonshotTest do
     test "returns expected configuration" do
       config = Moonshot.config()
 
-      assert config.base_url == "https://api.moonshot.ai"
+      assert config.base_url == "https://api.moonshot.ai/v1"
       assert config.api_key == {:system, "MOONSHOT_API_KEY"}
       refute Map.has_key?(config, :auth_header)
     end

@@ -7,7 +7,7 @@ defmodule Omni.Providers.AlibabaTest do
     test "returns expected configuration" do
       config = Alibaba.config()
 
-      assert config.base_url == "https://dashscope-intl.aliyuncs.com/compatible-mode"
+      assert config.base_url == "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
       assert config.api_key == {:system, "DASHSCOPE_API_KEY"}
       refute Map.has_key?(config, :auth_header)
     end

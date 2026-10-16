@@ -22,7 +22,7 @@ defmodule Omni.Providers.Google do
   @impl true
   def config do
     %{
-      base_url: "https://generativelanguage.googleapis.com",
+      base_url: "https://generativelanguage.googleapis.com/v1beta",
       auth_header: "x-goog-api-key",
       api_key: {:system, "GEMINI_API_KEY"}
     }

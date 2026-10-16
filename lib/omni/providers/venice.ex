@@ -27,7 +27,7 @@ defmodule Omni.Providers.Venice do
   @impl true
   def config do
     %{
-      base_url: "https://api.venice.ai/api",
+      base_url: "https://api.venice.ai/api/v1",
       api_key: {:system, "VENICE_API_KEY"}
     }
   end

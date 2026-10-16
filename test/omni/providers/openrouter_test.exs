@@ -8,7 +8,7 @@ defmodule Omni.Providers.OpenRouterTest do
     test "returns expected configuration" do
       config = OpenRouter.config()
 
-      assert config.base_url == "https://openrouter.ai/api"
+      assert config.base_url == "https://openrouter.ai/api/v1"
       assert config.api_key == {:system, "OPENROUTER_API_KEY"}
       refute Map.has_key?(config, :auth_header)
     end

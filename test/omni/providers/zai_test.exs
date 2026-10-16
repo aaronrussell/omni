@@ -7,7 +7,7 @@ defmodule Omni.Providers.ZaiTest do
     test "returns expected configuration" do
       config = Zai.config()
 
-      assert config.base_url == "https://api.z.ai/api/paas"
+      assert config.base_url == "https://api.z.ai/api/paas/v4"
       assert config.api_key == {:system, "ZAI_API_KEY"}
       refute Map.has_key?(config, :auth_header)
     end
@@ -33,20 +33,6 @@ defmodule Omni.Providers.ZaiTest do
         assert model.provider == Zai
         assert model.dialect == Omni.Dialects.OpenAICompletions
       end
-    end
-  end
-
-  describe "build_url/2" do
-    test "rewrites /v1 in the dialect path to /v4" do
-      url = Zai.build_url("/v1/chat/completions", %{base_url: "https://api.z.ai/api/paas"})
-
-      assert url == "https://api.z.ai/api/paas/v4/chat/completions"
-    end
-
-    test "passes through paths without /v1" do
-      url = Zai.build_url("/health", %{base_url: "https://api.z.ai/api/paas"})
-
-      assert url == "https://api.z.ai/api/paas/health"
     end
   end
 

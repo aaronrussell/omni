@@ -15,13 +15,6 @@ defmodule Omni.Providers.NearAI do
 
   Any key from the provider's `config/0` can be overridden: `:api_key`,
   `:base_url`. See `Omni.Provider` for details.
-
-  ## Compatibility
-
-  NEAR AI Cloud exposes an OpenAI-compatible API at
-  `https://cloud-api.near.ai/v1`. Omni stores provider `:base_url` values
-  without the dialect path prefix, so the configured service root is
-  `https://cloud-api.near.ai`.
   """
 
   use Omni.Provider, id: :nearai, dialect: Omni.Dialects.OpenAICompletions
@@ -29,7 +22,7 @@ defmodule Omni.Providers.NearAI do
   @impl true
   def config do
     %{
-      base_url: "https://cloud-api.near.ai",
+      base_url: "https://cloud-api.near.ai/v1",
       api_key: {:system, "NEARAI_API_KEY"}
     }
   end

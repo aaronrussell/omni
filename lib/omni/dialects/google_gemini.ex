@@ -23,7 +23,7 @@ defmodule Omni.Dialects.GoogleGemini do
 
   @impl true
   def handle_path(%Model{id: model_id}, _opts) do
-    "/v1beta/models/#{model_id}:streamGenerateContent?alt=sse"
+    "/models/#{model_id}:streamGenerateContent?alt=sse"
   end
 
   @impl true

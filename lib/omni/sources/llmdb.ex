@@ -35,7 +35,7 @@ defmodule Omni.Sources.LLMDB do
 
         @impl true
         def config do
-          %{base_url: "https://api.mistral.ai", api_key: {:system, "MISTRAL_API_KEY"}}
+          %{base_url: "https://api.mistral.ai/v1", api_key: {:system, "MISTRAL_API_KEY"}}
         end
       end
 

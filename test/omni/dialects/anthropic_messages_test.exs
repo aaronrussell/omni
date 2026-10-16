@@ -21,7 +21,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
 
   describe "handle_path/1" do
     test "returns /v1/messages" do
-      assert AnthropicMessages.handle_path(@model, %{}) == "/v1/messages"
+      assert AnthropicMessages.handle_path(@model, %{}) == "/messages"
     end
   end
 

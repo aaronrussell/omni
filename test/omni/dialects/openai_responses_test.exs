@@ -21,7 +21,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
 
   describe "handle_path/1" do
     test "returns /v1/responses" do
-      assert OpenAIResponses.handle_path(@model, %{}) == "/v1/responses"
+      assert OpenAIResponses.handle_path(@model, %{}) == "/responses"
     end
   end
 

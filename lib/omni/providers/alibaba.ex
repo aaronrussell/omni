@@ -22,17 +22,17 @@ defmodule Omni.Providers.Alibaba do
   region, override `:base_url`:
 
       config :omni, Omni.Providers.Alibaba,
-        base_url: "https://dashscope-us.aliyuncs.com/compatible-mode"
+        base_url: "https://dashscope-us.aliyuncs.com/compatible-mode/v1"
 
   Available regions:
 
-  | Region                | Base URL                                                            |
-  |-----------------------|---------------------------------------------------------------------|
-  | International (Singapore) | `https://dashscope-intl.aliyuncs.com/compatible-mode`           |
-  | US (Virginia)         | `https://dashscope-us.aliyuncs.com/compatible-mode`                 |
-  | Germany (Frankfurt)   | `https://{WorkspaceId}.eu-central-1.maas.aliyuncs.com/compatible-mode` |
-  | China (Beijing)       | `https://dashscope.aliyuncs.com/compatible-mode`                    |
-  | China (Hong Kong)     | `https://cn-hongkong.dashscope.aliyuncs.com/compatible-mode`        |
+  | Region                    | Base URL                                                                  |
+  |---------------------------|---------------------------------------------------------------------------|
+  | International (Singapore) | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`                  |
+  | US (Virginia)             | `https://dashscope-us.aliyuncs.com/compatible-mode/v1`                    |
+  | Germany (Frankfurt)       | `https://{WorkspaceId}.eu-central-1.maas.aliyuncs.com/compatible-mode/v1` |
+  | China (Beijing)           | `https://dashscope.aliyuncs.com/compatible-mode/v1`                       |
+  | China (Hong Kong)         | `https://cn-hongkong.dashscope.aliyuncs.com/compatible-mode/v1`           |
 
   ## Reasoning
 
@@ -51,7 +51,7 @@ defmodule Omni.Providers.Alibaba do
   @impl true
   def config do
     %{
-      base_url: "https://dashscope-intl.aliyuncs.com/compatible-mode",
+      base_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
       api_key: {:system, "DASHSCOPE_API_KEY"}
     }
   end

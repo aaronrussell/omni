@@ -7,7 +7,7 @@ defmodule Omni.Providers.OpenAITest do
     test "returns expected configuration" do
       config = OpenAI.config()
 
-      assert config.base_url == "https://api.openai.com"
+      assert config.base_url == "https://api.openai.com/v1"
       assert config.api_key == {:system, "OPENAI_API_KEY"}
       refute Map.has_key?(config, :auth_header)
     end

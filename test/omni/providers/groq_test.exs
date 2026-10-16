@@ -7,7 +7,7 @@ defmodule Omni.Providers.GroqTest do
     test "returns expected configuration" do
       config = Groq.config()
 
-      assert config.base_url == "https://api.groq.com/openai"
+      assert config.base_url == "https://api.groq.com/openai/v1"
       assert config.api_key == {:system, "GROQ_API_KEY"}
       refute Map.has_key?(config, :auth_header)
     end

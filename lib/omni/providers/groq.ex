@@ -29,7 +29,7 @@ defmodule Omni.Providers.Groq do
   @impl true
   def config do
     %{
-      base_url: "https://api.groq.com/openai",
+      base_url: "https://api.groq.com/openai/v1",
       api_key: {:system, "GROQ_API_KEY"}
     }
   end

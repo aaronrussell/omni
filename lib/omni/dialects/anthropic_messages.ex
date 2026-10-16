@@ -26,7 +26,7 @@ defmodule Omni.Dialects.AnthropicMessages do
   def option_schema, do: %{max_tokens: {:integer, {:default, 4096}}}
 
   @impl true
-  def handle_path(%Model{}, _opts), do: "/v1/messages"
+  def handle_path(%Model{}, _opts), do: "/messages"
 
   @impl true
   def handle_body(%Model{} = model, %Context{} = context, opts) do

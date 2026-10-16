@@ -35,7 +35,7 @@ defmodule Omni.Provider do
         @impl true
         def config do
           %{
-            base_url: "https://api.mistral.ai",
+            base_url: "https://api.mistral.ai/v1",
             api_key: {:system, "MISTRAL_API_KEY"}
           }
         end
@@ -304,7 +304,7 @@ defmodule Omni.Provider do
 
   The `opts` map contains `:base_url` (from the three-tier config merge) plus
   all validated inference options. The `path` comes from the dialect's
-  `c:Omni.Dialect.handle_path/2` callback (e.g. `"/v1/chat/completions"`).
+  `c:Omni.Dialect.handle_path/2` callback (e.g. `"/chat/completions"`).
 
   Default: `opts.base_url <> path`.
 

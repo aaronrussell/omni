@@ -7,7 +7,7 @@ defmodule Omni.Providers.NearAITest do
     test "returns expected configuration" do
       config = NearAI.config()
 
-      assert config.base_url == "https://cloud-api.near.ai"
+      assert config.base_url == "https://cloud-api.near.ai/v1"
       assert config.api_key == {:system, "NEARAI_API_KEY"}
       refute Map.has_key?(config, :auth_header)
     end

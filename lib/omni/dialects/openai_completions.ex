@@ -18,7 +18,7 @@ defmodule Omni.Dialects.OpenAICompletions do
   def option_schema, do: %{}
 
   @impl true
-  def handle_path(%Model{}, _opts), do: "/v1/chat/completions"
+  def handle_path(%Model{}, _opts), do: "/chat/completions"
 
   @impl true
   def handle_body(%Model{} = model, %Context{} = context, opts) do

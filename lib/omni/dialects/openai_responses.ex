@@ -18,7 +18,7 @@ defmodule Omni.Dialects.OpenAIResponses do
   def option_schema, do: %{}
 
   @impl true
-  def handle_path(%Model{}, _opts), do: "/v1/responses"
+  def handle_path(%Model{}, _opts), do: "/responses"
 
   @impl true
   def handle_body(%Model{} = model, %Context{} = context, opts) do

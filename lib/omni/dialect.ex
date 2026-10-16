@@ -92,7 +92,7 @@ defmodule Omni.Dialect do
         def option_schema, do: %{}
 
         @impl true
-        def handle_path(_model, _opts), do: "/v1/generate"
+        def handle_path(_model, _opts), do: "/generate"
 
         @impl true
         def handle_body(model, context, opts) do
@@ -167,14 +167,14 @@ defmodule Omni.Dialect do
   @doc """
   Returns the URL path for the given model and options.
 
-  The returned path is passed to `c:Omni.Provider.build_url/2`, which
-  typically concatenates it with the provider's base URL. Most dialects
-  return a static path:
+  The path is the API's resource path, appended to the provider's base URL.
+  The base URL carries any version segment (`https://api.openai.com/v1`), so
+  the path does not. Most dialects return a static path:
 
-      def handle_path(_model, _opts), do: "/v1/chat/completions"
+      def handle_path(_model, _opts), do: "/chat/completions"
 
   Some API families interpolate the model ID into the path (e.g. Google
-  Gemini uses `/v1beta/models/{model}:streamGenerateContent`).
+  Gemini uses `/models/{model}:streamGenerateContent`).
   """
   @callback handle_path(Model.t(), map()) :: String.t()
 

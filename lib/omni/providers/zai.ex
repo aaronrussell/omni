@@ -33,14 +33,9 @@ defmodule Omni.Providers.Zai do
   @impl true
   def config do
     %{
-      base_url: "https://api.z.ai/api/paas",
+      base_url: "https://api.z.ai/api/paas/v4",
       api_key: {:system, "ZAI_API_KEY"}
     }
-  end
-
-  @impl true
-  def build_url(path, opts) do
-    opts.base_url <> String.replace(path, "/v1", "/v4")
   end
 
   @impl true

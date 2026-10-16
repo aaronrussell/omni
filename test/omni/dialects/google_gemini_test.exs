@@ -21,7 +21,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
 
     test "uses v1beta path" do
       path = GoogleGemini.handle_path(@model, %{})
-      assert path == "/v1beta/models/gemini-2.0-flash-lite:streamGenerateContent?alt=sse"
+      assert path == "/models/gemini-2.0-flash-lite:streamGenerateContent?alt=sse"
     end
   end
 

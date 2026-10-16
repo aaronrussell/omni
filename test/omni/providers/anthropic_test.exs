@@ -7,7 +7,7 @@ defmodule Omni.Providers.AnthropicTest do
     test "returns expected configuration" do
       config = Anthropic.config()
 
-      assert config.base_url == "https://api.anthropic.com"
+      assert config.base_url == "https://api.anthropic.com/v1"
       assert config.auth_header == "x-api-key"
       assert config.api_key == {:system, "ANTHROPIC_API_KEY"}
       assert config.headers == %{"anthropic-version" => "2023-06-01"}

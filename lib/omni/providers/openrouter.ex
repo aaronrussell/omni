@@ -29,7 +29,7 @@ defmodule Omni.Providers.OpenRouter do
   @impl true
   def config do
     %{
-      base_url: "https://openrouter.ai/api",
+      base_url: "https://openrouter.ai/api/v1",
       api_key: {:system, "OPENROUTER_API_KEY"}
     }
   end

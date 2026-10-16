@@ -21,7 +21,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
 
   describe "handle_path/1" do
     test "returns /v1/chat/completions" do
-      assert OpenAICompletions.handle_path(@model, %{}) == "/v1/chat/completions"
+      assert OpenAICompletions.handle_path(@model, %{}) == "/chat/completions"
     end
   end
 

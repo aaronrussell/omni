@@ -7,7 +7,7 @@ defmodule Omni.Providers.GoogleTest do
     test "returns expected configuration" do
       config = Google.config()
 
-      assert config.base_url == "https://generativelanguage.googleapis.com"
+      assert config.base_url == "https://generativelanguage.googleapis.com/v1beta"
       assert config.auth_header == "x-goog-api-key"
       assert config.api_key == {:system, "GEMINI_API_KEY"}
     end

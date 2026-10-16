@@ -28,7 +28,7 @@ defmodule Omni.Providers.Moonshot do
   @impl true
   def config do
     %{
-      base_url: "https://api.moonshot.ai",
+      base_url: "https://api.moonshot.ai/v1",
       api_key: {:system, "MOONSHOT_API_KEY"}
     }
   end
