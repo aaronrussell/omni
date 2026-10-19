@@ -227,7 +227,7 @@ Then, from the results:
 
 ## Verification results
 
-**Verification closed 2026-10-16.** Changes from it: Z.ai `max_tokens_field`, and Groq's `modify_body/4` retargeted to non-gpt-oss reasoning models. Still unverified live: Z.ai effort models, Groq Qwen, Ollama Cloud effort-list models other than gpt-oss (paid plan), NearAI (wire output unchanged from phase 1). Ollama Cloud generation was verified on 2026-10-19 after a streaming fix (below). The cases are in `scripts/verify_phase2.exs`, kept untracked until those are run.
+**Verification closed 2026-10-16.** Changes from it: Z.ai `max_tokens_field`, and Groq's `modify_body/4` retargeted to non-gpt-oss reasoning models. Follow-up runs on 2026-10-19 verified Z.ai effort models and Ollama Cloud generation (after a streaming fix, below). Still unverified live, with no way to test on current accounts: Groq Qwen (Groq's paid plans are closed to new sign-ups), Ollama Cloud effort-list models other than gpt-oss (paid plan), NearAI (no key; wire output unchanged from phase 1).
 
 *Recorded as each provider is run (2026-10-16).*
 
@@ -278,9 +278,10 @@ Then, from the results:
   - The `json_object` fallback works.
   - **`max_completion_tokens` is ignored** (a 16-token cap produced 200 tokens) and `max_tokens` is honoured, so Z.ai gains `max_tokens_field: "max_tokens"` (as Pi has it). Retested with the fix: the 16-token cap now stops at 16.
   - `glm-5.3` is not on the free tier.
+  - **2026-10-19, paid top-up, all ok.** `glm-5.3` `:medium` → `reasoning_effort: "high"`, accepted, thinking returned. `glm-4.7-flash` toggle on and off, `max_tokens: 16` → `:length`, and `json_object` structured output pass again. Z.ai's API was often overloaded.
 - **Not testable on current accounts.**
-  - **Z.ai effort models** (`glm-5.x`; free tier only). Cloudflare documents its GLM-5.2 `reasoning_effort` mapping as the same as Z.ai's API.
-  - **Groq Qwen** (free tier).
+  - **Z.ai effort models** (`glm-5.x`; free tier only) — verified 2026-10-19 with a paid top-up (above).
+  - **Groq Qwen** (free tier; Groq's paid developer plans have been closed to sign-ups for months).
   - **NearAI** (no key); **Ollama Cloud** until 2026-10-19.
   - NearAI's wire output is unchanged from phase 1.
   - **Ollama Cloud.**
