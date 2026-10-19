@@ -69,6 +69,8 @@ config :omni, :providers,
 
 **New: `Omni.get_provider/1`.** *(phase 1)*
 
+**Ollama Cloud streaming fixed.** *(phase 2)* ollama.com labels its NDJSON stream `application/json`, which Omni parsed as SSE, so every Ollama Cloud request ended in `{:error, :incomplete_stream}`. `application/json` responses are now read as NDJSON.
+
 **Local Ollama sends no credentials** (`auth: :none`). *(phase 1)* In v1 a configured key was sent as a Bearer token. Behind an authenticating proxy, set `auth: :bearer` and `api_key:`. Its models are configured with `config :omni, :providers, ollama: [models: [...]]`.
 
 **A missing API key is not a boot error.** *(phase 1)* Keys passed per call remain valid; a request without one fails with `{:error, :no_api_key}`, as before.

@@ -227,7 +227,7 @@ Then, from the results:
 
 ## Verification results
 
-**Verification closed 2026-10-16.** Changes from it: Z.ai `max_tokens_field`, and Groq's `modify_body/4` retargeted to non-gpt-oss reasoning models. Still unverified live: Z.ai effort models, Groq Qwen, Ollama Cloud generation, NearAI (wire output unchanged from phase 1). The cases are in `scripts/verify_phase2.exs`, kept untracked until those are run.
+**Verification closed 2026-10-16.** Changes from it: Z.ai `max_tokens_field`, and Groq's `modify_body/4` retargeted to non-gpt-oss reasoning models. Still unverified live: Z.ai effort models, Groq Qwen, Ollama Cloud effort-list models other than gpt-oss (paid plan), NearAI (wire output unchanged from phase 1). Ollama Cloud generation was verified on 2026-10-19 after a streaming fix (below). The cases are in `scripts/verify_phase2.exs`, kept untracked until those are run.
 
 *Recorded as each provider is run (2026-10-16).*
 
@@ -281,11 +281,13 @@ Then, from the results:
 - **Not testable on current accounts.**
   - **Z.ai effort models** (`glm-5.x`; free tier only). Cloudflare documents its GLM-5.2 `reasoning_effort` mapping as the same as Z.ai's API.
   - **Groq Qwen** (free tier).
-  - **NearAI and Ollama Cloud** (no keys).
+  - **NearAI** (no key); **Ollama Cloud** until 2026-10-19.
   - NearAI's wire output is unchanged from phase 1.
   - **Ollama Cloud.**
     - gpt-oss is unchanged, but models whose data lists efforts now get string levels where they got `true`.
     - Ollama's public `https://ollama.com/api/show` (no key) reports each model's `thinking.values`, and they match the catalog: `glm-5.3` and `glm-5.3-flash` `[low, high, max]`; `kimi-k3` and `deepseek-v4.1-flash` `[false, low, high, max]`; `gpt-oss:120b` `[low, medium, high]`; `kimi-k2.6` and `gemma4:31b` `[false, true]`. So the strings sent are values the API declares.
     - `glm-5.2` reports `[false, high, max]` where the catalog has no off switch, so off sends nothing there.
     - `deepseek-v4-flash`, `minimax-m3` and `mistral-large-4` report no thinking values, so their strings are unconfirmed.
-    - No generation test.
+    - **2026-10-19, first generation test** (`gpt-oss:120b`, `think: "high"`): failed with `:incomplete_stream`. ollama.com labels its NDJSON stream `content-type: application/json` (local Ollama sends `application/x-ndjson`), so Omni parsed it as SSE and dropped every line. This was a pre-v2 bug: Ollama Cloud streaming had never worked. Fixed in `Request.select_parser/1`, which now reads `application/json` as NDJSON. A curl of the same request showed thinking output and a final `done_reason: "stop"` line.
+    - **Retest after the fix, all ok.** `gpt-oss:120b` `:max` → `think: "high"`: 540 chars of thinking, stop. `gemma4:31b` (toggle only): `true` and `:high` both send `think: true` and think; off sends `think: false`, no thinking.
+    - `glm-5.3` and `kimi-k3` (effort lists) and `kimi-k2.6` return 402: not on the free plan. String levels on non-gpt-oss models remain unverified live.

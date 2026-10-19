@@ -207,10 +207,14 @@ defmodule Omni.Request do
     end
   end
 
+  # Ollama streams NDJSON: local Ollama labels it `application/x-ndjson`,
+  # ollama.com plain `application/json`. SSE is everything else.
   defp select_parser(%Req.Response{} = resp) do
     if resp
        |> Req.Response.get_header("content-type")
-       |> Enum.any?(&String.contains?(&1, "ndjson")),
+       |> Enum.any?(
+         &(String.contains?(&1, "ndjson") or String.starts_with?(&1, "application/json"))
+       ),
        do: Parsers.NDJSON,
        else: Parsers.SSE
   end

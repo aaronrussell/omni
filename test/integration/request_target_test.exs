@@ -50,10 +50,16 @@ defmodule Integration.RequestTargetTest do
 
       Req.Test.stub(stub, fn conn ->
         send(test_pid, {:request, conn.host, conn.request_path, conn.req_headers})
-        content_type = if String.ends_with?(fixture, ".ndjson"), do: "application/x-ndjson"
+        # ollama.com labels its NDJSON stream plain application/json
+        content_type =
+          cond do
+            provider_id == :ollama_cloud -> "application/json"
+            String.ends_with?(fixture, ".ndjson") -> "application/x-ndjson"
+            true -> "text/event-stream"
+          end
 
         conn
-        |> Plug.Conn.put_resp_content_type(content_type || "text/event-stream")
+        |> Plug.Conn.put_resp_content_type(content_type)
         |> Plug.Conn.send_resp(200, File.read!(fixture))
       end)
 
