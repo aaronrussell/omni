@@ -208,9 +208,9 @@ It receives the provider's id and returns **raw catalog data only**:
 - a partial `%Provider{}`: `id`, plus whatever the catalog knows of `name`, `base_url`, `api_key` (`{:system, var}` only when the catalog names exactly one variable -- several variables signal bespoke credentials that need config), and a provider-level `dialects` hint;
 - models **without** a provider, each with `dialects` from its own catalog data, or empty when nothing maps.
 
-Translating the id to the catalog's key is the source's job (`Omni.Sources.ModelsDev` hyphenates; `Omni.Sources.LLMDB` uses it verbatim). `Omni.Source.build_model/1` builds a model from a string-keyed map (dates, defaults, `"reasoning"` and `"reasoning_options"` into `:thinking`). Sources skip, with a warning, models they can't represent faithfully: a model whose own npm package maps to no dialect (it explicitly differs from its provider, so filling it would be a guess), and a model served from a different base URL than its provider (gateway multi-mounts; not yet supported). `{:error, :unknown_provider}` means the catalog doesn't know the id, so the provider is custom; any other error is logged and treated the same way. There is no cross-source fallback.
+Translating the id to the catalog's key is the source's job (`Omni.Sources.ModelsDev` hyphenates; `Omni.Sources.LLMDB` uses it verbatim). `Omni.Source.build_model/1` builds a model from a string-keyed map (dates, defaults, `"reasoning"` and `"reasoning_options"` into `:thinking`). Sources skip, with a warning, models they can't represent faithfully: a model whose own npm package maps to no dialect (it explicitly differs from its provider, so filling it would be a guess), and a model served from a different base URL than its provider (per-model base URLs; on the roadmap backlog). `{:error, :unknown_provider}` means the catalog doesn't know the id, so the provider is custom; any other error is logged and treated the same way. There is no cross-source fallback.
 
-The npm-package-to-dialect table lives in each source. Mapping bespoke packages that are OpenAI-compatible in practice (`@ai-sdk/mistral`, `@ai-sdk/xai`, ...) belongs there too.
+The npm-package-to-dialect table lives in each source. A bespoke package that is OpenAI-compatible in practice (`@ai-sdk/mistral`, `@ai-sdk/xai`, ...) is mapped there when its provider becomes a built-in, not before: these providers have no catalog base URL, so a mapping without the module adds little.
 
 Omni ships two sources:
 
@@ -276,7 +276,7 @@ A provider is an LLM service, described as data: a `%Omni.Provider{}` struct ass
 }
 ```
 
-- **`base_url` includes the version segment** (`/v1`, `/v1beta`, `/api/paas/v4`). Dialect paths are resource paths only (`/chat/completions`, `/messages`). This follows the catalog (190 of the ~200 catalog base URLs include it) and the OpenAI SDK convention, and removed every URL-building override. Local Ollama's documented root has no version, so its dialect path stays `/api/chat`.
+- **`base_url` includes the version segment** (`/v1`, `/v1beta`, `/api/paas/v4`). Dialect paths are resource paths only (`/chat/completions`, `/messages`). This follows the catalog (190 of the ~200 catalog base URLs include it) and the OpenAI SDK convention, and removed every URL-building override. The few catalog base URLs without a version segment (`https://api.deepseek.com`, `https://api.githubcopilot.com`) are roots those APIs serve directly, not omissions. Local Ollama's documented root has no version, so its dialect path stays `/api/chat`.
 - **`auth` is pure data.** `:dialect` (the default) means "use the scheme of the dialect's home API" (`Dialect.auth/0`: Anthropic Messages → `x-api-key`, Gemini → `x-goog-api-key`, OpenAI → bearer). That is how a gateway like OpenCode Zen authenticates each model the way its upstream does, with no code. No function-valued forms; anything exotic goes through `modify_request/3`.
 - **`dialects`** lists, per capability, every dialect the provider's models speak. It is derived at load from the models, not declared.
 - **`compat`** holds compat flags keyed by dialect module. See [Compat flags](#compat-flags).
