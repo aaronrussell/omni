@@ -42,6 +42,14 @@ defmodule Integration.RequestTargetTest do
   ]
 
   for {provider_id, model_id, fixture, host, path, expected_headers} <- @cases do
+    # ollama.com labels its NDJSON stream plain application/json
+    content_type =
+      cond do
+        provider_id == :ollama_cloud -> "application/json"
+        String.ends_with?(fixture, ".ndjson") -> "application/x-ndjson"
+        true -> "text/event-stream"
+      end
+
     test "#{provider_id}/#{model_id} → #{host}#{path}" do
       provider_id = unquote(provider_id)
       stub = :"target_#{provider_id}_#{unquote(model_id)}"
@@ -50,16 +58,9 @@ defmodule Integration.RequestTargetTest do
 
       Req.Test.stub(stub, fn conn ->
         send(test_pid, {:request, conn.host, conn.request_path, conn.req_headers})
-        # ollama.com labels its NDJSON stream plain application/json
-        content_type =
-          cond do
-            provider_id == :ollama_cloud -> "application/json"
-            String.ends_with?(fixture, ".ndjson") -> "application/x-ndjson"
-            true -> "text/event-stream"
-          end
 
         conn
-        |> Plug.Conn.put_resp_content_type(content_type)
+        |> Plug.Conn.put_resp_content_type(unquote(content_type))
         |> Plug.Conn.send_resp(200, File.read!(fixture))
       end)
 
