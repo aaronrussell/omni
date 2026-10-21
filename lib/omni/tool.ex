@@ -76,7 +76,7 @@ defmodule Omni.Tool do
         tools: [weather, db_lookup]
       )
 
-      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-4-5-20250514"}, context)
+      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, context)
 
   The loop executes tool uses automatically and continues the conversation
   until the model responds with text (or hits `:max_steps`).

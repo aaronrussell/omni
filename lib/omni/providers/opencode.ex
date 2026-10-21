@@ -2,24 +2,19 @@ defmodule Omni.Providers.OpenCode do
   @moduledoc """
   Provider for the OpenCode Zen API.
 
-  Zen is a multi-model gateway that routes to different upstream APIs (Anthropic,
-  OpenAI, Google, and others) through a single service. Unlike single-dialect
-  providers, the wire format depends on the model — Claude models use the
-  Anthropic Messages format, GPT models use OpenAI Responses, and so on. The
-  correct dialect is resolved per-model from the catalog data, and each
-  request authenticates the way that dialect's upstream API does.
+  Provider id `:opencode`. Reads the API key from `OPENCODE_API_KEY`, so no
+  configuration is needed if it is set. Override any setting under
+  `config :omni, :providers, opencode: [...]` (see `Omni.Provider`).
 
-  Reads the API key from the `OPENCODE_API_KEY` environment variable — no
-  further configuration is needed if the variable is set.
+  Zen is a gateway to models from several labs through one service, and the
+  wire format depends on the model: Claude models use
+  `Omni.Dialects.AnthropicMessages`, GPT models use
+  `Omni.Dialects.OpenAIResponses`, and so on. Each model's dialect comes from
+  the catalog, and each request authenticates the way that dialect's home API
+  does.
 
-  ## Configuration
-
-  Override the default API key or base URL via application config:
-
-      config :omni, :providers,
-        opencode: [api_key: {:system, "MY_OPENCODE_KEY"}]
-
-  Any provider key can be overridden — see `Omni.Provider`.
+  Compat flags for this provider must be keyed by dialect (see
+  `Omni.Provider`).
   """
 
   @behaviour Omni.Provider

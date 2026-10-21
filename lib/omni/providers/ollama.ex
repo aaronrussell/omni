@@ -3,14 +3,14 @@ defmodule Omni.Providers.Ollama do
   Provider for a local Ollama instance, using the `Omni.Dialects.OllamaChat`
   dialect.
 
-  Talks to `http://localhost:11434` with no authentication. For Ollama's
-  hosted cloud service, use the `:ollama_cloud` provider instead.
+  Provider id `:ollama`. Talks to `http://localhost:11434` with no
+  authentication. For Ollama's hosted service, use `Omni.Providers.OllamaCloud`.
 
   ## Models
 
   A local instance's models are whatever you have pulled, so there is no
-  catalog to load from — list the models you have locally. Each entry can be
-  a string (just the model ID) or a keyword list for full control:
+  catalog to load them from. List them in config, each as a model id or a
+  keyword list of `Omni.Model.new/1` attributes (only `:id` is required):
 
       config :omni, :providers,
         ollama: [
@@ -21,30 +21,26 @@ defmodule Omni.Providers.Ollama do
           ]
         ]
 
-  String entries use the ID as the display name with default values for all
-  other fields. Keyword entries accept any field from `Omni.Model.new/1` —
-  only `:id` is required, everything else has sensible defaults.
-
   Without this config the provider loads no models.
 
   ## Configuration
 
-  Override the base URL for a non-default host or port:
+  For another host or port, set `:base_url`:
 
       config :omni, :providers,
         ollama: [base_url: "http://192.168.1.10:11434"]
 
   Requests are sent without credentials. For an instance behind an
-  authenticating proxy, send the key as a Bearer token:
+  authenticating proxy, send a key as a Bearer token:
 
       config :omni, :providers,
         ollama: [auth: :bearer, api_key: {:system, "OLLAMA_PROXY_KEY"}]
 
   ## Limitations
 
-  - **Image attachments**: Only base64-encoded images are supported. URL-based
-    image attachments (`{:url, url}`) are silently skipped because Ollama's API
-    has no URL image input mechanism.
+  Only base64-encoded images are supported. URL image attachments
+  (`{:url, url}`) are skipped, because Ollama's API has no way to take an
+  image by URL.
   """
 
   @behaviour Omni.Provider

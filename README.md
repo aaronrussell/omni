@@ -25,7 +25,7 @@ Add Omni to your dependencies:
 ```elixir
 def deps do
   [
-    {:omni, "~> 1.6"}
+    {:omni, "~> 2.0"}
   ]
 end
 ```
@@ -33,20 +33,20 @@ end
 Each built-in provider reads its API key from a standard environment variable
 by default — if your keys are set, no configuration is needed:
 
-| Provider | Environment variable |
-| --- | --- |
-| Alibaba | `DASHSCOPE_API_KEY` |
-| Anthropic | `ANTHROPIC_API_KEY` |
-| Google | `GEMINI_API_KEY` |
-| Groq | `GROQ_API_KEY` |
-| Moonshot AI | `MOONSHOT_API_KEY` |
-| NEAR AI Cloud | `NEARAI_API_KEY` |
-| Ollama Cloud | `OLLAMA_API_KEY` |
-| OpenAI | `OPENAI_API_KEY` |
-| OpenCode | `OPENCODE_API_KEY` |
-| OpenRouter | `OPENROUTER_API_KEY` |
-| Venice AI | `VENICE_API_KEY` |
-| Z.ai | `ZAI_API_KEY` |
+| Provider | Id | Environment variable |
+| --- | --- | --- |
+| Alibaba | `:alibaba` | `DASHSCOPE_API_KEY` |
+| Anthropic | `:anthropic` | `ANTHROPIC_API_KEY` |
+| Google | `:google` | `GEMINI_API_KEY` |
+| Groq | `:groq` | `GROQ_API_KEY` |
+| Moonshot AI | `:moonshotai` | `MOONSHOT_API_KEY` |
+| NEAR AI Cloud | `:nearai` | `NEARAI_API_KEY` |
+| Ollama Cloud | `:ollama_cloud` | `OLLAMA_API_KEY` |
+| OpenAI | `:openai` | `OPENAI_API_KEY` |
+| OpenCode | `:opencode` | `OPENCODE_API_KEY` |
+| OpenRouter | `:openrouter` | `OPENROUTER_API_KEY` |
+| Venice AI | `:venice` | `VENICE_API_KEY` |
+| Z.ai | `:zai` | `ZAI_API_KEY` |
 
 A local-Ollama provider (`:ollama`) is also included; it needs no API key —
 configure it with the models you have pulled locally:
@@ -88,7 +88,7 @@ config :omni, :providers,
 Pass a model tuple and a string:
 
 ```elixir
-{:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-4-5-20250514"}, "Hello!")
+{:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
 
 response.message
 #=> %Omni.Message{role: :assistant, content: [%Omni.Content.Text{text: "Hello! How can..."}]}
@@ -106,7 +106,7 @@ context = Omni.context(
   ]
 )
 
-{:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-4-5-20250514"}, context)
+{:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, context)
 ```
 
 ### Streaming
@@ -114,7 +114,7 @@ context = Omni.context(
 `stream_text` returns a `StreamingResponse` that you consume with event handlers:
 
 ```elixir
-{:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-4-5-20250514"}, "Tell me a story")
+{:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Tell me a story")
 
 {:ok, response} =
   stream
@@ -142,7 +142,7 @@ schema = Omni.Schema.object(%{
 
 {:ok, response} =
   Omni.generate_text(
-    {:anthropic, "claude-sonnet-4-5-20250514"},
+    {:anthropic, "claude-sonnet-5-5"},
     "What is the capital of France?",
     output: schema
   )
@@ -171,7 +171,7 @@ context = Omni.context(
   tools: [weather_tool]
 )
 
-{:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-4-5-20250514"}, context)
+{:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, context)
 ```
 
 ## Model catalog

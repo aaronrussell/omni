@@ -6,7 +6,7 @@ defmodule Omni.StreamingResponse do
 
   ## Stream to UI and get the final response
 
-      {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-4-5-20250514"}, "Hello!")
+      {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
 
       {:ok, response} =
         stream
@@ -15,7 +15,7 @@ defmodule Omni.StreamingResponse do
 
   ## Just the text chunks
 
-      {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-4-5-20250514"}, "Hello!")
+      {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
 
       stream
       |> StreamingResponse.text_stream()
@@ -27,7 +27,7 @@ defmodule Omni.StreamingResponse do
   partial_response}` tuples. The partial response is rebuilt after every event to
   reflect the current state of the stream:
 
-      {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-4-5-20250514"}, "Hello!")
+      {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
 
       for {type, data, _partial} <- stream do
         case type do

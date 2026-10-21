@@ -3,24 +3,20 @@ defmodule Omni.Providers.OllamaCloud do
   Provider for Ollama's hosted cloud service, using the
   `Omni.Dialects.OllamaChat` dialect.
 
-  Reads the API key from the `OLLAMA_API_KEY` environment variable — no
-  further configuration is needed if the variable is set. For a local
-  Ollama instance, use the `:ollama` provider instead.
+  Provider id `:ollama_cloud`. Reads the API key from `OLLAMA_API_KEY`, so no
+  configuration is needed if it is set. Override any setting under
+  `config :omni, :providers, ollama_cloud: [...]` (see `Omni.Provider`). For
+  a local Ollama instance, use `Omni.Providers.Ollama`.
 
-  ## Configuration
-
-  Override the default API key or base URL via application config:
-
-      config :omni, :providers,
-        ollama_cloud: [api_key: {:system, "MY_OLLAMA_KEY"}]
-
-  Any provider key can be overridden — see `Omni.Provider`.
+  The catalog describes Ollama's OpenAI-compatible endpoint. Omni uses the
+  native chat API instead, so every catalog model is given the Ollama Chat
+  dialect when the provider loads.
 
   ## Limitations
 
-  - **Image attachments**: Only base64-encoded images are supported. URL-based
-    image attachments (`{:url, url}`) are silently skipped because Ollama's API
-    has no URL image input mechanism.
+  Only base64-encoded images are supported. URL image attachments
+  (`{:url, url}`) are skipped, because Ollama's API has no way to take an
+  image by URL.
   """
 
   @behaviour Omni.Provider

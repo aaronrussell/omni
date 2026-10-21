@@ -3,27 +3,21 @@ defmodule Omni.Providers.Groq do
   Provider for the Groq API, using the `Omni.Dialects.OpenAICompletions`
   dialect.
 
-  Reads the API key from the `GROQ_API_KEY` environment variable — no further
-  configuration is needed if the variable is set.
-
-  ## Configuration
-
-  Override the default API key or base URL via application config:
-
-      config :omni, :providers,
-        groq: [api_key: {:system, "MY_GROQ_KEY"}]
-
-  Any provider key can be overridden — see `Omni.Provider`.
+  Provider id `:groq`. Reads the API key from `GROQ_API_KEY`, so no
+  configuration is needed if it is set. Override any setting under
+  `config :omni, :providers, groq: [...]` (see `Omni.Provider`).
 
   ## Reasoning
 
-  The `:thinking` option is supported. Accepted effort levels vary by model
-  family; each level is rounded to the nearest the model supports, so
-  `:xhigh` and `:max` may become the model's highest level. Reasoning always
-  arrives separately from the answer: gpt-oss models return it that way, and
-  other reasoning models (such as Qwen) are asked for it with
-  `reasoning_format: "parsed"`, since Groq's default inlines it as
-  `<think>` tags in the answer.
+  `:thinking` is supported. Accepted effort levels vary by model family, and
+  each level is rounded to the nearest the model supports, so `:xhigh` and
+  `:max` may become the model's highest level.
+
+  Reasoning always arrives separately from the answer. gpt-oss models return
+  it that way; other reasoning models (such as Qwen) are asked for it with
+  `reasoning_format: "parsed"`, because Groq's default puts it in the answer
+  as `<think>` tags. This is done in the module's `c:Omni.Provider.modify_body/4`,
+  not with a compat flag, so `like: :groq` doesn't copy it.
   """
 
   @behaviour Omni.Provider

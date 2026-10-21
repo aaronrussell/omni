@@ -3,22 +3,27 @@ defmodule Omni.Providers.Venice do
   Provider for the Venice AI API, using the `Omni.Dialects.OpenAICompletions`
   dialect.
 
-  Reads the API key from the `VENICE_API_KEY` environment variable — no
-  further configuration is needed if the variable is set.
+  Provider id `:venice`. Reads the API key from `VENICE_API_KEY`, so no
+  configuration is needed if it is set. Override any setting under
+  `config :omni, :providers, venice: [...]` (see `Omni.Provider`).
 
-  ## Configuration
+  ## Reasoning
 
-  Override the default API key or base URL via application config:
-
-      config :omni, :providers,
-        venice: [api_key: {:system, "MY_VENICE_KEY"}]
-
-  Any provider key can be overridden — see `Omni.Provider`.
+  `:thinking` is supported. Thinking is switched off with
+  `reasoning: {enabled: false}`, which Venice recommends over
+  `reasoning_effort: "none"`.
 
   ## PDF input
 
-  Every Venice model accepts PDF attachments — Venice extracts document text
-  at the API layer regardless of the underlying model's native modalities.
+  Every Venice model accepts PDF attachments: Venice extracts the text itself,
+  whatever the model's own modalities. The module adds `:pdf` to each model's
+  input modalities when the provider loads.
+
+  ## Compat flags
+
+  Sets this `Omni.Dialects.OpenAICompletions` flag:
+
+    * `thinking_toggle_format: :reasoning_enabled`
   """
 
   @behaviour Omni.Provider

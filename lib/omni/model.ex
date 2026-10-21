@@ -11,8 +11,8 @@ defmodule Omni.Model do
 
   ## Struct fields
 
-    * `:id` — the provider's string identifier (e.g. `"claude-sonnet-4-5-20250514"`)
-    * `:name` — human-readable display name (e.g. `"Claude Sonnet 4.5"`)
+    * `:id` — the provider's string identifier (e.g. `"claude-sonnet-5-5"`)
+    * `:name` — human-readable display name (e.g. `"Claude Sonnet 5.5"`)
     * `:provider` — the `%Omni.Provider{}` serving the model
     * `:dialects` — the dialect module per capability, e.g.
       `%{text: Omni.Dialects.AnthropicMessages}`
@@ -51,12 +51,12 @@ defmodule Omni.Model do
   Most users access models through the top-level API with `{provider_id,
   model_id}` tuples — Omni resolves them automatically:
 
-      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-4-5-20250514"}, "Hello!")
+      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
 
   To inspect a model's capabilities or browse what's available:
 
-      {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-4-5-20250514")
-      model.context_size  #=> 200000
+      {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-5-5")
+      model.context_size  #=> 1000000
 
       {:ok, models} = Omni.list_models(:openai)
       Enum.map(models, & &1.id)
@@ -117,7 +117,7 @@ defmodule Omni.Model do
 
   The provider ID is an atom identifying a loaded provider (e.g. `:anthropic`,
   `:openai`, `:google`). The model ID is the provider's string identifier
-  for the model (e.g. `"claude-sonnet-4-5-20250514"`).
+  for the model (e.g. `"claude-sonnet-5-5"`).
   """
   @type ref :: {atom(), String.t()}
 
@@ -163,9 +163,9 @@ defmodule Omni.Model do
   @doc """
   Converts a model back to its `{provider_id, model_id}` lookup reference.
 
-      {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-4-5-20250514")
+      {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-5-5")
       Model.to_ref(model)
-      #=> {:anthropic, "claude-sonnet-4-5-20250514"}
+      #=> {:anthropic, "claude-sonnet-5-5"}
   """
   @spec to_ref(t()) :: ref()
   def to_ref(%__MODULE__{provider: %Provider{id: provider_id}} = model) do

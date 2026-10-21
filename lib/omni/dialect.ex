@@ -40,7 +40,7 @@ defmodule Omni.Dialect do
   Carries message-level metadata. Does not produce a consumer event directly —
   the data is folded into the accumulating response.
 
-      {:message, %{model: "claude-sonnet-4-5-20250514"}}
+      {:message, %{model: "claude-sonnet-5-5"}}
       {:message, %{stop_reason: :stop, usage: %{...}}}
       {:message, %{private: %{key: value}}}
 

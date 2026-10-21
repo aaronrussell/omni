@@ -96,6 +96,14 @@ Builds the real reference for built-in providers from their moduledocs.
 - Generated versus hand-written: a guide assembled from module docs and `config/0` values, or written by hand.
 - Where flag documentation lives: with the dialect or with the provider.
 
+**Landed 2026-10-21.** Decided in the pass:
+
+- **No providers guide yet.** The built-in moduledocs are the per-provider reference, in one shape: id and key variable, provider-specific sections, then the compat flags the module sets, hand-written (a cross-provider matrix may come in the pre-release docs pass). `Omni.Provider` gains a built-ins table and a short section on the three tiers that doesn't overpromise. The contribution path waits for phase 4's verification procedure.
+- **Flag docs live with the dialect** (the Completions moduledoc table); provider docs list which flags they set.
+- **`context/design.md` rewritten** for v2: providers, compat, thinking, request flow and the loop, plus pre-existing drift (options, caching, structs, streaming events). It now carries the durable rationale from these notes.
+- **Notes kept until phase 4 is done**, in case it needs them; open items moved to `context/roadmap.md` so the notes can then be deleted safely.
+- Example model id across the docs is `claude-sonnet-5-5` (the old `claude-sonnet-4-5-20250514` never existed); the install snippet says `~> 2.0`.
+
 ## Phase 4 — Providers on the new model
 
 Uses the machinery. Each verification is small and repeatable.

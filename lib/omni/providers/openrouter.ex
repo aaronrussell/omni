@@ -3,22 +3,22 @@ defmodule Omni.Providers.OpenRouter do
   Provider for the OpenRouter API, using the `Omni.Dialects.OpenAICompletions`
   dialect.
 
-  Reads the API key from the `OPENROUTER_API_KEY` environment variable — no
-  further configuration is needed if the variable is set.
-
-  ## Configuration
-
-  Override the default API key or base URL via application config:
-
-      config :omni, :providers,
-        openrouter: [api_key: {:system, "MY_OPENROUTER_KEY"}]
-
-  Any provider key can be overridden — see `Omni.Provider`.
+  Provider id `:openrouter`. Reads the API key from `OPENROUTER_API_KEY`, so
+  no configuration is needed if it is set. Override any setting under
+  `config :omni, :providers, openrouter: [...]` (see `Omni.Provider`).
 
   ## Reasoning
 
-  The `:thinking` option is supported. Reasoning data round-trips
-  automatically in multi-turn conversations without any special handling.
+  `:thinking` is supported and sent as `reasoning.effort`. Reasoning is sent
+  back on later turns of a conversation, as OpenRouter's `reasoning_details`,
+  with no extra handling needed.
+
+  ## Compat flags
+
+  Sets these `Omni.Dialects.OpenAICompletions` flags:
+
+    * `thinking_effort_field: "reasoning.effort"`
+    * `thinking_replay_field: "reasoning_details"`
   """
 
   @behaviour Omni.Provider

@@ -5,10 +5,44 @@ defmodule Omni.Provider do
   A provider is an LLM service: where requests go (`:base_url`), how they are
   authenticated (`:api_key`, `:auth`), extra `:headers`, which wire formats
   its models speak (`:dialects`), and how it deviates from them (`:compat`).
-  Providers are data — a
-  `%Omni.Provider{}` struct assembled once, when the provider loads, and
-  embedded in every `%Omni.Model{}` it serves. At request time nothing is
-  looked up: the model carries everything.
+  Providers are data — a `%Omni.Provider{}` struct assembled once, when the
+  provider loads, and embedded in every `%Omni.Model{}` it serves. At request
+  time nothing is looked up: the model carries everything.
+
+  ## Built-in providers
+
+  All built-ins load by default. Each module's documentation covers that
+  provider's quirks and the compat flags it sets.
+
+  | Id | Module | Dialect | API key variable |
+  | --- | --- | --- | --- |
+  | `:alibaba` | `Omni.Providers.Alibaba` | `Omni.Dialects.OpenAICompletions` | `DASHSCOPE_API_KEY` |
+  | `:anthropic` | `Omni.Providers.Anthropic` | `Omni.Dialects.AnthropicMessages` | `ANTHROPIC_API_KEY` |
+  | `:google` | `Omni.Providers.Google` | `Omni.Dialects.GoogleGemini` | `GEMINI_API_KEY` |
+  | `:groq` | `Omni.Providers.Groq` | `Omni.Dialects.OpenAICompletions` | `GROQ_API_KEY` |
+  | `:moonshotai` | `Omni.Providers.Moonshot` | `Omni.Dialects.OpenAICompletions` | `MOONSHOT_API_KEY` |
+  | `:nearai` | `Omni.Providers.NearAI` | `Omni.Dialects.OpenAICompletions` | `NEARAI_API_KEY` |
+  | `:ollama` | `Omni.Providers.Ollama` | `Omni.Dialects.OllamaChat` | none (local) |
+  | `:ollama_cloud` | `Omni.Providers.OllamaCloud` | `Omni.Dialects.OllamaChat` | `OLLAMA_API_KEY` |
+  | `:openai` | `Omni.Providers.OpenAI` | `Omni.Dialects.OpenAIResponses` | `OPENAI_API_KEY` |
+  | `:opencode` | `Omni.Providers.OpenCode` | per model | `OPENCODE_API_KEY` |
+  | `:openrouter` | `Omni.Providers.OpenRouter` | `Omni.Dialects.OpenAICompletions` | `OPENROUTER_API_KEY` |
+  | `:venice` | `Omni.Providers.Venice` | `Omni.Dialects.OpenAICompletions` | `VENICE_API_KEY` |
+  | `:zai` | `Omni.Providers.Zai` | `Omni.Dialects.OpenAICompletions` | `ZAI_API_KEY` |
+
+  ## Built-in, catalog, and custom providers
+
+  Any provider can be loaded, but Omni knows more about some than others.
+  The struct's `:tier` says which kind a provider is:
+
+    * `:verified` — a built-in. It has been tested against the live API,
+      and its module sets whatever compat flags it needs.
+    * `:catalog` — any other provider in the source's catalog, such as
+      `:fireworks_ai`. Omni takes its base URL, API key variable, models and
+      dialect from catalog data, and speaks the dialect with no compat flags.
+      It may work as is; if it doesn't, set the flags it needs yourself.
+    * `:custom` — a provider the catalog doesn't know, defined wholly in
+      config.
 
   ## How a provider is assembled
 
@@ -74,9 +108,9 @@ defmodule Omni.Provider do
       `Omni.Model.new/1` attributes
     * `:source` — a model source for this provider only (see `Omni.Source`)
 
-  A selected provider with no base URL, or with models but no dialect, is a
-  boot error. A model whose dialect can't be resolved is skipped with a
-  warning.
+  Loading a provider with no base URL raises, as does loading one whose
+  models have no dialect from either the catalog or config. A missing API
+  key is not an error at boot, since a key can be passed per request.
 
   ## Dialects
 
@@ -98,13 +132,17 @@ defmodule Omni.Provider do
   For a provider that speaks one dialect, list the flags directly:
 
       config :omni, :providers,
-        togetherai: [compat: [max_tokens_field: "max_tokens"]]
+        gpu_box: [compat: [max_tokens_field: "max_tokens", omit: [:cache]]]
 
-  `like:` copies a built-in provider's flags, with your own layered over
-  them:
+  `like:` copies a built-in provider's flags. It suits catalog providers
+  that are a built-in under another name, such as a regional endpoint or a
+  separate plan:
 
       config :omni, :providers,
-        fireworks_ai: [compat: [like: :zai, attachment_format: :file]]
+        zai_coding_plan: [compat: [like: :zai]],
+        moonshotai_cn: [compat: [like: :moonshotai]]
+
+  Flags listed alongside `like:` are layered over the copied ones.
 
   A provider whose models speak several dialects keys flags by dialect:
 

@@ -3,23 +3,24 @@ defmodule Omni.Providers.Moonshot do
   Provider for the Moonshot AI (Kimi) API, using the
   `Omni.Dialects.OpenAICompletions` dialect.
 
-  Reads the API key from the `MOONSHOT_API_KEY` environment variable — no
-  further configuration is needed if the variable is set.
+  Provider id `:moonshotai`. Reads the API key from `MOONSHOT_API_KEY`, so no
+  configuration is needed if it is set. Override any setting under
+  `config :omni, :providers, moonshotai: [...]` (see `Omni.Provider`).
 
-  ## Configuration
-
-  Override the default API key or base URL via application config:
-
-      config :omni, :providers,
-        moonshotai: [api_key: {:system, "MY_MOONSHOT_KEY"}]
-
-  Any provider key can be overridden — see `Omni.Provider`.
+  The catalog lists the China endpoint as its own provider, `:moonshotai_cn`;
+  `compat: [like: :moonshotai]` gives it these flags.
 
   ## Reasoning
 
-  The `:thinking` option is supported. Models that take effort levels get
-  the nearest level the model supports; the rest switch thinking on and off
-  with `thinking: {type: "enabled" | "disabled"}`.
+  `:thinking` is supported. Models that take effort levels get the nearest
+  level the model supports; the rest switch thinking on and off with
+  `thinking: {type: "enabled" | "disabled"}`.
+
+  ## Compat flags
+
+  Sets this `Omni.Dialects.OpenAICompletions` flag:
+
+    * `thinking_toggle_format: :thinking_type`
   """
 
   @behaviour Omni.Provider

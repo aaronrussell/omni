@@ -14,25 +14,28 @@ defmodule Omni do
 
   Add Omni to your dependencies:
 
-      {:omni, "~> 1.6"}
+      {:omni, "~> 2.0"}
 
   Each built-in provider reads its API key from a standard environment variable
   by default — if your keys are set, no configuration is needed:
 
-  | Provider | Environment variable |
-  | --- | --- |
-  | Alibaba | `DASHSCOPE_API_KEY` |
-  | Anthropic | `ANTHROPIC_API_KEY` |
-  | Google | `GEMINI_API_KEY` |
-  | Groq | `GROQ_API_KEY` |
-  | Moonshot AI | `MOONSHOT_API_KEY` |
-  | NEAR AI Cloud | `NEARAI_API_KEY` |
-  | Ollama Cloud | `OLLAMA_API_KEY` |
-  | OpenAI | `OPENAI_API_KEY` |
-  | OpenCode | `OPENCODE_API_KEY` |
-  | OpenRouter | `OPENROUTER_API_KEY` |
-  | Venice AI | `VENICE_API_KEY` |
-  | Z.ai | `ZAI_API_KEY` |
+  | Provider | Id | Environment variable |
+  | --- | --- | --- |
+  | Alibaba | `:alibaba` | `DASHSCOPE_API_KEY` |
+  | Anthropic | `:anthropic` | `ANTHROPIC_API_KEY` |
+  | Google | `:google` | `GEMINI_API_KEY` |
+  | Groq | `:groq` | `GROQ_API_KEY` |
+  | Moonshot AI | `:moonshotai` | `MOONSHOT_API_KEY` |
+  | NEAR AI Cloud | `:nearai` | `NEARAI_API_KEY` |
+  | Ollama Cloud | `:ollama_cloud` | `OLLAMA_API_KEY` |
+  | OpenAI | `:openai` | `OPENAI_API_KEY` |
+  | OpenCode | `:opencode` | `OPENCODE_API_KEY` |
+  | OpenRouter | `:openrouter` | `OPENROUTER_API_KEY` |
+  | Venice AI | `:venice` | `VENICE_API_KEY` |
+  | Z.ai | `:zai` | `ZAI_API_KEY` |
+
+  A provider for a local Ollama instance (`:ollama`) is also built in. It
+  needs no key; list the models you have pulled (see `Omni.Providers.Ollama`).
 
   To override a key — for example, to use a different variable name or load
   from a vault at runtime — configure the provider by id:
@@ -55,7 +58,7 @@ defmodule Omni do
 
   The simplest way to use Omni — pass a model tuple and a string:
 
-      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-4-5-20250514"}, "Hello!")
+      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
 
       response.message
       #=> %Omni.Message{role: :assistant, content: [%Omni.Content.Text{text: "Hello! How can..."}]}
@@ -74,14 +77,14 @@ defmodule Omni do
         ]
       )
 
-      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-4-5-20250514"}, context)
+      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, context)
 
   ## Streaming
 
   `stream_text/3` returns a `StreamingResponse` that you can consume with
   event handlers:
 
-      {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-4-5-20250514"}, "Tell me a story")
+      {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Tell me a story")
 
       {:ok, response} =
         stream
@@ -108,7 +111,7 @@ defmodule Omni do
 
       {:ok, response} =
         Omni.generate_text(
-          {:anthropic, "claude-sonnet-4-5-20250514"},
+          {:anthropic, "claude-sonnet-5-5"},
           "What is the capital of France?",
           output: schema
         )
@@ -140,7 +143,7 @@ defmodule Omni do
         tools: [weather_tool]
       )
 
-      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-4-5-20250514"}, context)
+      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, context)
 
   When tools have handlers, the loop automatically executes tool uses and feeds
   results back to the model until it produces a final text response.
@@ -149,18 +152,21 @@ defmodule Omni do
 
   ## Providers
 
-  Omni ships with built-in providers for all of the services listed in the
-  table above. Each provider's models are paired with dialects that handle
-  wire format translation — most providers use a single dialect, while
-  multi-model gateways like OpenCode Zen use different dialects per model.
-
-  Models are referenced as `{provider_id, model_id}` tuples. To list available
-  models for a provider:
+  Models are referenced as `{provider_id, model_id}` tuples. To list a
+  provider's models:
 
       {:ok, models} = Omni.list_models(:anthropic)
 
-  Any provider in the models.dev catalog can be loaded by id, and fully custom
-  providers can be defined in config — see `Omni.Provider` for details.
+  Beyond the built-ins, any provider in the models.dev catalog can be loaded
+  by its id, and a provider the catalog doesn't know can be defined wholly in
+  config:
+
+      config :omni, :models, providers: [:builtins, :fireworks_ai]
+
+  Each model names the dialect it speaks: the wire format of an API family,
+  such as `Omni.Dialects.OpenAICompletions`. Most providers use one dialect;
+  gateways like OpenCode Zen use a different one per model. See
+  `Omni.Provider` for configuring and defining providers.
   """
 
   alias Omni.{Context, Loop, Model, Response, StreamingResponse}
@@ -180,13 +186,15 @@ defmodule Omni do
 
     * `:max_tokens` — maximum output tokens (Anthropic defaults to 4096)
     * `:temperature` — sampling temperature (number)
-    * `:thinking` — extended thinking. `true` switches it on and lets the
-      model decide how much (its dynamic mode where it has one, otherwise
-      `:medium`); an effort level (`:low`, `:medium`, `:high`, `:xhigh`,
-      `:max`) is rounded to the nearest the model supports, or turned into a
-      token budget for models that take one; `%{effort: level, budget: tokens}`
-      sets an exact budget on those models; `false` switches thinking off
-      where the model allows it. Ignored for models that don't reason
+    * `:thinking` — extended thinking. Ignored for models that don't reason.
+      * `true` — on, and the model decides how much: its dynamic mode where
+        it has one, otherwise `:medium`
+      * `:low`, `:medium`, `:high`, `:xhigh` or `:max` — an effort level,
+        rounded to the nearest the model supports, or turned into a token
+        budget for models that take one
+      * `%{effort: level, budget: tokens}` — an exact budget, for models
+        that take one
+      * `false` — off, where the model can be switched off
     * `:output` — a JSON Schema map for structured output (see the
       [Structured output](#module-structured-output) section above)
     * `:max_steps` — maximum tool execution rounds (default `:infinity`).
@@ -244,8 +252,8 @@ defmodule Omni do
   `{:error, {:unknown_model, provider_id, model_id}}` if the model doesn't
   exist.
 
-      {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-4-5-20250514")
-      model.context_size  #=> 200000
+      {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-5-5")
+      model.context_size  #=> 1000000
   """
   @spec get_model(atom(), String.t()) :: {:ok, Model.t()} | {:error, term()}
   defdelegate get_model(provider_id, model_id), to: Omni.Model, as: :get
@@ -282,7 +290,7 @@ defmodule Omni do
 
       {:ok, models} = Omni.list_models(:anthropic)
       Enum.map(models, & &1.id)
-      #=> ["claude-sonnet-4-5-20250514", "claude-haiku-4-5", ...]
+      #=> ["claude-fable-5", "claude-fable-5-1", "claude-haiku-4-5", ...]
   """
   @spec list_models(atom()) :: {:ok, [Model.t()]} | {:error, term()}
   defdelegate list_models(provider_id), to: Omni.Model, as: :list

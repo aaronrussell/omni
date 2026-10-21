@@ -72,6 +72,8 @@ lib/omni/
 ├── tool.ex                         # Tool struct, behaviour, use macro
 ├── tool/runner.ex                  # Parallel tool execution (ToolUse → ToolResult)
 ├── schema.ex                       # JSON Schema builders, validation, key normalization
+├── schema/adapter.ex               # Behaviour for alternative schema validators
+├── codec.ex                        # Lossless struct ↔ JSON-safe map serialisation
 ├── util.ex                         # Shared helpers (maybe_put, maybe_merge)
 ├── content/{text,thinking,attachment,tool_use,tool_result}.ex
 ├── parsers/sse.ex                  # SSE stream parser
@@ -84,7 +86,8 @@ lib/omni/
 ├── providers/{anthropic,openai,ollama,opencode,...}.ex   # Built-in provider modules
 ├── source.ex                       # Source behaviour + build_model/1 + memo cache
 ├── sources/{models_dev,llmdb}.ex
-├── dialect.ex                      # Dialect behaviour + string→module registry
+├── dialect.ex                      # Dialect behaviour + string→module registry + compat/2
+├── dialect/thinking.ex             # Shared :thinking resolution (effort clamping, budgets)
 └── dialects/{anthropic_messages,openai_completions,openai_responses,ollama_chat,...}.ex
 ```
 

@@ -3,22 +3,21 @@ defmodule Omni.Providers.NearAI do
   Provider for NEAR AI Cloud, including TEE-backed inference models, using the
   `Omni.Dialects.OpenAICompletions` dialect.
 
-  Reads the API key from the `NEARAI_API_KEY` environment variable — no
-  further configuration is needed if the variable is set.
-
-  ## Configuration
-
-  Override the default API key or base URL via application config:
-
-      config :omni, :providers,
-        nearai: [api_key: {:system, "MY_NEARAI_KEY"}]
-
-  Any provider key can be overridden — see `Omni.Provider`.
+  Provider id `:nearai`. Reads the API key from `NEARAI_API_KEY`, so no
+  configuration is needed if it is set. Override any setting under
+  `config :omni, :providers, nearai: [...]` (see `Omni.Provider`).
 
   ## Limitations
 
   The `:thinking` and `:cache` options are not sent, and structured output
   schemas are not marked strict.
+
+  ## Compat flags
+
+  Sets these `Omni.Dialects.OpenAICompletions` flags:
+
+    * `max_tokens_field: "max_tokens"`
+    * `omit: [:cache, :thinking, :strict_schema]`
   """
 
   @behaviour Omni.Provider

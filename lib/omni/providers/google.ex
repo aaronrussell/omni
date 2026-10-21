@@ -3,17 +3,9 @@ defmodule Omni.Providers.Google do
   Provider for the Google Gemini API, using the `Omni.Dialects.GoogleGemini`
   dialect.
 
-  Loaded by default. Reads the API key from the `GEMINI_API_KEY` environment
-  variable — no configuration is needed if the variable is set.
-
-  ## Configuration
-
-  Override the default API key or base URL via application config:
-
-      config :omni, :providers,
-        google: [api_key: {:system, "MY_GEMINI_KEY"}]
-
-  Any provider key can be overridden — see `Omni.Provider`.
+  Provider id `:google`. Reads the API key from `GEMINI_API_KEY`, so no
+  configuration is needed if it is set. Override any setting under
+  `config :omni, :providers, google: [...]` (see `Omni.Provider`).
   """
 
   @behaviour Omni.Provider

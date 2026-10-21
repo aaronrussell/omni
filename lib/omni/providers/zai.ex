@@ -3,34 +3,38 @@ defmodule Omni.Providers.Zai do
   Provider for the Z.ai API, using the `Omni.Dialects.OpenAICompletions`
   dialect.
 
-  Reads the API key from the `ZAI_API_KEY` environment variable — no further
-  configuration is needed if the variable is set.
+  Provider id `:zai`. Reads the API key from `ZAI_API_KEY`, so no
+  configuration is needed if it is set. Override any setting under
+  `config :omni, :providers, zai: [...]` (see `Omni.Provider`).
 
-  ## Configuration
-
-  Override the default API key or base URL via application config:
-
-      config :omni, :providers,
-        zai: [api_key: {:system, "MY_ZAI_KEY"}]
-
-  Any provider key can be overridden — see `Omni.Provider`.
+  The catalog lists Z.ai's coding plan, and Zhipu AI's endpoints in China, as
+  separate providers (`:zai_coding_plan`, `:zhipuai`,
+  `:zhipuai_coding_plan`); `compat: [like: :zai]` gives them these flags.
 
   ## Reasoning
 
-  The `:thinking` option is supported. Models that take effort levels get
-  the nearest level the model supports; the rest switch thinking on and off
-  with `thinking: {type: "enabled" | "disabled"}`. Z.ai's `clear_thinking`
-  defaults to true, so earlier turns' reasoning is not sent back.
+  `:thinking` is supported. Models that take effort levels get the nearest
+  level the model supports; the rest switch thinking on and off with
+  `thinking: {type: "enabled" | "disabled"}`. Reasoning from earlier turns
+  isn't sent back, which matches Z.ai's default (`clear_thinking: true`).
 
   ## Structured output
 
-  The `:output` option is supported. Z.ai doesn't natively support JSON
-  Schema constraints, so structured output uses JSON mode with the schema
-  described in the system prompt.
+  `:output` is supported. Z.ai has no JSON Schema constraints, so structured
+  output uses JSON mode, with the schema described in the system prompt.
 
   ## Attachments
 
-  File attachments are sent as `file_url` content parts.
+  Non-image files are sent as `file_url` content parts.
+
+  ## Compat flags
+
+  Sets these `Omni.Dialects.OpenAICompletions` flags:
+
+    * `max_tokens_field: "max_tokens"`
+    * `thinking_toggle_format: :thinking_type`
+    * `output_format: :json_object`
+    * `attachment_format: :file_url`
   """
 
   @behaviour Omni.Provider
