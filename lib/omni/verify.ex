@@ -20,17 +20,23 @@ defmodule Omni.Verify do
     :cache_usage
   ]
 
-  @defaults [:text, :thinking, :no_thinking, :tool_use, :structured_output]
+  @defaults [:text, :thinking, :tool_use, :structured_output]
 
   @default_timeout 120_000
 
+  # Bounds a runaway generation (JSON mode can stream whitespace to the token
+  # limit), with room for thinking models.
+  @default_max_tokens 8_192
+
+  # `summary` is one short line: an excerpt of the answer on a pass, a generic
+  # reason on a failure, so it is safe to save. `error` holds the full detail
+  # behind a failure (a provider error, a stacktrace) for the terminal only.
   @type result :: %{
           scenario: atom(),
           status: :pass | :fail,
           time_ms: non_neg_integer(),
-          summary: String.t() | nil,
-          error: String.t() | nil,
-          request: map() | nil
+          summary: String.t(),
+          error: String.t() | nil
         }
 
   @doc "All scenario names, in run order."
@@ -70,13 +76,18 @@ defmodule Omni.Verify do
     * `:on_result` — a 1-arity function called with each result as it lands
 
   Other options pass through to `Omni.generate_text/3` (for example
-  `:api_key` or `:plug`). `:timeout` defaults to two minutes.
+  `:api_key` or `:plug`). `:timeout` (the longest wait for each chunk)
+  defaults to two minutes, and `:max_tokens` to 8192.
   """
   @spec run(Model.t(), [atom()], keyword()) :: [result()]
   def run(%Model{} = model, scenarios, opts \\ []) do
     {delay, opts} = Keyword.pop(opts, :delay, 0)
     {on_result, opts} = Keyword.pop(opts, :on_result, fn _ -> :ok end)
-    opts = Keyword.put_new(opts, :timeout, @default_timeout)
+
+    opts =
+      opts
+      |> Keyword.put_new(:timeout, @default_timeout)
+      |> Keyword.put_new(:max_tokens, @default_max_tokens)
 
     scenarios
     |> Enum.with_index()
@@ -94,31 +105,17 @@ defmodule Omni.Verify do
     mark = if result.status == :pass, do: "✓", else: "✗"
     name = result.scenario |> Atom.to_string() |> String.pad_trailing(18)
     time = :io_lib.format("~5.1fs", [result.time_ms / 1000]) |> to_string()
-    detail = if result.status == :pass, do: result.summary, else: result.error
-    "  #{mark} #{name} #{time}  #{detail}"
+    "  #{mark} #{name} #{time}  #{result.summary}"
   end
 
-  @doc "Formats a failed result with its request body, long strings cut short."
-  @spec format_failure(result()) :: String.t()
+  @doc "Formats a failure's full error, or nil when the summary says it all."
+  @spec format_failure(result()) :: String.t() | nil
+  def format_failure(%{error: nil}), do: nil
+
   def format_failure(result) do
-    request =
-      case result.request do
-        nil -> "(not built)"
-        body -> body |> truncate() |> inspect(pretty: true, limit: :infinity, width: 90)
-      end
-
-    "\n  #{result.scenario}: #{result.error}\n" <>
-      "    request: " <> String.replace(request, "\n", "\n             ")
+    "\n  #{result.scenario}: #{result.summary}\n    " <>
+      String.replace(result.error, "\n", "\n    ")
   end
-
-  # Keeps base64 attachments and long prompts from flooding the report.
-  defp truncate(value) when is_map(value), do: Map.new(value, fn {k, v} -> {k, truncate(v)} end)
-  defp truncate(value) when is_list(value), do: Enum.map(value, &truncate/1)
-
-  defp truncate(value) when is_binary(value) and byte_size(value) > 200,
-    do: String.slice(value, 0, 60) <> "… (#{byte_size(value)} bytes)"
-
-  defp truncate(value), do: value
 
   defp run_scenario(scenario, model, opts) do
     started = System.monotonic_time(:millisecond)
@@ -127,20 +124,21 @@ defmodule Omni.Verify do
       try do
         Scenarios.run(scenario, model, opts)
       rescue
-        e -> {:fail, "raised " <> Exception.format_banner(:error, e, __STACKTRACE__), nil}
+        e ->
+          {:fail, "raised #{inspect(e.__struct__)}", Exception.format(:error, e, __STACKTRACE__)}
       catch
-        kind, reason -> {:fail, Exception.format_banner(kind, reason, __STACKTRACE__), nil}
+        kind, reason -> {:fail, "#{kind}", Exception.format(kind, reason, __STACKTRACE__)}
       end
 
     time_ms = System.monotonic_time(:millisecond) - started
-    result = %{scenario: scenario, time_ms: time_ms, summary: nil, error: nil, request: nil}
+    result = %{scenario: scenario, time_ms: time_ms, error: nil}
 
     case outcome do
       {:pass, summary} ->
         Map.merge(result, %{status: :pass, summary: summary})
 
-      {:fail, error, request} ->
-        Map.merge(result, %{status: :fail, error: error, request: request})
+      {:fail, summary, error} ->
+        Map.merge(result, %{status: :fail, summary: summary, error: error})
     end
   end
 end

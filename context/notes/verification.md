@@ -19,13 +19,13 @@ A fixture can't say a provider works today; verify can't guard against regressio
 
 The task is a thin wrapper over an internal module (`@moduledoc false`), roughly `Omni.Verify.run(model, scenarios, opts)`, which returns results as data. The sweep calls that function.
 
-**Scenarios.** Fixed set, not chosen from model data. Defaults are text through structured output; the rest are opt-in.
+**Scenarios.** Fixed set, not chosen from model data. Defaults are text, thinking, tool use and structured output; the rest are opt-in.
 
 | Scenario | Default | Request | Passes when |
 |---|---|---|---|
 | `text` | yes | simple prompt, `thinking: false` | stop `:stop`, non-empty text |
 | `thinking` | yes | a question hard enough to make the model reason, `thinking: :low` | a thinking block (text or signature) and text |
-| `no_thinking` | yes | the same question, `thinking: false` | no thinking blocks |
+| `no_thinking` | no | the same question, `thinking: false` | no thinking blocks. Only for models whose data says they can switch off (a toggle or a `"none"` effort): elsewhere Omni sends nothing and a failure only says the model reasons by default |
 | `tool_use` | yes | weather tool, no handler | a `get_weather` `ToolUse`, stop `:tool_use` |
 | `structured_output` | yes | object schema | `resp.output` matches the schema |
 | `image` | no | the logo PNG | answer names the brand |
@@ -33,7 +33,7 @@ The task is a thin wrapper over an internal module (`@moduledoc false`), roughly
 | `kitchen_sink` | no | thinking on, two tools with handlers, a prompt needing both; then a follow-up turn over the whole history | loop completes with ≥1 tool round and text on both turns |
 | `cache_usage` | no | turn 1: long system prompt + question; turn 2: same prefix + turn 1 + short follow-up | turn 2 reports cache-read tokens > 0 |
 
-- **Pass or fail only.** No skip, no warn, no retries. A failure on a model that can't do the scenario is correct; the sweep matrix just doesn't ask. Flaky results are investigated: tighten the prompt, or drop the scenario for that model.
+- **Pass or fail only.** No skip, no warn, no retries (Omni itself doesn't retry: Req's default retry covers only GET and HEAD). A failure on a model that can't do the scenario is correct; the sweep matrix just doesn't ask. Flaky results are investigated: tighten the prompt, or drop the scenario for that model.
 - **Thinking effort levels are not verified** — no reliable way to measure the level applied.
 - `kitchen_sink` replaces the old round trip and covers thinking replay (signatures, `Message.private`) across tool rounds and a later turn. Supersedes `scripts/test_loop.exs`.
 - `cache_usage` exercises Omni's breakpoint placement: on turn 2 the last-message breakpoint has moved, so the hit depends on the shared prefix re-encoding byte-identically. Needs a few thousand tokens of filler in `priv/` (above every provider's minimum) and possibly a short pause between turns where caches fill asynchronously. Never verified before.
@@ -41,9 +41,15 @@ The task is a thin wrapper over an internal module (`@moduledoc false`), roughly
 
 **Flags.** `--only a,b` (exactly these), `--add a,b` / `--skip a,b` (adjust the defaults), `--delay ms` (pause between scenarios, for rate limits).
 
+**Output.** Each result line carries a short, generic reason (`HTTP 429`, `stream error`, `no thinking`), never provider text. Failures from an error print the full error after the run. Request bodies aren't shown.
+
 ## Sweep
 
-A script (in `scripts/`) holding a matrix as data: provider, model, scenarios, with room for an inline `Model.new(...)` where the catalog lacks the model (local Ollama, Z.ai vision). It iterates the matrix, calls `Omni.Verify.run/3`, and writes a markdown results matrix beside itself, keeping the last 2–3 runs. Providers without an API key set are skipped.
+A script (in `scripts/`) holding a matrix as data: provider, model, scenarios, with room for an inline `Model.new(...)` where the catalog lacks the model (local Ollama, Z.ai vision). It iterates the matrix, calls `Omni.Verify.run/3`, and prints as the task does. Providers without an API key set are skipped.
+
+- **Targets.** `provider` or `provider/model`; a model outside the matrix runs the defaults. `--only` replaces the selection of every target, so it can run scenarios the matrix leaves out. `--delay ms` sets the pause between scenarios.
+- **Gemini's implicit cache** never reported a hit for `gemini-3.8-flash` (same 5.6k-token prefix, up to 60s apart, no `cachedContentTokenCount`), so `cache_usage` is off for Google in the matrix. Gemini has no request-side cache control to verify.
+- **Results by day.** `results/YYYY-MM-DD.json` holds `{status, result, time_ms}` per model and scenario, where `result` is the short line. Each run overwrites the cells it ran and keeps the rest, then regenerates `YYYY-MM-DD.md` from it. No provider errors are saved, so results are committed. Nothing is pruned.
 
 Sequential throughout — runs are infrequent, so no concurrency. Models are chosen provider by provider: cheap to mid-range generally, a premium model from Anthropic and OpenAI, more than two for gateways (OpenRouter, OpenCode). The matrix tracks today's common models and shifts over time.
 

@@ -1084,6 +1084,21 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
                %{"enable_thinking" => true}
     end
 
+    test "models with effort values get the effort and no budget" do
+      model =
+        flagged(
+          [thinking_toggle_format: :enable_thinking, thinking_budget_field: "thinking_budget"],
+          thinking: %{toggle: true, efforts: ["low", "medium", "xhigh"], budget: {0, 262_144}}
+        )
+
+      result = body(model, %{thinking: :high})
+      assert result["reasoning_effort"] == "xhigh"
+      refute Map.has_key?(result, "thinking_budget")
+      refute Map.has_key?(result, "enable_thinking")
+
+      assert body(model, %{thinking: false})["enable_thinking"] == false
+    end
+
     test "no budget is sent to models without a budget range" do
       model =
         flagged(

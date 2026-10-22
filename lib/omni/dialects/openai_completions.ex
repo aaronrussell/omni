@@ -15,7 +15,7 @@ defmodule Omni.Dialects.OpenAICompletions do
   |---|---|---|
   | `:max_tokens_field` | `"max_completion_tokens"` | sends `:max_tokens` under this field |
   | `:thinking_effort_field` | `"reasoning_effort"` | sends the effort level here (dots nest: `"reasoning.effort"`) |
-  | `:thinking_budget_field` | no budget sent | sends a token budget here, for models that take one |
+  | `:thinking_budget_field` | no budget sent | sends a token budget here, for models that take one and list no effort values |
   | `:thinking_replay_field` | earlier reasoning not sent back | `"reasoning_details"`: captures `reasoning_details` from responses and sends them back on assistant messages |
   | `:thinking_toggle_format` | off is `reasoning_effort: "none"`; no on-switch | how thinking is switched on and off (below) |
   | `:output_format` | `:json_schema` | `:json_object`: JSON mode, with the schema in the system prompt |
@@ -31,7 +31,8 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   Models that list effort values (see `Omni.Model`) take the effort, even
   when a toggle format is set; the toggle switches them off, and switches on
-  models without effort values.
+  models without effort values. Likewise a budget is sent only to models
+  without effort values.
   """
 
   @behaviour Omni.Dialect
@@ -118,7 +119,9 @@ defmodule Omni.Dialects.OpenAICompletions do
           toggle -> put_toggle(body, toggle, true)
           true -> put_path(body, effort_field, effort_string(level))
         end
-        |> put_budget(compat[:thinking_budget_field], budget)
+        # The effort is the model's own control; a budget beside it is
+        # rejected (Alibaba), so only models without effort values get one.
+        |> put_budget(compat[:thinking_budget_field], unless(effort, do: budget))
     end
   end
 

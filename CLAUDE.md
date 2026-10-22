@@ -29,8 +29,10 @@ mix format                    # Format all code
 mix format --check-formatted  # Check formatting without changing files
 mix omni.snapshot             # Capture a models.dev snapshot into priv/models/
 mix omni.verify <provider> <model>   # Run live scenarios against one model (real, billed requests)
-mix run scripts/verify/sweep.exs     # Verify the model matrix; results in scripts/verify/results/
+mix run scripts/verify/sweep.exs [provider[/model] ...] [--only a,b] [--delay ms]  # Verify the model matrix; daily results in scripts/verify/results/
 ```
+
+**Live API commands are run by the maintainer, never by an agent:** `mix omni.verify`, the sweep script, capture scripts and `mix test --include live` make real, billed requests. Don't run them unless explicitly asked, and then only that once; hand over the command to run instead.
 
 Run `mix precommit` before considering any change done. It fixes formatting and prunes unused lock entries in place; CI runs the non-mutating equivalents (`format --check-formatted`, `deps.unlock --check-unused`) and fails on any warning. Don't run it with `OMNI_SKIP_LLMDB` set — the unlock step would drop `llm_db` from `mix.lock`.
 

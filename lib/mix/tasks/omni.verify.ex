@@ -11,9 +11,11 @@ defmodule Mix.Tasks.Omni.Verify do
   Use it to check a provider before relying on it: a catalog provider Omni
   doesn't verify, a custom provider from your config, or a new model on a
   built-in. Requests are real and billed, using the provider's configured API
-  key. Every selected scenario runs, even after a failure; each failure is
-  reported with its error and the request body Omni sent. The task exits
-  non-zero if any scenario fails.
+  key, and capped at 8192 output tokens so a runaway generation fails with
+  `:length` instead of running on. Every selected scenario runs, even after a failure. Each result line
+  gives a short reason for a failure, and failures from an error (an HTTP
+  status, a crash) are followed by the full error. The task exits non-zero if
+  any scenario fails.
 
   The task starts your application, so providers and models from your
   `config :omni` are available. A catalog provider that isn't loaded is
@@ -26,8 +28,6 @@ defmodule Mix.Tasks.Omni.Verify do
     * `text` — a short prompt; passes on a `:stop` response with text
     * `thinking` — a reasoning question with `thinking: :low`; passes when
       the response shows thinking (text, a signature, or redacted data)
-    * `no_thinking` — the same question with `thinking: false`; passes when
-      no thinking comes back
     * `tool_use` — a weather tool without a handler; passes on a
       `get_weather` tool use for London
     * `structured_output` — an object schema via `:output`; passes when the
@@ -35,6 +35,10 @@ defmodule Mix.Tasks.Omni.Verify do
 
   Run on request:
 
+    * `no_thinking` — the reasoning question with `thinking: false`; passes
+      when no thinking comes back. Only meaningful on a model whose data says
+      it can switch thinking off: on one that can't, Omni sends nothing and
+      the model reasons as usual.
     * `image` — a PNG logo; passes when the answer names the brand
     * `pdf` — a one-page PDF; passes when the answer names the author
     * `kitchen_sink` — two tools with handlers and `thinking: :low`, run
@@ -102,9 +106,9 @@ defmodule Mix.Tasks.Omni.Verify do
 
     failures = Enum.filter(results, &(&1.status == :fail))
 
-    if failures != [] do
-      shell.info("\nFailures")
-      Enum.each(failures, &shell.info(Verify.format_failure(&1)))
+    case Enum.flat_map(failures, &List.wrap(Verify.format_failure(&1))) do
+      [] -> :ok
+      errors -> shell.info(Enum.join(["\nErrors" | errors], "\n"))
     end
 
     passed = length(results) - length(failures)

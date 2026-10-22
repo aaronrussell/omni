@@ -7,6 +7,7 @@ defmodule Omni.VerifyTest do
   @thinking_fixture "test/support/fixtures/sse/anthropic_thinking.sse"
   @tool_use_fixture "test/support/fixtures/sse/anthropic_tool_use.sse"
   @error_fixture "test/support/fixtures/synthetic/anthropic_error.sse"
+  @openrouter_gemini_fixture "test/support/fixtures/sse/openrouter_gemini_thinking.sse"
 
   defp stub_fixture(stub_name, fixture_file) do
     Req.Test.stub(stub_name, fn conn ->
@@ -39,11 +40,10 @@ defmodule Omni.VerifyTest do
     end
 
     test "add and skip adjust the defaults" do
-      assert {:ok, scenarios} = Verify.select(add: [:cache_usage, :image], skip: [:no_thinking])
+      assert {:ok, scenarios} = Verify.select(add: [:cache_usage, :image], skip: [:thinking])
 
       assert scenarios == [
                :text,
-               :thinking,
                :tool_use,
                :structured_output,
                :image,
@@ -63,24 +63,36 @@ defmodule Omni.VerifyTest do
       assert is_binary(summary) and summary != ""
     end
 
-    test "a failed request carries the request body" do
-      assert %{status: :fail, error: error, request: request} = run_one(:text, @error_fixture)
-      assert error =~ "error"
-      assert request["model"] == "claude-haiku-4-5"
+    test "a failed request has a generic summary and the full error" do
+      assert %{status: :fail, summary: "stream error", error: error} =
+               run_one(:text, @error_fixture)
+
+      assert error =~ "Overloaded"
     end
 
     test "thinking passes with thinking and fails without" do
       assert %{status: :pass} = run_one(:thinking, @thinking_fixture)
-      assert %{status: :fail, error: "no thinking"} = run_one(:thinking, @text_fixture)
+
+      assert %{status: :fail, summary: "no thinking", error: nil} =
+               run_one(:thinking, @text_fixture)
+    end
+
+    test "thinking passes on encrypted reasoning details alone" do
+      {:ok, model} = Omni.get_model(:openrouter, "google/gemini-3.8-flash")
+      stub_fixture(:verify_openrouter_gemini, @openrouter_gemini_fixture)
+
+      assert [%{status: :pass, summary: "reasoning details only" <> _}] =
+               Verify.run(model, [:thinking],
+                 api_key: "test-key",
+                 plug: {Req.Test, :verify_openrouter_gemini}
+               )
     end
 
     test "no_thinking passes without thinking and fails with" do
       assert %{status: :pass} = run_one(:no_thinking, @text_fixture)
 
-      assert %{status: :fail, error: "thinking blocks present", request: request} =
+      assert %{status: :fail, summary: "thinking blocks present"} =
                run_one(:no_thinking, @thinking_fixture)
-
-      assert is_map(request)
     end
 
     test "tool_use passes on a get_weather tool use" do
@@ -100,7 +112,8 @@ defmodule Omni.VerifyTest do
           on_result: &send(test_pid, {:result, &1.scenario})
         )
 
-      assert [%{status: :fail, error: "raised " <> _}, %{status: :fail}] = results
+      assert [%{status: :fail, summary: "raised " <> _, error: error}, %{status: :fail}] = results
+      assert is_binary(error)
       assert_received {:result, :text}
       assert_received {:result, :thinking}
     end

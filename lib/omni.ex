@@ -201,7 +201,9 @@ defmodule Omni do
       Pass `1` to disable auto-looping for manual tool handling
     * `:tool_timeout` — per-tool execution timeout in milliseconds (default `30_000`)
     * `:cache` — prompt caching strategy (`:short` or `:long`)
-    * `:timeout` — request timeout in milliseconds (default `300_000`)
+    * `:timeout` — how long to wait for each chunk of the response, in
+      milliseconds (default `300_000`). A response that keeps streaming is not
+      cut off; use `:max_tokens` to bound its length
     * `:api_key` — API key, overriding provider/app config
     * `:raw` — when `true`, attaches raw `{%Req.Request{}, %Req.Response{}}` tuples
       to the response (one per round)

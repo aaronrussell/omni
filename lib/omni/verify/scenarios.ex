@@ -1,11 +1,12 @@
 defmodule Omni.Verify.Scenarios do
   @moduledoc false
 
-  # One function per verification scenario. Each returns `{:pass, summary}` or
-  # `{:fail, reason, request_body}`, where the request body is the JSON Omni
-  # sends for the failing call (nil when it can't be built).
+  # One function per verification scenario. Each returns `{:pass, summary}`,
+  # `{:fail, reason}`, or `{:fail, reason, error}` when there is detail behind
+  # the reason. Reasons are generic (`HTTP 429`, `no thinking`) and never carry
+  # provider text, so they are safe to save; the detail goes to the terminal.
 
-  alias Omni.{Context, Message, Request, Response, Schema}
+  alias Omni.{Context, Message, Response, Schema}
   alias Omni.Content.{Attachment, Text, Thinking, ToolResult, ToolUse}
 
   @thinking_prompt "How many times does the letter 'r' appear in the phrase " <>
@@ -15,8 +16,13 @@ defmodule Omni.Verify.Scenarios do
 
   @doc "Runs one scenario."
   @spec run(atom(), Omni.Model.t(), keyword()) ::
-          {:pass, String.t()} | {:fail, String.t(), map() | nil}
-  def run(scenario, model, opts), do: apply(__MODULE__, scenario, [model, opts])
+          {:pass, String.t()} | {:fail, String.t(), String.t() | nil}
+  def run(scenario, model, opts) do
+    case apply(__MODULE__, scenario, [model, opts]) do
+      {:fail, reason} -> {:fail, reason, nil}
+      outcome -> outcome
+    end
+  end
 
   @doc false
   def text(model, opts) do
@@ -27,7 +33,6 @@ defmodule Omni.Verify.Scenarios do
          {:ok, text} <- text_of(resp) do
       {:pass, excerpt(text)}
     end
-    |> finish(model, context, opts)
   end
 
   @doc false
@@ -40,7 +45,6 @@ defmodule Omni.Verify.Scenarios do
          {:ok, thinking} <- thinking_of(resp) do
       {:pass, "#{thinking} → #{excerpt(text, 40)}"}
     end
-    |> finish(model, context, opts)
   end
 
   @doc false
@@ -53,7 +57,6 @@ defmodule Omni.Verify.Scenarios do
          :ok <- check(blocks(resp, Thinking) == [], "thinking blocks present") do
       {:pass, excerpt(text)}
     end
-    |> finish(model, context, opts)
   end
 
   @doc false
@@ -70,7 +73,6 @@ defmodule Omni.Verify.Scenarios do
          :ok <- check(inspect(tool_use.input) =~ ~r/london/i, "input doesn't mention London") do
       {:pass, "get_weather(#{inspect(tool_use.input)})"}
     end
-    |> finish(model, context, opts)
   end
 
   @doc false
@@ -89,7 +91,6 @@ defmodule Omni.Verify.Scenarios do
          :ok <- check(is_binary(resp.output[:color]), "output has no string color") do
       {:pass, inspect(resp.output)}
     end
-    |> finish(model, context, opts)
   end
 
   @doc false
@@ -126,21 +127,14 @@ defmodule Omni.Verify.Scenarios do
     with {:ok, resp1} <- generate(model, turn1, opts),
          :ok <- stop_reason(resp1, :stop),
          :ok <- check(tool_rounds(resp1) > 0, "no tools were run"),
-         {:ok, _text} <- text_of(resp1) do
-      turn2 =
-        Context.new(
-          messages: [question | resp1.messages] ++ [Message.new("Which city is warmer?")],
-          tools: tools
-        )
-
-      with {:ok, resp2} <- generate(model, turn2, opts),
-           :ok <- stop_reason(resp2, :stop),
-           {:ok, text} <- text_of(resp2) do
-        {:pass, "#{tool_rounds(resp1)} tool round(s) → #{excerpt(text, 50)}"}
-      end
-      |> finish(model, turn2, opts)
+         {:ok, _text} <- text_of(resp1),
+         follow_up = [question | resp1.messages] ++ [Message.new("Which city is warmer?")],
+         turn2 = Context.new(messages: follow_up, tools: tools),
+         {:ok, resp2} <- generate(model, turn2, opts),
+         :ok <- stop_reason(resp2, :stop),
+         {:ok, text} <- text_of(resp2) do
+      {:pass, "#{tool_rounds(resp1)} tool round(s) → #{excerpt(text, 50)}"}
     end
-    |> finish(model, turn1, opts)
   end
 
   @doc false
@@ -150,28 +144,20 @@ defmodule Omni.Verify.Scenarios do
     question = Message.new("Which station has the code #{station_code(42)}? Reply with its name.")
     turn1 = Context.new(system: system, messages: [question])
 
-    with {:ok, resp1} <- generate(model, turn1, opts) do
-      Process.sleep(@cache_pause)
-
-      turn2 =
-        Context.new(
-          system: system,
-          messages: [question, resp1.message, Message.new("What is its elevation?")]
-        )
-
-      with {:ok, resp2} <- generate(model, turn2, opts),
-           :ok <-
-             check(
-               resp2.usage.cache_read_tokens > 0,
-               "no cache read on turn 2 (#{resp2.usage.input_tokens} input tokens)"
-             ) do
-        {:pass,
-         "turn 1 wrote #{resp1.usage.cache_write_tokens}, " <>
-           "turn 2 read #{resp2.usage.cache_read_tokens} of #{resp2.usage.input_tokens}"}
-      end
-      |> finish(model, turn2, opts)
+    with {:ok, resp1} <- generate(model, turn1, opts),
+         :ok <- Process.sleep(@cache_pause),
+         follow_up = [question, resp1.message, Message.new("What is its elevation?")],
+         turn2 = Context.new(system: system, messages: follow_up),
+         {:ok, resp2} <- generate(model, turn2, opts),
+         :ok <-
+           check(
+             resp2.usage.cache_read_tokens > 0,
+             "no cache read on turn 2 (#{resp2.usage.input_tokens} input tokens)"
+           ) do
+      {:pass,
+       "turn 1 wrote #{resp1.usage.cache_write_tokens}, " <>
+         "turn 2 read #{resp2.usage.cache_read_tokens} of #{resp2.usage.input_tokens}"}
     end
-    |> finish(model, turn1, opts)
   end
 
   # -- Shared --
@@ -195,32 +181,20 @@ defmodule Omni.Verify.Scenarios do
          :ok <- check(text =~ expected, "unexpected answer: #{excerpt(text)}") do
       {:pass, excerpt(text)}
     end
-    |> finish(model, context, opts)
   end
 
   defp generate(model, context, opts) do
     case Omni.generate_text(model, context, opts) do
       {:ok, %Response{} = resp} -> {:ok, resp}
-      {:error, reason} -> {:fail, "error: " <> excerpt(inspect(reason), 300)}
+      {:error, reason} -> {:fail, error_reason(reason), inspect(reason, pretty: true)}
     end
   end
 
-  # Passes results through; turns a bare failure into one carrying the
-  # request body of the call that failed. An inner turn's failure arrives
-  # already complete, so the outer `finish` leaves it alone.
-  defp finish({:fail, reason}, model, context, opts),
-    do: {:fail, reason, request_body(model, context, opts)}
-
-  defp finish(result, _model, _context, _opts), do: result
-
-  # A placeholder key lets the body build when the real key is the problem;
-  # auth only touches headers, never the body.
-  defp request_body(model, context, opts) do
-    case Request.build(model, context, Keyword.put(opts, :api_key, "verify")) do
-      {:ok, req} -> req.options[:json]
-      {:error, _} -> nil
-    end
-  end
+  defp error_reason({:http_error, status, _body}), do: "HTTP #{status}"
+  defp error_reason({:stream_error, _}), do: "stream error"
+  defp error_reason(:incomplete_stream), do: "incomplete stream"
+  defp error_reason(%Req.TransportError{reason: reason}), do: "transport error (#{reason})"
+  defp error_reason(_reason), do: "request failed"
 
   defp check(true, _reason), do: :ok
   defp check(false, reason), do: {:fail, reason}
@@ -228,8 +202,8 @@ defmodule Omni.Verify.Scenarios do
   defp stop_reason(%Response{stop_reason: expected}, expected), do: :ok
 
   defp stop_reason(%Response{stop_reason: other, error: error}, expected) do
-    detail = if error, do: " (#{excerpt(inspect(error), 200)})", else: ""
-    {:fail, "stop reason #{inspect(other)}, expected #{inspect(expected)}#{detail}"}
+    {:fail, "stop reason #{inspect(other)}, expected #{inspect(expected)}",
+     error && inspect(error, pretty: true)}
   end
 
   defp blocks(%Response{message: nil}, _type), do: []
@@ -244,11 +218,14 @@ defmodule Omni.Verify.Scenarios do
     end
   end
 
-  # Thinking text, a signature, redacted data, or a thought signature on text
-  # (Gemini) all count as evidence the model reasoned.
+  # Thinking text, a signature, redacted data, a thought signature on text
+  # (Gemini), or encrypted reasoning details (Gemini through OpenRouter) all
+  # count. Adaptive models may skip reasoning on an easy prompt, so this shows
+  # thinking was switched on, not that the model used it.
   defp thinking_of(resp) do
     thinking = blocks(resp, Thinking)
     signed_text? = Enum.any?(blocks(resp, Text), &(&1.signature not in [nil, ""]))
+    details? = resp.message != nil and resp.message.private[:reasoning_details] not in [nil, []]
 
     cond do
       text = Enum.find_value(thinking, &(&1.text not in [nil, ""] and &1.text)) ->
@@ -259,6 +236,9 @@ defmodule Omni.Verify.Scenarios do
 
       signed_text? ->
         {:ok, "thought signature on text"}
+
+      details? ->
+        {:ok, "reasoning details only"}
 
       true ->
         {:fail, "no thinking"}
