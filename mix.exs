@@ -103,7 +103,8 @@ defmodule Omni.MixProject do
         "Universal Elixir client for LLM APIs. Streaming text generation, tool use, and structured output.",
       licenses: ["Apache-2.0"],
       maintainers: ["Aaron Russell"],
-      files: ~w(lib priv/models .formatter.exs mix.exs CHANGELOG.md LICENSE README.md),
+      files:
+        ~w(lib priv/models priv/verify .formatter.exs mix.exs CHANGELOG.md LICENSE README.md),
       links: %{
         "GitHub" => @source_url
       }

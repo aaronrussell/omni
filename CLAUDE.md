@@ -28,6 +28,8 @@ mix test path/to/test.exs:42  # Run a specific test (line number)
 mix format                    # Format all code
 mix format --check-formatted  # Check formatting without changing files
 mix omni.snapshot             # Capture a models.dev snapshot into priv/models/
+mix omni.verify <provider> <model>   # Run live scenarios against one model (real, billed requests)
+mix run scripts/verify/sweep.exs     # Verify the model matrix; results in scripts/verify/results/
 ```
 
 Run `mix precommit` before considering any change done. It fixes formatting and prunes unused lock entries in place; CI runs the non-mutating equivalents (`format --check-formatted`, `deps.unlock --check-unused`) and fails on any warning. Don't run it with `OMNI_SKIP_LLMDB` set — the unlock step would drop `llm_db` from `mix.lock`.

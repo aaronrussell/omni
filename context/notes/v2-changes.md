@@ -122,3 +122,7 @@ config :omni, :providers,
 **New required callback `auth/0`.** *(phase 1)* Returns `:bearer` or `{:header, name}` — the home API's key scheme. Custom dialects must implement it.
 
 **`handle_path/2` returns resource paths only** (`/chat/completions`, not `/v1/chat/completions`). *(phase 1)*
+
+## Tooling
+
+**New: `mix omni.verify <provider> <model>`.** *(verification)* Runs live scenarios against one model and reports pass or fail for each, with the request body for every failure: text, thinking, no thinking, tool use and structured output by default; image, PDF, a multi-turn tool loop with thinking (`kitchen_sink`) and cache usage on request (`--only`, `--add`, `--skip`, `--delay`). Works for built-in, catalog and custom providers; a catalog provider that isn't loaded is loaded for the run. Exits non-zero on any failure.

@@ -6,8 +6,8 @@ defmodule LiveTests do
   alias Omni.{Context, Message, Response, Schema}
   alias Omni.Content.{Attachment, Text, Thinking, ToolUse}
 
-  @logo_file "test/support/fixtures/files/logo.png"
-  @pdf_file "test/support/fixtures/files/whitepaper.pdf"
+  @logo_file "priv/verify/logo.png"
+  @pdf_file "priv/verify/whitepaper.pdf"
 
   def text_generation(model, opts \\ []) do
     {model, label} = resolve(model)
