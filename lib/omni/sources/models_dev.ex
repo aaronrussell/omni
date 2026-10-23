@@ -106,11 +106,18 @@ defmodule Omni.Sources.ModelsDev do
     %Provider{
       id: id,
       name: provider_data["name"],
-      base_url: provider_data["api"],
+      base_url: base_url(provider_data["api"]),
       api_key: api_key(provider_data["env"]),
       dialects: provider_dialects(@npm_to_dialect[provider_data["npm"]])
     }
   end
+
+  # Templated base URLs ("https://${DATABRICKS_HOST}/...") need user config.
+  defp base_url(url) when is_binary(url) do
+    if String.contains?(url, "${"), do: nil, else: url
+  end
+
+  defp base_url(_), do: nil
 
   # Only an unambiguous single variable becomes the default key; providers
   # listing several (alternatives or multi-part credentials) need config.

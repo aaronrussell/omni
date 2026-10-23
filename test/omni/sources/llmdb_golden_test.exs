@@ -59,7 +59,7 @@ if Code.ensure_loaded?(LLMDB) do
     test "the goldens below were verified against this llm_db version" do
       # llm_db upgraded? Re-run the load, re-verify the golden expectations
       # in this file against the new catalog, then update this pin.
-      assert to_string(Application.spec(:llm_db, :vsn)) == "2026.7.0"
+      assert to_string(Application.spec(:llm_db, :vsn)) == "2026.10.6"
     end
 
     test "every built-in provider loads a model set within the expected range", %{models: models} do
@@ -118,7 +118,7 @@ if Code.ensure_loaded?(LLMDB) do
           name: "Claude Sonnet 4.5",
           dialects: %{text: Omni.Dialects.AnthropicMessages},
           release_date: ~D[2025-09-29],
-          context_size: 1_000_000,
+          context_size: 200_000,
           max_output_tokens: 64_000,
           thinking: %{budget: {1024, nil}},
           input_modalities: [:text, :image, :pdf],

@@ -243,6 +243,10 @@ defmodule Omni.Sources.ModelsDevTest do
       assert {:ok, %Provider{base_url: nil}, _} = ModelsDev.fetch(:openai, [])
     end
 
+    test "leaves a templated base URL unset" do
+      assert {:ok, %Provider{base_url: nil}, _} = ModelsDev.fetch(:databricks, [])
+    end
+
     test "sets api_key only when the catalog lists exactly one variable" do
       assert {:ok, %Provider{api_key: nil}, _} = ModelsDev.fetch(:google, [])
     end

@@ -325,6 +325,16 @@ defmodule Omni.RequestTest do
       assert req.options.json["model"] == "test-model"
     end
 
+    test "joins a base URL with a trailing slash without doubling it" do
+      {:ok, req} =
+        Request.build(make_model(), Omni.Context.new("Hello"), %{
+          api_key: "sk-test",
+          base_url: "https://api.test.com/v1/"
+        })
+
+      assert URI.to_string(req.url) == "https://api.test.com/v1/dummy"
+    end
+
     test "applies merged headers" do
       model = make_model()
       context = Omni.Context.new("Hello")

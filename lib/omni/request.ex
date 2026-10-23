@@ -56,7 +56,8 @@ defmodule Omni.Request do
 
     with {:ok, opts} <- validate(model, opts),
          :ok <- validate_context(model, context) do
-      url = opts.base_url <> dialect.handle_path(model, opts)
+      # Some catalog base URLs end in a slash; dialect paths start with one.
+      url = String.trim_trailing(opts.base_url, "/") <> dialect.handle_path(model, opts)
 
       body =
         model
