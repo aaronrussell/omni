@@ -16,7 +16,7 @@ defmodule Omni.Dialects.OllamaChat do
   ## Compat flags
 
   None yet: providers speaking this dialect get its home API's behaviour.
-  Flags are added as verified providers need them.
+  Flags are added as built-in providers need them.
   """
 
   @behaviour Omni.Dialect

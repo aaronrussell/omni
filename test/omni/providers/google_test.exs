@@ -18,7 +18,6 @@ defmodule Omni.Providers.GoogleTest do
       {provider, models} = Loader.assemble(:google)
 
       assert provider.module == Google
-      assert provider.tier == :verified
       assert provider.dialects == %{text: [Omni.Dialects.GoogleGemini]}
       assert models != []
 

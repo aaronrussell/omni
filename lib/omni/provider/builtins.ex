@@ -1,5 +1,5 @@
 defmodule Omni.Provider.Builtins do
-  # The verified built-in providers: id → provider module. `:builtins` in
+  # The built-in providers: id → provider module. `:builtins` in
   # `config :omni, :models, providers:` expands to these ids, and a provider
   # loading under one of them gets its module from here unless config names
   # another.
@@ -26,9 +26,6 @@ defmodule Omni.Provider.Builtins do
 
   @spec module(atom()) :: module() | nil
   def module(id), do: Map.get(@modules, id)
-
-  @spec builtin?(atom()) :: boolean()
-  def builtin?(id), do: Map.has_key?(@modules, id)
 
   @spec id_for(module()) :: atom() | nil
   def id_for(module) do

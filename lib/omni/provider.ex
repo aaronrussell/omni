@@ -32,17 +32,20 @@ defmodule Omni.Provider do
 
   ## Built-in, catalog, and custom providers
 
-  Any provider can be loaded, but Omni knows more about some than others.
-  The struct's `:tier` says which kind a provider is:
+  Any provider can be loaded, but Omni knows more about some than others:
 
-    * `:verified` — a built-in. It has been tested against the live API,
-      and its module sets whatever compat flags it needs.
-    * `:catalog` — any other provider in the source's catalog, such as
+    * **Built-in** — Omni ships a module for it, which sets whatever compat
+      flags it needs.
+    * **Catalog** — any other provider in the source's catalog, such as
       `:fireworks_ai`. Omni takes its base URL, API key variable, models and
       dialect from catalog data, and speaks the dialect with no compat flags.
-      It may work as is; if it doesn't, set the flags it needs yourself.
-    * `:custom` — a provider the catalog doesn't know, defined wholly in
+      It may work as is; if it doesn't, set the flags it needs yourself, or
+      copy a built-in's with `like:` (see [Compat flags](#module-compat-flags)).
+    * **Custom** — a provider the catalog doesn't know, defined wholly in
       config.
+
+  To check a model works with your configuration, whatever kind of provider
+  serves it, run `mix omni.verify` (see `Mix.Tasks.Omni.Verify`).
 
   ## How a provider is assembled
 
@@ -195,7 +198,6 @@ defmodule Omni.Provider do
     :api_key,
     :auth,
     :module,
-    :tier,
     headers: %{},
     dialects: %{},
     compat: %{}
@@ -207,9 +209,6 @@ defmodule Omni.Provider do
   @typedoc "An API key value, resolved at request time by `resolve_auth/1`."
   @type api_key :: String.t() | {:system, String.t()} | {module(), atom(), list()} | nil
 
-  @typedoc "How a provider was defined: a built-in, catalog data alone, or config alone."
-  @type tier :: :verified | :catalog | :custom
-
   @typedoc "An LLM provider."
   @type t :: %__MODULE__{
           id: atom(),
@@ -220,8 +219,7 @@ defmodule Omni.Provider do
           headers: %{optional(String.t()) => String.t()},
           dialects: %{optional(atom()) => [module()]},
           compat: %{optional(module()) => map()},
-          module: module() | nil,
-          tier: tier() | nil
+          module: module() | nil
         }
 
   @doc """

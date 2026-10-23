@@ -4,18 +4,18 @@ defmodule Mix.Tasks.Omni.Verify do
   @moduledoc """
   Runs a set of live scenarios against one model and reports which pass.
 
-      mix omni.verify anthropic claude-haiku-4-5
-      mix omni.verify openai gpt-5-mini --add image,pdf
+      mix omni.verify anthropic claude-haiku-5-5
+      mix omni.verify openai gpt-6-luna --add image,pdf
       mix omni.verify fireworks_ai accounts/fireworks/models/kimi-k3 --only text,tool_use
 
   Use it to check a provider before relying on it: a catalog provider Omni
   doesn't verify, a custom provider from your config, or a new model on a
   built-in. Requests are real and billed, using the provider's configured API
   key, and capped at 8192 output tokens so a runaway generation fails with
-  `:length` instead of running on. Every selected scenario runs, even after a failure. Each result line
-  gives a short reason for a failure, and failures from an error (an HTTP
-  status, a crash) are followed by the full error. The task exits non-zero if
-  any scenario fails.
+  `:length` instead of running on. Every selected scenario runs, even after a
+  failure. Each result line gives a short reason for a failure, and failures
+  from an error (an HTTP status, a crash) are followed by the full error. The
+  task exits non-zero if any scenario fails.
 
   The task starts your application, so providers and models from your
   `config :omni` are available. A catalog provider that isn't loaded is

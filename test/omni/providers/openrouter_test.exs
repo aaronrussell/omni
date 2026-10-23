@@ -18,7 +18,6 @@ defmodule Omni.Providers.OpenRouterTest do
       {provider, models} = Loader.assemble(:openrouter)
 
       assert provider.module == OpenRouter
-      assert provider.tier == :verified
       assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
       assert models != []
 

@@ -19,7 +19,6 @@ defmodule Omni.Providers.AnthropicTest do
       {provider, models} = Loader.assemble(:anthropic)
 
       assert provider.module == Anthropic
-      assert provider.tier == :verified
       assert provider.dialects == %{text: [Omni.Dialects.AnthropicMessages]}
       assert models != []
 

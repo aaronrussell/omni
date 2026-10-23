@@ -104,7 +104,7 @@ defmodule Omni.Provider.Loader do
     {provider, models} = resolve_dialects(provider, models)
     compat_layers = Map.get(module_config, :compat, []) ++ Map.get(config, :compat, [])
     provider = %{provider | compat: resolve_compat!(provider, compat_layers)}
-    provider = fill_defaults(provider, found?)
+    provider = fill_defaults(provider)
     validate_provider!(provider, models, found?)
 
     {models, skipped} = Enum.split_with(models, &Map.has_key?(&1.dialects, :text))
@@ -347,20 +347,8 @@ defmodule Omni.Provider.Loader do
 
   # -- Defaults and validation ------------------------------------------------
 
-  defp fill_defaults(%Provider{id: id} = provider, found?) do
-    tier =
-      cond do
-        Builtins.builtin?(id) -> :verified
-        found? -> :catalog
-        true -> :custom
-      end
-
-    %{
-      provider
-      | auth: provider.auth || :dialect,
-        name: provider.name || to_string(id),
-        tier: tier
-    }
+  defp fill_defaults(%Provider{id: id} = provider) do
+    %{provider | auth: provider.auth || :dialect, name: provider.name || to_string(id)}
   end
 
   defp validate_provider!(%Provider{id: id} = provider, models, found?) do

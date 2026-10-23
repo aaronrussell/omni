@@ -18,7 +18,6 @@ defmodule Omni.Providers.AlibabaTest do
       {provider, models} = Loader.assemble(:alibaba)
 
       assert provider.module == Alibaba
-      assert provider.tier == :verified
       assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
       assert models != []
 

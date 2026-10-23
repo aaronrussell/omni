@@ -10,7 +10,7 @@ Omni is an Elixir library for interacting with LLM APIs across multiple provider
 - **Providers** — data structs for the authenticated HTTP layer (where to send requests, how to authenticate), assembled from catalog data, an optional provider module, and config
 - **Dialects** — wire format translation (how to build request bodies, parse streaming events)
 
-The relationship: ~4-5 dialects, hundreds of possible providers (13 verified built-ins; any models.dev catalog provider loads by id; most speak one dialect, though multi-model gateways like OpenCode Zen use several), thousands of models (each belonging to one provider). Each `%Model{}` embeds its `%Provider{}` and names its dialect per capability, so dispatch is always per-model. All requests are streaming-first; `generate_text` is built on top of `stream_text`.
+The relationship: ~4-5 dialects, hundreds of possible providers (13 built-ins; any models.dev catalog provider loads by id; most speak one dialect, though multi-model gateways like OpenCode Zen use several), thousands of models (each belonging to one provider). Each `%Model{}` embeds its `%Provider{}` and names its dialect per capability, so dispatch is always per-model. All requests are streaming-first; `generate_text` is built on top of `stream_text`.
 
 The agent system (`Omni.Agent`) lives in a separate package — [`omni_agent`](https://github.com/aaronrussell/omni_agent). This package is purely the stateless LLM API layer.
 
@@ -22,7 +22,6 @@ See the [Context Documents](#context-documents) section for when and how to use 
 mix precommit                 # Compile (warnings as errors), unlock unused deps, format, test
 mix compile                   # Compile the project
 mix test                      # Run all tests
-mix test --include live       # Run all tests including live API tests (needs API keys)
 mix test path/to/test.exs     # Run a single test file
 mix test path/to/test.exs:42  # Run a specific test (line number)
 mix format                    # Format all code
@@ -30,9 +29,10 @@ mix format --check-formatted  # Check formatting without changing files
 mix omni.snapshot             # Capture a models.dev snapshot into priv/models/
 mix omni.verify <provider> <model>   # Run live scenarios against one model (real, billed requests)
 mix run scripts/verify/sweep.exs [provider[/model] ...] [--only a,b] [--delay ms]  # Verify the model matrix; daily results in scripts/verify/results/
+MIX_ENV=test mix run test/support/fixtures/<dir>/capture.exs   # Record missing fixtures (real, billed requests)
 ```
 
-**Live API commands are run by the maintainer, never by an agent:** `mix omni.verify`, the sweep script, capture scripts and `mix test --include live` make real, billed requests. Don't run them unless explicitly asked, and then only that once; hand over the command to run instead.
+**Live API commands are run by the maintainer, never by an agent:** `mix omni.verify`, the sweep script and capture scripts make real, billed requests. Don't run them unless explicitly asked, and then only that once; hand over the command to run instead.
 
 Run `mix precommit` before considering any change done. It fixes formatting and prunes unused lock entries in place; CI runs the non-mutating equivalents (`format --check-formatted`, `deps.unlock --check-unused`) and fails on any warning. Don't run it with `OMNI_SKIP_LLMDB` set — the unlock step would drop `llm_db` from `mix.lock`.
 
@@ -84,6 +84,8 @@ lib/omni/
 ├── parsers/ndjson.ex               # NDJSON stream parser (Ollama)
 ├── request.ex                      # Request orchestration (build, stream, validate, parse_event)
 ├── loop.ex                         # Recursive stream loop (tool auto-execution)
+├── verify.ex                       # Live verification runner behind mix omni.verify and the sweep
+├── verify/scenarios.ex             # Verify's scenario requests, shared with capture scripts and tests
 ├── provider.ex                     # Provider struct + module behaviour + get/load/resolve_auth
 ├── provider/builtins.ex            # Built-in provider ids → modules
 ├── provider/loader.ex              # Assembly, merging, validation, store, boot config checks
@@ -93,6 +95,7 @@ lib/omni/
 ├── dialect.ex                      # Dialect behaviour + string→module registry + compat/2
 ├── dialect/thinking.ex             # Shared :thinking resolution (effort clamping, budgets)
 └── dialects/{anthropic_messages,openai_completions,openai_responses,ollama_chat,...}.ex
+lib/mix/tasks/omni.{snapshot,verify}.ex
 ```
 
 ## Conventions
@@ -101,7 +104,7 @@ lib/omni/
 - Content blocks are separate structs under `Omni.Content` — pattern match on struct name, not a type field.
 - A provider's id is its models.dev catalog key snake_cased as an atom (e.g. `:moonshotai`, `:ollama_cloud`). The id is the single identity: config keys, `get_model/2` lookup, and source catalog lookup all use it (sources translate to their native key format themselves). There is no renaming; an id the catalog doesn't know is a custom provider defined in config.
 - `config :omni, :models` selects: `providers:` (ids, `:builtins` expanding to `Omni.Provider.Builtins`), `source:`, `filter:`. `config :omni, :providers` configures by id: `name`, `base_url` (includes the version segment — dialect paths are resource paths only), `api_key`, `auth`, `headers`, `dialects`, `compat`, `module`, `models`, `source`. Configuring never enables. Merge rule: values replace; `headers` merge by key, `dialects` by capability, `compat` by dialect then flag, `models` by id. `compat` is a flat keyword list (single-dialect providers; `like: :builtin_id` copies a built-in's flags) or a map keyed by dialect module. v1-style config raises at boot with a migration message.
-- Provider modules declare `@behaviour Omni.Provider`; every callback is optional (`config/0`, `models/2`, `modify_request/3`, `modify_body/4`). Modules carry no id — built-ins are mapped in `Omni.Provider.Builtins`, others are attached with `module:` in config. Built-in modules set their verified `base_url`, `api_key` and `compat` (keyed by dialect, so `like:` can copy it) explicitly in `config/0`.
+- Provider modules declare `@behaviour Omni.Provider`; every callback is optional (`config/0`, `models/2`, `modify_request/3`, `modify_body/4`). Modules carry no id — built-ins are mapped in `Omni.Provider.Builtins`, others are attached with `module:` in config. Built-in modules set their `base_url`, `api_key` and `compat` (keyed by dialect, so `like:` can copy it) explicitly in `config/0`.
 - API key resolution: call-site `:api_key` opt → provider value (source, module, app config). Accepts literal string, `{:system, "ENV"}`, or `{Mod, :fun, args}`.
 - Store: `{Omni, :providers}` holds `%{id => %Provider{}}`; `{Omni, :models, id}` holds `%{model_id => %Model{}}`. Writes go through the Loader. Unknown or unloaded providers return `{:error, {:unknown_provider, id}}`.
 - Tool modules use `use Omni.Tool, name: "string", description: "string"`. The `name:` and `description:` options are optional — omit them to implement `name/0` and `description/0` as callbacks directly. Override `description/1` to incorporate `init/1` state into the description. Import `Omni.Schema` inside the `schema/0` callback, not at module level.
@@ -113,7 +116,7 @@ lib/omni/
 - `Omni.Schema` preserves property key types as-is. Snake_case option keywords normalize to camelCase JSON Schema keywords.
 - `Tool.execute/2` validates and casts input via Peri before calling the handler — string-keyed LLM input maps back to schema key types.
 - `Model.thinking` is `false`, `true` (reasons, no detail), or `%{efforts, toggle, budget}` from catalog `reasoning_options`. Dialects translate the `:thinking` option through `Omni.Dialect.Thinking.resolve/2` (shared clamping and budgets); no dialect matches on model-name prefixes for thinking. `thinking: true` is dynamic thinking.
-- Compat flags are named by wire shape or Omni concept, never by provider; absent means the dialect's home-API behaviour. A flag ships only with a verified provider that uses it.
+- Compat flags are named by wire shape or Omni concept, never by provider; absent means the dialect's home-API behaviour. A flag ships only with a built-in provider that uses it.
 - Supported modalities defined on `Omni.Model`. Input: `:text`, `:image`, `:pdf`. Output: `:text`.
 - Structured output wire format is dialect-specific. Each dialect applies its own strictness mechanism.
 - `%Response{}` carries `messages`, `usage`, and `stop_reason` (includes `:cancelled`). `:message` is optional.
@@ -121,14 +124,15 @@ lib/omni/
 
 ## Testing
 
-Tests are organized in four layers, none of which require API keys except live tests:
+Two jobs, kept apart. **Tests** check that Omni handles real wire bytes: offline, in CI, replaying recorded fixtures. **Verify** (`mix omni.verify`, and the sweep over it) checks that a provider's current models work today: live calls only, run by the maintainer. A fixture can't say a provider works today; verify can't guard against regressions. `context/design.md` (Verification and testing) has the detail.
 
 1. **Unit tests** (`test/omni/`) — pure logic, no HTTP. Parser, provider, and dialect tests in isolation. Build structs with `Omni.Test.Fixtures`; assemble providers with `Omni.Provider.Loader.assemble/2` (never writes the store) rather than loading them.
-2. **Integration tests** (`test/integration/`) — use `Req.Test.stub/2` with a plug to simulate HTTP. One file per provider plus `error_test.exs`; `request_target_test.exs` asserts every built-in's host, path and auth headers. All go through the top-level API. Assertions are loose/structural since fixtures are real API recordings.
-3. **Live tests** (`test/live/`) — tagged `@moduletag :live`, excluded by default. Run with `mix test --include live`. Require API keys via environment variables.
-4. **Capture helper** — `Omni.Test.Capture.record/5` records real API responses as fixture files.
+2. **Integration tests** (`test/integration/`) — replay fixtures through the top-level API with a `Req.Test` plug (`Omni.Test.Capture.replay/4`). Three tiers, each fixture in the lowest tier where it is the only real bytes for some parsing path:
+   - **Omni** — `loop_test`, `error_test`, `structured_output_test`: `StreamingResponse` and `Loop`, on Anthropic fixtures plus `fixtures/synthetic/`.
+   - **Dialect** — `dialects/<dialect>_test.exs`: parser paths any provider on the dialect takes, recorded from the dialect's home API (`Omni.Test.Cases.reference/1`).
+   - **Provider** — `<provider>_test.exs`: a `baseline` block (text, thinking, tool use, request target and request shape, via `Omni.Test.Baseline`), then `cases` and `synthetic` blocks only for genuine quirks.
 
-**Fixtures:** SSE and NDJSON fixtures are real API recordings in `test/support/fixtures/`. Synthetic fixtures are hand-crafted for controlled error/edge case scenarios.
+**Fixtures** live in `test/support/fixtures/<provider id>/` and `fixtures/dialects/<dialect>/`, each directory with a `capture.exs` that records it. `Omni.Test.Capture.record/4` makes one request per fixture, skips files that exist (delete one to re-record it) and replays what it wrote. Baseline requests come from verify's scenarios (`Omni.Verify.Scenarios`), so a baseline fixture is a recording of what verify checks; other cases' requests are in `Omni.Test.Cases`. Tests look models up from the catalog: when a snapshot refresh drops one, re-record on a current model. Hand-written synthetic fixtures cover errors and edge cases no API produces on demand.
 
 `test/support/` is compiled in the test environment via `elixirc_paths`.
 

@@ -18,7 +18,6 @@ defmodule Omni.Providers.GroqTest do
       {provider, models} = Loader.assemble(:groq)
 
       assert provider.module == Groq
-      assert provider.tier == :verified
       assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
       assert models != []
 

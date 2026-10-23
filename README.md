@@ -81,6 +81,15 @@ config :omni, :providers,
   ]
 ```
 
+Built-in providers come configured for their APIs' quirks; a catalog or
+custom provider speaks its wire format plain, which may need adjusting (see
+`Omni.Provider`). To check a model works with your configuration, run a few
+real requests against it:
+
+```sh
+mix omni.verify togetherai moonshotai/Kimi-K3
+```
+
 ## Quick start
 
 ### Text generation

@@ -18,7 +18,6 @@ defmodule Omni.Providers.NearAITest do
       {provider, models} = Loader.assemble(:nearai)
 
       assert provider.module == NearAI
-      assert provider.tier == :verified
       assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
       assert models != []
 

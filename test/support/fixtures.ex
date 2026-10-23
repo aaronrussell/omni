@@ -14,8 +14,7 @@ defmodule Omni.Test.Fixtures do
         name: "Test",
         base_url: "https://api.test.com/v1",
         api_key: "test-key",
-        auth: :dialect,
-        tier: :custom
+        auth: :dialect
       },
       attrs
     )

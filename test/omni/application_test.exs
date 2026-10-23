@@ -6,7 +6,7 @@ defmodule Omni.ApplicationTest do
   describe "loading at startup" do
     test "every built-in provider is loaded" do
       for id <- Provider.builtins() do
-        assert {:ok, %Provider{id: ^id, tier: :verified}} = Provider.get(id)
+        assert {:ok, %Provider{id: ^id}} = Provider.get(id)
         assert is_map(:persistent_term.get(Provider.models_key(id), nil))
       end
     end

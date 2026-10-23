@@ -21,7 +21,6 @@ defmodule Omni.Providers.OllamaTest do
       # from config only.
       assert {provider, []} = Loader.assemble(:ollama)
       assert provider.module == Ollama
-      assert provider.tier == :verified
       assert provider.auth == :none
       assert provider.dialects == %{text: [Omni.Dialects.OllamaChat]}
     end

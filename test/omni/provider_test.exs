@@ -36,7 +36,7 @@ defmodule Omni.ProviderTest do
     test "stores the provider and its models" do
       id = Fixtures.load_provider(models: ["model-a", "model-b"])
 
-      assert {:ok, %Provider{id: ^id, tier: :custom} = provider} = Provider.get(id)
+      assert {:ok, %Provider{id: ^id} = provider} = Provider.get(id)
       models = :persistent_term.get(Provider.models_key(id))
 
       assert Map.keys(models) |> Enum.sort() == ["model-a", "model-b"]

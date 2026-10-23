@@ -100,7 +100,6 @@ defmodule Omni.Provider.LoaderTest do
       assert provider.base_url == "https://catalog.test/v1"
       assert provider.api_key == {:system, "CAT_KEY"}
       assert provider.auth == :dialect
-      assert provider.tier == :catalog
       assert model.provider == provider
     end
 
@@ -408,22 +407,20 @@ defmodule Omni.Provider.LoaderTest do
     end
   end
 
-  describe "tier" do
-    test "is :custom for an id the catalog doesn't know" do
+  describe "defaults" do
+    test "an id the catalog doesn't know is named after its id" do
       {provider, _} =
         assemble(
           [source: StubSource, base_url: "https://x.test/v1", dialects: %{text: @completions}],
           :not_in_catalog
         )
 
-      assert provider.tier == :custom
       assert provider.name == "not_in_catalog"
     end
 
-    test "is :verified for a built-in id" do
+    test "a built-in id gets its module" do
       {provider, _} = assemble([source: catalog([], [])], :groq)
 
-      assert provider.tier == :verified
       assert provider.module == Omni.Providers.Groq
     end
   end
@@ -492,7 +489,7 @@ defmodule Omni.Provider.LoaderTest do
               dialects: %{text: @completions}
             )
 
-          assert provider.tier == :custom
+          assert provider.base_url == "https://x.test/v1"
         end)
 
       assert log =~ ":boom"

@@ -38,9 +38,9 @@ config :omni, :providers,
 
 ## Providers
 
-**Providers are data.** *(phase 1)* A provider is an `%Omni.Provider{}` struct (`id, name, base_url, api_key, auth, headers, dialects, module, tier`), assembled at load from source catalog data, then an optional provider module's `config/0`, then app config. Values replace; `headers` merge by key, `dialects` by capability, `models` by id.
+**Providers are data.** *(phase 1)* A provider is an `%Omni.Provider{}` struct (`id, name, base_url, api_key, auth, headers, dialects, module`), assembled at load from source catalog data, then an optional provider module's `config/0`, then app config. Values replace; `headers` merge by key, `dialects` by capability, `models` by id.
 
-**Any catalog provider loads by id.** *(phase 1)* For example `providers: [:builtins, :togetherai]`, with `togetherai: [base_url: "https://api.together.xyz/v1"]` where the catalog lacks a base URL. These are `tier: :catalog` — they speak their dialect plain, with no quirks.
+**Any catalog provider loads by id.** *(phase 1)* For example `providers: [:builtins, :togetherai]`, with `togetherai: [base_url: "https://api.together.xyz/v1"]` where the catalog lacks a base URL. They speak their dialect plain, with no quirks.
 
 **Custom providers need only config.** *(phase 1)*
 
@@ -135,4 +135,4 @@ config :omni, :providers,
 
 ## Tooling
 
-**New: `mix omni.verify <provider> <model>`.** *(verification)* Runs live scenarios against one model and reports pass or fail for each, with the request body for every failure: text, thinking, no thinking, tool use and structured output by default; image, PDF, a multi-turn tool loop with thinking (`kitchen_sink`) and cache usage on request (`--only`, `--add`, `--skip`, `--delay`). Works for built-in, catalog and custom providers; a catalog provider that isn't loaded is loaded for the run. Exits non-zero on any failure.
+**New: `mix omni.verify <provider> <model>`.** *(verification)* Runs live scenarios against one model and reports pass or fail for each, with a short reason per failure and the full error for failures from an error: text, thinking, tool use and structured output by default; no thinking, image, PDF, a multi-turn tool loop with thinking (`kitchen_sink`) and cache usage on request (`--only`, `--add`, `--skip`, `--delay`). Works for built-in, catalog and custom providers; a catalog provider that isn't loaded is loaded for the run. Exits non-zero on any failure.

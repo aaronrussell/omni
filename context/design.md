@@ -15,7 +15,7 @@ The design separates three distinct concerns:
 - **Providers** -- data describing a specific service: where requests go, how they authenticate, and how it deviates from the wire format it speaks
 - **Dialects** -- code for the wire format of a family of APIs (how requests are built and responses are parsed)
 
-The relationship: there are five dialects, hundreds of possible providers (13 verified built-ins; any provider in the models.dev catalog loads by id; most speak one dialect, though gateways like OpenCode Zen use several), and thousands of models (each belonging to one provider). Each `%Model{}` embeds its `%Provider{}` and names its dialect per capability (`dialects: %{text: Module}`), so dispatch is always per-model and nothing is looked up at request time.
+The relationship: there are five dialects, hundreds of possible providers (13 built-ins; any provider in the models.dev catalog loads by id; most speak one dialect, though gateways like OpenCode Zen use several), and thousands of models (each belonging to one provider). Each `%Model{}` embeds its `%Provider{}` and names its dialect per capability (`dialects: %{text: Module}`), so dispatch is always per-model and nothing is looked up at request time.
 
 ---
 
@@ -271,8 +271,7 @@ A provider is an LLM service, described as data: a `%Omni.Provider{}` struct ass
   headers: %{},
   dialects: %{text: [Omni.Dialects.OpenAICompletions]},  # derived from its models
   compat: %{},                                   # %{dialect_module => flags}
-  module: Omni.Providers.Groq,                   # optional code for what flags can't express
-  tier: :verified                                # :verified | :catalog | :custom
+  module: Omni.Providers.Groq                    # optional code for what flags can't express
 }
 ```
 
@@ -280,7 +279,7 @@ A provider is an LLM service, described as data: a `%Omni.Provider{}` struct ass
 - **`auth` is pure data.** `:dialect` (the default) means "use the scheme of the dialect's home API" (`Dialect.auth/0`: Anthropic Messages → `x-api-key`, Gemini → `x-goog-api-key`, OpenAI → bearer). That is how a gateway like OpenCode Zen authenticates each model the way its upstream does, with no code. No function-valued forms; anything exotic goes through `modify_request/3`.
 - **`dialects`** lists, per capability, every dialect the provider's models speak. It is derived at load from the models, not declared.
 - **`compat`** holds compat flags keyed by dialect module. See [Compat flags](#compat-flags).
-- **`tier`** records how the provider was defined. It carries no behaviour.
+- **No `tier` field.** v2 briefly stamped `tier: :verified | :catalog | :custom`. Nothing read it, built-in membership is `Omni.Provider.builtins/0`, and "verified" promised something about a whole provider that is only ever checked model by model. Removed before release.
 
 ### Why providers are data
 
@@ -291,21 +290,23 @@ In v1 every provider was a module, and the module was the identity everywhere (c
 
 So providers became data, and provider quirks became **compat flags** that dialects read while encoding. Prior art (Pi in particular) showed that flags scale to hundreds of providers and that every dialect eventually needs its own set, but also that auto-detecting quirks from provider name or base URL is fragile: a user who overrides a region silently loses them. Omni's defaults therefore come from explicit per-provider data, and flags are named by wire shape, not by provider.
 
-### Three tiers
+### Built-in, catalog and custom
 
-Any provider can be loaded, but Omni promises different things about each. `tier` tells the user which promise applies.
+Any provider can be loaded; Omni knows more about some than others. These are plain descriptions of where a provider's definition comes from, not a field on the struct.
 
-| Tier | What it is | What Omni promises |
+| Kind | What it is | What Omni supplies |
 |---|---|---|
-| `:verified` | A built-in: an id in `Omni.Provider.Builtins`, with a module in `Omni.Providers.*` | Tested against the live API, compat set, fixtures recorded, documented in its moduledoc |
-| `:catalog` | Any other provider the source's catalog knows | Endpoint, key variable, models and dialect from catalog data; speaks its dialect plain, with no flags. Untested. The user sets flags, or borrows a verified set with `like:` |
-| `:custom` | An id the catalog doesn't know | Nothing beyond what config defines |
+| Built-in | An id in `Omni.Provider.Builtins`, with a module in `Omni.Providers.*` | Base URL, key variable and compat set explicitly; quirks in its moduledoc; baseline fixtures and a provider test; models in the sweep matrix |
+| Catalog | Any other provider the source's catalog knows | Endpoint, key variable, models and dialect from catalog data; speaks its dialect plain, with no flags. The user sets flags, or borrows a built-in's with `like:` |
+| Custom | An id the catalog doesn't know | Nothing beyond what config defines |
 
-**The verified list never guesses.** Flags inferred from what other libraries do are not built-in config; they are the starting point for a verification. A provider joins the verified tier only once it has been run against its live API.
+Omni doesn't call a provider "verified". Verification is per model and per day (see [Verification and testing](#verification-and-testing)): a built-in has had some of its models run against its live API, never all of them. Users check any model, on any kind of provider, with `mix omni.verify`.
+
+**Built-in config never guesses.** Flags inferred from what other libraries do are not built-in config; they are the starting point for running verify. A provider becomes a built-in only once its models have been run against its live API.
 
 ### Built-in providers
 
-Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the thirteen built-in ids to `Omni.Providers.*` modules, and each module's `config/0` *is* the verified overlay: its base URL, key variable, and compat, set explicitly even where the catalog agrees, so `like:` has a complete set to copy. Their moduledocs are the per-provider reference (quirks, regions, the flags they set). Modules carry no id; the Builtins map supplies it, and other providers attach a module with `module:` in config.
+Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the thirteen built-in ids to `Omni.Providers.*` modules, and each module's `config/0` *is* the built-in overlay: its base URL, key variable, and compat, set explicitly even where the catalog agrees, so `like:` has a complete set to copy. Their moduledocs are the per-provider reference (quirks, regions, the flags they set). Modules carry no id; the Builtins map supplies it, and other providers attach a module with `module:` in config.
 
 | Id | Module | Dialect | Module code beyond `config/0` |
 |---|---|---|---|
@@ -379,7 +380,7 @@ For each provider id the Loader:
 4. Passes models through the module's `models/2`.
 5. Resolves dialects. **Model data decides each model's dialect.** A model with none takes the first of the provider's own configured dialects; with none configured, the one dialect all its other models share, if there is exactly one; otherwise it stays unresolved. The provider's list is its own plus its models'. A configured `dialects:` therefore only fills gaps -- it never changes a model that already has one.
 6. Resolves compat: each layer's flags (module, then app config) keyed by dialect, now that the dialects are known, and validates them against each dialect's `compat_schema/0`.
-7. Fills defaults (`auth: :dialect`, name from id, tier), validates, skips unresolved models with a warning, stamps the provider onto every model, applies the filter, and stores.
+7. Fills defaults (`auth: :dialect`, name from id), validates, skips unresolved models with a warning, stamps the provider onto every model, applies the filter, and stores.
 
 `Loader.assemble/2` runs steps 1-7 without touching the store, which is what tests use. A load pass runs inside `Omni.Source.with_cache/1`, a pass-scoped cache (process dictionary): sources memoize shared expensive work (the ~9 MB decoded snapshot) with `Omni.Source.memo/2`, computed once per pass and garbage collected when it ends.
 
@@ -496,7 +497,7 @@ Compat flags describe how a provider deviates from the API its dialect is named 
 
 #### Rules
 
-- **No flag means the home API's behaviour.** With no flags, the Completions dialect behaves exactly like OpenAI's own Chat Completions API. A flag exists only to describe a deviation. No flag takes `nil`; absence is the default. A catalog-tier provider "speaks the dialect plain": no flags.
+- **No flag means the home API's behaviour.** With no flags, the Completions dialect behaves exactly like OpenAI's own Chat Completions API. A flag exists only to describe a deviation. No flag takes `nil`; absence is the default. A catalog provider "speaks the dialect plain": no flags.
 - **Named by wire shape or Omni concept, never by provider.** If two providers share a shape they share a value. Declaring something "the Z.ai way" when Moonshot does the same thing is a claim Omni has no standing to make.
 - **Four kinds of flag**, distinguished by name pattern and value type:
 
@@ -510,9 +511,9 @@ Compat flags describe how a provider deviates from the API its dialect is named 
   Omni's vocabulary where Omni has the concept (`thinking`, `output`, `attachment`, `max_tokens`); literal wire text where it doesn't. A string value is always literal wire text; an atom is always a named thing the dialect validates. `_format` enums include the home value (`output_format: :json_schema`) so a borrowed flag can be reset.
 - **Flat, with a shared prefix, not nested.** Compat merges per flag; nesting would force a deep merge or let one user key wipe out a borrowed `like:` set.
 - **`omit`, not a generic `drop_fields`.** `omit` is a validated list of things the dialect knows how to remove wherever they sit (strict schemas sit three levels deep), so a typo fails at boot. It also gives a future warning mechanism its sentence for free: "this provider ignores `:cache`".
-- **Ship rule.** A flag ships only with a verified provider that uses it. Prior art says which flags to expect; only a live endpoint proves a flag works. The flag set grows with the verified list, not ahead of it.
+- **Ship rule.** A flag ships only with a built-in provider that uses it, proven by verify against that provider's live API. Prior art says which flags to expect; only a live endpoint proves a flag works. The flag set grows with the built-in list, not ahead of it.
 
-The Completions flag table, with what each value does on the wire, is in the `Omni.Dialects.OpenAICompletions` moduledoc. The other four dialects have empty `compat_schema/0`s: no verified provider needs a flag on them yet. That is the ship rule, not a claim that catalog providers speaking them need nothing.
+The Completions flag table, with what each value does on the wire, is in the `Omni.Dialects.OpenAICompletions` moduledoc. The other four dialects have empty `compat_schema/0`s: no built-in needs a flag on them yet. That is the ship rule, not a claim that catalog providers speaking them need nothing.
 
 #### Built-in flags
 
@@ -555,7 +556,7 @@ No library surveyed uses flags to parse Completions streams, and Omni doesn't ei
 
 The one parse-side read of compat is capture for replay: with `thinking_replay_field: "reasoning_details"`, the dialect stashes `reasoning_details` into `Message.private` while parsing and sends them back on that assistant message when encoding. Capture and replay share the flag, so data is only collected when it will be sent back. That is why `handle_event/2` receives the model.
 
-Not adopted: a stateful parse hook (init, per-event state, flush) for reasoning streamed inline as `<think>` tags. No verified provider needs it.
+Not adopted: a stateful parse hook (init, per-event state, flush) for reasoning streamed inline as `<think>` tags. No built-in needs it.
 
 ### Thinking
 
@@ -1471,6 +1472,85 @@ Return {:ok, StreamingResponse.t()} | {:error, term()}
 
 ---
 
+## Verification and testing
+
+### Two jobs
+
+- **Does Omni handle real wire bytes?** Offline, in CI, from recorded fixtures: the integration tests.
+- **Does this provider's current lineup work?** Live calls only: `mix omni.verify`, and the sweep script over it.
+
+A fixture can't say a provider works today; verify can't guard against regressions in CI. Each tool does one job. All live calls (verify, the sweep, capture scripts) are made by the maintainer, never by an agent or CI.
+
+### Verify
+
+`mix omni.verify <provider> <model>` ships in the package, so users can check a catalog or custom provider, or a new model on a built-in, against their own config. The task is a thin wrapper over `Omni.Verify` (internal), whose `run/3` returns results as data (`%{scenario, status, time_ms, summary, error}`); the sweep calls the same function. A catalog provider that isn't loaded is loaded for the run. Output is capped at 8192 tokens so a runaway generation fails with `:length`.
+
+Scenarios are a fixed set, toggled by flags, never chosen from model data. Requests live in `Omni.Verify.Scenarios`, which capture scripts and tests share.
+
+| Scenario | Default | Request | Passes when |
+|---|---|---|---|
+| `text` | yes | simple prompt, `thinking: false` | stop `:stop`, non-empty text |
+| `thinking` | yes | a question hard enough to reason over, `thinking: :low` | a thinking block (text, signature or redacted data) and text |
+| `tool_use` | yes | weather tool, no handler | a `get_weather` `ToolUse` for London, stop `:tool_use` |
+| `structured_output` | yes | object schema via `:output` | `resp.output` matches the schema |
+| `no_thinking` | no | the thinking question, `thinking: false` | no thinking blocks. Only meaningful where model data says thinking can switch off (a toggle or a `"none"` effort); elsewhere Omni sends nothing |
+| `image` | no | `priv/verify/logo.png` | answer names the brand |
+| `pdf` | no | `priv/verify/whitepaper.pdf` | answer names the author |
+| `kitchen_sink` | no | thinking on, two tools with handlers, a prompt needing both; then a follow-up turn over the whole history | ≥1 tool round and text on both turns. Covers thinking replay (signatures, `Message.private`) across tool rounds |
+| `cache_usage` | no | long system prompt with `cache: :short`; turn 2 on top of turn 1 | turn 2 reports cache-read tokens. Exercises breakpoint placement: the prefix must re-encode byte-identically |
+
+Rules:
+
+- **Pass or fail only.** No skip, no warn, no retries (Omni doesn't retry; Req's default retry covers only GET and HEAD). A model failing a scenario it can't do is a correct failure; the sweep matrix doesn't ask it. Flaky results are investigated: tighten the prompt, or drop the scenario for that model.
+- **Thinking effort levels aren't verified** — there's no reliable way to measure the level applied. `thinking` is lenient on purpose: whether a model emits reasoning text varies.
+- **Output is generic.** Each result line has a short reason (`HTTP 429`, `stream error`, `no thinking`), never provider text; errors print in full after the run. Request bodies aren't shown.
+- **Flags:** `--only a,b` (exactly these), `--add` / `--skip` (adjust the defaults), `--delay ms` (pause between scenarios).
+
+### Sweep
+
+`scripts/verify/sweep.exs` holds a matrix as data: `{provider, model, selection}`, the model a catalog id or `Model.new/1` attributes where the catalog lacks it (local Ollama, Z.ai vision). It runs `Omni.Verify.run/3` on each entry in turn and skips providers without an API key. Targets are `provider` or `provider/model`; a model outside the matrix runs the defaults; `--only` replaces every target's selection.
+
+Models are chosen provider by provider: cheap to mid-range, a premium model from Anthropic and OpenAI, more than two for gateways. The matrix tracks today's common models and shifts with lineups. Google has no `cache_usage`: Gemini's implicit cache never reported a hit, and there's no request-side cache control to verify.
+
+Results accumulate by day in `scripts/verify/results/YYYY-MM-DD.json` (`{status, result, time_ms}` per model and scenario, `result` being the short line). A run overwrites the cells it ran and keeps the rest, then regenerates the `.md` beside it. No provider errors are saved, so results are committed. Nothing is pruned.
+
+Sequential throughout: runs are infrequent.
+
+### Capture
+
+Each fixture directory has a `capture.exs`, run with `MIX_ENV=test mix run test/support/fixtures/<dir>/capture.exs`. It calls `Omni.Test.Capture.record/4` once per fixture, each call naming its file:
+
+- **Existing files are skipped.** Re-recording means deleting the file, so new cases can be added without paying for the rest.
+- **One request per fixture**, built with `Request.build/3` (the request the loop sends on each step) and its raw bytes written. Not `generate_text` with `raw: true`: the async body is consumed while parsing, and the loop's structured-output retries would hide extra responses. Multi-step cases chain `record` calls by hand with `with`, so a failure skips its follow-ups and the script carries on.
+- **Then always replayed** through `generate_text` with a plug serving the file, so first and later runs return the same thing, and a turn 2 is built from turn 1 exactly as recorded.
+- `:pause` waits before a live request, for tight rate limits (Moonshot).
+- Response bytes only; no request fixtures.
+
+Baseline requests come from `Omni.Verify.Scenarios` (via `Omni.Test.Baseline.request/1`), so a baseline fixture is a recording of what verify checks. Requests for other cases live in `Omni.Test.Cases`, which also names each dialect's reference model.
+
+### Integration test tiers
+
+Every fixture lives in the lowest tier where it is the only set of real bytes exercising some parsing path or provider variation. Tests only load fixtures from their own directory.
+
+| Tier | Protects | Tests | Fixtures |
+|---|---|---|---|
+| Omni | `StreamingResponse`, `Loop` | `loop_test`, `error_test`, `structured_output_test` (and unit tests of the same modules) | `anthropic/`, plus `synthetic/` |
+| Dialect | a parser path any provider on the dialect takes | `dialects/<dialect>_test.exs` | `dialects/<dialect>/`, from the home API |
+| Provider | bytes where a provider differs from its dialect's reference | `<provider>_test.exs` | `<provider id>/` |
+
+- **Reference providers** are each dialect's home API, matching what "no compat flags" means: Anthropic (`claude-haiku-5-5`), OpenAI Responses (`gpt-6-luna`), Google (`gemini-3.8-flash`), local Ollama, and OpenAI's own `/chat/completions` for Completions (`gpt-6-luna` re-stamped to the Completions dialect, since no built-in speaks it).
+- **Dialect cases** cover what every provider on the dialect shares: cache read/write (`cache_1`, `cache_2`), length stops mid tool call (`tool_length`, `length`), parallel tool calls and reasoning replay (`tools_1`, `tools_2`), Anthropic redacted thinking, and synthetic error events.
+- **Provider files** have a `baseline` block — text, thinking, tool use (via `Omni.Test.Baseline`), the request target (host, path, auth headers) and request shape — then `cases` and `synthetic` blocks only for genuine quirks. Most have neither. OpenCode runs a dialect and target test per dialect from its `*_text` fixtures.
+- **Request shape is asserted, not snapshotted:** capture the outgoing body via the plug and assert the fields the provider's compat flags control. Dialect unit tests cover each flag in isolation.
+- **No structured output fixtures.** Parsing is plain text on every dialect; whether a provider obeys the schema is verify's job. Its request fields are asserted in request shape tests.
+- **Baseline assertions survive re-recording:** stop reason, tool input mentions London, usage present; thinking is lenient (text, signature or encrypted reasoning).
+- **Synthetics live with their tier:** dialect-level in the dialect directory, provider-level with the provider (Venice's packed chunks, OpenRouter's error), Omni-level in `synthetic/`.
+- **Tests look models up from the catalog.** When a snapshot refresh drops a model, the test breaks and the fixture is re-recorded on a current model. Keeping tests on current models is part of the job.
+
+Recording notes: at `thinking: :low`, Haiku 5.5 and gpt-6-luna answered the tool question without reasoning, so their `tools_1`/`tools_2` cases use `Cases.request(:thinking_tools)` (`thinking: :high` and a system prompt asking to plan first). OpenAI's `/chat/completions` rejects tools with a reasoning effort other than `"none"` on gpt-6-luna, so the Completions `tools_1` reference has thinking off. Groq and Ollama Cloud fixtures come from the models their free tiers allow; NearAI's are legacy recordings (no key), with a `capture.exs` ready to replace them.
+
+---
+
 ## Module Structure
 
 ```
@@ -1506,13 +1586,16 @@ lib/omni/
 ├── request.ex                 # Request orchestration: build/3, stream/3,
 │                              #   validate/2, parse_event/2, validate_context/2
 ├── loop.ex                    # Recursive stream loop (tools, structured output retries)
+├── verify.ex                  # Live verification runner (internal): select/1, run/3
+├── verify/
+│   └── scenarios.ex           # Scenario requests, shared with capture scripts and tests
 ├── provider.ex                # Provider struct, module behaviour, get/1, load/1,
 │                              #   builtins/0, resolve_auth/1
 ├── provider/
 │   ├── builtins.ex            # Built-in ids → Omni.Providers.* modules
 │   └── loader.ex              # Assembly, merging, validation, store, boot config checks
 ├── providers/
-│   ├── alibaba.ex             # One module per built-in: config/0 is the verified
+│   ├── alibaba.ex             # One module per built-in: config/0 is the built-in
 │   ├── anthropic.ex           #   overlay; moduledoc is the provider reference
 │   └── ...
 ├── source.ex                  # Source behaviour, build_model/1, pass-scoped cache
@@ -1529,4 +1612,13 @@ lib/omni/
     ├── ollama_chat.ex
     ├── openai_completions.ex
     └── openai_responses.ex
+
+lib/mix/tasks/
+├── omni.snapshot.ex           # Writes the models.dev snapshot to priv/models/
+└── omni.verify.ex             # mix omni.verify <provider> <model>
+
+priv/verify/                   # Verify assets: logo.png, whitepaper.pdf
+scripts/verify/
+├── sweep.exs                  # The model matrix; runs Omni.Verify over it
+└── results/                   # YYYY-MM-DD.json + .md, committed
 ```

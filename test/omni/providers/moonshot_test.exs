@@ -18,7 +18,6 @@ defmodule Omni.Providers.MoonshotTest do
       {provider, models} = Loader.assemble(:moonshotai)
 
       assert provider.module == Moonshot
-      assert provider.tier == :verified
       assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
       assert models != []
 

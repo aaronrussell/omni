@@ -19,7 +19,6 @@ defmodule Omni.Providers.OllamaCloudTest do
       {provider, models} = Loader.assemble(:ollama_cloud)
 
       assert provider.module == OllamaCloud
-      assert provider.tier == :verified
       assert provider.dialects == %{text: [Omni.Dialects.OllamaChat]}
       assert models != []
 

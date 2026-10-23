@@ -18,7 +18,6 @@ defmodule Omni.Providers.VeniceTest do
       {provider, models} = Loader.assemble(:venice)
 
       assert provider.module == Venice
-      assert provider.tier == :verified
       assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
       assert models != []
 

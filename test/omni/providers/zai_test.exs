@@ -18,7 +18,6 @@ defmodule Omni.Providers.ZaiTest do
       {provider, models} = Loader.assemble(:zai)
 
       assert provider.module == Zai
-      assert provider.tier == :verified
       assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
       assert models != []
 
