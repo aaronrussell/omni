@@ -1,0 +1,45 @@
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.190024Z","message":{"role":"assistant","content":"","thinking":"The"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.190035Z","message":{"role":"assistant","content":"","thinking":" user"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.190122Z","message":{"role":"assistant","content":"","thinking":" wants"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.239689Z","message":{"role":"assistant","content":"","thinking":" to"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.239702Z","message":{"role":"assistant","content":"","thinking":" know"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.239753Z","message":{"role":"assistant","content":"","thinking":" the"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.239761Z","message":{"role":"assistant","content":"","thinking":" current"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.239789Z","message":{"role":"assistant","content":"","thinking":" weather"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.288805Z","message":{"role":"assistant","content":"","thinking":" in"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.288819Z","message":{"role":"assistant","content":"","thinking":" London"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.28891Z","message":{"role":"assistant","content":"","thinking":"."},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.288919Z","message":{"role":"assistant","content":"","thinking":" I"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.288947Z","message":{"role":"assistant","content":"","thinking":" have"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.338473Z","message":{"role":"assistant","content":"","thinking":" a"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.338486Z","message":{"role":"assistant","content":"","thinking":" tool"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.338533Z","message":{"role":"assistant","content":"","thinking":" available"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.338542Z","message":{"role":"assistant","content":"","thinking":" called"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.399072Z","message":{"role":"assistant","content":"","thinking":" `"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.399086Z","message":{"role":"assistant","content":"","thinking":"get"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.399151Z","message":{"role":"assistant","content":"","thinking":"_weather"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.399161Z","message":{"role":"assistant","content":"","thinking":"`"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.399213Z","message":{"role":"assistant","content":"","thinking":" that"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.399223Z","message":{"role":"assistant","content":"","thinking":" takes"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.448515Z","message":{"role":"assistant","content":"","thinking":" a"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.448531Z","message":{"role":"assistant","content":"","thinking":" city"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.448576Z","message":{"role":"assistant","content":"","thinking":" name"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.448586Z","message":{"role":"assistant","content":"","thinking":" as"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.497895Z","message":{"role":"assistant","content":"","thinking":" a"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.497908Z","message":{"role":"assistant","content":"","thinking":" parameter"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.497952Z","message":{"role":"assistant","content":"","thinking":"."},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.497962Z","message":{"role":"assistant","content":"","thinking":" I"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.497986Z","message":{"role":"assistant","content":"","thinking":" should"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.548583Z","message":{"role":"assistant","content":"","thinking":" call"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.548594Z","message":{"role":"assistant","content":"","thinking":" this"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.599698Z","message":{"role":"assistant","content":"","thinking":" function"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.599716Z","message":{"role":"assistant","content":"","thinking":" with"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.599783Z","message":{"role":"assistant","content":"","thinking":" \""},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.599796Z","message":{"role":"assistant","content":"","thinking":"London"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.599841Z","message":{"role":"assistant","content":"","thinking":"\""},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.65108Z","message":{"role":"assistant","content":"","thinking":" as"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.651099Z","message":{"role":"assistant","content":"","thinking":" the"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.651158Z","message":{"role":"assistant","content":"","thinking":" city"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.651167Z","message":{"role":"assistant","content":"","thinking":"."},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.958976Z","message":{"role":"assistant","content":"","tool_calls":[{"id":"call_dgqghkaq","function":{"index":0,"name":"get_weather","arguments":{"city":"London"}}}]},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:22.959083Z","message":{"role":"assistant","content":""},"done":true,"done_reason":"stop","total_duration":1195567292,"load_duration":14836084,"prompt_eval_count":284,"prompt_eval_cached_count":0,"prompt_eval_duration":356323417,"eval_count":71,"eval_duration":822203875}

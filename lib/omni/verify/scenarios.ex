@@ -24,9 +24,61 @@ defmodule Omni.Verify.Scenarios do
     end
   end
 
+  @doc """
+  The request a scenario sends: its context and the options it adds. Capture
+  scripts record these, so fixtures are recordings of what verify checks.
+  `:kitchen_sink` and `:cache_usage` give turn 1; `follow_up/3` builds the
+  cache scenario's turn 2.
+  """
+  @spec request(atom()) :: {Context.t(), keyword()}
+  def request(:text), do: {Context.new("Write a haiku about the sky."), [thinking: false]}
+
+  def request(:thinking), do: {Context.new(@thinking_prompt), [thinking: :low]}
+
+  def request(:no_thinking), do: {Context.new(@thinking_prompt), [thinking: false]}
+
+  def request(:tool_use) do
+    context =
+      Context.new(
+        messages: [Message.new("What is the weather in London right now?")],
+        tools: [weather_tool(nil)]
+      )
+
+    {context, []}
+  end
+
+  def request(:structured_output) do
+    context = Context.new("What color is the sky? Respond with name 'sky' and its color.")
+
+    schema =
+      Schema.object(%{name: Schema.string(), color: Schema.string()}, required: [:name, :color])
+
+    {context, [output: schema]}
+  end
+
+  def request(:kitchen_sink) do
+    question = Message.new("What's the current time and weather in London and New York?")
+    tools = [time_tool(), weather_tool(&weather/1)]
+    {Context.new(messages: [question], tools: tools), [thinking: :low]}
+  end
+
+  def request(:cache_usage) do
+    question = Message.new("Which station has the code #{station_code(42)}? Reply with its name.")
+    {Context.new(system: cache_filler(), messages: [question]), [cache: :short]}
+  end
+
+  @doc "Turn 2 of a two-turn scenario, built from turn 1's context and response."
+  @spec follow_up(atom(), Context.t(), Response.t()) :: Context.t()
+  def follow_up(:cache_usage, %Context{} = context, %Response{} = resp) do
+    %{
+      context
+      | messages: context.messages ++ [resp.message, Message.new("What is its elevation?")]
+    }
+  end
+
   @doc false
   def text(model, opts) do
-    context = Context.new("Write a haiku about the sky.")
+    {context, opts} = request(:text, opts)
 
     with {:ok, resp} <- generate(model, context, opts),
          :ok <- stop_reason(resp, :stop),
@@ -37,8 +89,7 @@ defmodule Omni.Verify.Scenarios do
 
   @doc false
   def thinking(model, opts) do
-    context = Context.new(@thinking_prompt)
-    opts = Keyword.put(opts, :thinking, :low)
+    {context, opts} = request(:thinking, opts)
 
     with {:ok, resp} <- generate(model, context, opts),
          {:ok, text} <- text_of(resp),
@@ -49,8 +100,7 @@ defmodule Omni.Verify.Scenarios do
 
   @doc false
   def no_thinking(model, opts) do
-    context = Context.new(@thinking_prompt)
-    opts = Keyword.put(opts, :thinking, false)
+    {context, opts} = request(:no_thinking, opts)
 
     with {:ok, resp} <- generate(model, context, opts),
          {:ok, text} <- text_of(resp),
@@ -61,11 +111,7 @@ defmodule Omni.Verify.Scenarios do
 
   @doc false
   def tool_use(model, opts) do
-    context =
-      Context.new(
-        messages: [Message.new("What is the weather in London right now?")],
-        tools: [weather_tool(nil)]
-      )
+    {context, opts} = request(:tool_use, opts)
 
     with {:ok, resp} <- generate(model, context, opts),
          :ok <- stop_reason(resp, :tool_use),
@@ -77,12 +123,7 @@ defmodule Omni.Verify.Scenarios do
 
   @doc false
   def structured_output(model, opts) do
-    context = Context.new("What color is the sky? Respond with name 'sky' and its color.")
-
-    schema =
-      Schema.object(%{name: Schema.string(), color: Schema.string()}, required: [:name, :color])
-
-    opts = Keyword.put(opts, :output, schema)
+    {context, opts} = request(:structured_output, opts)
 
     with {:ok, resp} <- generate(model, context, opts),
          :ok <- stop_reason(resp, :stop),
@@ -119,17 +160,14 @@ defmodule Omni.Verify.Scenarios do
 
   @doc false
   def kitchen_sink(model, opts) do
-    tools = [time_tool(), weather_tool(&weather/1)]
-    opts = Keyword.put(opts, :thinking, :low)
-    question = Message.new("What's the current time and weather in London and New York?")
-    turn1 = Context.new(messages: [question], tools: tools)
+    {turn1, opts} = request(:kitchen_sink, opts)
 
     with {:ok, resp1} <- generate(model, turn1, opts),
          :ok <- stop_reason(resp1, :stop),
          :ok <- check(tool_rounds(resp1) > 0, "no tools were run"),
          {:ok, _text} <- text_of(resp1),
-         follow_up = [question | resp1.messages] ++ [Message.new("Which city is warmer?")],
-         turn2 = Context.new(messages: follow_up, tools: tools),
+         follow_up = turn1.messages ++ resp1.messages ++ [Message.new("Which city is warmer?")],
+         turn2 = %{turn1 | messages: follow_up},
          {:ok, resp2} <- generate(model, turn2, opts),
          :ok <- stop_reason(resp2, :stop),
          {:ok, text} <- text_of(resp2) do
@@ -139,15 +177,11 @@ defmodule Omni.Verify.Scenarios do
 
   @doc false
   def cache_usage(model, opts) do
-    opts = Keyword.put(opts, :cache, :short)
-    system = cache_filler()
-    question = Message.new("Which station has the code #{station_code(42)}? Reply with its name.")
-    turn1 = Context.new(system: system, messages: [question])
+    {turn1, opts} = request(:cache_usage, opts)
 
     with {:ok, resp1} <- generate(model, turn1, opts),
          :ok <- Process.sleep(@cache_pause),
-         follow_up = [question, resp1.message, Message.new("What is its elevation?")],
-         turn2 = Context.new(system: system, messages: follow_up),
+         turn2 = follow_up(:cache_usage, turn1, resp1),
          {:ok, resp2} <- generate(model, turn2, opts),
          :ok <-
            check(
@@ -161,6 +195,12 @@ defmodule Omni.Verify.Scenarios do
   end
 
   # -- Shared --
+
+  # The scenario's options win over the caller's.
+  defp request(scenario, opts) do
+    {context, scenario_opts} = request(scenario)
+    {context, Keyword.merge(opts, scenario_opts)}
+  end
 
   defp attachment(model, opts, file, media_type, prompt, expected) do
     data = :omni |> Application.app_dir(Path.join("priv/verify", file)) |> File.read!()
@@ -221,8 +261,10 @@ defmodule Omni.Verify.Scenarios do
   # Thinking text, a signature, redacted data, a thought signature on text
   # (Gemini), or encrypted reasoning details (Gemini through OpenRouter) all
   # count. Adaptive models may skip reasoning on an easy prompt, so this shows
-  # thinking was switched on, not that the model used it.
-  defp thinking_of(resp) do
+  # thinking was switched on, not that the model used it. Public for the
+  # integration tests' baseline, which holds fixtures to the same rule.
+  @doc false
+  def thinking_of(resp) do
     thinking = blocks(resp, Thinking)
     signed_text? = Enum.any?(blocks(resp, Text), &(&1.signature not in [nil, ""]))
     details? = resp.message != nil and resp.message.private[:reasoning_details] not in [nil, []]

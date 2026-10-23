@@ -301,12 +301,20 @@ defmodule Omni.Dialects.OpenAIResponses do
 
   # Usage normalization
 
+  # `input_tokens` includes cached tokens; Omni's doesn't. Cache writes
+  # (`input_tokens_details.cache_write_tokens`) stay in input, as OpenAI bills
+  # them at the input rate.
   defp normalize_usage(%{"usage" => usage}) when is_map(usage) do
+    cached = get_in(usage, ["input_tokens_details", "cached_tokens"])
+
     %{}
-    |> maybe_put("input_tokens", usage["input_tokens"])
+    |> maybe_put("input_tokens", uncached(usage["input_tokens"], cached))
     |> maybe_put("output_tokens", usage["output_tokens"])
-    |> maybe_put("cache_read_tokens", get_in(usage, ["input_tokens_details", "cached_tokens"]))
+    |> maybe_put("cache_read_tokens", cached)
   end
 
   defp normalize_usage(_), do: nil
+
+  defp uncached(nil, _cached), do: nil
+  defp uncached(input, cached), do: input - (cached || 0)
 end

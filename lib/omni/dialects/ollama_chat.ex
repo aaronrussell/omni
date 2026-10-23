@@ -184,14 +184,18 @@ defmodule Omni.Dialects.OllamaChat do
 
   defp maybe_put_stop_reason(map, _), do: map
 
+  # `prompt_eval_count` includes the cached prefix (`prompt_eval_cached_count`);
+  # Omni's `input_tokens` doesn't.
   defp maybe_put_usage(map, event) do
     input = event["prompt_eval_count"]
     output = event["eval_count"]
+    cached = event["prompt_eval_cached_count"] || 0
 
     if input || output do
       Map.put(map, :usage, %{
-        "input_tokens" => input || 0,
-        "output_tokens" => output || 0
+        "input_tokens" => (input || 0) - cached,
+        "output_tokens" => output || 0,
+        "cache_read_tokens" => cached
       })
     else
       map

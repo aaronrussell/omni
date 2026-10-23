@@ -1,148 +1,114 @@
 defmodule Integration.GoogleTest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Context, Message, Response, StreamingResponse}
+  import Omni.Test.Baseline
+
+  alias Omni.Context
   alias Omni.Content.{Text, Thinking, ToolUse}
+  alias Omni.Test.Capture
 
-  @text_fixture "test/support/fixtures/sse/google_text.sse"
-  @tool_use_fixture "test/support/fixtures/sse/google_tool_use.sse"
-  @thinking_fixture "test/support/fixtures/sse/google_thinking.sse"
+  @dir "test/support/fixtures/google"
 
-  defp stub_fixture(stub_name, fixture_file) do
-    Req.Test.stub(stub_name, fn conn ->
-      body = File.read!(fixture_file)
-
-      conn
-      |> Plug.Conn.put_resp_content_type("text/event-stream")
-      |> Plug.Conn.send_resp(200, body)
-    end)
+  setup do
+    {:ok, model} = Omni.get_model(:google, "gemini-3.8-flash")
+    %{model: model}
   end
 
-  defp model do
-    {:ok, model} = Omni.get_model(:google, "gemini-2.5-flash")
-    model
-  end
+  describe "baseline" do
+    test "text", %{model: model} do
+      assert_text(model, "#{@dir}/text.sse")
+    end
 
-  describe "generate_text/3 — text" do
-    test "returns a text response" do
-      stub_fixture(:int_google_text, @text_fixture)
+    test "thinking", %{model: model} do
+      {resp, request} = assert_thinking(model, "#{@dir}/thinking.sse")
 
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), "Write a haiku about why the sky is blue.",
-                 api_key: "test-key",
-                 plug: {Req.Test, :int_google_text}
-               )
+      assert request.body["generationConfig"]["thinkingConfig"] == %{
+               "includeThoughts" => true,
+               "thinkingLevel" => "low"
+             }
 
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert %Omni.Model{} = resp.model
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-      assert [%Text{text: text}] = resp.message.content
-      assert is_binary(text) and byte_size(text) > 0
+      # Thought summaries, and the thought signature on the answer
+      assert [%Thinking{text: "" <> _}, %Text{signature: "" <> _}] = resp.message.content
+    end
+
+    # Gemini reports thinking apart from `candidatesTokenCount`, billed as
+    # output. Its `totalTokenCount` includes it, so the totals agree.
+    test "thinking tokens count as output", %{model: model} do
+      {resp, _request} = assert_thinking(model, "#{@dir}/thinking.sse")
+
+      [total | _] =
+        ~r/"totalTokenCount": ?(\d+)/
+        |> Regex.scan(File.read!("#{@dir}/thinking.sse"), capture: :all_but_first)
+        |> List.last()
+
+      assert resp.usage.total_tokens == String.to_integer(total)
+    end
+
+    test "tool use", %{model: model} do
+      assert_tool_use(model, "#{@dir}/tool_use.sse")
+    end
+
+    test "structured output", %{model: model} do
+      {_resp, request} = assert_structured_output(model, "#{@dir}/structured_output.sse")
+
+      assert %{"responseMimeType" => "application/json", "responseSchema" => %{}} =
+               request.body["generationConfig"]
+    end
+
+    test "target", %{model: model} do
+      assert_target(
+        model,
+        "#{@dir}/text.sse",
+        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:streamGenerateContent",
+        [{"x-goog-api-key", "test-key"}]
+      )
     end
   end
 
-  describe "generate_text/3 — tool use" do
-    test "returns a tool use response" do
-      stub_fixture(:int_google_tool, @tool_use_fixture)
+  describe "cases" do
+    # With thinking on, the first function call carries a thought signature,
+    # which must go back with the tool results.
+    test "parallel tool calls replay the thought signature", %{model: model} do
+      {context, opts} = request(:kitchen_sink)
 
-      tool =
-        Omni.tool(
-          name: "get_weather",
-          description: "Gets the weather",
-          input_schema: %{type: "object", properties: %{city: %{type: "string"}}}
-        )
+      assert {:ok, resp1} = Capture.replay(model, context, "#{@dir}/tools_1.sse", opts)
+      assert resp1.stop_reason == :tool_use
+      assert [%ToolUse{signature: "" <> _ = signature} | rest] = resp1.message.content
+      assert length(rest) == 3 and Enum.all?(rest, &match?(%ToolUse{signature: nil}, &1))
+      assert_received {:replay_request, _}
 
-      context =
-        Context.new(
-          messages: [Message.new("What is the weather in London?")],
-          tools: [tool]
-        )
+      turn2 = tool_round(context, resp1)
+      assert {:ok, resp2} = Capture.replay(model, turn2, "#{@dir}/tools_2.sse", opts)
+      assert_received {:replay_request, %{body: body}}
 
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), context,
-                 api_key: "test-key",
-                 plug: {Req.Test, :int_google_tool}
-               )
+      assert [_question, %{"role" => "model", "parts" => [call | _]}, %{"parts" => results}] =
+               body["contents"]
 
-      assert resp.stop_reason == :tool_use
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert tool_use = Enum.find(resp.message.content, &match?(%ToolUse{}, &1))
-      assert is_binary(tool_use.name) and tool_use.name == "get_weather"
-      assert is_map(tool_use.input)
+      assert %{"functionCall" => %{"name" => "get_time"}, "thoughtSignature" => ^signature} = call
+      assert length(results) == 4
+
+      assert resp2.stop_reason == :stop
+      assert [%Text{text: "" <> _}] = resp2.message.content
     end
   end
 
-  describe "generate_text/3 — thinking" do
-    test "returns thinking and text content" do
-      stub_fixture(:int_google_thinking, @thinking_fixture)
-
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), "How many R's are in strawberry?",
-                 api_key: "test-key",
-                 thinking: :high,
-                 plug: {Req.Test, :int_google_thinking}
-               )
-
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-
-      thinking = Enum.filter(resp.message.content, &match?(%Thinking{}, &1))
-      assert length(thinking) > 0
-
-      texts = Enum.filter(resp.message.content, &match?(%Text{}, &1))
-      assert length(texts) > 0
-    end
-  end
-
-  describe "generate_text/3 — mid-stream error" do
-    test "error event returns stream_error" do
-      stub_fixture(:int_google_error, "test/support/fixtures/synthetic/google_error.sse")
+  describe "synthetic" do
+    test "error event returns stream_error", %{model: model} do
+      file = "test/support/fixtures/synthetic/google_error.sse"
 
       assert {:error, {:stream_error, "You've exceeded the rate limit."}} =
-               Omni.generate_text(model(), "Hello",
-                 api_key: "test-key",
-                 plug: {Req.Test, :int_google_error}
-               )
-    end
-  end
-
-  describe "stream_text/3 — text streaming" do
-    test "streams text and completes with full response" do
-      stub_fixture(:int_google_stream, @text_fixture)
-
-      {:ok, sr} =
-        Omni.stream_text(model(), "Write a haiku about why the sky is blue.",
-          api_key: "test-key",
-          plug: {Req.Test, :int_google_stream}
-        )
-
-      texts = sr |> StreamingResponse.text_stream() |> Enum.to_list()
-
-      assert length(texts) > 0
-      assert Enum.all?(texts, &is_binary/1)
-      assert Enum.join(texts) != ""
+               Capture.replay(model, Context.new("Hello"), file)
     end
 
-    test "complete/1 returns a full response" do
-      stub_fixture(:int_google_complete, @text_fixture)
+    # Gemini's implicit cache never reported a hit in testing, so this stands
+    # in for a real cache case.
+    test "cachedContentTokenCount comes out of input", %{model: model} do
+      file = "test/support/fixtures/synthetic/google_cache.sse"
+      assert {:ok, resp} = Capture.replay(model, Context.new("Hello"), file)
 
-      {:ok, sr} =
-        Omni.stream_text(model(), "Write a haiku about why the sky is blue.",
-          api_key: "test-key",
-          plug: {Req.Test, :int_google_complete}
-        )
-
-      assert {:ok, %Response{} = resp} = StreamingResponse.complete(sr)
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-      assert [%Text{text: text}] = resp.message.content
-      assert byte_size(text) > 0
+      assert resp.usage.input_tokens == 20
+      assert resp.usage.output_tokens == 50
+      assert resp.usage.cache_read_tokens == 80
     end
   end
 end

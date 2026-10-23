@@ -654,7 +654,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       assert [] == OpenAIResponses.handle_event(%{"something" => "else"}, @model)
     end
 
-    test "response.completed extracts cached tokens from input_tokens_details" do
+    test "response.completed takes cached tokens from input_tokens_details out of input" do
       event = %{
         "type" => "response.completed",
         "response" => %{
@@ -671,7 +671,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       }
 
       assert [{:message, %{usage: usage}}] = OpenAIResponses.handle_event(event, @model)
-      assert usage["input_tokens"] == 17
+      assert usage["input_tokens"] == 5
       assert usage["output_tokens"] == 22
       assert usage["cache_read_tokens"] == 12
     end

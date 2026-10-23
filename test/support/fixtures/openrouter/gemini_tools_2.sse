@@ -1,0 +1,20 @@
+data: {"id":"gen-1792751559-aFNV1tzcKR2MatCHGBJP","object":"chat.completion.chunk","created":1792751559,"model":"google/gemini-3.8-flash","provider":"Google","choices":[{"index":0,"delta":{"content":"Here is","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751559-aFNV1tzcKR2MatCHGBJP","object":"chat.completion.chunk","created":1792751559,"model":"google/gemini-3.8-flash","provider":"Google","choices":[{"index":0,"delta":{"content":" the current time and weather for London and New York:\n\n* **London:**\n","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751559-aFNV1tzcKR2MatCHGBJP","object":"chat.completion.chunk","created":1792751559,"model":"google/gemini-3.8-flash","provider":"Google","choices":[{"index":0,"delta":{"content":"  * **Time:** 17:28 (5:28 PM)\n  * **Weather:** Cloudy with light drizzle","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751559-aFNV1tzcKR2MatCHGBJP","object":"chat.completion.chunk","created":1792751559,"model":"google/gemini-3.8-flash","provider":"Google","choices":[{"index":0,"delta":{"content":", around 8°C\n\n* **New York:**\n  * **Time:** 12:28","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751559-aFNV1tzcKR2MatCHGBJP","object":"chat.completion.chunk","created":1792751559,"model":"google/gemini-3.8-flash","provider":"Google","choices":[{"index":0,"delta":{"content":" (12:28 PM)\n  * **Weather:** Partly sunny, cold and breezy, around 2","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751559-aFNV1tzcKR2MatCHGBJP","object":"chat.completion.chunk","created":1792751559,"model":"google/gemini-3.8-flash","provider":"Google","choices":[{"index":0,"delta":{"content":"°C","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751559-aFNV1tzcKR2MatCHGBJP","object":"chat.completion.chunk","created":1792751559,"model":"google/gemini-3.8-flash","provider":"Google","choices":[{"index":0,"delta":{"content":"","role":"assistant","reasoning":null,"reasoning_details":[{"type":"reasoning.encrypted","data":"AY89a1+Eap5H9iMFZU2ZFC1SwI6a/NvEAKF0V82XWwlynyvVE/YNtTZtt/nCI451IbU/+n9kB+LZHU9qqNireZLqNCIJEmuWz7Zeb899M5pHgBJR+JDn","format":"google-gemini-v1","index":0}]},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751559-aFNV1tzcKR2MatCHGBJP","object":"chat.completion.chunk","created":1792751559,"model":"google/gemini-3.8-flash","provider":"Google","choices":[{"index":0,"delta":{"content":"","role":"assistant","reasoning":null},"finish_reason":"stop","native_finish_reason":"STOP"}]}
+
+data: {"id":"gen-1792751559-aFNV1tzcKR2MatCHGBJP","object":"chat.completion.chunk","created":1792751559,"model":"google/gemini-3.8-flash","provider":"Google","service_tier":"provisioned","choices":[{"index":0,"delta":{"content":"","role":"assistant"},"finish_reason":"stop","native_finish_reason":"STOP"}],"usage":{"prompt_tokens":175,"completion_tokens":97,"total_tokens":272,"cost":0.00049005,"is_byok":false,"prompt_tokens_details":{"cached_tokens":0,"cache_write_tokens":0,"audio_tokens":0,"video_tokens":0},"cost_details":{"upstream_inference_cost":0.000495,"upstream_inference_prompt_cost":0.00013125,"upstream_inference_completions_cost":0.00036375},"completion_tokens_details":{"reasoning_tokens":0,"image_tokens":0,"audio_tokens":0}}}
+
+data: [DONE]
+

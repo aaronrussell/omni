@@ -41,7 +41,7 @@ defmodule Integration.StructuredOutputTest do
   end
 
   defp model do
-    {:ok, model} = Omni.get_model(:anthropic, "claude-haiku-4-5")
+    {:ok, model} = Omni.get_model(:anthropic, "claude-haiku-5-5")
     model
   end
 

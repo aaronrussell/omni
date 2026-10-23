@@ -450,12 +450,18 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   defp normalize_usage(nil), do: nil
 
+  # `prompt_tokens` includes cached tokens; Omni's `input_tokens` doesn't.
   defp normalize_usage(usage) do
+    cached = get_in(usage, ["prompt_tokens_details", "cached_tokens"])
+
     %{}
-    |> maybe_put("input_tokens", usage["prompt_tokens"])
+    |> maybe_put("input_tokens", uncached(usage["prompt_tokens"], cached))
     |> maybe_put("output_tokens", usage["completion_tokens"])
-    |> maybe_put("cache_read_tokens", get_in(usage, ["prompt_tokens_details", "cached_tokens"]))
+    |> maybe_put("cache_read_tokens", cached)
   end
+
+  defp uncached(nil, _cached), do: nil
+  defp uncached(input, cached), do: input - (cached || 0)
 
   # Helpers
 

@@ -1,0 +1,75 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_0a94ed9d28450b6e016adb377837b487d29c65d0aecf964448","object":"response","created_at":1792751480,"completed_at":null,"status":"in_progress","parallel_tool_calls":true,"temperature":1,"top_p":0.98,"max_output_tokens":null,"previous_response_id":null,"background":false,"truncation":"disabled","top_logprobs":0,"max_tool_calls":null,"prompt_cache_retention":"24h","model":"gpt-6-luna","error":null,"incomplete_details":null,"output":[],"usage":null,"instructions":null,"tool_choice":"auto","tools":[],"reasoning":{"context":"all_turns","effort":"none","mode":"standard","summary":null},"text":{"verbosity":"medium","format":{"type":"text"}},"moderation":null}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_0a94ed9d28450b6e016adb377837b487d29c65d0aecf964448","object":"response","created_at":1792751480,"completed_at":null,"status":"in_progress","parallel_tool_calls":true,"temperature":1,"top_p":0.98,"max_output_tokens":null,"previous_response_id":null,"background":false,"truncation":"disabled","top_logprobs":0,"max_tool_calls":null,"prompt_cache_retention":"24h","model":"gpt-6-luna","error":null,"incomplete_details":null,"output":[],"usage":null,"instructions":null,"tool_choice":"auto","tools":[],"reasoning":{"context":"all_turns","effort":"none","mode":"standard","summary":null},"text":{"verbosity":"medium","format":{"type":"text"}},"moderation":null}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":0,"item":{"id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","type":"message","status":"in_progress","role":"assistant","phase":"final_answer","content":[]}}
+
+event: response.content_part.added
+data: {"type":"response.content_part.added","sequence_number":3,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","part":{"type":"output_text","text":"","annotations":[],"logprobs":[]}}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":4,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":"Blue","obfuscation":"vIgPFiYgz0bP","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":5,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":" sky","obfuscation":"JH6UkUF9Ipea","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":6,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":" opens","obfuscation":"5zFD1e3cTq","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":7,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":" wide","obfuscation":"PyfAyMf6Tou","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":8,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":"  \n","obfuscation":"3Gwj8ijs2CHx6","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":9,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":"Cloud","obfuscation":"UVwW1FGZ02x","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":10,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":"s","obfuscation":"iTFthjoOgrOFdSX","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":11,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":" drift","obfuscation":"vj6uvbGCNU","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":12,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":" over","obfuscation":"lj48wehBj8F","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":13,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":" quiet","obfuscation":"l1gjDasOMa","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":14,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":" hills","obfuscation":"ETg0fXKT8q","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":15,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":"  \n","obfuscation":"k7UVj60LSjvgC","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":16,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":"Day","obfuscation":"KHLUwm6LyTn50","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":17,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":"light","obfuscation":"kcBlTFoIyIz","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":18,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":" fills","obfuscation":"kNMZ5ynml8","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":19,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":" the","obfuscation":"NmYpdZx5TMTp","logprobs":[]}
+
+event: response.output_text.delta
+data: {"type":"response.output_text.delta","sequence_number":20,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","delta":" world","obfuscation":"Z2nLBgPWEb","logprobs":[]}
+
+event: response.output_text.done
+data: {"type":"response.output_text.done","sequence_number":21,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","text":"Blue sky opens wide  \nClouds drift over quiet hills  \nDaylight fills the world","logprobs":[]}
+
+event: response.content_part.done
+data: {"type":"response.content_part.done","sequence_number":22,"output_index":0,"content_index":0,"item_id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","part":{"type":"output_text","text":"Blue sky opens wide  \nClouds drift over quiet hills  \nDaylight fills the world","annotations":[],"logprobs":[]}}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":23,"output_index":0,"item":{"id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","type":"message","status":"completed","role":"assistant","phase":"final_answer","content":[{"type":"output_text","text":"Blue sky opens wide  \nClouds drift over quiet hills  \nDaylight fills the world","annotations":[],"logprobs":[]}]}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":24,"response":{"id":"resp_0a94ed9d28450b6e016adb377837b487d29c65d0aecf964448","object":"response","created_at":1792751480,"completed_at":1792751481,"status":"completed","parallel_tool_calls":true,"temperature":1,"top_p":0.98,"max_output_tokens":null,"previous_response_id":null,"background":false,"truncation":"disabled","top_logprobs":0,"max_tool_calls":null,"prompt_cache_retention":"24h","model":"gpt-6-luna","error":null,"incomplete_details":null,"output":[{"id":"msg_0a94ed9d28450b6e016adb3778f72887d2a3251a76e6a667de","type":"message","status":"completed","role":"assistant","phase":"final_answer","content":[{"type":"output_text","text":"Blue sky opens wide  \nClouds drift over quiet hills  \nDaylight fills the world","annotations":[],"logprobs":[]}]}],"usage":{"input_tokens":14,"output_tokens":21,"total_tokens":35,"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0},"output_tokens_details":{"reasoning_tokens":0}},"instructions":null,"tool_choice":"auto","tools":[],"reasoning":{"context":"all_turns","effort":"none","mode":"standard","summary":null},"text":{"verbosity":"medium","format":{"type":"text"}},"moderation":null}}
+

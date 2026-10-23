@@ -46,7 +46,7 @@ matrix = [
   {:google, "gemini-3.5-flash-lite", []},
   {:groq, "openai/gpt-oss-120b", loop},
   {:groq, "qwen/qwen3.8-27b", add: [:no_thinking, :image]},
-  {:moonshotai, "kimi-k2.6", add: [:no_thinking, :image, :kitchen_sink, :cache_usage]},
+  {:moonshotai, "kimi-k3", add: [:image, :kitchen_sink, :cache_usage]},
   {:alibaba, "qwen3.8-flash", add: [:no_thinking, :image, :kitchen_sink, :cache_usage]},
   {:alibaba, "qwen3.8-max", add: [:no_thinking, :pdf]},
   {:zai, "glm-5.3-flash", add: [:image, :pdf, :kitchen_sink, :cache_usage]},
@@ -54,8 +54,8 @@ matrix = [
   {:venice, "qwen-3-8-flash", add: [:no_thinking, :image, :pdf, :kitchen_sink]},
   {:venice, "claude-haiku-5-5", off},
   {:nearai, "zai-org/GLM-5.1-FP8", off},
-  # Fails structured_output: Ollama Cloud ignores `format` for this model, which
-  # answers in prose (local gemma4 passes). Kept as a known failure.
+  # Fails structured_output: Ollama Cloud doesn't enforce `format` (gemma4 and
+  # gpt-oss:20b answer in prose; local Ollama passes). Kept as a known failure.
   {:ollama_cloud, "gemma4:31b", add: [:no_thinking, :image, :kitchen_sink]},
   {:ollama, [id: "qwen3.8:27b-mlx", thinking: true, input_modalities: [:text, :image]],
    add: [:no_thinking, :image, :kitchen_sink]},

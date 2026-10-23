@@ -1,139 +1,52 @@
 defmodule Integration.AlibabaTest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Context, Message, Response, StreamingResponse}
-  alias Omni.Content.{Text, Thinking, ToolUse}
+  import Omni.Test.Baseline
 
-  @text_fixture "test/support/fixtures/sse/alibaba_text.sse"
-  @tool_use_fixture "test/support/fixtures/sse/alibaba_tool_use.sse"
-  @thinking_fixture "test/support/fixtures/sse/alibaba_thinking.sse"
+  @dir "test/support/fixtures/alibaba"
 
-  defp stub_fixture(stub_name, fixture_file) do
-    Req.Test.stub(stub_name, fn conn ->
-      body = File.read!(fixture_file)
-
-      conn
-      |> Plug.Conn.put_resp_content_type("text/event-stream")
-      |> Plug.Conn.send_resp(200, body)
-    end)
+  setup do
+    {:ok, model} = Omni.get_model(:alibaba, "qwen3.8-flash")
+    %{model: model}
   end
 
-  defp model do
-    {:ok, model} = Omni.get_model(:alibaba, "qwen3.6-plus")
-    model
-  end
+  describe "baseline" do
+    test "text", %{model: model} do
+      {_resp, request} = assert_text(model, "#{@dir}/text.sse")
+      assert request.body["enable_thinking"] == false
+    end
 
-  describe "generate_text/3 — text" do
-    test "returns a text response" do
-      stub_fixture(:int_alibaba_text, @text_fixture)
+    # An effort model: effort, no budget
+    test "thinking", %{model: model} do
+      {_resp, request} = assert_thinking(model, "#{@dir}/thinking.sse")
 
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), "Write a haiku about why the sky is blue.",
-                 api_key: "test-key",
-                 plug: {Req.Test, :int_alibaba_text}
-               )
+      assert request.body["reasoning_effort"] == "low"
+      refute Map.has_key?(request.body, "thinking_budget")
+    end
 
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert %Omni.Model{} = resp.model
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-      assert text_block = Enum.find(resp.message.content, &match?(%Text{}, &1))
-      assert is_binary(text_block.text) and byte_size(text_block.text) > 0
+    test "tool use", %{model: model} do
+      assert_tool_use(model, "#{@dir}/tool_use.sse")
+    end
+
+    test "structured output", %{model: model} do
+      {_resp, request} = assert_structured_output(model, "#{@dir}/structured_output.sse")
+      assert request.body["response_format"] == %{"type" => "json_object"}
+    end
+
+    test "target", %{model: model} do
+      assert_target(
+        model,
+        "#{@dir}/text.sse",
+        "https://dashscope-intl.aliyuncs.com/compatible-mode/v1/chat/completions",
+        [{"authorization", "Bearer test-key"}]
+      )
     end
   end
 
-  describe "generate_text/3 — tool use" do
-    test "returns a tool use response" do
-      stub_fixture(:int_alibaba_tool, @tool_use_fixture)
-
-      tool =
-        Omni.tool(
-          name: "get_weather",
-          description: "Gets the weather",
-          input_schema: %{type: "object", properties: %{location: %{type: "string"}}}
-        )
-
-      context =
-        Context.new(
-          messages: [Message.new("What is the weather in London?")],
-          tools: [tool]
-        )
-
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), context,
-                 api_key: "test-key",
-                 plug: {Req.Test, :int_alibaba_tool}
-               )
-
-      assert resp.stop_reason == :tool_use
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-      assert tool_use = Enum.find(resp.message.content, &match?(%ToolUse{}, &1))
-      assert is_binary(tool_use.name) and tool_use.name == "get_weather"
-      assert is_map(tool_use.input)
-      assert is_binary(tool_use.id)
-    end
-  end
-
-  describe "generate_text/3 — thinking" do
-    test "returns thinking and text content" do
-      stub_fixture(:int_alibaba_thinking, @thinking_fixture)
-
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), "How many R's are in strawberry?",
-                 api_key: "test-key",
-                 thinking: :high,
-                 plug: {Req.Test, :int_alibaba_thinking}
-               )
-
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-
-      thinking = Enum.filter(resp.message.content, &match?(%Thinking{}, &1))
-      assert length(thinking) > 0
-
-      texts = Enum.filter(resp.message.content, &match?(%Text{}, &1))
-      assert length(texts) > 0
-    end
-  end
-
-  describe "stream_text/3 — text streaming" do
-    test "streams text and completes with full response" do
-      stub_fixture(:int_alibaba_stream, @text_fixture)
-
-      {:ok, sr} =
-        Omni.stream_text(model(), "Write a haiku about why the sky is blue.",
-          api_key: "test-key",
-          plug: {Req.Test, :int_alibaba_stream}
-        )
-
-      texts = sr |> StreamingResponse.text_stream() |> Enum.to_list()
-
-      assert length(texts) > 0
-      assert Enum.all?(texts, &is_binary/1)
-      assert Enum.join(texts) != ""
-    end
-
-    test "complete/1 returns a full response" do
-      stub_fixture(:int_alibaba_complete, @text_fixture)
-
-      {:ok, sr} =
-        Omni.stream_text(model(), "Write a haiku about why the sky is blue.",
-          api_key: "test-key",
-          plug: {Req.Test, :int_alibaba_complete}
-        )
-
-      assert {:ok, %Response{} = resp} = StreamingResponse.complete(sr)
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-      assert text_block = Enum.find(resp.message.content, &match?(%Text{}, &1))
-      assert byte_size(text_block.text) > 0
+  describe "cases" do
+    # `prompt_tokens` includes the cached prefix on the wire.
+    test "cache hit on turn 2", %{model: model} do
+      assert_cache_hit(model, "#{@dir}/cache_1.sse", "#{@dir}/cache_2.sse")
     end
   end
 end

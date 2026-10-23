@@ -1,0 +1,12 @@
+data: {"candidates": [{"content": {"parts": [{"text": "Here is the current time and weather for London and New York:\n\n*"}],"role": "model"},"index": 0}],"usageMetadata": {"promptTokenCount": 266,"candidatesTokenCount": 15,"totalTokenCount": 281,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 266}],"serviceTier": "standard"},"modelVersion": "gemini-3.8-flash","responseId": "KDXbaq-DHaK2kdUPvYHSgAw"}
+
+data: {"candidates": [{"content": {"parts": [{"text": " **London:**\n  * **Time:** 17:28 (5:28 PM)\n  * **"}],"role": "model"},"index": 0}],"usageMetadata": {"promptTokenCount": 266,"candidatesTokenCount": 41,"totalTokenCount": 307,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 266}],"serviceTier": "standard"},"modelVersion": "gemini-3.8-flash","responseId": "KDXbaq-DHaK2kdUPvYHSgAw"}
+
+data: {"candidates": [{"content": {"parts": [{"text": "Weather:** Cloudy with light drizzle, around 8°C\n\n* **New York:**\n  * **Time:**"}],"role": "model"},"index": 0}],"usageMetadata": {"promptTokenCount": 266,"candidatesTokenCount": 65,"totalTokenCount": 331,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 266}],"serviceTier": "standard"},"modelVersion": "gemini-3.8-flash","responseId": "KDXbaq-DHaK2kdUPvYHSgAw"}
+
+data: {"candidates": [{"content": {"parts": [{"text": " 12:28 (12:28 PM)\n  * **Weather:** Partly sunny, cold"}],"role": "model"},"index": 0}],"usageMetadata": {"promptTokenCount": 266,"candidatesTokenCount": 89,"totalTokenCount": 355,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 266}],"serviceTier": "standard"},"modelVersion": "gemini-3.8-flash","responseId": "KDXbaq-DHaK2kdUPvYHSgAw"}
+
+data: {"candidates": [{"content": {"parts": [{"text": " and breezy, around 2°C"}],"role": "model"},"index": 0}],"usageMetadata": {"promptTokenCount": 266,"candidatesTokenCount": 97,"totalTokenCount": 363,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 266}],"serviceTier": "standard"},"modelVersion": "gemini-3.8-flash","responseId": "KDXbaq-DHaK2kdUPvYHSgAw"}
+
+data: {"candidates": [{"content": {"parts": [{"text": "","thoughtSignature": "EmkKZwFpFH0T4p8LPC9ii/Ajt/1mOuX5tbxhtdD6r0mj53FXGTVba8SnGpw4s0rrRw72EoASOsrRsaahIpMtIN02TcX+x1XLR/yGO+dZ5XND0PvFTysyUw9bOxCC7jwpRIWPj7gm1WK7bOk="}],"role": "model"},"finishReason": "STOP","index": 0}],"usageMetadata": {"promptTokenCount": 266,"candidatesTokenCount": 97,"totalTokenCount": 363,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 266}],"serviceTier": "standard"},"modelVersion": "gemini-3.8-flash","responseId": "KDXbaq-DHaK2kdUPvYHSgAw"}
+

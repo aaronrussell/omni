@@ -17,6 +17,10 @@ defmodule Omni.Providers.OllamaCloud do
   Only base64-encoded images are supported. URL image attachments
   (`{:url, url}`) are skipped, because Ollama's API has no way to take an
   image by URL.
+
+  Structured output isn't enforced. Ollama Cloud accepts the `:output` schema
+  (sent as `format`) but doesn't constrain generation to it, so models may
+  answer in prose and fail validation. Local Ollama enforces it.
   """
 
   @behaviour Omni.Provider

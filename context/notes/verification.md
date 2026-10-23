@@ -59,17 +59,25 @@ No mix task. Each provider has one `capture.exs` script, run with `MIX_ENV=test 
 
 - Each call names its output file, so one script records the baseline trio and every shape case for the provider.
 - **Existing fixtures are skipped.** Re-recording means deleting the file first, so new cases can be added without re-recording (and paying for) the rest.
-- `record` returns the parsed response either way — live, or replayed from the existing fixture through the normal pipeline — so a multi-turn case builds turn 2 from turn 1 exactly as recorded.
+- **One request per fixture.** A missing file is recorded live from `Request.build/3` with the given options — the same request the loop sends on each step — and its raw bytes written. Not `generate_text` with `raw: true`: the async body is consumed while parsing, so the bytes aren't kept, and the loop's structured-output retries would hide extra responses. Multi-step cases chain `record` calls by hand, each naming its file.
+- **Then always replayed.** `record` replays the file through `generate_text` with a plug that serves it (content type from the extension), so first and later runs return the same thing through the real pipeline. A multi-turn case builds turn 2 from turn 1 exactly as recorded.
+- **Returns `{:ok, response} | {:error, reason}`.** A failed live call writes nothing and prints the error. Dependent steps chain with `with`, so a failure skips its follow-ups and the rest of the script still runs.
+- Baseline captures are explicit `record` calls, one per file: a provider may need a different model for some baselines.
 - Writes the raw response bytes only. No request fixtures.
 
 ## Integration tests
 
-One test module per provider, holding two kinds of test:
+One test module per provider, in three `describe` blocks:
 
-- **Baseline** — text, thinking and tool use, recorded from a current cheap model, plus the request target (host, path, auth headers). A model at a moment in time responding the way we expect. Its value is regression protection on each provider's real bytes (usage chunk placement, packed chunks, id formats differ subtly across providers on one dialect), not proof the provider works. Assertions tighten but survive re-recording: stop reason, tool input mentions London, thinking text non-empty, usage present.
-- **Shape** — bespoke fixtures for specific quirks, asserting what the fixture exists to show (OpenRouter `reasoning_details` in `private`, Gemini thought signatures on function calls, packed Completions chunks, the Kimi tool-use case, second-turn responses after thinking replay). Sources: quirks known today, and whatever verify finds later — fix, write a case, record, assert.
+- **`baseline`** — text, thinking, tool use and structured output (verify's four default scenarios), recorded from current models, plus the request target (host, path, auth headers) and request shape. "At least this model gives us core text generation from this provider." Its value is regression protection on each provider's real bytes (usage chunk placement, packed chunks, id formats differ subtly across providers on one dialect), not proof the provider works today. Assertions tighten but survive re-recording: stop reason, tool input mentions London, output matches the schema, usage present. Thinking stays lenient, as in verify: thinking text, a signature or encrypted reasoning all count, since whether a model emits reasoning varies.
+- **`cases`** — real fixtures for specific quirks, asserting what the fixture exists to show (OpenRouter `reasoning_details` in `private`, Gemini thought signatures on function calls, the Kimi tool-use case, second-turn responses after thinking replay, real cache hits). Sources: quirks known today, and whatever verify finds later — fix, write a case, record, assert.
+- **`synthetic`** (optional) — hand-written fixtures proving a bug found with that provider, kept in the provider where it was noticed.
 
-Baseline helpers are plain functions in a support module (e.g. `Omni.Test.Baseline`: `assert_text/2`, `assert_thinking/2`, `assert_tool_use/2`, `assert_target/4`), called from named tests in each provider file — not a macro generating tests. OpenCode calls them once per dialect. `request_target_test.exs` folds into the provider files.
+Baseline prompts, tools and schema are verify's: `Omni.Verify.Scenarios` exposes its contexts, and both `capture.exs` and the tests use them, so a baseline fixture is a recording of what the sweep checks. Baseline helpers are plain functions in a support module (`Omni.Test.Baseline`: `assert_text/2`, `assert_thinking/2`, `assert_tool_use/2`, `assert_structured_output/2`, `assert_target/4`), called from named tests in each provider file — not a macro generating tests. OpenCode calls them once per dialect. `request_target_test.exs` folds into the provider files.
+
+Tests look models up from the catalog. When a snapshot refresh drops a model, the test breaks and the fixture is re-recorded on a current model: keeping tests on current models is part of the job.
+
+The per-provider `stream_text`/`text_stream`/`complete` tests go: they exercise `StreamingResponse`, which is the same for every provider. One copy stays in `error_test.exs`. Shared tests (`loop_test`, `error_test`, `verify_test`, `omni/loop_test`) point at the `anthropic/` fixtures; if re-recording breaks them, we want to know.
 
 **Request shape** is tested with assertions, not snapshots: per built-in, capture the outgoing body via a `Req.Test` plug and assert the fields its compat flags control (e.g. Z.ai with `thinking: :high` sends `thinking.type: "enabled"` and `max_tokens`). Dialect unit tests keep covering each flag in isolation.
 
@@ -77,18 +85,32 @@ Baseline helpers are plain functions in a support module (e.g. `Omni.Test.Baseli
 
 ```
 test/integration/
-  <provider>_test.exs              # baseline + shape tests
+  <provider>_test.exs              # baseline, cases, synthetic
   loop_test.exs, error_test.exs, structured_output_test.exs, cache_usage_test.exs   # unchanged
 test/support/fixtures/
   <provider>/
     capture.exs                    # records everything below
-    text.sse  thinking.sse  tool_use.sse
-    <shape>.sse ...
+    text.sse  thinking.sse  tool_use.sse  structured_output.sse
+    <case>.sse ...
   synthetic/                       # hand-written per dialect, unchanged
   files/ → priv/                   # verify assets
 ```
 
-**Existing fixtures:** new recordings are the default. Where we can't record (NearAI has no key; Groq and Ollama Cloud paid tiers), decide case by case: keep the legacy fixture and accept what it tests, or find a way to record the real one.
+**Existing fixtures:** new recordings are the default. Groq and Ollama Cloud are recorded from the models their free tiers allow. NearAI has no key: its legacy fixtures move into `nearai/` under the new names and its `capture.exs` is still written, so they're replaced once someone can record them.
+
+**Naming:** directories are provider ids (`moonshotai/`, `ollama/`, `ollama_cloud/`). OpenCode prefixes by dialect (`opencode/anthropic_text.sse`, `opencode/oaic_tool_use.sse`). Multi-turn cases are numbered (`cache_1.sse`, `cache_2.sse`).
+
+## Fixtures from the first sweep
+
+The 2026-10-22 sweep and its diagnostics pointed at fixtures step 4 should record (capture scripts are run by Aaron, as all live calls are):
+
+- **Real cache hits per dialect**, for the "cached input tokens counted twice" backlog fix: a turn-2 response carrying both a cached count and the input total. Anthropic (`claude-haiku-5-5`, the reference: `input_tokens` excludes cache), Responses (OpenAI `gpt-6-luna`), Completions (Alibaba `qwen3.8-flash`, Moonshot or Z.ai `glm-5.3-flash`). Gemini never reported a hit; keep `synthetic/google_cache.sse`.
+- **OpenRouter Gemini** (`google/gemini-3.8-flash`), shape cases:
+  - thinking with only encrypted `reasoning_details`, no reasoning text — already recorded as `sse/openrouter_gemini_thinking.sse` (used by `verify_test.exs`); move it into `openrouter/`.
+  - parallel tool calls (time and weather, two cities) where one `reasoning.encrypted` entry carries the first call's `id`, then the answer after replaying that round. Recorded once in a diagnostic but not kept; recapture as a two-step case.
+- **Google Gemini 3.8 Flash thinking with a signature on text and no thought text** — the case the lenient `thinking` check exists for. `google_thinking.sse` already carries `thoughtsTokenCount` for the "Gemini output tokens miss thinking" fix.
+- **Alibaba thinking on an effort model** (`qwen3.8-flash`): the current baseline; the old `alibaba_thinking.sse` likely predates effort models. Request shape (effort, no budget) is already asserted in the dialect tests.
+- **Ollama Cloud** (`gemma4:31b`): no cloud fixture exists yet, only local NDJSON. Its responses include `prompt_eval_cached_count`, which the Ollama dialect doesn't read.
 
 ## Retired
 
@@ -96,10 +118,10 @@ test/support/fixtures/
 
 ## Build order
 
-1. **Verify** — `Omni.Verify` and its scenarios, the mix task, assets in `priv/`. Add to `context/notes/v2-changes.md`.
-2. **Sweep** — script and first matrix; run it. Failures feed step 4's shape cases.
-3. **Capture and baseline helpers** — rewrite `Omni.Test.Capture`; add `Omni.Test.Baseline`.
-4. **Provider by provider** — `capture.exs`, record fixtures, rewrite the test module with baseline and shape tests, add the request shape test. Delete the old fixtures and `request_target_test.exs` as each provider moves.
+1. **Verify** — `Omni.Verify` and its scenarios, the mix task, assets in `priv/`. Add to `context/notes/v2-changes.md`. *Done 2026-10-22.*
+2. **Sweep** — script and first matrix; run it. Failures feed step 4's shape cases. *Done 2026-10-22; findings above.*
+3. **Capture and baseline helpers** — rewrite `Omni.Test.Capture`; add `Omni.Test.Baseline`; expose verify's scenario contexts. *Done 2026-10-23.*
+4. **Provider by provider** — `capture.exs`, record fixtures, rewrite the test module with baseline, cases and synthetic blocks and the request shape test. Delete the old fixtures and `request_target_test.exs` as each provider moves. Anthropic goes first, end to end; then every other `capture.exs` is written, Aaron records them as one batch (re-running finicky ones), and the test modules are rewritten from that batch. Sweep bugs the new fixtures reproduce (cached tokens counted twice, Gemini output tokens missing thinking, Ollama `prompt_eval_cached_count`) are fixed here and dropped from the roadmap; any left over are picked up after. *Done 2026-10-23.* Moonshot's baseline moved to Kimi K3: K2.6 ignores the `:output` schema while thinking (moduledoc limitation). Ollama Cloud has no structured output baseline: it doesn't enforce `format` (moduledoc limitation).
 5. **Retire** the live tests and old scripts; update `CLAUDE.md` (commands, testing layers) and `design.md`.
 6. **Contribution path** — document how a provider enters the verified tier (run verify, set compat flags until it passes, write `capture.exs`, add the module, moduledoc and test file) in the `Omni.Provider` tiers section, which defers to it today.
 

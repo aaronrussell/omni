@@ -737,7 +737,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert usage["output_tokens"] == 5
     end
 
-    test "usage extracts cachedContentTokenCount as cache_read_tokens" do
+    test "usage takes cachedContentTokenCount out of input" do
       event = %{
         "candidates" => [
           %{"finishReason" => "STOP", "index" => 0}
@@ -750,9 +750,25 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       }
 
       assert [{:message, %{usage: usage}}] = GoogleGemini.handle_event(event, @model)
-      assert usage["input_tokens"] == 100
+      assert usage["input_tokens"] == 20
       assert usage["output_tokens"] == 50
       assert usage["cache_read_tokens"] == 80
+    end
+
+    test "usage counts thoughtsTokenCount as output" do
+      event = %{
+        "candidates" => [%{"finishReason" => "STOP", "index" => 0}],
+        "usageMetadata" => %{
+          "promptTokenCount" => 26,
+          "candidatesTokenCount" => 94,
+          "thoughtsTokenCount" => 279,
+          "totalTokenCount" => 399
+        }
+      }
+
+      assert [{:message, %{usage: usage}}] = GoogleGemini.handle_event(event, @model)
+      assert usage["input_tokens"] == 26
+      assert usage["output_tokens"] == 373
     end
 
     test "usage without cachedContentTokenCount omits cache_read_tokens" do

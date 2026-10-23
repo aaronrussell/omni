@@ -4,7 +4,7 @@ defmodule Integration.ErrorTest do
   alias Omni.{Context, Message, Response, StreamingResponse}
 
   defp model do
-    {:ok, model} = Omni.get_model(:anthropic, "claude-haiku-4-5")
+    {:ok, model} = Omni.get_model(:anthropic, "claude-haiku-5-5")
     model
   end
 
@@ -113,7 +113,7 @@ defmodule Integration.ErrorTest do
   describe "context coercion" do
     setup do
       Req.Test.stub(:err_coerce, fn conn ->
-        body = File.read!("test/support/fixtures/sse/anthropic_text.sse")
+        body = File.read!("test/support/fixtures/anthropic/text.sse")
 
         conn
         |> Plug.Conn.put_resp_content_type("text/event-stream")
@@ -200,10 +200,42 @@ defmodule Integration.ErrorTest do
 
   # -- Stream features --
 
+  describe "mid-stream errors" do
+    # Completions has no error event: the error arrives as a chunk.
+    test "Completions error chunk returns stream_error" do
+      {:ok, model} = Omni.get_model(:groq, "openai/gpt-oss-120b")
+      file = "test/support/fixtures/synthetic/openai_completions_error.sse"
+
+      assert {:error, {:stream_error, "The server had an error while processing your request."}} =
+               Omni.Test.Capture.replay(model, Context.new("Hello"), file)
+    end
+  end
+
   describe "stream features" do
+    test "text_stream/1 yields the text and complete/1 the response" do
+      Req.Test.stub(:err_text_stream, fn conn ->
+        body = File.read!("test/support/fixtures/anthropic/text.sse")
+
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, body)
+      end)
+
+      opts = [api_key: "test-key", plug: {Req.Test, :err_text_stream}]
+
+      {:ok, sr} = Omni.stream_text(model(), "Hello", opts)
+      chunks = sr |> StreamingResponse.text_stream() |> Enum.to_list()
+      assert length(chunks) > 1
+
+      {:ok, sr} = Omni.stream_text(model(), "Hello", opts)
+      assert {:ok, %Response{message: message}} = StreamingResponse.complete(sr)
+      assert [%Omni.Content.Text{text: text}] = message.content
+      assert text == Enum.join(chunks)
+    end
+
     test "cancel/1 returns :ok" do
       Req.Test.stub(:err_cancel, fn conn ->
-        body = File.read!("test/support/fixtures/sse/anthropic_text.sse")
+        body = File.read!("test/support/fixtures/anthropic/text.sse")
 
         conn
         |> Plug.Conn.put_resp_content_type("text/event-stream")
@@ -221,7 +253,7 @@ defmodule Integration.ErrorTest do
 
     test "raw: true attaches request/response to final response" do
       Req.Test.stub(:err_raw, fn conn ->
-        body = File.read!("test/support/fixtures/sse/anthropic_text.sse")
+        body = File.read!("test/support/fixtures/anthropic/text.sse")
 
         conn
         |> Plug.Conn.put_resp_content_type("text/event-stream")

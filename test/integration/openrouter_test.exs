@@ -1,222 +1,106 @@
 defmodule Integration.OpenRouterTest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Context, Message, Response, StreamingResponse}
+  import Omni.Test.Baseline
+
+  alias Omni.Context
   alias Omni.Content.{Text, Thinking, ToolUse}
+  alias Omni.Test.Capture
 
-  @text_fixture "test/support/fixtures/sse/openrouter_text.sse"
-  @tool_use_fixture "test/support/fixtures/sse/openrouter_tool_use.sse"
-  @thinking_fixture "test/support/fixtures/sse/openrouter_thinking.sse"
+  @dir "test/support/fixtures/openrouter"
 
-  defp stub_fixture(stub_name, fixture_file) do
-    Req.Test.stub(stub_name, fn conn ->
-      body = File.read!(fixture_file)
-
-      conn
-      |> Plug.Conn.put_resp_content_type("text/event-stream")
-      |> Plug.Conn.send_resp(200, body)
-    end)
+  setup do
+    {:ok, model} = Omni.get_model(:openrouter, "deepseek/deepseek-v4.1-flash")
+    %{model: model}
   end
 
-  defp model do
-    {:ok, model} = Omni.get_model(:openrouter, "openai/gpt-4.1-mini")
-    model
-  end
+  describe "baseline" do
+    test "text", %{model: model} do
+      {_resp, request} = assert_text(model, "#{@dir}/text.sse")
+      assert request.body["reasoning"] == %{"effort" => "none"}
+    end
 
-  defp reasoning_model do
-    {:ok, model} = Omni.get_model(:openrouter, "openai/o4-mini")
-    model
-  end
+    test "thinking", %{model: model} do
+      {resp, request} = assert_thinking(model, "#{@dir}/thinking.sse")
 
-  describe "generate_text/3 — text" do
-    test "returns a text response" do
-      stub_fixture(:int_openrouter_text, @text_fixture)
+      assert request.body["reasoning"] == %{"effort" => "low"}
+      assert [%Thinking{text: "" <> _}, %Text{}] = resp.message.content
+      assert [%{"type" => "reasoning.text"} | _] = resp.message.private.reasoning_details
+    end
 
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), "Write a haiku about why the sky is blue.",
-                 api_key: "test-key",
-                 plug: {Req.Test, :int_openrouter_text}
-               )
+    test "tool use", %{model: model} do
+      assert_tool_use(model, "#{@dir}/tool_use.sse")
+    end
 
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert %Omni.Model{} = resp.model
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-      assert [%Text{text: text}] = resp.message.content
-      assert is_binary(text) and byte_size(text) > 0
+    test "structured output", %{model: model} do
+      {_resp, request} = assert_structured_output(model, "#{@dir}/structured_output.sse")
+      assert %{"type" => "json_schema"} = request.body["response_format"]
+    end
+
+    test "target", %{model: model} do
+      assert_target(model, "#{@dir}/text.sse", "https://openrouter.ai/api/v1/chat/completions", [
+        {"authorization", "Bearer test-key"}
+      ])
     end
   end
 
-  describe "generate_text/3 — tool use" do
-    test "returns a tool use response" do
-      stub_fixture(:int_openrouter_tool, @tool_use_fixture)
+  # Each upstream's reasoning comes back in its own `reasoning_details` shape,
+  # kept in `Message.private` and sent back verbatim on the next turn.
+  describe "cases" do
+    test "Gemini thinks with encrypted reasoning only" do
+      {:ok, model} = Omni.get_model(:openrouter, "google/gemini-3.8-flash")
+      {resp, _request} = assert_thinking(model, "#{@dir}/gemini_thinking.sse")
 
-      tool =
-        Omni.tool(
-          name: "get_weather",
-          description: "Gets the weather",
-          input_schema: %{type: "object", properties: %{city: %{type: "string"}}}
-        )
+      assert [%Text{}] = resp.message.content
 
-      context =
-        Context.new(
-          messages: [Message.new("What is the weather in London?")],
-          tools: [tool]
-        )
-
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), context,
-                 api_key: "test-key",
-                 plug: {Req.Test, :int_openrouter_tool}
-               )
-
-      assert resp.stop_reason == :tool_use
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-      assert tool_use = Enum.find(resp.message.content, &match?(%ToolUse{}, &1))
-      assert is_binary(tool_use.name) and tool_use.name == "get_weather"
-      assert is_map(tool_use.input)
-      assert is_binary(tool_use.id)
-    end
-  end
-
-  describe "generate_text/3 — thinking" do
-    test "returns thinking and text content" do
-      stub_fixture(:int_openrouter_thinking, @thinking_fixture)
-
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(reasoning_model(), "How many R's are in strawberry?",
-                 api_key: "test-key",
-                 thinking: :high,
-                 plug: {Req.Test, :int_openrouter_thinking}
-               )
-
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-
-      thinking = Enum.filter(resp.message.content, &match?(%Thinking{}, &1))
-      assert length(thinking) > 0
-
-      texts = Enum.filter(resp.message.content, &match?(%Text{}, &1))
-      assert length(texts) > 0
+      assert [%{"type" => "reasoning.encrypted", "data" => "" <> _}] =
+               resp.message.private.reasoning_details
     end
 
-    test "accumulates reasoning_details in message private" do
-      stub_fixture(:int_openrouter_thinking_rd, @thinking_fixture)
+    test "Gemini parallel tool calls replay reasoning_details" do
+      {:ok, model} = Omni.get_model(:openrouter, "google/gemini-3.8-flash")
+      {context, opts} = request(:kitchen_sink)
 
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(reasoning_model(), "How many R's are in strawberry?",
-                 api_key: "test-key",
-                 thinking: :high,
-                 plug: {Req.Test, :int_openrouter_thinking_rd}
-               )
+      assert {:ok, resp1} = Capture.replay(model, context, "#{@dir}/gemini_tools_1.sse", opts)
+      assert resp1.stop_reason == :tool_use
+      assert [%ToolUse{id: first_id} | _] = tool_uses = resp1.message.content
+      assert length(tool_uses) == 4
 
+      # One encrypted entry, carrying the first call's id
+      assert [%{"type" => "reasoning.encrypted", "id" => ^first_id} = details] =
+               resp1.message.private.reasoning_details
+
+      assert_received {:replay_request, _}
+
+      turn2 = tool_round(context, resp1)
+      assert {:ok, resp2} = Capture.replay(model, turn2, "#{@dir}/gemini_tools_2.sse", opts)
+      assert_received {:replay_request, %{body: body}}
+
+      assistant = Enum.find(body["messages"], &(&1["role"] == "assistant"))
+      assert assistant["reasoning_details"] == [details]
+      assert length(assistant["tool_calls"]) == 4
+
+      assert resp2.stop_reason == :stop
+      assert [%Text{text: "" <> _}] = resp2.message.content
+    end
+
+    test "Anthropic thinks with signed reasoning text" do
+      {:ok, model} = Omni.get_model(:openrouter, "anthropic/claude-haiku-5.5")
+      {resp, _request} = assert_thinking(model, "#{@dir}/anthropic_thinking.sse")
+
+      assert [%Thinking{text: "" <> _}, %Text{}] = resp.message.content
       details = resp.message.private.reasoning_details
-      assert is_list(details) and length(details) > 0
-
-      types = Enum.map(details, & &1["type"])
-      assert "reasoning.summary" in types
-      assert "reasoning.encrypted" in types
+      assert Enum.all?(details, &(&1["type"] == "reasoning.text"))
+      assert Enum.any?(details, &match?(%{"signature" => "" <> _}, &1))
     end
   end
 
-  describe "reasoning_details outbound" do
-    test "assistant message with reasoning_details in private encodes on wire" do
-      test_pid = self()
-
-      Req.Test.stub(:int_openrouter_outbound, fn conn ->
-        {:ok, body, conn} = Plug.Conn.read_body(conn)
-        send(test_pid, {:captured_body, JSON.decode!(body)})
-
-        sse_body = File.read!(@text_fixture)
-
-        conn
-        |> Plug.Conn.put_resp_content_type("text/event-stream")
-        |> Plug.Conn.send_resp(200, sse_body)
-      end)
-
-      reasoning_details = [
-        %{"type" => "reasoning.summary", "summary" => "thinking about it"},
-        %{"type" => "reasoning.encrypted", "data" => "encrypted_blob", "id" => "rs_123"}
-      ]
-
-      context =
-        Context.new([
-          Message.new(role: :user, content: "Hello"),
-          Message.new(
-            role: :assistant,
-            content: "Hi there",
-            private: %{reasoning_details: reasoning_details}
-          ),
-          Message.new(role: :user, content: "Follow up")
-        ])
-
-      assert {:ok, %Response{}} =
-               Omni.generate_text(model(), context,
-                 api_key: "test-key",
-                 plug: {Req.Test, :int_openrouter_outbound}
-               )
-
-      assert_received {:captured_body, captured}
-      messages = captured["messages"]
-
-      assistant_msg = Enum.find(messages, &(&1["role"] == "assistant"))
-      assert assistant_msg["reasoning_details"] == reasoning_details
-
-      user_msgs = Enum.filter(messages, &(&1["role"] == "user"))
-      assert Enum.all?(user_msgs, &(not Map.has_key?(&1, "reasoning_details")))
-    end
-  end
-
-  describe "generate_text/3 — mid-stream error" do
-    test "error in chunk returns stream_error" do
-      stub_fixture(:int_openrouter_error, "test/support/fixtures/synthetic/openrouter_error.sse")
+  describe "synthetic" do
+    test "error in a chunk returns stream_error", %{model: model} do
+      file = "test/support/fixtures/synthetic/openrouter_error.sse"
 
       assert {:error, {:stream_error, "Provider disconnected"}} =
-               Omni.generate_text(model(), "Hello",
-                 api_key: "test-key",
-                 plug: {Req.Test, :int_openrouter_error}
-               )
-    end
-  end
-
-  describe "stream_text/3 — text streaming" do
-    test "streams text and completes with full response" do
-      stub_fixture(:int_openrouter_stream, @text_fixture)
-
-      {:ok, sr} =
-        Omni.stream_text(model(), "Write a haiku about why the sky is blue.",
-          api_key: "test-key",
-          plug: {Req.Test, :int_openrouter_stream}
-        )
-
-      texts = sr |> StreamingResponse.text_stream() |> Enum.to_list()
-
-      assert length(texts) > 0
-      assert Enum.all?(texts, &is_binary/1)
-      assert Enum.join(texts) != ""
-    end
-
-    test "complete/1 returns a full response" do
-      stub_fixture(:int_openrouter_complete, @text_fixture)
-
-      {:ok, sr} =
-        Omni.stream_text(model(), "Write a haiku about why the sky is blue.",
-          api_key: "test-key",
-          plug: {Req.Test, :int_openrouter_complete}
-        )
-
-      assert {:ok, %Response{} = resp} = StreamingResponse.complete(sr)
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-      assert [%Text{text: text}] = resp.message.content
-      assert byte_size(text) > 0
+               Capture.replay(model, Context.new("Hello"), file)
     end
   end
 end

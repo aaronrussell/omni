@@ -1,0 +1,33 @@
+event: response.created
+data: {"type":"response.created","sequence_number":0,"response":{"id":"resp_00cff6467fff16a3016adb3779943087d2ad36d3de2ae2bcd1","object":"response","created_at":1792751481,"completed_at":null,"status":"in_progress","parallel_tool_calls":true,"temperature":1,"top_p":0.98,"max_output_tokens":null,"previous_response_id":null,"background":false,"truncation":"disabled","top_logprobs":0,"max_tool_calls":null,"prompt_cache_retention":"24h","model":"gpt-6-luna","error":null,"incomplete_details":null,"output":[],"usage":null,"instructions":null,"tool_choice":"auto","tools":[{"type":"function","name":"get_weather","description":"Gets the current weather for a city","strict":true,"parameters":{"type":"object","required":["city"],"properties":{"city":{"type":"string","description":"City name"}},"additionalProperties":false},"output_schema":null}],"reasoning":{"context":"all_turns","effort":"medium","mode":"standard","summary":null},"text":{"verbosity":"medium","format":{"type":"text"}},"moderation":null}}
+
+event: response.in_progress
+data: {"type":"response.in_progress","sequence_number":1,"response":{"id":"resp_00cff6467fff16a3016adb3779943087d2ad36d3de2ae2bcd1","object":"response","created_at":1792751481,"completed_at":null,"status":"in_progress","parallel_tool_calls":true,"temperature":1,"top_p":0.98,"max_output_tokens":null,"previous_response_id":null,"background":false,"truncation":"disabled","top_logprobs":0,"max_tool_calls":null,"prompt_cache_retention":"24h","model":"gpt-6-luna","error":null,"incomplete_details":null,"output":[],"usage":null,"instructions":null,"tool_choice":"auto","tools":[{"type":"function","name":"get_weather","description":"Gets the current weather for a city","strict":true,"parameters":{"type":"object","required":["city"],"properties":{"city":{"type":"string","description":"City name"}},"additionalProperties":false},"output_schema":null}],"reasoning":{"context":"all_turns","effort":"medium","mode":"standard","summary":null},"text":{"verbosity":"medium","format":{"type":"text"}},"moderation":null}}
+
+event: response.output_item.added
+data: {"type":"response.output_item.added","sequence_number":2,"output_index":0,"item":{"id":"fc_00cff6467fff16a3016adb377a8ef087d29386a44534476375","type":"function_call","status":"in_progress","name":"get_weather","call_id":"call_AYj817TwxJgslOAUgtZW0Mn1","arguments":""}}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":3,"output_index":0,"item_id":"fc_00cff6467fff16a3016adb377a8ef087d29386a44534476375","delta":"{\"","obfuscation":"GC7cK7tu23rI6E"}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":4,"output_index":0,"item_id":"fc_00cff6467fff16a3016adb377a8ef087d29386a44534476375","delta":"city","obfuscation":"WEvpcts0Ms52"}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":5,"output_index":0,"item_id":"fc_00cff6467fff16a3016adb377a8ef087d29386a44534476375","delta":"\":\"","obfuscation":"gboOZidZDHIcT"}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":6,"output_index":0,"item_id":"fc_00cff6467fff16a3016adb377a8ef087d29386a44534476375","delta":"London","obfuscation":"R3ELjTOAkF"}
+
+event: response.function_call_arguments.delta
+data: {"type":"response.function_call_arguments.delta","sequence_number":7,"output_index":0,"item_id":"fc_00cff6467fff16a3016adb377a8ef087d29386a44534476375","delta":"\"}","obfuscation":"nvmf0lDkjbJ4Tt"}
+
+event: response.function_call_arguments.done
+data: {"type":"response.function_call_arguments.done","sequence_number":8,"output_index":0,"item_id":"fc_00cff6467fff16a3016adb377a8ef087d29386a44534476375","arguments":"{\"city\":\"London\"}"}
+
+event: response.output_item.done
+data: {"type":"response.output_item.done","sequence_number":9,"output_index":0,"item":{"id":"fc_00cff6467fff16a3016adb377a8ef087d29386a44534476375","type":"function_call","status":"completed","name":"get_weather","call_id":"call_AYj817TwxJgslOAUgtZW0Mn1","arguments":"{\"city\":\"London\"}"}}
+
+event: response.completed
+data: {"type":"response.completed","sequence_number":10,"response":{"id":"resp_00cff6467fff16a3016adb3779943087d2ad36d3de2ae2bcd1","object":"response","created_at":1792751481,"completed_at":1792751482,"status":"completed","parallel_tool_calls":true,"temperature":1,"top_p":0.98,"max_output_tokens":null,"previous_response_id":null,"background":false,"truncation":"disabled","top_logprobs":0,"max_tool_calls":null,"prompt_cache_retention":"24h","model":"gpt-6-luna","error":null,"incomplete_details":null,"output":[{"id":"fc_00cff6467fff16a3016adb377a8ef087d29386a44534476375","type":"function_call","status":"completed","name":"get_weather","call_id":"call_AYj817TwxJgslOAUgtZW0Mn1","arguments":"{\"city\":\"London\"}"}],"usage":{"input_tokens":57,"output_tokens":18,"total_tokens":75,"input_tokens_details":{"cached_tokens":0,"cache_write_tokens":0},"output_tokens_details":{"reasoning_tokens":0}},"instructions":null,"tool_choice":"auto","tools":[{"type":"function","name":"get_weather","description":"Gets the current weather for a city","strict":true,"parameters":{"type":"object","required":["city"],"properties":{"city":{"type":"string","description":"City name"}},"additionalProperties":false},"output_schema":null}],"reasoning":{"context":"all_turns","effort":"medium","mode":"standard","summary":null},"text":{"verbosity":"medium","format":{"type":"text"}},"moderation":null}}
+

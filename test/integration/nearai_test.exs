@@ -1,143 +1,41 @@
 defmodule Integration.NearAITest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Context, Message, Response, StreamingResponse}
-  alias Omni.Content.{Text, Thinking, ToolUse}
+  import Omni.Test.Baseline
 
-  @text_fixture "test/support/fixtures/sse/nearai_text.sse"
-  @tool_use_fixture "test/support/fixtures/sse/nearai_tool_use.sse"
-  @thinking_fixture "test/support/fixtures/sse/nearai_thinking.sse"
+  # Recorded before the capture script, with older prompts, and no structured
+  # output: there's no key to re-record with yet.
+  @dir "test/support/fixtures/nearai"
 
-  defp stub_fixture(stub_name, fixture_file) do
-    Req.Test.stub(stub_name, fn conn ->
-      body = File.read!(fixture_file)
-
-      conn
-      |> Plug.Conn.put_resp_content_type("text/event-stream")
-      |> Plug.Conn.send_resp(200, body)
-    end)
-  end
-
-  defp model do
+  setup do
     {:ok, model} = Omni.get_model(:nearai, "zai-org/GLM-5.1-FP8")
-    model
+    %{model: model}
   end
 
-  describe "generate_text/3 — text" do
-    test "returns a text response" do
-      stub_fixture(:int_nearai_text, @text_fixture)
+  describe "baseline" do
+    test "text", %{model: model} do
+      {_resp, request} = assert_text(model, "#{@dir}/text.sse", max_tokens: 1000)
 
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), "Write a haiku about why the sky is blue.",
-                 api_key: "test-key",
-                 plug: {Req.Test, :int_nearai_text}
-               )
-
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert %Omni.Model{} = resp.model
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-
-      texts = Enum.filter(resp.message.content, &match?(%Text{}, &1))
-      assert [%Text{text: text}] = texts
-      assert is_binary(text) and byte_size(text) > 0
-    end
-  end
-
-  describe "generate_text/3 — tool use" do
-    test "returns a tool use response" do
-      stub_fixture(:int_nearai_tool, @tool_use_fixture)
-
-      tool =
-        Omni.tool(
-          name: "get_weather",
-          description: "Gets the weather",
-          input_schema: %{type: "object", properties: %{city: %{type: "string"}}}
-        )
-
-      context =
-        Context.new(
-          messages: [Message.new("What is the weather in London?")],
-          tools: [tool]
-        )
-
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), context,
-                 api_key: "test-key",
-                 plug: {Req.Test, :int_nearai_tool}
-               )
-
-      assert resp.stop_reason == :tool_use
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-      assert tool_use = Enum.find(resp.message.content, &match?(%ToolUse{}, &1))
-      assert is_binary(tool_use.name) and tool_use.name == "get_weather"
-      assert is_map(tool_use.input)
-      assert is_binary(tool_use.id)
-    end
-  end
-
-  describe "generate_text/3 — thinking" do
-    test "returns thinking and text content" do
-      stub_fixture(:int_nearai_thinking, @thinking_fixture)
-
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), "How many R's are in strawberry?",
-                 api_key: "test-key",
-                 thinking: :high,
-                 plug: {Req.Test, :int_nearai_thinking}
-               )
-
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-
-      thinking = Enum.filter(resp.message.content, &match?(%Thinking{}, &1))
-      assert length(thinking) > 0
-
-      texts = Enum.filter(resp.message.content, &match?(%Text{}, &1))
-      assert length(texts) > 0
-    end
-  end
-
-  describe "stream_text/3 — text streaming" do
-    test "streams text and completes with full response" do
-      stub_fixture(:int_nearai_stream, @text_fixture)
-
-      {:ok, sr} =
-        Omni.stream_text(model(), "Write a haiku about why the sky is blue.",
-          api_key: "test-key",
-          plug: {Req.Test, :int_nearai_stream}
-        )
-
-      texts = sr |> StreamingResponse.text_stream() |> Enum.to_list()
-
-      assert length(texts) > 0
-      assert Enum.all?(texts, &is_binary/1)
-      assert Enum.join(texts) != ""
+      assert request.body["max_tokens"] == 1000
+      refute Map.has_key?(request.body, "max_completion_tokens")
     end
 
-    test "complete/1 returns a full response" do
-      stub_fixture(:int_nearai_complete, @text_fixture)
+    # NEAR AI rejects thinking controls, so nothing is sent.
+    test "thinking", %{model: model} do
+      {_resp, request} = assert_thinking(model, "#{@dir}/thinking.sse")
 
-      {:ok, sr} =
-        Omni.stream_text(model(), "Write a haiku about why the sky is blue.",
-          api_key: "test-key",
-          plug: {Req.Test, :int_nearai_complete}
-        )
+      refute Map.has_key?(request.body, "reasoning_effort")
+      refute Map.has_key?(request.body, "thinking")
+    end
 
-      assert {:ok, %Response{} = resp} = StreamingResponse.complete(sr)
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
+    test "tool use", %{model: model} do
+      assert_tool_use(model, "#{@dir}/tool_use.sse")
+    end
 
-      texts = Enum.filter(resp.message.content, &match?(%Text{}, &1))
-      assert [%Text{text: text}] = texts
-      assert byte_size(text) > 0
+    test "target", %{model: model} do
+      assert_target(model, "#{@dir}/text.sse", "https://cloud-api.near.ai/v1/chat/completions", [
+        {"authorization", "Bearer test-key"}
+      ])
     end
   end
 end

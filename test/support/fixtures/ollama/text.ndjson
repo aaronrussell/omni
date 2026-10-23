@@ -1,0 +1,17 @@
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:16.867469Z","message":{"role":"assistant","content":"Blue"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:16.896817Z","message":{"role":"assistant","content":" canvas"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:16.926332Z","message":{"role":"assistant","content":" stretches"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:16.967711Z","message":{"role":"assistant","content":"\nCloud"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:17.001656Z","message":{"role":"assistant","content":"s"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:17.001663Z","message":{"role":"assistant","content":" drift"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:17.035678Z","message":{"role":"assistant","content":" like"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:17.035684Z","message":{"role":"assistant","content":" white"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:17.069618Z","message":{"role":"assistant","content":" silk"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:17.069624Z","message":{"role":"assistant","content":" rib"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:17.103581Z","message":{"role":"assistant","content":"bons"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:17.137564Z","message":{"role":"assistant","content":"\nD"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:17.171531Z","message":{"role":"assistant","content":"usk"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:17.171537Z","message":{"role":"assistant","content":" paints"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:17.205478Z","message":{"role":"assistant","content":" the"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:17.205482Z","message":{"role":"assistant","content":" horizon"},"done":false}
+{"model":"qwen3.8:27b-mlx","created_at":"2026-10-23T10:29:17.239434Z","message":{"role":"assistant","content":""},"done":true,"done_reason":"stop","total_duration":2869696291,"load_duration":2319817875,"prompt_eval_count":20,"prompt_eval_cached_count":0,"prompt_eval_duration":117644167,"eval_count":18,"eval_duration":431553750}

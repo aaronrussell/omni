@@ -1,0 +1,74 @@
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","created":1792751166,"object":"chat.completion.chunk","usage":null,"choices":[{"logprobs":null,"index":0,"delta":{"content":"","role":"assistant","reasoning_content":""},"finish_reason":null}]}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":"We"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" need answer user's"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" question"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":": \"What is"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" its elevation?\" Context"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":": previous question asked"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" which station has code"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" IC-95"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":"98"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":", answer Kings Hill"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" 42"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":". Now asks its"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" elevation. Need"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" use table only."},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" Find row: |"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" 42 |"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" Kings Hill 4"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":"2"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" | IC-9"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":"5"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":"98 | "},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":"6"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":"74 m |"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" 1"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" | 19"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":"46 |."},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" So elevation "},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":"674 m"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":". Need concise."},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" Ensure"},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":" final only answer."},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"674","reasoning_content":""},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":" m","reasoning_content":""},"index":0,"finish_reason":null,"logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"model":"qwen3.8-flash","id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","choices":[{"delta":{"content":"","reasoning_content":""},"index":0,"finish_reason":"stop","logprobs":null}],"created":1792751166,"object":"chat.completion.chunk","usage":null}
+
+data: {"choices":[],"created":1792751166,"id":"chatcmpl-e452d531-8764-9a07-9422-8b0df05cb66e","model":"qwen3.8-flash","object":"chat.completion.chunk","usage":{"completion_tokens":106,"completion_tokens_details":{"reasoning_tokens":99,"text_tokens":106},"prompt_tokens":7166,"prompt_tokens_details":{"cached_tokens":6144,"text_tokens":7166},"total_tokens":7272}}
+
+data: [DONE]
+

@@ -1,152 +1,89 @@
 defmodule Integration.AnthropicTest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Context, Message, Response, StreamingResponse}
-  alias Omni.Content.{Text, Thinking, ToolUse}
+  import Omni.Test.Baseline
 
-  @text_fixture "test/support/fixtures/sse/anthropic_text.sse"
-  @tool_use_fixture "test/support/fixtures/sse/anthropic_tool_use.sse"
-  @thinking_fixture "test/support/fixtures/sse/anthropic_thinking.sse"
+  alias Omni.Context
+  alias Omni.Content.{Text, Thinking}
+  alias Omni.Test.Capture
 
-  defp stub_fixture(stub_name, fixture_file) do
-    Req.Test.stub(stub_name, fn conn ->
-      body = File.read!(fixture_file)
+  @dir "test/support/fixtures/anthropic"
 
-      conn
-      |> Plug.Conn.put_resp_content_type("text/event-stream")
-      |> Plug.Conn.send_resp(200, body)
-    end)
+  setup do
+    {:ok, model} = Omni.get_model(:anthropic, "claude-haiku-5-5")
+    %{model: model}
   end
 
-  defp model do
-    {:ok, model} = Omni.get_model(:anthropic, "claude-haiku-4-5")
-    model
-  end
+  describe "baseline" do
+    test "text", %{model: model} do
+      assert_text(model, "#{@dir}/text.sse")
+    end
 
-  describe "generate_text/3 — text" do
-    test "returns a text response" do
-      stub_fixture(:int_anthropic_text, @text_fixture)
+    test "thinking", %{model: model} do
+      {resp, request} = assert_thinking(model, "#{@dir}/thinking.sse")
 
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), "Write a haiku about why the sky is blue.",
-                 api_key: "test-key",
-                 plug: {Req.Test, :int_anthropic_text}
-               )
+      # Summarized thinking: text, with a signature for replay
+      assert [%Thinking{text: text, signature: signature}, %Text{}] = resp.message.content
+      assert text != "" and signature != ""
 
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert %Omni.Model{} = resp.model
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-      assert [%Text{text: text}] = resp.message.content
-      assert is_binary(text) and byte_size(text) > 0
+      assert request.body["thinking"] == %{"type" => "adaptive", "display" => "summarized"}
+      assert request.body["output_config"] == %{"effort" => "low"}
+      assert is_integer(request.body["max_tokens"])
+    end
+
+    test "tool use", %{model: model} do
+      assert_tool_use(model, "#{@dir}/tool_use.sse")
+    end
+
+    test "structured output", %{model: model} do
+      assert_structured_output(model, "#{@dir}/structured_output.sse")
+    end
+
+    test "target", %{model: model} do
+      assert_target(model, "#{@dir}/text.sse", "https://api.anthropic.com/v1/messages", [
+        {"x-api-key", "test-key"},
+        {"anthropic-version", "2023-06-01"}
+      ])
     end
   end
 
-  describe "generate_text/3 — tool use" do
-    test "returns a tool use response" do
-      stub_fixture(:int_anthropic_tool, @tool_use_fixture)
+  describe "cases" do
+    # Turn 1 writes the system prompt; turn 2 reads it back. The hit depends on
+    # the prefix re-encoding byte-identically, including turn 1's signed
+    # thinking (Haiku 5.5 thinks by default). The last-message breakpoint has
+    # moved, so turn 2 also writes. Anthropic reports `input_tokens` without
+    # the cached prefix, the meaning Omni's usage gives it on every dialect.
+    test "cache hit on turn 2", %{model: model} do
+      {context, opts} = request(:cache_usage)
+      assert {:ok, resp1} = Capture.replay(model, context, "#{@dir}/cache_1.sse", opts)
+      assert_received {:replay_request, _}
+      assert resp1.usage.cache_write_tokens > 0
+      assert resp1.usage.cache_read_tokens == 0
 
-      tool =
-        Omni.tool(
-          name: "get_weather",
-          description: "Gets the weather",
-          input_schema: %{type: "object", properties: %{city: %{type: "string"}}}
-        )
+      turn2 = follow_up(:cache_usage, context, resp1)
+      assert {:ok, resp2} = Capture.replay(model, turn2, "#{@dir}/cache_2.sse", opts)
+      assert_received {:replay_request, %{body: body}}
 
-      context =
-        Context.new(
-          messages: [Message.new("What is the weather in London?")],
-          tools: [tool]
-        )
+      assert [%{"cache_control" => %{"type" => "ephemeral"}}] = body["system"]
 
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), context,
-                 api_key: "test-key",
-                 plug: {Req.Test, :int_anthropic_tool}
-               )
+      assert [_question, %{"content" => [thinking, _text]}, %{"content" => [follow_up]}] =
+               body["messages"]
 
-      assert resp.stop_reason == :tool_use
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-      assert tool_use = Enum.find(resp.message.content, &match?(%ToolUse{}, &1))
-      assert is_binary(tool_use.name) and tool_use.name == "get_weather"
-      assert is_map(tool_use.input)
-      assert is_binary(tool_use.id)
+      assert %{"type" => "thinking", "signature" => "" <> _} = thinking
+      assert %{"cache_control" => %{"type" => "ephemeral"}} = follow_up
+
+      assert resp2.usage.cache_read_tokens == resp1.usage.cache_write_tokens
+      assert resp2.usage.cache_write_tokens > 0
+      assert resp2.usage.input_tokens < resp2.usage.cache_read_tokens
     end
   end
 
-  describe "generate_text/3 — thinking" do
-    test "returns thinking and text content" do
-      stub_fixture(:int_anthropic_thinking, @thinking_fixture)
-
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), "How many R's are in strawberry?",
-                 api_key: "test-key",
-                 thinking: :high,
-                 plug: {Req.Test, :int_anthropic_thinking}
-               )
-
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-
-      thinking = Enum.filter(resp.message.content, &match?(%Thinking{}, &1))
-      assert length(thinking) > 0
-      assert Enum.all?(thinking, &is_binary(&1.text))
-
-      texts = Enum.filter(resp.message.content, &match?(%Text{}, &1))
-      assert length(texts) > 0
-    end
-  end
-
-  describe "generate_text/3 — mid-stream error" do
-    test "error event mid-stream returns stream_error" do
-      stub_fixture(:int_anthropic_error, "test/support/fixtures/synthetic/anthropic_error.sse")
+  describe "synthetic" do
+    test "error event mid-stream returns stream_error", %{model: model} do
+      file = "test/support/fixtures/synthetic/anthropic_error.sse"
 
       assert {:error, {:stream_error, "Overloaded"}} =
-               Omni.generate_text(model(), "Hello",
-                 api_key: "test-key",
-                 plug: {Req.Test, :int_anthropic_error}
-               )
-    end
-  end
-
-  describe "stream_text/3 — text streaming" do
-    test "streams text and completes with full response" do
-      stub_fixture(:int_anthropic_stream, @text_fixture)
-
-      {:ok, sr} =
-        Omni.stream_text(model(), "Write a haiku about why the sky is blue.",
-          api_key: "test-key",
-          plug: {Req.Test, :int_anthropic_stream}
-        )
-
-      texts = sr |> StreamingResponse.text_stream() |> Enum.to_list()
-
-      assert length(texts) > 0
-      assert Enum.all?(texts, &is_binary/1)
-      assert Enum.join(texts) != ""
-    end
-
-    test "complete/1 returns a full response" do
-      stub_fixture(:int_anthropic_complete, @text_fixture)
-
-      {:ok, sr} =
-        Omni.stream_text(model(), "Write a haiku about why the sky is blue.",
-          api_key: "test-key",
-          plug: {Req.Test, :int_anthropic_complete}
-        )
-
-      assert {:ok, %Response{} = resp} = StreamingResponse.complete(sr)
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-      assert [%Text{text: text}] = resp.message.content
-      assert byte_size(text) > 0
+               Capture.replay(model, Context.new("Hello"), file)
     end
   end
 end

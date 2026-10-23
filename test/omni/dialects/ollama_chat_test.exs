@@ -406,7 +406,27 @@ defmodule Omni.Dialects.OllamaChatTest do
 
       assert {:message, data} = Enum.find(deltas, fn {type, _} -> type == :message end)
       assert data.stop_reason == :stop
-      assert data.usage == %{"input_tokens" => 20, "output_tokens" => 50}
+
+      assert data.usage == %{
+               "input_tokens" => 20,
+               "output_tokens" => 50,
+               "cache_read_tokens" => 0
+             }
+    end
+
+    test "usage takes the cached prefix out of input" do
+      event = %{
+        "done" => true,
+        "done_reason" => "stop",
+        "prompt_eval_count" => 7087,
+        "prompt_eval_cached_count" => 7040,
+        "eval_count" => 5
+      }
+
+      assert {:message, %{usage: usage}} =
+               event |> OllamaChat.handle_event(@model) |> Enum.find(&match?({:message, _}, &1))
+
+      assert usage == %{"input_tokens" => 47, "output_tokens" => 5, "cache_read_tokens" => 7040}
     end
 
     test "done_reason length maps to :length" do

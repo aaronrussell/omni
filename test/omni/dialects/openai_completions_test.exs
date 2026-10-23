@@ -657,7 +657,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert usage["output_tokens"] == 5
     end
 
-    test "usage extracts cached tokens from prompt_tokens_details" do
+    test "usage takes cached tokens from prompt_tokens_details out of input" do
       event = %{
         "choices" => [],
         "usage" => %{
@@ -669,7 +669,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       }
 
       assert [{:message, %{usage: usage}}] = OpenAICompletions.handle_event(event, @model)
-      assert usage["input_tokens"] == 46
+      assert usage["input_tokens"] == 26
       assert usage["output_tokens"] == 17
       assert usage["cache_read_tokens"] == 20
     end

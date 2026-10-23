@@ -1,0 +1,33 @@
+event: message_start
+data: {"type":"message_start","message":{"model":"claude-haiku-5-5","id":"msg_011CgJyTcAzRbBxEe6sGc1Bc","type":"message","role":"assistant","content":[],"container":null,"stop_reason":null,"stop_sequence":null,"stop_details":null,"usage":{"input_tokens":4,"cache_creation_input_tokens":7509,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":7509,"ephemeral_1h_input_tokens":0},"output_tokens":3,"service_tier":"standard","inference_geo":"global","speed":"standard"},"diagnostics":null}  }
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}         }
+
+event: ping
+data: {"type": "ping"}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":""}         }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"CAQS8gUKEAgTGAI4AUIIdGhpbmtpbmcSDFXZm3T+QSq05AhnlxoMADZPBCO9KsZ1TVtpIjCdHr9Q8jsoFpMY1r8YhFyic8pxhdpvImA26zN3/DPrT5hgq9AjyuhPco9iFuRuY5oqjwUeRlsPhO6sgbxEirY6ZXIxpjLeyta8VDFR4Z5nJyJx2gG0qF4/Pvzn4tMvbzXYCnPPe3Vt/nKU/FxraSZUrLK7G5wXArWc/gl+m43T85ENrnLjVOvmfx2jetJ4yEIixsgMjzOJdYMOZ+h/aBRUc1yre9g0Rp/0H6PyFHJ+qfWLLLq1qGrZQhByqGFdGFBFOpqDF0idbH7UBUZVsug1tdki+uhBlqK2wSR6mBSUpddFVtA04gpEedFMSB3shH5VSqJcrGZ1oxoGv+PQnv8UlKctFnoOZehwQk/dqEbayuehq+6Uq1xsWlVr4gR1LFhstM1ENe4VnYFaptLA7m9fSLDe7xotxKV5qoK6ZFNd46EIL7II4zyay/BHjcX11PYpFj+gk7LQVdIijYqppf6/dHn6CW0Jyubd4FoA+x7towf3tMt4nKYPZ6qCIYt48lrMA453FSvn/vn81/O/VeRHbg93HqAVMPliKfOkiKil8iwmkmFJhxtl83iKJtPY/dsxelaLRgQ0Liib5By2XP+H4DgUxwX0i6bBZtCr6IJIDbiNu2JngIbXjXx3SrjNE7h/+w5auGcfWhcYSec5U1+h9DDDCG3gXi1O4T+HPHPG+IZN9BzmCXkNW7yiEgSbW/tzk/4co/zXPzgy+vs2zYV6ajGlrZdEuDDE50yeDp+7m+v2+cVy8Pl/JFR3pFZtj33Csy7c659BcQAWndR0yruUbfhwAaHgXjrzt7fgFViDEDQo958Y8byx85mOHJTGzHirl802VIk07nhqUV65MonKf0Tjf6PNCYjKP9nlKsLd40ymQEXknl3FHraB5V9GbtX+cboBH/aUgdLrmNrJxCO8zUb8yklVM35TbEyL/q3Wy0AnGAE="}             }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0      }
+
+event: content_block_start
+data: {"type":"content_block_start","index":1,"content_block":{"type":"text","text":""}         }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"Kings Hill 42"}              }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":1              }
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"container":null},"usage":{"input_tokens":4,"cache_creation_input_tokens":7509,"cache_read_input_tokens":0,"output_tokens":121,"output_tokens_details":{"thinking_tokens":111}} }
+
+event: message_stop
+data: {"type":"message_stop"            }
+

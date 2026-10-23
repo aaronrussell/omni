@@ -103,6 +103,8 @@ config :omni, :providers,
 - Ollama models take string levels only when their data lists efforts; others take a boolean (local gpt-oss with no data configured now gets `true`).
 - Moonshot, Z.ai and Alibaba models that list effort values get `reasoning_effort` instead of the provider's on/off switch.
 
+**`input_tokens` excludes cached tokens on every dialect.** *(verification)* It already did on Anthropic; Completions, Responses, Gemini and Ollama counted cached tokens in both `input_tokens` and `cache_read_tokens`, so they were costed twice and `total_tokens` overcounted. Ollama now reports `prompt_eval_cached_count` as `cache_read_tokens`. Gemini's `output_tokens` now includes thinking (`thoughtsTokenCount`), which it bills as output. OpenAI's cache writes (`cache_write_tokens`) stay in `input_tokens`, billed at the input rate.
+
 ## Sources
 
 **`Omni.Source.build_model/1` reads `"reasoning_options"`** (models.dev's list form, string or atom keys) into `:thinking`. *(phase 2)* The llm_db source passes them through, falls back to OpenRouter's `supported_efforts`, and reads `extra` with string keys as well as atom keys (llm_db 2026.7.2+).

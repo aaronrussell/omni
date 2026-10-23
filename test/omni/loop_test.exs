@@ -4,8 +4,8 @@ defmodule Omni.LoopTest do
   alias Omni.{Context, Loop, Message, StreamingResponse}
   alias Omni.Content.{Text, ToolResult}
 
-  @tool_use_fixture "test/support/fixtures/sse/anthropic_tool_use.sse"
-  @text_fixture "test/support/fixtures/sse/anthropic_text.sse"
+  @tool_use_fixture "test/support/fixtures/anthropic/tool_use.sse"
+  @text_fixture "test/support/fixtures/anthropic/text.sse"
 
   defp stub_fixture(stub_name, fixture_file) do
     Req.Test.stub(stub_name, fn conn ->
@@ -32,7 +32,7 @@ defmodule Omni.LoopTest do
   end
 
   defp model do
-    {:ok, model} = Omni.get_model(:anthropic, "claude-haiku-4-5")
+    {:ok, model} = Omni.get_model(:anthropic, "claude-haiku-5-5")
     model
   end
 

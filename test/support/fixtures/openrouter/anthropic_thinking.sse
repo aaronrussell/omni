@@ -1,0 +1,76 @@
+: OPENROUTER PROCESSING
+
+: OPENROUTER PROCESSING
+
+: OPENROUTER PROCESSING
+
+: OPENROUTER PROCESSING
+
+: OPENROUTER PROCESSING
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"","role":"assistant","reasoning":"Counting r's:","reasoning_details":[{"type":"reasoning.text","text":"Counting r's:","format":"anthropic-claude-v1","index":0}]},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"","role":"assistant","reasoning":" strawberry has","reasoning_details":[{"type":"reasoning.text","text":" strawberry has","format":"anthropic-claude-v1","index":0}]},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"","role":"assistant","reasoning":" 3, rhubarb","reasoning_details":[{"type":"reasoning.text","text":" 3, rhubarb","format":"anthropic-claude-v1","index":0}]},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"","role":"assistant","reasoning":" has 2, raspberry","reasoning_details":[{"type":"reasoning.text","text":" has 2, raspberry","format":"anthropic-claude-v1","index":0}]},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"","role":"assistant","reasoning":" has 3, totaling ","reasoning_details":[{"type":"reasoning.text","text":" has 3, totaling ","format":"anthropic-claude-v1","index":0}]},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"","role":"assistant","reasoning":"8.","reasoning_details":[{"type":"reasoning.text","text":"8.","format":"anthropic-claude-v1","index":0}]},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"","role":"assistant","reasoning":"\n\n","reasoning_details":[{"type":"reasoning.text","text":"\n\n","format":"anthropic-claude-v1","index":0}]},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"","role":"assistant","reasoning_details":[{"type":"reasoning.text","signature":"CAQS1QYKEAgTGAI4AUIIdGhpbmtpbmcSDHnXGxxkyH7PE6oJ+BoMN+NHtRv/v683G3S+IjDqWWdm7xRwA+YSje+5J/XlQZszkimrBlPHyDuYffYXyYcTtRrluxMdCBzBLHhKM78q8gVdDEjz81N0Q1IMnTpwz0d8PT1jaExsqqX+wry9jUv5IT6NPLKJoPDA5g3hkPVuIhJR86pO2iJ+6Vrxd9/K6BiGNiYGfizQJIlm1+T/k/b9sivTXH9qISJrSug2Psf2tLefTycAf78qy0y3GDqSHRyK02RsDvYDk4jDel3v+nHWK1hFCqCHlju0hkI7BvuCQTAQ4Tx44N81/gUWmnwOcdPTIwRN6zCaqpBEunoxE7eVE2SpZbvXjhTfMi82+zCWFI/YrynUudlhJPJe2f71uWlKJ/v55zC4hp8kApd7/juS5H2w3FNnXgUhWBhl7qUSbjdUAQO3Zo3lS+S+0YTfjFxFj0sbwc8GU2o8vBqyXb0SYlc3gezsVXBPmDiC4nNL1ECjf3BM5emWbvPJtOkoAqWLwPGkyoU66IqYotoJxa6H+z03qyX//jHhC6EZe9A4tKwQrv3oiq9H/h9WZ64yXu2OMB+uluI4jE4vm1/z3kD5rag3V1IowEG+EXe4J0QEtAHf2sHBYOLTag6ZaKuYe74x3LO98IjGEwuvLYDLHx82ff1JRipIMvc4hZqzLSeJN9ilkE2YoDI8ElhkTdiwH6k9Kn047QwrYv4zG39GjrB2DxA6ry+duXwHTuS7cM5utq1vh+my9f/ARuMvwQgW1zI5UF7y370FGOXMzni4UdXJw7P+V/Q+l0JtWhL5suhcf7GxVdekRBuoTHXzjevEP/3leE1arXIe3DBJWxNHvIIpP2iHLDcIPdm1rYdk1bJEsvkzxKMpo5C3WvvuLLAxr17X+Lc/E+j4KIzq6c9qZaUby+BlM67ZPpn7BeBYoaHBn5Q02tgdPWMc9ne4Ybo+DZWd+goTs+FDlkkMh695S8zQSXFQ9XQmMwKXRATSfmuKOQUOYbOn3Zuj6XqCLa09nIuqrBJPLRyTC4qKQFNfPAup5NpGv7T/0u4+YTkbLS75PgisdPM4QwNqLMO7y8ZG00fg2wuMpKPUgsBugYCFJiIsibn2GAE=.eyJlbmRwb2ludF9zbHVnIjoiYW50aHJvcGljL2NsYXVkZS1oYWlrdS01LjUtMjAyNjEwMDd8Y2xhdWRlLW9uLWF3cyJ9","format":"anthropic-claude-v1","index":0}]},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"There","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":" are **8** r's in \"","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"strawberry rhubar","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"b raspberry\":\n\n-","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":" **strawberry**: s","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"-t-**","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"r**-a-w-b","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"-e-**","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"r**-**r**-y","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":" →","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":" 3","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"\n- **rhubarb**","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":": **","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"r**-h-u-b","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"-a-**r**-b","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":" → 2\n- **rasp","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"berry**: **r**-","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"a-s-p-b-","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"e-**r**-**r","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"**-y → 3","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"\n\nTotal: 3 + 2","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":" + 3 = 8","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"","role":"assistant","reasoning":null},"finish_reason":"stop","native_finish_reason":"end_turn"}]}
+
+data: {"id":"gen-1792751561-EpMekCqoY5DD82MUwQyp","object":"chat.completion.chunk","created":1792751561,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","service_tier":"default","choices":[{"index":0,"delta":{"content":"","role":"assistant"},"finish_reason":"stop","native_finish_reason":"end_turn"}],"usage":{"prompt_tokens":53,"completion_tokens":304,"total_tokens":357,"cost":0.000155727,"is_byok":false,"prompt_tokens_details":{"cached_tokens":0,"cache_write_tokens":0,"audio_tokens":0,"video_tokens":0},"cost_details":{"upstream_inference_cost":0.0001573,"upstream_inference_prompt_cost":0.0000053,"upstream_inference_completions_cost":0.000152},"completion_tokens_details":{"reasoning_tokens":159,"image_tokens":0,"audio_tokens":0}}}
+
+data: [DONE]
+

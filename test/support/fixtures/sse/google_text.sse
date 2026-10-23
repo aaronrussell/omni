@@ -1,6 +1,0 @@
-data: {"candidates": [{"content": {"parts": [{"text": "Sun"}],"role": "model"}}],"usageMetadata": {"promptTokenCount": 12,"totalTokenCount": 12,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 12}]},"modelVersion": "gemini-2.0-flash-lite","responseId": "qG6YabreOdTBvPEP2tWt0QU"}
-
-data: {"candidates": [{"content": {"parts": [{"text": "light scatters down,\nTiny air holds colors tight,\nBlue's the one"}],"role": "model"}}],"usageMetadata": {"promptTokenCount": 12,"totalTokenCount": 12,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 12}]},"modelVersion": "gemini-2.0-flash-lite","responseId": "qG6YabreOdTBvPEP2tWt0QU"}
-
-data: {"candidates": [{"content": {"parts": [{"text": " we see. \n"}],"role": "model"},"finishReason": "STOP"}],"usageMetadata": {"promptTokenCount": 11,"candidatesTokenCount": 24,"totalTokenCount": 35,"promptTokensDetails": [{"modality": "TEXT","tokenCount": 11}],"candidatesTokensDetails": [{"modality": "TEXT","tokenCount": 24}]},"modelVersion": "gemini-2.0-flash-lite","responseId": "qG6YabreOdTBvPEP2tWt0QU"}
-

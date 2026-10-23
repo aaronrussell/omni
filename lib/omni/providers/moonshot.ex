@@ -16,6 +16,12 @@ defmodule Omni.Providers.Moonshot do
   level the model supports; the rest switch thinking on and off with
   `thinking: {type: "enabled" | "disabled"}`.
 
+  ## Limitations
+
+  Kimi K2.6 ignores the `:output` schema while thinking, which is on by
+  default, and answers in prose. Pass `thinking: false` with `:output`. Kimi
+  K2.7 and K3 follow the schema with thinking on.
+
   ## Compat flags
 
   Sets this `Omni.Dialects.OpenAICompletions` flag:

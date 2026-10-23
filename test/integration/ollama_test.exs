@@ -1,150 +1,58 @@
 defmodule Integration.OllamaTest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Context, Message, Response, StreamingResponse}
-  alias Omni.Content.{Text, Thinking, ToolUse}
+  import Omni.Test.Baseline
 
-  @text_fixture "test/support/fixtures/ndjson/ollama_text.ndjson"
-  @tool_use_fixture "test/support/fixtures/ndjson/ollama_tool_use.ndjson"
-  @thinking_fixture "test/support/fixtures/ndjson/ollama_thinking.ndjson"
+  alias Omni.Context
+  alias Omni.Test.Capture
 
-  setup_all do
+  @dir "test/support/fixtures/ollama"
+
+  # Local models aren't in the catalog.
+  setup do
     model =
       Omni.Model.new(
-        id: "qwen3.5:4b",
-        name: "qwen3.5:4b",
-        provider: :ollama
+        id: "qwen3.8:27b-mlx",
+        name: "qwen3.8:27b-mlx",
+        provider: :ollama,
+        thinking: true
       )
 
-    Omni.put_model(model)
-    :ok
+    %{model: model}
   end
 
-  defp stub_fixture(stub_name, fixture_file) do
-    Req.Test.stub(stub_name, fn conn ->
-      body = File.read!(fixture_file)
+  describe "baseline" do
+    test "text", %{model: model} do
+      {_resp, request} = assert_text(model, "#{@dir}/text.ndjson")
+      assert request.body["think"] == false
+    end
 
-      conn
-      |> Plug.Conn.put_resp_content_type("application/x-ndjson")
-      |> Plug.Conn.send_resp(200, body)
-    end)
-  end
+    test "thinking", %{model: model} do
+      {_resp, request} = assert_thinking(model, "#{@dir}/thinking.ndjson")
+      assert request.body["think"] == true
+    end
 
-  defp model do
-    {:ok, model} = Omni.get_model(:ollama, "qwen3.5:4b")
-    model
-  end
+    test "tool use", %{model: model} do
+      assert_tool_use(model, "#{@dir}/tool_use.ndjson")
+    end
 
-  describe "generate_text/3 — text" do
-    test "returns a text response" do
-      stub_fixture(:int_ollama_text, @text_fixture)
+    test "structured output", %{model: model} do
+      {_resp, request} = assert_structured_output(model, "#{@dir}/structured_output.ndjson")
+      assert %{"type" => "object", "required" => ["name", "color"]} = request.body["format"]
+    end
 
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), "Write a haiku about the sky.",
-                 plug: {Req.Test, :int_ollama_text}
-               )
-
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert %Omni.Model{} = resp.model
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-      assert [%Text{text: text}] = resp.message.content
-      assert is_binary(text) and byte_size(text) > 0
+    test "target", %{model: model} do
+      request = assert_target(model, "#{@dir}/text.ndjson", "http://localhost:11434/api/chat", [])
+      refute List.keymember?(request.headers, "authorization", 0)
     end
   end
 
-  describe "generate_text/3 — tool use" do
-    test "returns a tool use response" do
-      stub_fixture(:int_ollama_tool, @tool_use_fixture)
-
-      tool =
-        Omni.tool(
-          name: "get_weather",
-          description: "Gets the weather",
-          input_schema: %{type: "object", properties: %{city: %{type: "string"}}}
-        )
-
-      context =
-        Context.new(
-          messages: [Message.new("What is the weather in London?")],
-          tools: [tool]
-        )
-
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), context, plug: {Req.Test, :int_ollama_tool})
-
-      assert resp.stop_reason == :tool_use
-      assert resp.message.role == :assistant
-      assert tool_use = Enum.find(resp.message.content, &match?(%ToolUse{}, &1))
-      assert is_binary(tool_use.name) and tool_use.name == "get_weather"
-      assert is_map(tool_use.input)
-      assert is_binary(tool_use.id)
-    end
-  end
-
-  describe "generate_text/3 — thinking" do
-    test "returns thinking and text content" do
-      stub_fixture(:int_ollama_thinking, @thinking_fixture)
-
-      assert {:ok, %Response{} = resp} =
-               Omni.generate_text(model(), "How many R's are in strawberry?",
-                 thinking: :high,
-                 plug: {Req.Test, :int_ollama_thinking}
-               )
-
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-
-      thinking = Enum.filter(resp.message.content, &match?(%Thinking{}, &1))
-      assert length(thinking) > 0
-      assert Enum.all?(thinking, &is_binary(&1.text))
-
-      texts = Enum.filter(resp.message.content, &match?(%Text{}, &1))
-      assert length(texts) > 0
-    end
-  end
-
-  describe "generate_text/3 — mid-stream error" do
-    test "error in NDJSON stream returns stream_error" do
-      stub_fixture(:int_ollama_error, "test/support/fixtures/synthetic/ollama_error.ndjson")
+  describe "synthetic" do
+    test "error in the stream returns stream_error", %{model: model} do
+      file = "test/support/fixtures/synthetic/ollama_error.ndjson"
 
       assert {:error, {:stream_error, "an error was encountered while running the model"}} =
-               Omni.generate_text(model(), "Hello", plug: {Req.Test, :int_ollama_error})
-    end
-  end
-
-  describe "stream_text/3 — text streaming" do
-    test "streams text and completes with full response" do
-      stub_fixture(:int_ollama_stream, @text_fixture)
-
-      {:ok, sr} =
-        Omni.stream_text(model(), "Write a haiku about the sky.",
-          plug: {Req.Test, :int_ollama_stream}
-        )
-
-      texts = sr |> StreamingResponse.text_stream() |> Enum.to_list()
-
-      assert length(texts) > 0
-      assert Enum.all?(texts, &is_binary/1)
-      assert Enum.join(texts) != ""
-    end
-
-    test "complete/1 returns a full response" do
-      stub_fixture(:int_ollama_complete, @text_fixture)
-
-      {:ok, sr} =
-        Omni.stream_text(model(), "Write a haiku about the sky.",
-          plug: {Req.Test, :int_ollama_complete}
-        )
-
-      assert {:ok, %Response{} = resp} = StreamingResponse.complete(sr)
-      assert resp.stop_reason == :stop
-      assert resp.message.role == :assistant
-      assert resp.usage.input_tokens > 0
-      assert resp.usage.output_tokens > 0
-      assert [%Text{text: text}] = resp.message.content
-      assert byte_size(text) > 0
+               Capture.replay(model, Context.new("Hello"), file)
     end
   end
 end

@@ -1,0 +1,120 @@
+event: message_start
+data: {"type":"message_start","message":{"model":"claude-haiku-5-5","id":"msg_011CgJyTM3f4KkXftwARqa6M","type":"message","role":"assistant","content":[],"container":null,"stop_reason":null,"stop_sequence":null,"stop_details":null,"usage":{"input_tokens":53,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":5,"service_tier":"standard","inference_geo":"global","speed":"standard"},"diagnostics":null}           }
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}          }
+
+event: ping
+data: {"type": "ping"}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"Counting r's let"}     }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"ter by letter: strawber"}    }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"ry has 3, rhub"}              }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"arb has 2, rasp"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"berry has 3,"}        }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" gi"}       }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"ving a total of 8."}            }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"\n\n"} }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"CAQS/gUKEAgTGAI4AUIIdGhpbmtpbmcSDI8RQgwRy/F/I42+0RoMDgb4TYIMlkAupdZ1IjDBmcijNnMT+cQPvLwvFSjX6ez4Pbx+9+wzondpLDrlOnfTg30rR/5wdAbVg6jRlJ8qmwUksN+i4lg0iFTuJxrhKxmDewyOb4M+ITD3voUOM8J7X3eLWW1mX5yhEeN1BnQH/kk+fSEVqbXMJQzbZFY6GDT7l5K/G0MaAvw3glf6ldCbNYpyjJuREUN49dervsaDa1NBBYJ4kHs5bfeedTVtds5R2Cgmg+q3/vyZHOpEtvSBTnDhekvSAPD+UHUfMbmEUWrEsGBeZf5HSnkjBUShEkdWlFhCtthAodeqRatNginq+IPPYVcsV1zXIugdrRzCUbB29JcQS/HPhP8wATDcCJAgWBCwIst1e6beZuYW/QjpZNDPzLAuajCu0KtTnUurQvRhMo4KD/WjCG1RxKra6NYhqcmlbdM0elH2e4ZjzIc5PuucpFGGauHgZpQIL8dWSXDZHcuNxgvvNiRbgwQEFO/BLl1DThF1bZe6HlQg+twAzgf/MMhM4xvFYqCLOTZpOnJbFwOK0Bx0exQW3K95bN4snlhkrGROwAc0GVQFA4nC3M/b4igk9+AO0tURHGr6JxsQkHNNi/NMLPVszYqDwPNGVcsCns0T4Iyd/o776xmFadMWblY0azfWcVE+O0NyPM62HpqXdaZdClWaK5zjqGZIZg/LEvVATL1C60FlLj+/tyRMoFX9D+L1cF/jyiSyDfOMn5wH1LpE3VxxdO7+7tv6SLYfXu9EhIFDYN4IOH4KY3k7ggQrENBOy2uID0cIJg6CsQnaggiTTdxsFp0YR12D+luhpdFtcWy92YDzOLY3WTcSQPh26yjbSJnIUYPsAitYpR53HopkWq5R4IS0SjI8DqXfHvmYMdwP+AH94g3s5xRU06yR739XADSuHaIikefx0X8ITuBV+IGD1pcUBKFkAtP5XiuhYl4+i9W5WBkt8RBmT2tS7lM9G5EKGAE="}    }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0               }
+
+event: content_block_start
+data: {"type":"content_block_start","index":1,"content_block":{"type":"text","text":""} }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"The"}          }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":" letter "}         }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"'r' appears **8 "}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"times**"} }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":":\n\n1"}         }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":". **strawberry**"}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":": s"}       }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"-t-**"}  }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"r**-a-w-b"}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"-e-**r**-**"}         }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"r**-y → 3"}  }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"\n2. **rhubarb"}       }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"**: **"}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"r**-h"}         }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"-u-b-a-**"}     }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"r**-b → 2"}    }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"\n3. **raspberry**"}              }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":": **"}            }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"r**-a-s-p"}       }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"-b-e-**r**"}        }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"-**r**-y → "}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"3\n\n3 + 2 "} }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"text_delta","text":"+ 3 = 8"}            }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":1 }
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"container":null},"usage":{"input_tokens":53,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":279,"output_tokens_details":{"thinking_tokens":143}}          }
+
+event: message_stop
+data: {"type":"message_stop"   }
+

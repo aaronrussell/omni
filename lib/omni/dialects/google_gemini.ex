@@ -287,12 +287,20 @@ defmodule Omni.Dialects.GoogleGemini do
 
   defp normalize_usage(nil), do: nil
 
+  # `promptTokenCount` includes cached tokens; Omni's `input_tokens` doesn't.
+  # Thinking is counted apart from `candidatesTokenCount` and billed as output.
   defp normalize_usage(usage) do
+    cached = usage["cachedContentTokenCount"]
+    output = usage["candidatesTokenCount"]
+
     %{}
-    |> maybe_put("input_tokens", usage["promptTokenCount"])
-    |> maybe_put("output_tokens", usage["candidatesTokenCount"])
-    |> maybe_put("cache_read_tokens", usage["cachedContentTokenCount"])
+    |> maybe_put("input_tokens", uncached(usage["promptTokenCount"], cached))
+    |> maybe_put("output_tokens", output && output + (usage["thoughtsTokenCount"] || 0))
+    |> maybe_put("cache_read_tokens", cached)
   end
+
+  defp uncached(nil, _cached), do: nil
+  defp uncached(input, cached), do: input - (cached || 0)
 
   # Helpers
 
