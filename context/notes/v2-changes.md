@@ -103,7 +103,15 @@ config :omni, :providers,
 - Ollama models take string levels only when their data lists efforts; others take a boolean (local gpt-oss with no data configured now gets `true`).
 - Moonshot, Z.ai and Alibaba models that list effort values get `reasoning_effort` instead of the provider's on/off switch.
 
-**`input_tokens` excludes cached tokens on every dialect.** *(verification)* It already did on Anthropic; Completions, Responses, Gemini and Ollama counted cached tokens in both `input_tokens` and `cache_read_tokens`, so they were costed twice and `total_tokens` overcounted. Ollama now reports `prompt_eval_cached_count` as `cache_read_tokens`. Gemini's `output_tokens` now includes thinking (`thoughtsTokenCount`), which it bills as output. OpenAI's cache writes (`cache_write_tokens`) stay in `input_tokens`, billed at the input rate.
+**`input_tokens` excludes cached tokens on every dialect.** *(verification)* It already did on Anthropic; Completions, Responses, Gemini and Ollama counted cached tokens in both `input_tokens` and `cache_read_tokens`, so they were costed twice and `total_tokens` overcounted. Ollama now reports `prompt_eval_cached_count` as `cache_read_tokens`. Gemini's `output_tokens` now includes thinking (`thoughtsTokenCount`), which it bills as output, including when thinking spends the whole budget and Gemini reports no `candidatesTokenCount`. OpenAI's cache writes (`cache_write_tokens`) stay in `input_tokens`, billed at the input rate.
+
+**A `:length` stop stands over tool calls.** *(fixture audit)* A response cut short inside a tool call reported `:tool_use`, and the loop ran the tool with the truncated input (`%{}`). It now reports `:length` and the loop stops; the truncated `ToolUse` stays in the message. Only `:stop` (Gemini's `STOP`, Ollama's `stop`) or a missing reason still becomes `:tool_use` when tool calls are present.
+
+**OpenAI Responses carries reasoning across requests.** *(fixture audit)* Reasoning items become Thinking blocks with the item's id (`Thinking.id`, new) and its encrypted content as the signature, and go back in output order on later requests, so reasoning survives tool rounds with `store: false`. Reasoning models now send `include: ["reasoning.encrypted_content"]`. Reasoning items with no summary now appear as Thinking blocks with empty text.
+
+**OpenAI Responses reports `:length` at `max_output_tokens`.** *(fixture audit)* `response.incomplete` was ignored, so the response failed with `:incomplete_stream`. It now ends with `:length` (`:refusal` for the content filter).
+
+**Completions reads every packed tool call.** *(fixture audit)* A chunk carrying several calls in `delta.tool_calls` kept only the first.
 
 ## Sources
 

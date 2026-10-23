@@ -7,8 +7,9 @@ defmodule Integration.OpenCodeTest do
   alias Omni.Dialects.{AnthropicMessages, GoogleGemini, OpenAICompletions, OpenAIResponses}
   alias Omni.Test.Capture
 
-  # Zen serves each model over its upstream's dialect: text and tool use
-  # once per dialect.
+  # Zen serves each model over its upstream's dialect. Its claim is the
+  # routing: the dialect and target for each. The bytes are the upstreams',
+  # covered by the dialect tests.
   @dir "test/support/fixtures/opencode"
 
   defp model(id) do
@@ -25,10 +26,6 @@ defmodule Integration.OpenCodeTest do
 
     test "text", %{model: model} do
       assert_text(model, "#{@dir}/anthropic_text.sse")
-    end
-
-    test "tool use", %{model: model} do
-      assert_tool_use(model, "#{@dir}/anthropic_tool_use.sse")
     end
 
     test "target", %{model: model} do
@@ -49,10 +46,6 @@ defmodule Integration.OpenCodeTest do
       assert_text(model, "#{@dir}/oair_text.sse")
     end
 
-    test "tool use", %{model: model} do
-      assert_tool_use(model, "#{@dir}/oair_tool_use.sse")
-    end
-
     test "target", %{model: model} do
       assert_target(model, "#{@dir}/oair_text.sse", "https://opencode.ai/zen/v1/responses", [
         {"authorization", "Bearer test-key"}
@@ -69,10 +62,6 @@ defmodule Integration.OpenCodeTest do
 
     test "text", %{model: model} do
       assert_text(model, "#{@dir}/oaic_text.sse")
-    end
-
-    test "tool use", %{model: model} do
-      assert_tool_use(model, "#{@dir}/oaic_tool_use.sse")
     end
 
     test "target", %{model: model} do
@@ -94,10 +83,6 @@ defmodule Integration.OpenCodeTest do
 
     test "text", %{model: model} do
       assert_text(model, "#{@dir}/google_text.sse")
-    end
-
-    test "tool use", %{model: model} do
-      assert_tool_use(model, "#{@dir}/google_tool_use.sse")
     end
 
     test "target", %{model: model} do

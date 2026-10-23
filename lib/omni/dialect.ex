@@ -56,7 +56,9 @@ defmodule Omni.Dialect do
       {:block_start, %{type: :tool_use, index: 1, id: "call_1", name: "weather"}}
 
   The `:type` determines the consumer event name (`:text_start`, `:thinking_start`,
-  `:tool_use_start`). Tool use blocks include `:id` and `:name`.
+  `:tool_use_start`). Tool use blocks include `:id` and `:name`. Thinking blocks
+  may include `:id`, for APIs that refer to reasoning by id on replay, and
+  `:redacted_data`.
 
   ### `:block_delta`
 

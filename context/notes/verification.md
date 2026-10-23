@@ -112,6 +112,81 @@ The 2026-10-22 sweep and its diagnostics pointed at fixtures step 4 should recor
 - **Alibaba thinking on an effort model** (`qwen3.8-flash`): the current baseline; the old `alibaba_thinking.sse` likely predates effort models. Request shape (effort, no budget) is already asserted in the dialect tests.
 - **Ollama Cloud** (`gemma4:31b`): no cloud fixture exists yet, only local NDJSON. Its responses include `prompt_eval_cached_count`, which the Ollama dialect doesn't read.
 
+## Fixture audit (step 4b)
+
+*Agreed 2026-10-23. Where this differs from "Integration tests" above, this wins.*
+
+Step 4 gave every provider the same baseline and a handful of cases chosen from what the first sweep happened to find. The audit fingerprinted every fixture (event types, key paths, chunk patterns) against each dialect's `handle_event/2` branches. The test for a fixture: is it the only set of real bytes exercising some parsing path or provider variation?
+
+### Three tiers
+
+| Tier | Protects | Lives in | Bytes from |
+|---|---|---|---|
+| Omni | `StreamingResponse`, `Loop` | `loop_test`, `error_test`, `structured_output_test` (unchanged) | Anthropic, plus `synthetic/` |
+| Dialect | a parser path any provider on the dialect takes | `test/integration/dialects/<dialect>_test.exs` | the dialect's home API |
+| Provider | bytes where a provider differs from its dialect's reference | `<provider>_test.exs`, `cases` | that provider |
+
+- **Reference providers** are the dialect's home API, matching what "no compat flags" means: Anthropic (`claude-haiku-5-5`), OpenAI Responses (`gpt-6-luna`), Google (`gemini-3.8-flash`), local Ollama (`qwen3.8:27b-mlx`), and OpenAI's own `/chat/completions` for Completions (`gpt-6-luna`, model built inline in the capture script, as Ollama's is).
+- **Fixtures** live in `test/support/fixtures/dialects/<dialect>/` with their own `capture.exs`, naming the reference model at the top. A test only loads fixtures from its own directory.
+- **Synthetics** move with their tier: dialect-level ones into the dialect directory; provider-level ones (Venice's packed chunks, OpenRouter's error) stay; `synthetic/` keeps only the Omni-level ones (`anthropic_json_*`, `anthropic_not_json`, `anthropic_truncated`).
+- **Provider files** keep the baseline (text, thinking, tool use, target, request shape) and genuine quirks only. Most have no `cases` block.
+
+### Dialect cases
+
+| Dialect | Fixture | Protects | |
+|---|---|---|---|
+| Anthropic Messages | `cache_1`, `cache_2` | cache read and write; signed thinking replay | moved |
+| | `tool_length` | `max_tokens` mid tool call stays `:length` | new |
+| | `tools_1`, `tools_2` | thinking then `tool_use`; turn 2 sends the signed thinking ahead of the call | new |
+| | `redacted_thinking` | `redacted_thinking` block, via the documented trigger string | one attempt; dropped if no block comes back |
+| | `error` (synthetic) | error event | moved |
+| OpenAI Completions | `cache_1`, `cache_2` | `prompt_tokens_details.cached_tokens` subtracted | new |
+| | `tool_length` | `finish_reason: "length"` mid tool call | new |
+| | `tools_1` | reference shape for parallel calls | new |
+| | `error` (synthetic) | error chunk | moved |
+| OpenAI Responses | `cache_1`, `cache_2` | `cached_tokens` subtracted | moved |
+| | `tool_length` | `response.incomplete` → `:length` | new |
+| | `tools_1`, `tools_2` | parallel function calls; reasoning replay | new |
+| | `failed`, `stream_error` (synthetic) | error events | moved |
+| Google Gemini | `tools_1`, `tools_2` | parallel calls, signature on the first only | moved |
+| | `length` | `MAX_TOKENS`, possibly with no parts | new |
+| | `cache`, `error` (synthetic) | `cachedContentTokenCount` (Gemini never reported a real hit); error | moved |
+| Ollama Chat | `length` | `done_reason: "length"` | new |
+| | `tools_1` | several calls in one chunk | new |
+| | `cache_1`, `cache_2` | `prompt_eval_cached_count` | re-recorded locally |
+| | `error` (synthetic) | error line | moved |
+
+### Provider cases
+
+- **OpenRouter:** `gemini_thinking`, `gemini_tools_1`/`_2`, `anthropic_thinking`; synthetic error.
+- **OpenCode:** `kimi_tool_use` (id on every chunk). Otherwise `dialect` and `target` per dialect, from its `*_text` fixtures.
+- **Venice:** synthetic packed tool finish and packed reasoning.
+- **Discovery:** `tools_1` (kitchen_sink turn 1) on Alibaba, Groq, Moonshot, Venice and Z.ai, recorded 2026-10-23 and deleted: none packs calls into one delta. Moonshot, Venice and Alibaba stream each call as id-and-name then arguments, Z.ai sends each call whole in one chunk (as in its baseline), and Groq's gpt-oss made a single call. Bug 1 stays covered by a dialect unit test.
+
+### Trims
+
+- **Structured output** leaves the baseline: fixtures and tests go from every provider. It tests whether the provider obeys the schema, which is verify's job; parsing is plain text on every dialect. Request-body asserts (`response_format`, `format`, `output_config`) move into the request shape tests.
+- **OpenCode `*_tool_use`** (anthropic, oair, oaic, google): the upstreams' bytes, covered by their dialects.
+- **Provider cache cases** (Alibaba, Moonshot, Z.ai, Ollama Cloud): same path as the dialect case.
+
+### Bugs found by the audit, fixed here
+
+1. **Completions drops packed parallel calls.** `extract_tool_calls` reads only the first entry of `delta.tool_calls`. Parse every entry; if discovery finds no provider that packs, a dialect unit test covers it.
+2. **Responses ignores `response.incomplete`.** Hitting `max_output_tokens` gives `{:error, :incomplete_stream}`. Handle the event; map `incomplete_details.reason` (`content_filter` → `:refusal`, otherwise `:length`).
+3. **Truncated tool calls become `:tool_use`.** `StreamingResponse.infer_stop_reason` lets any tool block override the stop reason; the broken JSON decodes to `%{}` and the loop runs the tool. A `:length` stop wins: the loop stops, and the truncated `ToolUse` stays in the message with `%{}` input.
+4. **Responses reasoning isn't replayed.** Responses return reasoning items with `encrypted_content` (and echo `reasoning.context: "all_turns"`); Omni drops them, so reasoning is lost across tool rounds with `store: false`. `Thinking` gains an optional `id`: the parser starts a Thinking block on `output_item.added` (type `reasoning`), keeping the item id and taking `encrypted_content` as the signature; the encoder walks assistant content in order, sending reasoning items ahead of the output they preceded. Not on `Text`: nothing needs it. OpenAI's schema requires `id`, `summary` and `type` on a reasoning input item; the encrypted content comes from `output_item.done` and is what makes `store: false` replay work, so a Thinking block without it isn't sent. Reasoning models send `include: ["reasoning.encrypted_content"]` (non-reasoning models reject it); the recorded responses returned it unasked.
+
+5. **Gemini drops thinking tokens when thinking spends the whole budget.** Found by `google_gemini/length.sse`: with no answer text, `candidatesTokenCount` is absent, and `normalize_usage` only added `thoughtsTokenCount` to it. Output is now their sum when either is present.
+
+**Recording notes.** At `thinking: :low`, Haiku 5.5 and gpt-6-luna answered kitchen_sink with no reasoning, so the Anthropic and Responses `tools_1`/`tools_2` cases use `Cases.request(:thinking_tools)`: the same tools and question, `thinking: :high`, and a system prompt asking to plan the calls first. OpenAI's `/chat/completions` rejects tools with a `reasoning_effort` other than `"none"` on gpt-6-luna, so the Completions `tools_1` reference is recorded with thinking off. The redacted thinking trigger works on Haiku 5.5 (three blocks).
+
+### Order
+
+1. Offline: move fixtures, trim, set up the dialect test modules, write the capture scripts. *Done 2026-10-23.*
+2. Fix the four bugs with dialect unit tests, before recording: Responses `tools_2` must be recorded with reasoning replay in place, so the fixture shows OpenAI accepting it. *Done 2026-10-23.*
+3. Aaron records the batch: the five `dialects/*/capture.exs` scripts and the five discovery providers' (Alibaba, Groq, Moonshot, Venice, Z.ai). *Done 2026-10-23;* Anthropic and Responses `tools_1`/`tools_2` and Completions `tools_1` re-recorded after (recording notes above).
+4. Integration tests against the new fixtures; fingerprint the discovery fixtures and drop the ones that add nothing. *Done 2026-10-23.*
+
 ## Retired
 
 `test/live/`, `LiveTests`, the `:live` tag and `exclude: [:live]` in `test_helper.exs`, `mix test --include live` in `CLAUDE.md`, `scripts/capture_fixtures.exs`, `scripts/test_loop.exs` (→ `kitchen_sink`), `scripts/test_output.exs` (→ `structured_output`). `Omni.Test.Capture` is rewritten as the capture helper.
@@ -122,6 +197,7 @@ The 2026-10-22 sweep and its diagnostics pointed at fixtures step 4 should recor
 2. **Sweep** — script and first matrix; run it. Failures feed step 4's shape cases. *Done 2026-10-22; findings above.*
 3. **Capture and baseline helpers** — rewrite `Omni.Test.Capture`; add `Omni.Test.Baseline`; expose verify's scenario contexts. *Done 2026-10-23.*
 4. **Provider by provider** — `capture.exs`, record fixtures, rewrite the test module with baseline, cases and synthetic blocks and the request shape test. Delete the old fixtures and `request_target_test.exs` as each provider moves. Anthropic goes first, end to end; then every other `capture.exs` is written, Aaron records them as one batch (re-running finicky ones), and the test modules are rewritten from that batch. Sweep bugs the new fixtures reproduce (cached tokens counted twice, Gemini output tokens missing thinking, Ollama `prompt_eval_cached_count`) are fixed here and dropped from the roadmap; any left over are picked up after. *Done 2026-10-23.* Moonshot's baseline moved to Kimi K3: K2.6 ignores the `:output` schema while thinking (moduledoc limitation). Ollama Cloud has no structured output baseline: it doesn't enforce `format` (moduledoc limitation).
+4b. **Fixture audit** — dialect test tier, trims, new cases and the four bugs it found; see "Fixture audit" above. *Agreed 2026-10-23.*
 5. **Retire** the live tests and old scripts; update `CLAUDE.md` (commands, testing layers) and `design.md`.
 6. **Contribution path** — document how a provider enters the verified tier (run verify, set compat flags until it passes, write `capture.exs`, add the module, moduledoc and test file) in the `Omni.Provider` tiers section, which defers to it today.
 

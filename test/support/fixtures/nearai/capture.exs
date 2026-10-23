@@ -5,7 +5,7 @@
 # Existing fixtures are skipped and replayed; delete a file to re-record it.
 #
 # No key yet: text, thinking and tool use are recordings from before this
-# script, with different prompts, and there is no structured output fixture.
+# script, with different prompts.
 
 alias Omni.Test.{Baseline, Capture}
 
@@ -22,6 +22,3 @@ Capture.record(model, context, "#{dir}/thinking.sse", opts)
 
 {context, opts} = Baseline.request(:tool_use)
 Capture.record(model, context, "#{dir}/tool_use.sse", opts)
-
-{context, opts} = Baseline.request(:structured_output)
-Capture.record(model, context, "#{dir}/structured_output.sse", opts)

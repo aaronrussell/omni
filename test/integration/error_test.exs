@@ -200,17 +200,6 @@ defmodule Integration.ErrorTest do
 
   # -- Stream features --
 
-  describe "mid-stream errors" do
-    # Completions has no error event: the error arrives as a chunk.
-    test "Completions error chunk returns stream_error" do
-      {:ok, model} = Omni.get_model(:groq, "openai/gpt-oss-120b")
-      file = "test/support/fixtures/synthetic/openai_completions_error.sse"
-
-      assert {:error, {:stream_error, "The server had an error while processing your request."}} =
-               Omni.Test.Capture.replay(model, Context.new("Hello"), file)
-    end
-  end
-
   describe "stream features" do
     test "text_stream/1 yields the text and complete/1 the response" do
       Req.Test.stub(:err_text_stream, fn conn ->

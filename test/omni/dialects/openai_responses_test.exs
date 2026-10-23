@@ -221,7 +221,7 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       assert tool_item["name"] == "get_weather"
     end
 
-    test "assistant with Thinking block skips it" do
+    test "assistant Thinking without an id is skipped" do
       msg =
         Message.new(
           role: :assistant,
@@ -239,6 +239,50 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
 
       assert [%{"type" => "output_text", "text" => "Here's the answer."}] =
                assistant_msg["content"]
+    end
+
+    test "assistant reasoning goes back as reasoning items, in output order" do
+      msg =
+        Message.new(
+          role: :assistant,
+          content: [
+            Thinking.new(text: "Checking the time.", signature: "enc_1", id: "rs_1"),
+            ToolUse.new(id: "call_1", name: "get_time", input: %{"city" => "London"}),
+            Thinking.new(text: "", signature: "enc_2", id: "rs_2"),
+            Text.new("It's noon.")
+          ]
+        )
+
+      body = OpenAIResponses.handle_body(@model, Context.new([msg]), %{})
+
+      assert [
+               %{
+                 "type" => "reasoning",
+                 "id" => "rs_1",
+                 "summary" => [%{"type" => "summary_text", "text" => "Checking the time."}],
+                 "encrypted_content" => "enc_1"
+               },
+               %{"type" => "function_call", "call_id" => "call_1"},
+               %{
+                 "type" => "reasoning",
+                 "id" => "rs_2",
+                 "summary" => [],
+                 "encrypted_content" => "enc_2"
+               },
+               %{"role" => "assistant", "content" => [%{"text" => "It's noon."}]}
+             ] = body["input"]
+    end
+
+    # With `store: false` the API can't look the item up by id alone.
+    test "reasoning without encrypted content is skipped" do
+      msg =
+        Message.new(
+          role: :assistant,
+          content: [Thinking.new(text: "Hmm.", id: "rs_1"), Text.new("Done.")]
+        )
+
+      body = OpenAIResponses.handle_body(@model, Context.new([msg]), %{})
+      assert [%{"role" => "assistant"}] = body["input"]
     end
 
     test "user with ToolResult encodes as function_call_output items" do
@@ -505,6 +549,16 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       refute Map.has_key?(body, "reasoning")
     end
 
+    test "reasoning model asks for encrypted reasoning" do
+      body = OpenAIResponses.handle_body(@reasoning_model, Context.new("Hi"), %{})
+      assert body["include"] == ["reasoning.encrypted_content"]
+    end
+
+    test "non-reasoning model sends no include" do
+      body = OpenAIResponses.handle_body(@model, Context.new("Hi"), %{})
+      refute Map.has_key?(body, "include")
+    end
+
     test "nil thinking is no-op" do
       context = Context.new("Hello")
       body = OpenAIResponses.handle_body(@reasoning_model, context, %{})
@@ -611,17 +665,32 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       assert [{:message, %{stop_reason: :tool_use}}] = OpenAIResponses.handle_event(event, @model)
     end
 
-    test "response.completed with incomplete status returns message with :length" do
+    test "response.incomplete at max_output_tokens returns message with :length" do
       event = %{
-        "type" => "response.completed",
+        "type" => "response.incomplete",
         "response" => %{
           "status" => "incomplete",
+          "incomplete_details" => %{"reason" => "max_output_tokens"},
           "output" => [],
           "usage" => %{"input_tokens" => 10, "output_tokens" => 100, "total_tokens" => 110}
         }
       }
 
-      assert [{:message, %{stop_reason: :length}}] = OpenAIResponses.handle_event(event, @model)
+      assert [{:message, %{stop_reason: :length, usage: %{"output_tokens" => 100}}}] =
+               OpenAIResponses.handle_event(event, @model)
+    end
+
+    test "response.incomplete from the content filter returns message with :refusal" do
+      event = %{
+        "type" => "response.incomplete",
+        "response" => %{
+          "status" => "incomplete",
+          "incomplete_details" => %{"reason" => "content_filter"},
+          "output" => []
+        }
+      }
+
+      assert [{:message, %{stop_reason: :refusal}}] = OpenAIResponses.handle_event(event, @model)
     end
 
     test "response.failed returns error with message" do
@@ -634,6 +703,38 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       }
 
       assert [{:error, "Internal server error"}] = OpenAIResponses.handle_event(event, @model)
+    end
+
+    test "response.output_item.added with reasoning starts a thinking block with its id" do
+      event = %{
+        "type" => "response.output_item.added",
+        "output_index" => 0,
+        "item" => %{"type" => "reasoning", "id" => "rs_1", "summary" => []}
+      }
+
+      assert [{:block_start, %{type: :thinking, index: 0, id: "rs_1"}}] =
+               OpenAIResponses.handle_event(event, @model)
+    end
+
+    test "response.output_item.done with reasoning takes encrypted content as the signature" do
+      event = %{
+        "type" => "response.output_item.done",
+        "output_index" => 0,
+        "item" => %{"type" => "reasoning", "id" => "rs_1", "encrypted_content" => "enc"}
+      }
+
+      assert [{:block_delta, %{type: :thinking, index: 0, signature: "enc"}}] =
+               OpenAIResponses.handle_event(event, @model)
+    end
+
+    test "response.output_item.done with reasoning and no encrypted content returns empty list" do
+      event = %{
+        "type" => "response.output_item.done",
+        "output_index" => 0,
+        "item" => %{"type" => "reasoning", "id" => "rs_1"}
+      }
+
+      assert [] == OpenAIResponses.handle_event(event, @model)
     end
 
     test "response.output_item.added with non-function_call returns empty list" do

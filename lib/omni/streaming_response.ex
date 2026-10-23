@@ -327,16 +327,15 @@ defmodule Omni.StreamingResponse do
   # Google sends finishReason "STOP" even for function calls, and may split
   # the function call and finish reason across separate SSE events. Since
   # parse_event is stateless, the dialect can't detect this. We infer the
-  # correct stop_reason from accumulated blocks at finalization.
-  defp infer_stop_reason(%{stop_reason: reason, block_order: blocks}) do
-    has_tool_use? = Enum.any?(blocks, fn {type, _} -> type == :tool_use end)
-
-    cond do
-      reason == :tool_use -> :tool_use
-      has_tool_use? -> :tool_use
-      true -> reason
-    end
+  # correct stop_reason from accumulated blocks at finalization. Any other
+  # reason stands: a `:length` stop with a tool block means the call was cut
+  # short, and must not be run.
+  defp infer_stop_reason(%{stop_reason: reason, block_order: blocks})
+       when reason in [nil, :stop] do
+    if Enum.any?(blocks, &match?({:tool_use, _}, &1)), do: :tool_use, else: reason
   end
+
+  defp infer_stop_reason(%{stop_reason: reason}), do: reason
 
   # -- Block Helpers --
 
@@ -349,7 +348,8 @@ defmodule Omni.StreamingResponse do
       type: :thinking,
       parts: [],
       signature: data[:signature],
-      redacted_data: data[:redacted_data]
+      redacted_data: data[:redacted_data],
+      id: data[:id]
     }
   end
 
@@ -401,7 +401,9 @@ defmodule Omni.StreamingResponse do
       block_acc = %{type: type, parts: [], signature: nil}
 
       block_acc =
-        if type == :thinking, do: Map.put(block_acc, :redacted_data, nil), else: block_acc
+        if type == :thinking,
+          do: Map.merge(block_acc, %{redacted_data: nil, id: nil}),
+          else: block_acc
 
       acc = register_block(acc, key, block_acc)
       event = {start_atom(type), %{index: index}, build_response(acc)}
@@ -430,12 +432,12 @@ defmodule Omni.StreamingResponse do
   end
 
   defp build_block(%{type: :thinking, redacted_data: rd} = b) when not is_nil(rd) do
-    Thinking.new(redacted_data: rd, signature: b.signature)
+    Thinking.new(redacted_data: rd, signature: b.signature, id: b.id)
   end
 
   defp build_block(%{type: :thinking} = b) do
     text = b.parts |> Enum.reverse() |> IO.iodata_to_binary()
-    Thinking.new(text: text, signature: b.signature)
+    Thinking.new(text: text, signature: b.signature, id: b.id)
   end
 
   defp build_block(%{type: :tool_use} = b) do

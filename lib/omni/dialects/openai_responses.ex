@@ -12,9 +12,8 @@ defmodule Omni.Dialects.OpenAIResponses do
 
   @behaviour Omni.Dialect
 
-  alias Omni.Content.{Text, ToolUse, ToolResult, Attachment}
-  alias Omni.{Context, Model}
-  alias Omni.Dialect.Thinking
+  alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
+  alias Omni.{Context, Dialect, Model}
 
   import Omni.Util, only: [maybe_put: 3]
 
@@ -48,6 +47,7 @@ defmodule Omni.Dialects.OpenAIResponses do
     |> maybe_put("tools", encode_tools(context.tools))
     |> maybe_put("prompt_cache_retention", encode_cache(opts[:cache]))
     |> maybe_put("reasoning", encode_thinking(model, opts[:thinking]))
+    |> maybe_put("include", encode_include(model))
     |> maybe_put("text", encode_output(opts[:output]))
   end
 
@@ -103,6 +103,33 @@ defmodule Omni.Dialects.OpenAIResponses do
     [{:block_start, %{type: :tool_use, index: output_index, id: call_id, name: name}}]
   end
 
+  # A reasoning item becomes a Thinking block, its summary the text. The item
+  # goes back by id on later requests.
+  def handle_event(
+        %{
+          "type" => "response.output_item.added",
+          "output_index" => output_index,
+          "item" => %{"type" => "reasoning", "id" => id}
+        },
+        _model
+      ) do
+    [{:block_start, %{type: :thinking, index: output_index, id: id}}]
+  end
+
+  # The completed item carries the encrypted reasoning, which `store: false`
+  # requires on replay. Kept as the block's signature.
+  def handle_event(
+        %{
+          "type" => "response.output_item.done",
+          "output_index" => output_index,
+          "item" => %{"type" => "reasoning", "encrypted_content" => encrypted}
+        },
+        _model
+      )
+      when is_binary(encrypted) do
+    [{:block_delta, %{type: :thinking, index: output_index, signature: encrypted}}]
+  end
+
   def handle_event(
         %{
           "type" => "response.function_call_arguments.delta",
@@ -129,6 +156,11 @@ defmodule Omni.Dialects.OpenAIResponses do
     [{:message, %{stop_reason: infer_stop_reason(response), usage: normalize_usage(response)}}]
   end
 
+  # Sent instead of `response.completed` when the response is cut short.
+  def handle_event(%{"type" => "response.incomplete", "response" => response}, _model) do
+    [{:message, %{stop_reason: incomplete_reason(response), usage: normalize_usage(response)}}]
+  end
+
   def handle_event(%{"type" => "response.failed", "response" => %{"error" => error}}, _model) do
     [{:error, error["message"] || "Response failed"}]
   end
@@ -142,7 +174,7 @@ defmodule Omni.Dialects.OpenAIResponses do
   # Thinking
 
   defp encode_thinking(model, option) do
-    case Thinking.resolve(model, option) do
+    case Dialect.Thinking.resolve(model, option) do
       nil ->
         nil
 
@@ -157,6 +189,12 @@ defmodule Omni.Dialects.OpenAIResponses do
     end
   end
 
+  # With `store: false` nothing is kept server-side, so reasoning carries
+  # across requests only as encrypted content. Models that don't reason
+  # reject the include.
+  defp encode_include(%Model{thinking: false}), do: nil
+  defp encode_include(%Model{}), do: ["reasoning.encrypted_content"]
+
   defp effort_string(:low), do: "low"
   defp effort_string(:medium), do: "medium"
   defp effort_string(:high), do: "high"
@@ -169,32 +207,23 @@ defmodule Omni.Dialects.OpenAIResponses do
     Enum.flat_map(messages, &encode_message/1)
   end
 
+  # Assistant content goes back in output order: reasoning items, messages
+  # and function calls interleave as the model produced them.
   defp encode_message(%{role: :assistant, content: content}) do
-    {text_blocks, tool_uses} = split_assistant_content(content)
-
-    msg =
-      case text_blocks do
-        [] ->
-          nil
-
-        texts ->
+    content
+    |> Enum.chunk_by(&match?(%Text{}, &1))
+    |> Enum.flat_map(fn
+      [%Text{} | _] = texts ->
+        [
           %{
             "role" => "assistant",
             "content" => Enum.map(texts, &%{"type" => "output_text", "text" => &1.text})
           }
-      end
+        ]
 
-    tool_items =
-      Enum.map(tool_uses, fn %ToolUse{id: id, name: name, input: input} ->
-        %{
-          "type" => "function_call",
-          "call_id" => id,
-          "name" => name,
-          "arguments" => JSON.encode!(input)
-        }
-      end)
-
-    Enum.reject([msg | tool_items], &is_nil/1)
+      blocks ->
+        Enum.flat_map(blocks, &encode_output_item/1)
+    end)
   end
 
   defp encode_message(%{role: :user, content: content}) do
@@ -225,16 +254,27 @@ defmodule Omni.Dialects.OpenAIResponses do
     tool_items ++ user_msg
   end
 
-  defp split_assistant_content(content) do
-    Enum.reduce(content, {[], []}, fn
-      %Text{} = t, {texts, tools} -> {[t | texts], tools}
-      %ToolUse{} = tu, {texts, tools} -> {texts, [tu | tools]}
-      _, acc -> acc
-    end)
-    |> then(fn {texts, tools} ->
-      {Enum.reverse(texts), Enum.reverse(tools)}
-    end)
+  defp encode_output_item(%ToolUse{id: id, name: name, input: input}) do
+    [
+      %{
+        "type" => "function_call",
+        "call_id" => id,
+        "name" => name,
+        "arguments" => JSON.encode!(input)
+      }
+    ]
   end
+
+  # Only reasoning from this API has an id, and without its encrypted content
+  # a `store: false` request can't refer to it.
+  defp encode_output_item(%Thinking{id: "" <> _ = id, signature: "" <> _ = encrypted} = t) do
+    summary =
+      if t.text in [nil, ""], do: [], else: [%{"type" => "summary_text", "text" => t.text}]
+
+    [%{"type" => "reasoning", "id" => id, "summary" => summary, "encrypted_content" => encrypted}]
+  end
+
+  defp encode_output_item(_), do: []
 
   # Content block encoding
 
@@ -296,8 +336,12 @@ defmodule Omni.Dialects.OpenAIResponses do
       else: :stop
   end
 
-  defp infer_stop_reason(%{"status" => "incomplete"}), do: :length
   defp infer_stop_reason(_), do: :stop
+
+  defp incomplete_reason(%{"incomplete_details" => %{"reason" => "content_filter"}}),
+    do: :refusal
+
+  defp incomplete_reason(_), do: :length
 
   # Usage normalization
 

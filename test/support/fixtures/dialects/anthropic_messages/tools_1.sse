@@ -1,0 +1,114 @@
+event: message_start
+data: {"type":"message_start","message":{"model":"claude-haiku-5-5","id":"msg_011CgKG3YxaYJou5Ug27etRt","type":"message","role":"assistant","content":[],"container":null,"stop_reason":null,"stop_sequence":null,"stop_details":null,"usage":{"input_tokens":484,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":4,"service_tier":"standard","inference_geo":"global","speed":"standard"},"diagnostics":null}              }
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"thinking","thinking":"","signature":""}     }
+
+event: ping
+data: {"type": "ping"}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"I need time and weather for both"}          }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" London and New York, so I'"}           }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"ll fire"}           }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":" off all four cal"}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"ls together in one bat"}     }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"ch."}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"thinking_delta","thinking":"\n\n"}}
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":0,"delta":{"type":"signature_delta","signature":"CAQSmQUKEAgTGAI4AUIIdGhpbmtpbmcSDLbVI035CALapoiT8BoMBVDIA29UzgOr0bVBIjAe2QrVZ94BClMsLo31B54FPml+z3cmzoma1vODCIUl28qmDNUfE9HE4dA++TeliJ0qtgRBJ5+KEvqXa+fTvkz7ZXhs4Pa3nwFCxu3ki4azY2Ff3AlA19MH2L5jSpI0mUhuBjCORNCVH/2voZvNOtoPyY7tebOA7VBUj3sT8iX1ICbIdFR+rbOk5v5so9lHNgvCKuqjiPLwGrJJQlA31Ww9h+jgDMg+lZBF2ukIAS5oUJ+AiVhF7XpZA2vKA4c4tgDZd9eLqGNMbWCY5Qe+VaQCzrz051OqPzH00B5CoNujxC1YYVS2FMdjNOmEyHDzemJ9QVERCwJRM+0uefPTfSRsw42QvVXmvtwqMniyOUy2MSR1RIXz8inbVUiDVSCcpDzIf+SjfTouqkvhX1DCJ9t5bGcsxKOhtilmAI6iMsoavm6KZ6PK088aE9L57Y3kibUNVVfyE6lM9j3fIe11Y73FWTQOheN6Yh0CCD2ozqgj/XnFgKaGW83CFCXQvOTvYMo3dLjpQZSh8fYuJEX2vQHj7CfeR45MuLH3nLbEqQ1BKQmSeSQlmewHSakiaEBpyvw1eFq/zyzDMVx+K+xXkh84HMh9uhbNSit4xaaFpQsNe7smKbNULuwf1SHR+r3ruPdauX/DlWLnzKHzrWlqdnAmasgE+O5FJMEU1Ppw4n8iIzrYdkeGJ4m4fUAjwA6ckES56CexhS5LBjxgh0u4dyRcdebJwsCQQQLMo7EAtHr9bmxV03wS3EQzjGG4NAblZgiO+ca9iTGOf1CHTnZerI40m/jUF9eyZ9ElVesBvqwRwsqAEOFQ8zDlERgB"}}
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0    }
+
+event: content_block_start
+data: {"type":"content_block_start","index":1,"content_block":{"type":"tool_use","id":"toolu_01UPqZgwzwEfYDun6L3whemv","name":"get_time","input":{},"caller":{"type":"direct"}}              }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":""}         }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"{\"city\""} }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":": \"Lond"}            }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":1,"delta":{"type":"input_json_delta","partial_json":"on\"}"}     }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":1              }
+
+event: content_block_start
+data: {"type":"content_block_start","index":2,"content_block":{"type":"tool_use","id":"toolu_01MJ9UdfDhei22quRorjSn8b","name":"get_weather","input":{},"caller":{"type":"direct"}}    }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":2,"delta":{"type":"input_json_delta","partial_json":""}        }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":2,"delta":{"type":"input_json_delta","partial_json":"{\"city\""}      }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":2,"delta":{"type":"input_json_delta","partial_json":": \"Lond"}   }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":2,"delta":{"type":"input_json_delta","partial_json":"on\"}"}  }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":2             }
+
+event: content_block_start
+data: {"type":"content_block_start","index":3,"content_block":{"type":"tool_use","id":"toolu_01XYNMwP7uBg3sPawqBkF1Rk","name":"get_time","input":{},"caller":{"type":"direct"}}  }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"input_json_delta","partial_json":""}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"input_json_delta","partial_json":"{\"city\""}      }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"input_json_delta","partial_json":": \"New "}  }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"input_json_delta","partial_json":"York\"}"}              }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":3          }
+
+event: content_block_start
+data: {"type":"content_block_start","index":4,"content_block":{"type":"tool_use","id":"toolu_01YZsTPgH71pCKryrxasg8hn","name":"get_weather","input":{},"caller":{"type":"direct"}}  }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":4,"delta":{"type":"input_json_delta","partial_json":""}       }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":4,"delta":{"type":"input_json_delta","partial_json":"{\"city\""}           }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":4,"delta":{"type":"input_json_delta","partial_json":": \"New "}          }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":4,"delta":{"type":"input_json_delta","partial_json":"York\"}"}           }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":4    }
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"tool_use","stop_sequence":null,"stop_details":null,"container":null},"usage":{"input_tokens":484,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":214,"output_tokens_details":{"thinking_tokens":30}}         }
+
+event: message_stop
+data: {"type":"message_stop"      }
+

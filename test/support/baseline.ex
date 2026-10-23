@@ -1,10 +1,11 @@
 defmodule Omni.Test.Baseline do
   @moduledoc false
 
-  # Baseline integration tests: each provider records verify's four default
-  # scenarios (text, thinking, tool use, structured output) and replays them
-  # here. Assertions hold to what a provider should always give back, so they
-  # survive re-recording on a newer model.
+  # Baseline integration tests: each provider records verify's text, thinking
+  # and tool use scenarios and replays them here. Assertions hold to what a
+  # provider should always give back, so they survive re-recording on a newer
+  # model. Structured output has no fixture: whether the provider obeys the
+  # schema is verify's job, and the response parses as plain text.
   #
   # Each assertion replays the fixture with the scenario's request and returns
   # `{response, request}`, so a test can go on to assert provider specifics on
@@ -12,7 +13,7 @@ defmodule Omni.Test.Baseline do
 
   import ExUnit.Assertions
 
-  alias Omni.{Context, Message, Model, Response, Tool}
+  alias Omni.{Context, Message, Model, Request, Response, Tool}
   alias Omni.Content.{Text, ToolUse}
   alias Omni.Test.Capture
   alias Omni.Verify.Scenarios
@@ -79,15 +80,15 @@ defmodule Omni.Test.Baseline do
     {resp, request}
   end
 
-  @doc "Asserts a structured output response: output matching the schema."
-  def assert_structured_output(%Model{} = model, file, opts \\ []) do
-    {resp, request} = replay(:structured_output, model, file, opts)
-
-    assert resp.stop_reason == :stop
-    assert %{name: name, color: color} = resp.output
-    assert is_binary(name) and is_binary(color)
-    assert_usage(resp)
-    {resp, request}
+  @doc """
+  The JSON body a scenario's request sends, built without sending it. For
+  request shape assertions that need no response, such as structured output.
+  """
+  @spec request_body(Model.t(), atom()) :: map()
+  def request_body(%Model{} = model, scenario) do
+    {context, opts} = request(scenario)
+    assert {:ok, req} = Request.build(model, context, Keyword.put(opts, :api_key, "test-key"))
+    req.options.json |> JSON.encode!() |> JSON.decode!()
   end
 
   @doc """

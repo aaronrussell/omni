@@ -325,6 +325,30 @@ defmodule Omni.StreamingResponseTest do
     end
   end
 
+  describe "stop reason with tool blocks" do
+    test "a tool block turns :stop into :tool_use" do
+      events = [
+        {:block_start, %{type: :tool_use, index: 0, id: "c1", name: "search"}},
+        {:block_delta, %{type: :tool_use, index: 0, delta: "{}"}},
+        {:message, %{stop_reason: :stop}}
+      ]
+
+      assert {:done, %{stop_reason: :tool_use}, _} = List.last(collect_scripted(events))
+    end
+
+    # The call was cut short: running it would send the tool broken input.
+    test ":length stands with a truncated tool block" do
+      events = [
+        {:block_start, %{type: :tool_use, index: 0, id: "c1", name: "save_note"}},
+        {:block_delta, %{type: :tool_use, index: 0, delta: "{\"text\": \"Once"}},
+        {:message, %{stop_reason: :length}}
+      ]
+
+      assert {:done, %{stop_reason: :length}, resp} = List.last(collect_scripted(events))
+      assert [%ToolUse{name: "save_note", input: %{}}] = resp.message.content
+    end
+  end
+
   describe "graceful JSON decode failure" do
     test "tool_use with invalid JSON falls back to empty map" do
       events = [

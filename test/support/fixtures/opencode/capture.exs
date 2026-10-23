@@ -5,7 +5,8 @@
 # Existing fixtures are skipped and replayed; delete a file to re-record it.
 #
 # Zen serves each model over its upstream's dialect, so the baseline is text
-# and tool use once per dialect, each file prefixed with it.
+# once per dialect, each file prefixed with it: enough for the dialect and
+# target tests. The upstreams' bytes are covered by the dialect tests.
 
 alias Omni.Test.{Baseline, Capture}
 
@@ -18,32 +19,20 @@ dir = "test/support/fixtures/opencode"
 {context, opts} = Baseline.request(:text)
 Capture.record(model, context, "#{dir}/anthropic_text.sse", opts)
 
-{context, opts} = Baseline.request(:tool_use)
-Capture.record(model, context, "#{dir}/anthropic_tool_use.sse", opts)
-
 {:ok, model} = Omni.get_model(:opencode, "gpt-6-luna")
 
 {context, opts} = Baseline.request(:text)
 Capture.record(model, context, "#{dir}/oair_text.sse", opts)
-
-{context, opts} = Baseline.request(:tool_use)
-Capture.record(model, context, "#{dir}/oair_tool_use.sse", opts)
 
 {:ok, model} = Omni.get_model(:opencode, "deepseek-v4.1-flash")
 
 {context, opts} = Baseline.request(:text)
 Capture.record(model, context, "#{dir}/oaic_text.sse", opts)
 
-{context, opts} = Baseline.request(:tool_use)
-Capture.record(model, context, "#{dir}/oaic_tool_use.sse", opts)
-
 {:ok, model} = Omni.get_model(:opencode, "gemini-3.8-flash")
 
 {context, opts} = Baseline.request(:text)
 Capture.record(model, context, "#{dir}/google_text.sse", opts)
-
-{context, opts} = Baseline.request(:tool_use)
-Capture.record(model, context, "#{dir}/google_tool_use.sse", opts)
 
 # -- Cases --
 

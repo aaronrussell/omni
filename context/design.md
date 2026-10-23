@@ -1031,11 +1031,11 @@ The most common content block. The `signature` field is optional -- the OpenAI R
 
 ```elixir
 defmodule Omni.Content.Thinking do
-  defstruct [:text, :signature, :redacted_data]
+  defstruct [:text, :signature, :redacted_data, :id]
 end
 ```
 
-Represents a model's reasoning/thinking output. The `signature` field is used by Anthropic to verify thinking block authenticity when they're passed back in multi-turn conversations. `redacted_data` holds Anthropic's encrypted redacted thinking, which must be sent back verbatim; when it is present, `text` is `nil`.
+Represents a model's reasoning/thinking output. The `signature` field is used by Anthropic to verify thinking block authenticity when they're passed back in multi-turn conversations. `redacted_data` holds Anthropic's encrypted redacted thinking, which must be sent back verbatim; when it is present, `text` is `nil`. `id` names the block for APIs that refer to reasoning by id on replay: an OpenAI Responses reasoning item keeps its id here, its summary as `text` and its encrypted content as `signature`.
 
 ### Attachment
 
@@ -1151,7 +1151,7 @@ ToolResult.new(
 | Block | Fields | Appears in |
 |-------|--------|------------|
 | `Content.Text` | text, signature | User and assistant messages |
-| `Content.Thinking` | text, signature, redacted_data | Assistant messages |
+| `Content.Thinking` | text, signature, redacted_data, id | Assistant messages |
 | `Content.Attachment` | source, media_type, meta | User messages (and tool results) |
 | `Content.ToolUse` | id, name, input, signature | Assistant messages |
 | `Content.ToolResult` | tool_use_id, name, content, is_error | User messages |

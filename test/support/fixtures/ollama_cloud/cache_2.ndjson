@@ -1,6 +1,0 @@
-{"model":"gemma4:31b","created_at":"2026-10-23T10:29:03.397050928Z","message":{"role":"assistant","content":"6"},"done":false}
-{"model":"gemma4:31b","created_at":"2026-10-23T10:29:03.422496249Z","message":{"role":"assistant","content":"7"},"done":false}
-{"model":"gemma4:31b","created_at":"2026-10-23T10:29:03.42336592Z","message":{"role":"assistant","content":"4"},"done":false}
-{"model":"gemma4:31b","created_at":"2026-10-23T10:29:03.42341848Z","message":{"role":"assistant","content":" m"},"done":false}
-{"model":"gemma4:31b","created_at":"2026-10-23T10:29:03.425103751Z","message":{"role":"assistant","content":""},"done":false}
-{"model":"gemma4:31b","created_at":"2026-10-23T10:29:03.501555915Z","message":{"role":"assistant","content":""},"done":true,"done_reason":"stop","total_duration":631083428,"prompt_eval_count":7087,"prompt_eval_cached_count":7040,"eval_count":5}

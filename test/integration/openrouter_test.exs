@@ -32,9 +32,9 @@ defmodule Integration.OpenRouterTest do
       assert_tool_use(model, "#{@dir}/tool_use.sse")
     end
 
-    test "structured output", %{model: model} do
-      {_resp, request} = assert_structured_output(model, "#{@dir}/structured_output.sse")
-      assert %{"type" => "json_schema"} = request.body["response_format"]
+    test "structured output request", %{model: model} do
+      body = request_body(model, :structured_output)
+      assert %{"type" => "json_schema"} = body["response_format"]
     end
 
     test "target", %{model: model} do
@@ -97,7 +97,7 @@ defmodule Integration.OpenRouterTest do
 
   describe "synthetic" do
     test "error in a chunk returns stream_error", %{model: model} do
-      file = "test/support/fixtures/synthetic/openrouter_error.sse"
+      file = "test/support/fixtures/openrouter/error.sse"
 
       assert {:error, {:stream_error, "Provider disconnected"}} =
                Capture.replay(model, Context.new("Hello"), file)

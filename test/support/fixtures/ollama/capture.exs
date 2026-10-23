@@ -30,6 +30,3 @@ Capture.record(model, context, "#{dir}/thinking.ndjson", opts)
 
 {context, opts} = Baseline.request(:tool_use)
 Capture.record(model, context, "#{dir}/tool_use.ndjson", opts)
-
-{context, opts} = Baseline.request(:structured_output)
-Capture.record(model, context, "#{dir}/structured_output.ndjson", opts)

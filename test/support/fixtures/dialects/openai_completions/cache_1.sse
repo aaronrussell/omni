@@ -1,0 +1,16 @@
+data: {"id":"chatcmpl-Ec9cMpuADqVOT16PHrsIaceiQgue5","object":"chat.completion.chunk","created":1792762142,"model":"gpt-6-luna","service_tier":"default","system_fingerprint":null,"choices":[{"index":0,"delta":{"role":"assistant","content":"","refusal":null},"finish_reason":null}],"usage":null,"obfuscation":""}
+
+data: {"id":"chatcmpl-Ec9cMpuADqVOT16PHrsIaceiQgue5","object":"chat.completion.chunk","created":1792762142,"model":"gpt-6-luna","service_tier":"default","system_fingerprint":null,"choices":[{"index":0,"delta":{"content":"Kings"},"finish_reason":null}],"usage":null,"obfuscation":"rsF2sLj5wD8Xi"}
+
+data: {"id":"chatcmpl-Ec9cMpuADqVOT16PHrsIaceiQgue5","object":"chat.completion.chunk","created":1792762142,"model":"gpt-6-luna","service_tier":"default","system_fingerprint":null,"choices":[{"index":0,"delta":{"content":" Hill"},"finish_reason":null}],"usage":null,"obfuscation":"D5ru4Sgf1boU8"}
+
+data: {"id":"chatcmpl-Ec9cMpuADqVOT16PHrsIaceiQgue5","object":"chat.completion.chunk","created":1792762142,"model":"gpt-6-luna","service_tier":"default","system_fingerprint":null,"choices":[{"index":0,"delta":{"content":" "},"finish_reason":null}],"usage":null,"obfuscation":"L"}
+
+data: {"id":"chatcmpl-Ec9cMpuADqVOT16PHrsIaceiQgue5","object":"chat.completion.chunk","created":1792762142,"model":"gpt-6-luna","service_tier":"default","system_fingerprint":null,"choices":[{"index":0,"delta":{"content":"42"},"finish_reason":null}],"usage":null,"obfuscation":""}
+
+data: {"id":"chatcmpl-Ec9cMpuADqVOT16PHrsIaceiQgue5","object":"chat.completion.chunk","created":1792762142,"model":"gpt-6-luna","service_tier":"default","system_fingerprint":null,"choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":null,"obfuscation":"KuqlFIeVXZ6s"}
+
+data: {"id":"chatcmpl-Ec9cMpuADqVOT16PHrsIaceiQgue5","object":"chat.completion.chunk","created":1792762142,"model":"gpt-6-luna","service_tier":"default","system_fingerprint":null,"choices":[],"usage":{"prompt_tokens":5118,"completion_tokens":7,"total_tokens":5125,"prompt_tokens_details":{"cached_tokens":0,"cache_write_tokens":5115,"audio_tokens":0},"completion_tokens_details":{"reasoning_tokens":0,"audio_tokens":0,"accepted_prediction_tokens":0,"rejected_prediction_tokens":0}},"obfuscation":"7BNG"}
+
+data: [DONE]
+

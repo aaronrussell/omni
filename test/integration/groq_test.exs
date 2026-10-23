@@ -27,9 +27,9 @@ defmodule Integration.GroqTest do
       assert_tool_use(model, "#{@dir}/tool_use.sse")
     end
 
-    test "structured output", %{model: model} do
-      {_resp, request} = assert_structured_output(model, "#{@dir}/structured_output.sse")
-      assert %{"type" => "json_schema"} = request.body["response_format"]
+    test "structured output request", %{model: model} do
+      body = request_body(model, :structured_output)
+      assert %{"type" => "json_schema"} = body["response_format"]
     end
 
     test "target", %{model: model} do

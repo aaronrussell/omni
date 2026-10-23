@@ -3,9 +3,6 @@ defmodule Integration.OllamaTest do
 
   import Omni.Test.Baseline
 
-  alias Omni.Context
-  alias Omni.Test.Capture
-
   @dir "test/support/fixtures/ollama"
 
   # Local models aren't in the catalog.
@@ -36,23 +33,14 @@ defmodule Integration.OllamaTest do
       assert_tool_use(model, "#{@dir}/tool_use.ndjson")
     end
 
-    test "structured output", %{model: model} do
-      {_resp, request} = assert_structured_output(model, "#{@dir}/structured_output.ndjson")
-      assert %{"type" => "object", "required" => ["name", "color"]} = request.body["format"]
+    test "structured output request", %{model: model} do
+      body = request_body(model, :structured_output)
+      assert %{"type" => "object", "required" => ["name", "color"]} = body["format"]
     end
 
     test "target", %{model: model} do
       request = assert_target(model, "#{@dir}/text.ndjson", "http://localhost:11434/api/chat", [])
       refute List.keymember?(request.headers, "authorization", 0)
-    end
-  end
-
-  describe "synthetic" do
-    test "error in the stream returns stream_error", %{model: model} do
-      file = "test/support/fixtures/synthetic/ollama_error.ndjson"
-
-      assert {:error, {:stream_error, "an error was encountered while running the model"}} =
-               Capture.replay(model, Context.new("Hello"), file)
     end
   end
 end

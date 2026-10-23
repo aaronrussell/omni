@@ -1,0 +1,108 @@
+event: message_start
+data: {"type":"message_start","message":{"model":"claude-haiku-5-5","id":"msg_011CgKFKkC5bSSyn21N5h5rd","type":"message","role":"assistant","content":[],"container":null,"stop_reason":null,"stop_sequence":null,"stop_details":null,"usage":{"input_tokens":88,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"cache_creation":{"ephemeral_5m_input_tokens":0,"ephemeral_1h_input_tokens":0},"output_tokens":23,"service_tier":"standard","inference_geo":"global","speed":"standard"},"diagnostics":null}         }
+
+event: content_block_start
+data: {"type":"content_block_start","index":0,"content_block":{"type":"redacted_thinking","data":"CAQS+AQKEAgTGAI4AUIIdGhpbmtpbmcSDBrwl8SPQBBci3b1JBoMpO1JXhPys+bDtYXQIjB/GjoWVo+BYLj213XVP8hjZydxasJ4r8o2lDuJYypwrMqMqdGjggBBMSAxJj1Jw88qlQSMQf5TQhbC5JB34P9VKTj7E1KN+AlbpFZsq36/i6pJG+VViav3DDB1TfSONsOfHv/cHd1LVA9GUIKTr0PItIIOt9nU0SMZVXHvHIzsUcaad/avoxI8b6rxvWWwdVMxu65IVlBRmf5pG/xXSNb2zS9yArDnHmjZrqtrSjuTSHkfY74/q52by8qP6L8cpfkxX+Z+C1arwv5ZAOiHsGOCQnb2Z9/+Oh6GW/ksWeUHOo4/DvqtooIeeqCjhHN3AxjjP62zcFQPkTL+VJmuUCVvo15/a80jVxY5SOvbg8+OS+Amv30JseuFeaxZADbV3Hhl7DJu78x8snZRHqwuNHGtUozo/z+EHKVxq3xialu6GdxRUIdnYFkrIinpQtJGhxmopkVeaxJ1nX6bb5NAQarppEJcTYH5QnHyGQUVoB4tirC245Ij790o9GUeS+0bR6paPdNSlx/6kQMvPhOv1iX66UoTzbKj93TNKNsui1alrdoZ07jQxKGjRawITWbZzvg3HfOvw29ZC8Jad7AvLU1bxato8RDm/HNITXEZZPiI9tmWiKlyvHVV75m2fBvYhq7BdX/CiHO7Dgok95mE/7iSxAknaWuKU6w+JUOWUn38L1qqZuqIZvQib6RMDB+BAK0eprjPZImjsjPRQNOH0b3CgB8U9NKggkMkc5gbLD+hkosCGzCm2i1WJqCrOekrTGGCLsYz7cpcsBgB"}              }
+
+event: ping
+data: {"type": "ping"}
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":0            }
+
+event: content_block_start
+data: {"type":"content_block_start","index":1,"content_block":{"type":"redacted_thinking","data":"CAQStgUKEAgTGAI4AUIIdGhpbmtpbmcSDIo/kj4sjLm8hKmcIRoMAR+y26Dv73GG5uZWIjAQsaFb3j1mnLQ3ksUu2rhA9bK46N0h7mGmrkRb5YQqk1JhYB0mi4e4RnYoZjN/PYgq0wQDBqPY1b2DEjGZ1GiVgozJ6ofIh4xpFxinE179/GqNloCzKX1N69zX6SxC2xAakYvhM2oPwQhVDi1/TbfvJblmPwCieGjEU7jHH2Q7Ll/XTuo2dEW73FPH62cgupCN69G8YmTVemuWWbAFQNdvuujONuFZ3LA2Rww04DtOACf0gEIh2sO5Gd2rK5B1SEt1N2OgjzYpdHAoIYPWn5/MbuHiZipWbu+2WG8MR6FVsm103tq2PtOpy6qNbW1oJvucnDh2vbLFTXb/E5lXvErHtEsS1pTpOab8ndGn6DXCyxOl1OKae+1dQ8cGBLcHFJXZvb3/3hMpiEz412/ooVmAwzGNEFpnWJ9AHX+LnVMFhDJvqYC+fnLVf9Ue0T/UTa6MU04un6SiuNsOEeGXjGtyNJ6wMPkMJXIURlyN4giceWk6UceSo85Tuh1Trzeab+C0NxKElt5d9n8yk3bFgU5VW85rpX2PcwLaQrY5g0KHb8pSQ2PktCa2bx8Xe+8cZTso1JUw76X9jHcMW+rlxFrtZK4xI3HoscYrPXhvZcz0xzE0RZVLucPoQL0oQAdNRz4LrY/au3gnJuMScOL/FzlG0fOlbENgGqv9Fy8Rmw0DbKnH7Nf3ucF7TqLDEcaScjp1CaKvBvsm5SkUaPfJ1SXbx9KtfuhXGtfslMeCZ7bT5whGOwfkuDtcqdz/Kuf+VlLtxLLZ1IdgLEQf/rWyaPs0I5n90iez708qdCE6vV+E/2xyr3aF/VGiswedMxauqRyuDeHQiJV26Mt3QWzUO4ivW/bmNvKGGAE="}}
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":1}
+
+event: content_block_start
+data: {"type":"content_block_start","index":2,"content_block":{"type":"redacted_thinking","data":"CAQS/gQKEAgTGAI4AUIIdGhpbmtpbmcSDOE8Zoxpgik0j8ZMTBoMJnbWUJ4EA/HuFoSiIjDZoklHPWs2z8TimdESVi2NfOLLc880FVxENWPs+S1hhtUSM5H4NhhkXr2QD0Ef4ykqmwT0wZra+0hG0nzG2hu1WiZpFxKFH16Ipu6MBun1jH9OnmlL6ByBOPSU6ZyW9qozY/3/fe6sEeBWTzvWC+DmDLixF0b69tv3xyQDOTX6rQ9mleo990hLBOgofd46d1LdqtkEqOqHnfdwv3UC4UF+KzClpUklME+myKXShFsAnuRgwhsz4XLVqPY1GUdz0GR+5e8gFXFwetbCG9+txVzHbsAN1WjQSOTJbOxXI9jSNVY3pmu7wHS7LB0JC5y0y5EfC0abNIRoYaRU7EarEvKquE4e/mkgTytH8WEkJUwhgx31pCQCPf7pe4lYhKaOQj1UUNXW1nF/moy/wI5jBJpGbpIznpN4QKFSwH47ug39Lj5hFf+jNJuTC5dQLsb4wAWrCYIikY3wbnkAyudDBUUjZBuoC1yBdniqvFLzm8E0TQ/836UY5ITo3DNcbWntRIU4i3MlovNQ1qBIePpD+uEBrU2nLlgIqQZiARMryxWIfXhNXOX5OzXDU1KNG0dtpkMxjKUnCk2fYeXfhsbHB1ZVfTwKkA24E3o0xtggfRWjfHhyUs+wVGM/zN9LZmLFCMlCzKzYvcyuMYK+kK6MqHr5oyQVj0/XCucGSHbzNFgVhpiSZBaxU7n6y22AkVZ4HnqiaONFBX5oO6XozcC0uiZsrIYDOGDRm0LKx3KI5Sios+rUyu6jX7ZSzhSTaRSsrnO0bD2L5ZImqk6Fsrc5tBgB"}              }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":2          }
+
+event: content_block_start
+data: {"type":"content_block_start","index":3,"content_block":{"type":"text","text":""}          }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":"That"}             }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":" string do"}            }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":"esn't do"}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":" anything on"}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":" my end"}         }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":". It looks like a test"}             }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":" or"}      }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":" deb"} }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":"ugging token, but I don"}     }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":"'t have a special"}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":" mode it"}       }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":" swit"}    }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":"ches on."}  }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":" If you were"}              }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":" testing something,"}      }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":" I can help you check"}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":" the beh"}               }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":"avior you"}    }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":" exp"}       }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":"ected. If you me"}              }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":"ant to send"}  }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":" something else, t"}         }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":"ell me what you need"}              }
+
+event: content_block_delta
+data: {"type":"content_block_delta","index":3,"delta":{"type":"text_delta","text":"."}          }
+
+event: content_block_stop
+data: {"type":"content_block_stop","index":3             }
+
+event: message_delta
+data: {"type":"message_delta","delta":{"stop_reason":"end_turn","stop_sequence":null,"stop_details":null,"container":null},"usage":{"input_tokens":88,"cache_creation_input_tokens":0,"cache_read_input_tokens":0,"output_tokens":132,"output_tokens_details":{"thinking_tokens":55}}            }
+
+event: message_stop
+data: {"type":"message_stop"               }
+

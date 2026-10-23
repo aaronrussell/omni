@@ -32,12 +32,4 @@ defmodule Integration.OllamaCloudTest do
       ])
     end
   end
-
-  describe "cases" do
-    # `prompt_eval_count` includes the cached prefix, reported as
-    # `prompt_eval_cached_count`.
-    test "cache hit on turn 2", %{model: model} do
-      assert_cache_hit(model, "#{@dir}/cache_1.ndjson", "#{@dir}/cache_2.ndjson")
-    end
-  end
 end

@@ -224,14 +224,22 @@ defmodule Omni.Dialects.OpenAICompletions do
     end
   end
 
-  defp has_tool_call_start?(%{"tool_calls" => [%{"function" => %{"name" => name}} | _]})
-       when is_binary(name),
-       do: true
+  defp has_tool_call_start?(%{"tool_calls" => [_ | _] = tool_calls}),
+    do: Enum.any?(tool_calls, &tool_call_start?/1)
 
   defp has_tool_call_start?(_), do: false
 
-  defp extract_tool_calls(%{"tool_calls" => [%{"function" => %{"name" => name}} = tc | _]})
-       when is_binary(name) do
+  defp tool_call_start?(%{"function" => %{"name" => name}}) when is_binary(name), do: true
+  defp tool_call_start?(_), do: false
+
+  # Most servers stream one call per chunk; some pack several calls into one
+  # delta's `tool_calls`.
+  defp extract_tool_calls(%{"tool_calls" => [_ | _] = tool_calls}),
+    do: Enum.flat_map(tool_calls, &extract_tool_call/1)
+
+  defp extract_tool_calls(_), do: []
+
+  defp extract_tool_call(%{"function" => %{"name" => name}} = tc) when is_binary(name) do
     index = tc["index"] || 0
 
     args_delta =
@@ -246,14 +254,12 @@ defmodule Omni.Dialects.OpenAICompletions do
     [{:block_start, %{type: :tool_use, index: index, id: tc["id"], name: name}}] ++ args_delta
   end
 
-  defp extract_tool_calls(%{"tool_calls" => [tc | _]}) do
+  defp extract_tool_call(tc) do
     [
       {:block_delta,
        %{type: :tool_use, index: tc["index"] || 0, delta: tc["function"]["arguments"]}}
     ]
   end
-
-  defp extract_tool_calls(_), do: []
 
   defp extract_reasoning(%{"reasoning_content" => content})
        when is_binary(content) and content != "" do

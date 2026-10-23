@@ -29,9 +29,9 @@ defmodule Integration.VeniceTest do
       assert_tool_use(model, "#{@dir}/tool_use.sse")
     end
 
-    test "structured output", %{model: model} do
-      {_resp, request} = assert_structured_output(model, "#{@dir}/structured_output.sse")
-      assert %{"type" => "json_schema"} = request.body["response_format"]
+    test "structured output request", %{model: model} do
+      body = request_body(model, :structured_output)
+      assert %{"type" => "json_schema"} = body["response_format"]
     end
 
     test "target", %{model: model} do
@@ -44,7 +44,7 @@ defmodule Integration.VeniceTest do
   # Venice (vLLM) packs several payloads into one chunk.
   describe "synthetic" do
     test "tool call arguments packed with finish_reason", %{model: model} do
-      file = "test/support/fixtures/synthetic/openai_completions_packed_tool_finish.sse"
+      file = "#{@dir}/packed_tool_finish.sse"
       assert {:ok, resp} = Capture.replay(model, Context.new("Hello"), file)
 
       assert resp.stop_reason == :tool_use
@@ -52,7 +52,7 @@ defmodule Integration.VeniceTest do
     end
 
     test "reasoning packed with content", %{model: model} do
-      file = "test/support/fixtures/synthetic/openai_completions_packed_reasoning_content.sse"
+      file = "#{@dir}/packed_reasoning_content.sse"
       assert {:ok, resp} = Capture.replay(model, Context.new("Hello"), file)
 
       assert [%Thinking{text: "Let me think about this. Done."}, %Text{text: "The answer is 42."}] =

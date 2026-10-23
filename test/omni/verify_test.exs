@@ -6,7 +6,7 @@ defmodule Omni.VerifyTest do
   @text_fixture "test/support/fixtures/anthropic/text.sse"
   @thinking_fixture "test/support/fixtures/anthropic/thinking.sse"
   @tool_use_fixture "test/support/fixtures/anthropic/tool_use.sse"
-  @error_fixture "test/support/fixtures/synthetic/anthropic_error.sse"
+  @error_fixture "test/support/fixtures/dialects/anthropic_messages/error.sse"
   @openrouter_gemini_fixture "test/support/fixtures/openrouter/gemini_thinking.sse"
 
   defp stub_fixture(stub_name, fixture_file) do

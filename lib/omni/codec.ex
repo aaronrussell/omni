@@ -151,6 +151,7 @@ defmodule Omni.Codec do
     |> maybe_put("text", t.text)
     |> maybe_put("signature", t.signature)
     |> maybe_put("redacted_data", t.redacted_data)
+    |> maybe_put("id", t.id)
   end
 
   defp encode_attachment(%Attachment{} = a) do
@@ -252,7 +253,8 @@ defmodule Omni.Codec do
      %Thinking{
        text: Map.get(map, "text"),
        signature: Map.get(map, "signature"),
-       redacted_data: Map.get(map, "redacted_data")
+       redacted_data: Map.get(map, "redacted_data"),
+       id: Map.get(map, "id")
      }}
   end
 

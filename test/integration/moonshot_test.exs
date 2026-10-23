@@ -29,22 +29,15 @@ defmodule Integration.MoonshotTest do
       assert_tool_use(model, "#{@dir}/tool_use.sse")
     end
 
-    test "structured output", %{model: model} do
-      {_resp, request} = assert_structured_output(model, "#{@dir}/structured_output.sse")
-      assert %{"type" => "json_schema"} = request.body["response_format"]
+    test "structured output request", %{model: model} do
+      body = request_body(model, :structured_output)
+      assert %{"type" => "json_schema"} = body["response_format"]
     end
 
     test "target", %{model: model} do
       assert_target(model, "#{@dir}/text.sse", "https://api.moonshot.ai/v1/chat/completions", [
         {"authorization", "Bearer test-key"}
       ])
-    end
-  end
-
-  describe "cases" do
-    # `prompt_tokens` includes the cached prefix on the wire.
-    test "cache hit on turn 2", %{model: model} do
-      assert_cache_hit(model, "#{@dir}/cache_1.sse", "#{@dir}/cache_2.sse")
     end
   end
 end

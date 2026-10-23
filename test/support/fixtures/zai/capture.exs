@@ -19,18 +19,3 @@ Capture.record(model, context, "#{dir}/thinking.sse", opts)
 
 {context, opts} = Baseline.request(:tool_use)
 Capture.record(model, context, "#{dir}/tool_use.sse", opts)
-
-{context, opts} = Baseline.request(:structured_output)
-Capture.record(model, context, "#{dir}/structured_output.sse", opts)
-
-# -- Cases --
-
-# A real cache hit: turn 2 reads the prefix turn 1 wrote. Completions counts
-# cached tokens inside `prompt_tokens` (`prompt_tokens_details.cached_tokens`).
-{context, opts} = Baseline.request(:cache_usage)
-
-with {:ok, resp} <- Capture.record(model, context, "#{dir}/cache_1.sse", opts) do
-  Process.sleep(2_000)
-  turn2 = Baseline.follow_up(:cache_usage, context, resp)
-  Capture.record(model, turn2, "#{dir}/cache_2.sse", opts)
-end

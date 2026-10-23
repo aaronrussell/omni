@@ -45,6 +45,14 @@ defmodule Omni.CodecTest do
       assert {:ok, ^block} = Codec.decode(encoded)
     end
 
+    test "round-trips a thinking block with an id" do
+      block = %Thinking{text: "summary", signature: "encrypted", id: "rs_123"}
+      encoded = Codec.encode(block)
+
+      assert encoded["id"] == "rs_123"
+      assert {:ok, ^block} = Codec.decode(encoded)
+    end
+
     test "round-trips an empty thinking block" do
       block = %Thinking{}
       encoded = Codec.encode(block)
