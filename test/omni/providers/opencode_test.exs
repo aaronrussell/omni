@@ -34,12 +34,8 @@ defmodule Omni.Providers.OpenCodeTest do
       assert by_id["gpt-5.2"] == Omni.Dialects.OpenAIResponses
       assert by_id["kimi-k2.5"] == Omni.Dialects.OpenAICompletions
       assert by_id["gemini-3-flash"] == Omni.Dialects.GoogleGemini
-    end
-
-    test "skips models whose npm package maps to no dialect" do
-      {_provider, models} = Loader.assemble(:opencode)
-
-      refute Enum.any?(models, &(&1.id == "mistral-large-4"))
+      # Zen serves Mistral models on Chat Completions
+      assert by_id["mistral-large-4"] == Omni.Dialects.OpenAICompletions
     end
   end
 end

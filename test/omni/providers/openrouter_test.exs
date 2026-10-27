@@ -35,7 +35,7 @@ defmodule Omni.Providers.OpenRouterTest do
       assert provider.compat == %{
                Omni.Dialects.OpenAICompletions => %{
                  thinking_effort_field: "reasoning.effort",
-                 thinking_replay_field: "reasoning_details"
+                 thinking_replay_format: :reasoning_details
                }
              }
     end

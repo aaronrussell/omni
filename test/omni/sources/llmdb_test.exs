@@ -213,14 +213,14 @@ if Code.ensure_loaded?(LLMDB) do
 
       test "skips with a warning when the model's npm maps to no dialect" do
         models = [
-          llmdb_model("unmapped", %{extra: %{provider: %{npm: "@ai-sdk/mistral"}}}),
+          llmdb_model("unmapped", %{extra: %{provider: %{npm: "some-unmapped-sdk"}}}),
           llmdb_model("kept", %{extra: %{provider: %{npm: "@ai-sdk/openai"}}})
         ]
 
         {loaded, log} = with_log(fn -> Source.transform_provider(models, :test) end)
 
         assert Enum.map(loaded, & &1.id) == ["kept"]
-        assert log =~ "skipping test:unmapped: npm package @ai-sdk/mistral maps to no dialect"
+        assert log =~ "skipping test:unmapped: npm package some-unmapped-sdk maps to no dialect"
         assert log =~ "loaded 1 models, skipped 1"
       end
 

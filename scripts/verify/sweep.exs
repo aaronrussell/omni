@@ -47,6 +47,9 @@ matrix = [
   {:groq, "openai/gpt-oss-120b", loop},
   {:groq, "qwen/qwen3.8-27b", add: [:no_thinking, :image]},
   {:moonshotai, "kimi-k3", add: [:image, :kitchen_sink, :cache_usage]},
+  # The free tier serves Ministral only; Mistral's reasoning models run
+  # through OpenCode Zen, which passes Mistral's wire through.
+  {:mistral, "ministral-8b-2512", add: [:image], skip: [:thinking]},
   {:alibaba, "qwen3.8-flash", add: [:no_thinking, :image, :kitchen_sink, :cache_usage]},
   {:alibaba, "qwen3.8-max", add: [:no_thinking, :pdf]},
   {:zai, "glm-5.3-flash", add: [:image, :pdf, :kitchen_sink, :cache_usage]},
@@ -62,6 +65,7 @@ matrix = [
   {:opencode, "claude-haiku-5-5", off},
   {:opencode, "gpt-6-luna", off},
   {:opencode, "deepseek-v4.1-flash", []},
+  {:opencode, "mistral-large-4", add: [:no_thinking, :image, :kitchen_sink]},
   {:opencode, "gemini-3.5-flash-lite", []},
   {:openrouter, "anthropic/claude-haiku-5.5", loop_off},
   {:openrouter, "openai/gpt-6-luna", loop_off},

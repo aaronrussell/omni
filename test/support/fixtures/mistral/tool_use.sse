@@ -1,0 +1,6 @@
+data: {"id":"6d584f1ca04045b9a9b1c41bf4e27018","object":"chat.completion.chunk","created":1793122234,"model":"ministral-8b-2512","choices":[{"index":0,"delta":{"role":"assistant","content":""},"finish_reason":null}]}
+
+data: {"id":"6d584f1ca04045b9a9b1c41bf4e27018","object":"chat.completion.chunk","created":1793122234,"model":"ministral-8b-2512","choices":[{"index":0,"delta":{"tool_calls":[{"id":"rW0K48UsN","type":"function","function":{"name":"get_weather","arguments":"{\"city\": \"London\"}"},"index":0}]},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":81,"total_tokens":93,"completion_tokens":12,"prompt_tokens_details":{"cached_tokens":0},"completion_tokens_details":{"reasoning_tokens":0},"service_tier":"standard"},"p":"abcdefghijklmnopqrstuvwxyz01234567"}
+
+data: [DONE]
+

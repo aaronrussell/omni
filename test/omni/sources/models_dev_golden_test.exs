@@ -42,6 +42,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
     anthropic: 9..45,
     google: 6..30,
     groq: 3..20,
+    mistral: 8..45,
     moonshotai: 4..25,
     nearai: 15..85,
     # local instance — models come from user config, never a catalog

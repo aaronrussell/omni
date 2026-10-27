@@ -3,7 +3,7 @@ defmodule Integration.OpenCodeTest do
 
   import Omni.Test.Baseline
 
-  alias Omni.Content.{Text, ToolUse}
+  alias Omni.Content.{Text, Thinking, ToolUse}
   alias Omni.Dialects.{AnthropicMessages, GoogleGemini, OpenAICompletions, OpenAIResponses}
   alias Omni.Test.Capture
 
@@ -107,6 +107,19 @@ defmodule Integration.OpenCodeTest do
       assert resp.stop_reason == :tool_use
       assert [%Text{}, %ToolUse{name: "get_weather", input: input}] = resp.message.content
       assert input == %{"location" => "London"}
+    end
+
+    # Mistral streams reasoning as thinking chunks in `content`, passed
+    # through by Zen; the answer follows as plain strings.
+    test "Mistral thinking as content chunks" do
+      model = model("mistral-large-4")
+      assert model.dialects.text == OpenAICompletions
+
+      {resp, _request} = assert_thinking(model, "#{@dir}/mistral_thinking.sse")
+
+      assert [%Thinking{text: thinking}, %Text{text: text}] = resp.message.content
+      assert thinking =~ "strawberry"
+      assert text =~ "8 times"
     end
   end
 end

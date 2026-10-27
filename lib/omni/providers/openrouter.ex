@@ -18,7 +18,7 @@ defmodule Omni.Providers.OpenRouter do
   Sets these `Omni.Dialects.OpenAICompletions` flags:
 
     * `thinking_effort_field: "reasoning.effort"`
-    * `thinking_replay_field: "reasoning_details"`
+    * `thinking_replay_format: :reasoning_details`
   """
 
   @behaviour Omni.Provider
@@ -31,7 +31,7 @@ defmodule Omni.Providers.OpenRouter do
       compat: %{
         Omni.Dialects.OpenAICompletions => [
           thinking_effort_field: "reasoning.effort",
-          thinking_replay_field: "reasoning_details"
+          thinking_replay_format: :reasoning_details
         ]
       }
     ]

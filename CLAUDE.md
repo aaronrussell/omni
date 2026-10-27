@@ -10,7 +10,7 @@ Omni is an Elixir library for interacting with LLM APIs across multiple provider
 - **Providers** — data structs for the authenticated HTTP layer (where to send requests, how to authenticate), assembled from catalog data, an optional provider module, and config
 - **Dialects** — wire format translation (how to build request bodies, parse streaming events)
 
-The relationship: ~4-5 dialects, hundreds of possible providers (13 built-ins; any models.dev catalog provider loads by id; most speak one dialect, though multi-model gateways like OpenCode Zen use several), thousands of models (each belonging to one provider). Each `%Model{}` embeds its `%Provider{}` and names its dialect per capability, so dispatch is always per-model. All requests are streaming-first; `generate_text` is built on top of `stream_text`.
+The relationship: ~4-5 dialects, hundreds of possible providers (14 built-ins; any models.dev catalog provider loads by id; most speak one dialect, though multi-model gateways like OpenCode Zen use several), thousands of models (each belonging to one provider). Each `%Model{}` embeds its `%Provider{}` and names its dialect per capability, so dispatch is always per-model. All requests are streaming-first; `generate_text` is built on top of `stream_text`.
 
 The agent system (`Omni.Agent`) lives in a separate package — [`omni_agent`](https://github.com/aaronrussell/omni_agent). This package is purely the stateless LLM API layer.
 

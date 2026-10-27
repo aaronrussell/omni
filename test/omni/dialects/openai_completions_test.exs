@@ -646,6 +646,129 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert [{:message, %{stop_reason: :error}}] = OpenAICompletions.handle_event(event, @model)
     end
 
+    test "Mistral model_length and error finish_reasons map to :length and :error" do
+      for {reason, expected} <- [{"model_length", :length}, {"error", :error}] do
+        event = %{"choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => reason}]}
+
+        assert [{:message, %{stop_reason: ^expected}}] =
+                 OpenAICompletions.handle_event(event, @model)
+      end
+    end
+
+    test "content as a list of thinking and text chunks" do
+      event = %{
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{
+              "content" => [
+                %{
+                  "type" => "thinking",
+                  "thinking" => [%{"type" => "text", "text" => "2+2=4."}],
+                  "signature" => "sig"
+                },
+                %{"type" => "text", "text" => "4"}
+              ]
+            }
+          }
+        ]
+      }
+
+      assert [
+               {:block_delta, %{type: :thinking, index: 0, delta: "2+2=4."}},
+               {:block_delta, %{type: :thinking, index: 0, signature: "sig"}},
+               {:block_delta, %{type: :text, index: 0, delta: "4"}}
+             ] = OpenAICompletions.handle_event(event, @model)
+    end
+
+    test "content chunks skip empty text and unknown chunk types" do
+      event = %{
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{
+              "content" => [
+                %{"type" => "thinking", "thinking" => [%{"type" => "text", "text" => ""}]},
+                %{"type" => "reference", "reference_ids" => [1]},
+                %{"type" => "text", "text" => ""}
+              ]
+            }
+          }
+        ]
+      }
+
+      assert [] = OpenAICompletions.handle_event(event, @model)
+    end
+
+    test "tool calls without index take their position in the list" do
+      event = %{
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{
+              "content" => nil,
+              "tool_calls" => [
+                %{"id" => "aaaaaaaaa", "function" => %{"name" => "a", "arguments" => "{}"}},
+                %{"id" => "bbbbbbbbb", "function" => %{"name" => "b", "arguments" => "{}"}}
+              ]
+            },
+            "finish_reason" => "tool_calls"
+          }
+        ]
+      }
+
+      assert [
+               {:block_start, %{type: :tool_use, index: 0, id: "aaaaaaaaa", name: "a"}},
+               {:block_delta, %{type: :tool_use, index: 0, delta: "{}"}},
+               {:block_start, %{type: :tool_use, index: 1, id: "bbbbbbbbb", name: "b"}},
+               {:block_delta, %{type: :tool_use, index: 1, delta: "{}"}},
+               {:message, %{stop_reason: :tool_use}}
+             ] = OpenAICompletions.handle_event(event, @model)
+    end
+
+    test "a tool call continuation with an empty name is not a new call" do
+      event = %{
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{
+              "content" => "",
+              "tool_calls" => [
+                %{
+                  "index" => 0,
+                  "type" => "function",
+                  "function" => %{"name" => "", "arguments" => "{\"city\": \"London\"}"}
+                }
+              ]
+            }
+          }
+        ]
+      }
+
+      assert [{:block_delta, %{type: :tool_use, index: 0, delta: "{\"city\": \"London\"}"}}] =
+               OpenAICompletions.handle_event(event, @model)
+    end
+
+    test "tool call arguments as a JSON object are encoded to a string" do
+      event = %{
+        "choices" => [
+          %{
+            "index" => 0,
+            "delta" => %{
+              "tool_calls" => [
+                %{"id" => "aaaaaaaaa", "function" => %{"name" => "a", "arguments" => %{"x" => 1}}}
+              ]
+            }
+          }
+        ]
+      }
+
+      assert [
+               {:block_start, %{type: :tool_use, index: 0, id: "aaaaaaaaa"}},
+               {:block_delta, %{type: :tool_use, index: 0, delta: ~s({"x":1})}}
+             ] = OpenAICompletions.handle_event(event, @model)
+    end
+
     test "message with usage from final chunk" do
       event = %{
         "choices" => [],
@@ -1045,7 +1168,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
                :output_format,
                :thinking_budget_field,
                :thinking_effort_field,
-               :thinking_replay_field,
+               :thinking_replay_format,
                :thinking_toggle_format
              ]
     end
@@ -1211,8 +1334,8 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert result["safe_prompt"] == true
     end
 
-    test "thinking_replay_field captures reasoning_details from the stream" do
-      model = flagged(thinking_replay_field: "reasoning_details")
+    test "thinking_replay_format :reasoning_details captures reasoning_details from the stream" do
+      model = flagged(thinking_replay_format: :reasoning_details)
       details = [%{"type" => "reasoning.text", "text" => "hmm"}]
       event = %{"choices" => [%{"delta" => %{"reasoning_details" => details}}]}
 
@@ -1222,7 +1345,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       refute Enum.any?(OpenAICompletions.handle_event(event, @model), &match?({:message, _}, &1))
     end
 
-    test "thinking_replay_field sends reasoning_details back on assistant messages" do
+    test "thinking_replay_format :reasoning_details sends reasoning_details back on assistant messages" do
       details = [%{"type" => "reasoning.text", "text" => "hmm"}]
 
       context =
@@ -1237,12 +1360,73 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
         ])
 
       [_, assistant, _] =
-        body(flagged(thinking_replay_field: "reasoning_details"), %{}, context)["messages"]
+        body(flagged(thinking_replay_format: :reasoning_details), %{}, context)["messages"]
 
       assert assistant["reasoning_details"] == details
 
       [_, plain, _] = body(@model, %{}, context)["messages"]
       refute Map.has_key?(plain, "reasoning_details")
+    end
+
+    defp assistant_body(flags, content) do
+      context =
+        Context.new([
+          Message.new("Hi"),
+          Message.new(role: :assistant, content: content),
+          Message.new("Again")
+        ])
+
+      [_, assistant, _] = body(flagged(flags), %{}, context)["messages"]
+      assistant
+    end
+
+    test "thinking_replay_format :content_chunks sends thinking first, then text parts" do
+      assistant =
+        assistant_body([thinking_replay_format: :content_chunks], [
+          Thinking.new(text: "Let me "),
+          Text.new("Hello"),
+          Thinking.new(text: "think.", signature: "sig"),
+          Text.new(" there")
+        ])
+
+      assert assistant["content"] == [
+               %{
+                 "type" => "thinking",
+                 "thinking" => [%{"type" => "text", "text" => "Let me think."}],
+                 "signature" => "sig"
+               },
+               %{"type" => "text", "text" => "Hello"},
+               %{"type" => "text", "text" => " there"}
+             ]
+    end
+
+    test "thinking_replay_format :content_chunks keeps tool calls beside thinking" do
+      assistant =
+        assistant_body([thinking_replay_format: :content_chunks], [
+          Thinking.new(text: "Need the weather."),
+          ToolUse.new(id: "aaaaaaaaa", name: "get_weather", input: %{"city" => "London"})
+        ])
+
+      assert [%{"type" => "thinking"}] = assistant["content"]
+      assert [%{"id" => "aaaaaaaaa"}] = assistant["tool_calls"]
+    end
+
+    test "thinking_replay_format :content_chunks leaves messages without thinking as strings" do
+      for content <- [
+            [Text.new("Hello")],
+            [Thinking.new(redacted_data: "opaque"), Text.new("Hello")],
+            [Thinking.new(text: ""), Text.new("Hello")]
+          ] do
+        assert assistant_body([thinking_replay_format: :content_chunks], content)["content"] ==
+                 "Hello"
+      end
+    end
+
+    test "thinking is dropped without a replay format, or with :none" do
+      content = [Thinking.new(text: "Hmm."), Text.new("Hello")]
+
+      assert assistant_body([], content)["content"] == "Hello"
+      assert assistant_body([thinking_replay_format: :none], content)["content"] == "Hello"
     end
   end
 end

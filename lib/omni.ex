@@ -25,6 +25,7 @@ defmodule Omni do
   | Anthropic | `:anthropic` | `ANTHROPIC_API_KEY` |
   | Google | `:google` | `GEMINI_API_KEY` |
   | Groq | `:groq` | `GROQ_API_KEY` |
+  | Mistral AI | `:mistral` | `MISTRAL_API_KEY` |
   | Moonshot AI | `:moonshotai` | `MOONSHOT_API_KEY` |
   | NEAR AI Cloud | `:nearai` | `NEARAI_API_KEY` |
   | Ollama Cloud | `:ollama_cloud` | `OLLAMA_API_KEY` |

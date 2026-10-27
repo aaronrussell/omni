@@ -20,6 +20,7 @@ defmodule Omni.Provider do
   | `:anthropic` | `Omni.Providers.Anthropic` | `Omni.Dialects.AnthropicMessages` | `ANTHROPIC_API_KEY` |
   | `:google` | `Omni.Providers.Google` | `Omni.Dialects.GoogleGemini` | `GEMINI_API_KEY` |
   | `:groq` | `Omni.Providers.Groq` | `Omni.Dialects.OpenAICompletions` | `GROQ_API_KEY` |
+  | `:mistral` | `Omni.Providers.Mistral` | `Omni.Dialects.OpenAICompletions` | `MISTRAL_API_KEY` |
   | `:moonshotai` | `Omni.Providers.Moonshot` | `Omni.Dialects.OpenAICompletions` | `MOONSHOT_API_KEY` |
   | `:nearai` | `Omni.Providers.NearAI` | `Omni.Dialects.OpenAICompletions` | `NEARAI_API_KEY` |
   | `:ollama` | `Omni.Providers.Ollama` | `Omni.Dialects.OllamaChat` | none (local) |

@@ -15,7 +15,7 @@ The design separates three distinct concerns:
 - **Providers** -- data describing a specific service: where requests go, how they authenticate, and how it deviates from the wire format it speaks
 - **Dialects** -- code for the wire format of a family of APIs (how requests are built and responses are parsed)
 
-The relationship: there are five dialects, hundreds of possible providers (13 built-ins; any provider in the models.dev catalog loads by id; most speak one dialect, though gateways like OpenCode Zen use several), and thousands of models (each belonging to one provider). Each `%Model{}` embeds its `%Provider{}` and names its dialect per capability (`dialects: %{text: Module}`), so dispatch is always per-model and nothing is looked up at request time.
+The relationship: there are five dialects, hundreds of possible providers (14 built-ins; any provider in the models.dev catalog loads by id; most speak one dialect, though gateways like OpenCode Zen use several), and thousands of models (each belonging to one provider). Each `%Model{}` embeds its `%Provider{}` and names its dialect per capability (`dialects: %{text: Module}`), so dispatch is always per-model and nothing is looked up at request time.
 
 ---
 
@@ -210,7 +210,7 @@ It receives the provider's id and returns **raw catalog data only**:
 
 Translating the id to the catalog's key is the source's job (`Omni.Sources.ModelsDev` hyphenates; `Omni.Sources.LLMDB` uses it verbatim). `Omni.Source.build_model/1` builds a model from a string-keyed map (dates, defaults, `"reasoning"` and `"reasoning_options"` into `:thinking`). Sources skip, with a warning, models they can't represent faithfully: a model whose own npm package maps to no dialect (it explicitly differs from its provider, so filling it would be a guess), and a model served from a different base URL than its provider (per-model base URLs; on the roadmap backlog). `{:error, :unknown_provider}` means the catalog doesn't know the id, so the provider is custom; any other error is logged and treated the same way. There is no cross-source fallback.
 
-The npm-package-to-dialect table lives in each source. A bespoke package that is OpenAI-compatible in practice (`@ai-sdk/mistral`, `@ai-sdk/xai`, ...) is mapped there when its provider becomes a built-in, not before: these providers have no catalog base URL, so a mapping without the module adds little.
+The npm-package-to-dialect table lives in each source. A bespoke package that is OpenAI-compatible in practice (`@ai-sdk/xai`, `@ai-sdk/togetherai`, ...) is mapped there when its provider becomes a built-in, not before: these providers have no catalog base URL, so a mapping without the module adds little.
 
 Omni ships two sources:
 
@@ -306,7 +306,7 @@ Omni doesn't call a provider "verified". Verification is per model and per day (
 
 ### Built-in providers
 
-Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the thirteen built-in ids to `Omni.Providers.*` modules, and each module's `config/0` *is* the built-in overlay: its base URL, key variable, and compat, set explicitly even where the catalog agrees, so `like:` has a complete set to copy. Their moduledocs are the per-provider reference (quirks, regions, the flags they set). Modules carry no id; the Builtins map supplies it, and other providers attach a module with `module:` in config.
+Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the fourteen built-in ids to `Omni.Providers.*` modules, and each module's `config/0` *is* the built-in overlay: its base URL, key variable, and compat, set explicitly even where the catalog agrees, so `like:` has a complete set to copy. Their moduledocs are the per-provider reference (quirks, regions, the flags they set). Modules carry no id; the Builtins map supplies it, and other providers attach a module with `module:` in config.
 
 | Id | Module | Dialect | Module code beyond `config/0` |
 |---|---|---|---|
@@ -314,6 +314,7 @@ Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the thirteen bu
 | `:anthropic` | `Anthropic` | Anthropic Messages | -- (`anthropic-version` header in `config/0`) |
 | `:google` | `Google` | Gemini | -- |
 | `:groq` | `Groq` | Completions | `modify_body/4`: `reasoning_format: "parsed"` |
+| `:mistral` | `Mistral` | Completions | -- |
 | `:moonshotai` | `Moonshot` | Completions | -- |
 | `:nearai` | `NearAI` | Completions | -- |
 | `:ollama` | `Ollama` | Ollama Chat | -- (`auth: :none`, models from config) |
@@ -522,9 +523,10 @@ All on `Omni.Dialects.OpenAICompletions`. Anthropic, Google, OpenAI, OpenCode, G
 | Provider | Flags | Why |
 |---|---|---|
 | Alibaba | `thinking_toggle_format: :enable_thinking`, `thinking_budget_field: "thinking_budget"`, `output_format: :json_object` | Switches thinking with `enable_thinking` and takes a budget; strict `json_schema` is turned into JSON mode server-side and then fails, so JSON mode with the schema in the prompt is used |
+| Mistral | `max_tokens_field: "max_tokens"`, `thinking_replay_format: :content_chunks` | No `max_completion_tokens`; reasoning streams as thinking chunks in `content`, and Mistral asks for them back at the head of the assistant message. The chunk replay was verified through OpenCode Zen, which passes Mistral's wire through: the free tier serves no reasoning model |
 | Moonshot | `thinking_toggle_format: :thinking_type` | `thinking: {type: ...}` on toggle models. `max_completion_tokens` is honoured; `reasoning_content` replay was not needed in tool loops |
 | NearAI | `max_tokens_field: "max_tokens"`, `omit: [:cache, :thinking, :strict_schema]` | Ported from v1; not verified live (no key) |
-| OpenRouter | `thinking_effort_field: "reasoning.effort"`, `thinking_replay_field: "reasoning_details"` | Nested effort; `reasoning_details` must round-trip in multi-turn |
+| OpenRouter | `thinking_effort_field: "reasoning.effort"`, `thinking_replay_format: :reasoning_details` | Nested effort; `reasoning_details` must round-trip in multi-turn |
 | Venice | `thinking_toggle_format: :reasoning_enabled` | Venice recommends `reasoning: {enabled: false}` over `reasoning_effort: "none"` |
 | Z.ai | `max_tokens_field: "max_tokens"`, `thinking_toggle_format: :thinking_type`, `output_format: :json_object`, `attachment_format: :file_url` | Ignores `max_completion_tokens`; no JSON Schema constraints; files as `file_url` parts |
 
@@ -552,9 +554,9 @@ The cost: `extra_body` is provider-wide and unconditional. A field only some mod
 
 #### Parse tolerantly, encode by flag
 
-No library surveyed uses flags to parse Completions streams, and Omni doesn't either. The Completions parser is a union: `reasoning_content` or `reasoning`, every known finish reason (including Z.ai's), packed chunks (Venice), in-stream errors. All variation is on the encode side.
+No library surveyed uses flags to parse Completions streams, and Omni doesn't either. The Completions parser is a union: `reasoning_content` or `reasoning`, `content` as a string or a list of thinking and text chunks (Mistral), tool calls with or without `index` and with arguments as a string or an object (Mistral), every known finish reason (including Z.ai's and Mistral's), packed chunks (Venice), in-stream errors. All variation is on the encode side.
 
-The one parse-side read of compat is capture for replay: with `thinking_replay_field: "reasoning_details"`, the dialect stashes `reasoning_details` into `Message.private` while parsing and sends them back on that assistant message when encoding. Capture and replay share the flag, so data is only collected when it will be sent back. That is why `handle_event/2` receives the model.
+The one parse-side read of compat is capture for replay: with `thinking_replay_format: :reasoning_details`, the dialect stashes `reasoning_details` into `Message.private` while parsing and sends them back on that assistant message when encoding. Capture and replay share the flag, so data is only collected when it will be sent back. That is why `handle_event/2` receives the model.
 
 Not adopted: a stateful parse hook (init, per-event state, flush) for reasoning streamed inline as `<think>` tags. No built-in needs it.
 

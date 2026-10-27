@@ -44,6 +44,7 @@ if Code.ensure_loaded?(LLMDB) do
       anthropic: 8..40,
       google: 5..28,
       groq: 3..20,
+      mistral: 20..100,
       moonshotai: 4..25,
       nearai: 15..85,
       # local instance — models come from user config, never a catalog

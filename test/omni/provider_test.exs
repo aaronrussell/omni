@@ -28,7 +28,7 @@ defmodule Omni.ProviderTest do
 
       assert :anthropic in ids
       assert :ollama_cloud in ids
-      assert length(ids) == 13
+      assert length(ids) == 14
     end
   end
 

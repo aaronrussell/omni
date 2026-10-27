@@ -41,3 +41,10 @@ Capture.record(model, context, "#{dir}/google_text.sse", opts)
 {:ok, kimi} = Omni.get_model(:opencode, "kimi-k2.5")
 {context, opts} = Baseline.request(:tool_use)
 Capture.record(kimi, context, "#{dir}/kimi_tool_use.sse", opts)
+
+# Mistral streams reasoning as thinking chunks in `content`, which Zen passes
+# through unchanged. The only real bytes of that shape: the free Mistral tier
+# serves no reasoning model.
+{:ok, mistral} = Omni.get_model(:opencode, "mistral-large-4")
+{context, opts} = Baseline.request(:thinking)
+Capture.record(mistral, context, "#{dir}/mistral_thinking.sse", opts)

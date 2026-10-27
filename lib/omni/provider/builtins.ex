@@ -10,6 +10,7 @@ defmodule Omni.Provider.Builtins do
     anthropic: Omni.Providers.Anthropic,
     google: Omni.Providers.Google,
     groq: Omni.Providers.Groq,
+    mistral: Omni.Providers.Mistral,
     moonshotai: Omni.Providers.Moonshot,
     nearai: Omni.Providers.NearAI,
     ollama: Omni.Providers.Ollama,

@@ -16,7 +16,7 @@ defmodule Omni.Dialects.OpenAICompletions do
   | `:max_tokens_field` | `"max_completion_tokens"` | sends `:max_tokens` under this field |
   | `:thinking_effort_field` | `"reasoning_effort"` | sends the effort level here (dots nest: `"reasoning.effort"`) |
   | `:thinking_budget_field` | no budget sent | sends a token budget here, for models that take one and list no effort values |
-  | `:thinking_replay_field` | earlier reasoning not sent back | `"reasoning_details"`: captures `reasoning_details` from responses and sends them back on assistant messages |
+  | `:thinking_replay_format` | earlier reasoning not sent back | how reasoning is sent back on assistant messages (below) |
   | `:thinking_toggle_format` | off is `reasoning_effort: "none"`; no on-switch | how thinking is switched on and off (below) |
   | `:output_format` | `:json_schema` | `:json_object`: JSON mode, with the schema in the system prompt |
   | `:attachment_format` | `:file` | `:file_url`: non-image files as `file_url` content parts |
@@ -29,6 +29,15 @@ defmodule Omni.Dialects.OpenAICompletions do
     * `:enable_thinking` — `enable_thinking: true | false`
     * `:reasoning_enabled` — `reasoning: {enabled: true | false}`
 
+  `:thinking_replay_format` values:
+
+    * `:none` — reasoning is not sent back
+    * `:reasoning_details` — captures `reasoning_details` from responses and
+      sends them back on that assistant message
+    * `:content_chunks` — sends the message's thinking as one leading
+      `{type: "thinking", thinking: [{type: "text", ...}]}` part of a
+      `content` array, before its text parts
+
   Models that list effort values (see `Omni.Model`) take the effort, even
   when a toggle format is set; the toggle switches them off, and switches on
   models without effort values. Likewise a budget is sent only to models
@@ -37,7 +46,7 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   @behaviour Omni.Dialect
 
-  alias Omni.Content.{Text, ToolUse, ToolResult, Attachment}
+  alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Dialect, Model}
 
   import Omni.Util, only: [maybe_put: 3, put_path: 3]
@@ -53,7 +62,7 @@ defmodule Omni.Dialects.OpenAICompletions do
       max_tokens_field: :string,
       thinking_effort_field: :string,
       thinking_budget_field: :string,
-      thinking_replay_field: {:enum, ["reasoning_details"]},
+      thinking_replay_format: {:enum, [:none, :reasoning_details, :content_chunks]},
       thinking_toggle_format: {:enum, [:thinking_type, :enable_thinking, :reasoning_enabled]},
       output_format: {:enum, [:json_schema, :json_object]},
       attachment_format: {:enum, [:file, :file_url]},
@@ -188,7 +197,7 @@ defmodule Omni.Dialects.OpenAICompletions do
   # field is extracted independently so nothing is silently dropped; deltas are
   # emitted before finish_reason so downstream accumulation sees the final
   # fragment before the block is finalized. The one flag read here is
-  # thinking_replay_field, so replay data is captured only when it is sent back.
+  # thinking_replay_format, so replay data is captured only when it is sent back.
 
   @impl true
   def handle_event(%{"error" => %{"message" => message}}, _model), do: [{:error, message}]
@@ -229,37 +238,43 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   defp has_tool_call_start?(_), do: false
 
-  defp tool_call_start?(%{"function" => %{"name" => name}}) when is_binary(name), do: true
+  defp tool_call_start?(%{"function" => %{"name" => name}}) when is_binary(name) and name != "",
+    do: true
+
   defp tool_call_start?(_), do: false
 
   # Most servers stream one call per chunk; some pack several calls into one
-  # delta's `tool_calls`.
-  defp extract_tool_calls(%{"tool_calls" => [_ | _] = tool_calls}),
-    do: Enum.flat_map(tool_calls, &extract_tool_call/1)
+  # delta's `tool_calls`. Mistral sends each call whole, without `index`, so
+  # a call's position in the list stands in for it.
+  defp extract_tool_calls(%{"tool_calls" => [_ | _] = tool_calls}) do
+    tool_calls
+    |> Enum.with_index()
+    |> Enum.flat_map(fn {tc, position} -> extract_tool_call(tc, tc["index"] || position) end)
+  end
 
   defp extract_tool_calls(_), do: []
 
-  defp extract_tool_call(%{"function" => %{"name" => name}} = tc) when is_binary(name) do
-    index = tc["index"] || 0
-
+  # A call starts with its name; continuation chunks carry none, or `""`
+  # (GLM models on Mistral).
+  defp extract_tool_call(tc, index) do
     args_delta =
-      case tc["function"]["arguments"] do
-        args when is_binary(args) and args != "" ->
-          [{:block_delta, %{type: :tool_use, index: index, delta: args}}]
-
-        _ ->
-          []
+      case encode_arguments(tc["function"]["arguments"]) do
+        "" -> []
+        args -> [{:block_delta, %{type: :tool_use, index: index, delta: args}}]
       end
 
-    [{:block_start, %{type: :tool_use, index: index, id: tc["id"], name: name}}] ++ args_delta
+    if tool_call_start?(tc) do
+      start = %{type: :tool_use, index: index, id: tc["id"], name: tc["function"]["name"]}
+      [{:block_start, start} | args_delta]
+    else
+      args_delta
+    end
   end
 
-  defp extract_tool_call(tc) do
-    [
-      {:block_delta,
-       %{type: :tool_use, index: tc["index"] || 0, delta: tc["function"]["arguments"]}}
-    ]
-  end
+  # Arguments are a JSON string fragment, or (Mistral) a whole JSON object.
+  defp encode_arguments(args) when is_binary(args), do: args
+  defp encode_arguments(args) when is_map(args), do: JSON.encode!(args)
+  defp encode_arguments(_), do: ""
 
   defp extract_reasoning(%{"reasoning_content" => content})
        when is_binary(content) and content != "" do
@@ -275,7 +290,7 @@ defmodule Omni.Dialects.OpenAICompletions do
   defp extract_reasoning(_), do: []
 
   defp extract_replay(%{"reasoning_details" => [_ | _] = details}, %{
-         thinking_replay_field: "reasoning_details"
+         thinking_replay_format: :reasoning_details
        }) do
     [{:message, %{private: %{reasoning_details: details}}}]
   end
@@ -287,7 +302,31 @@ defmodule Omni.Dialects.OpenAICompletions do
     [{:block_delta, %{type: :text, index: 0, delta: content}}]
   end
 
+  # Mistral sends content as a list of chunks: thinking, then text.
+  defp extract_content(%{"content" => [_ | _] = chunks}),
+    do: Enum.flat_map(chunks, &extract_chunk/1)
+
   defp extract_content(_), do: []
+
+  defp extract_chunk(%{"type" => "thinking", "thinking" => parts} = chunk) do
+    deltas =
+      for %{"type" => "text", "text" => text} <- List.wrap(parts),
+          is_binary(text) and text != "",
+          do: {:block_delta, %{type: :thinking, index: 0, delta: text}}
+
+    case chunk["signature"] do
+      sig when is_binary(sig) and sig != "" ->
+        deltas ++ [{:block_delta, %{type: :thinking, index: 0, signature: sig}}]
+
+      _ ->
+        deltas
+    end
+  end
+
+  defp extract_chunk(%{"type" => "text", "text" => text}) when is_binary(text) and text != "",
+    do: [{:block_delta, %{type: :text, index: 0, delta: text}}]
+
+  defp extract_chunk(_), do: []
 
   defp extract_finish(%{"finish_reason" => reason}, event) when is_binary(reason) do
     [
@@ -315,14 +354,14 @@ defmodule Omni.Dialects.OpenAICompletions do
   end
 
   defp encode_message(%{role: :assistant, content: content} = message, compat) do
-    {text_blocks, tool_uses} = split_assistant_content(content)
+    {thinking_blocks, text_blocks, tool_uses} = split_assistant_content(content)
 
     msg = %{"role" => "assistant"}
 
     msg =
-      case text_blocks do
-        [] -> msg
-        texts -> Map.put(msg, "content", Enum.map_join(texts, "", & &1.text))
+      case encode_assistant_content(thinking_blocks, text_blocks, compat) do
+        nil -> msg
+        content -> Map.put(msg, "content", content)
       end
 
     msg =
@@ -354,22 +393,56 @@ defmodule Omni.Dialects.OpenAICompletions do
     tool_msgs ++ user_msg
   end
 
+  # With :content_chunks, thinking goes first as a single merged chunk
+  # (Mistral rejects more than one leading thinking chunk) and text follows
+  # as parts. Otherwise text is a plain string and thinking is dropped.
+  defp encode_assistant_content(thinking, texts, %{thinking_replay_format: :content_chunks})
+       when thinking != [] do
+    [encode_thinking_chunk(thinking) | Enum.map(texts, &%{"type" => "text", "text" => &1.text})]
+  end
+
+  defp encode_assistant_content(_thinking, [], _compat), do: nil
+
+  defp encode_assistant_content(_thinking, texts, _compat),
+    do: Enum.map_join(texts, "", & &1.text)
+
+  defp encode_thinking_chunk(blocks) do
+    chunk = %{
+      "type" => "thinking",
+      "thinking" => [%{"type" => "text", "text" => Enum.map_join(blocks, "", & &1.text)}]
+    }
+
+    case blocks |> Enum.map(& &1.signature) |> Enum.reject(&is_nil/1) |> List.last() do
+      nil -> chunk
+      sig -> Map.put(chunk, "signature", sig)
+    end
+  end
+
   defp put_replay(msg, %{private: %{reasoning_details: [_ | _] = details}}, %{
-         thinking_replay_field: "reasoning_details"
+         thinking_replay_format: :reasoning_details
        }) do
     Map.put(msg, "reasoning_details", details)
   end
 
   defp put_replay(msg, _message, _compat), do: msg
 
+  # Thinking without text (redacted, or an empty summary) is never sent back.
   defp split_assistant_content(content) do
-    Enum.reduce(content, {[], []}, fn
-      %Text{} = t, {texts, tools} -> {[t | texts], tools}
-      %ToolUse{} = tu, {texts, tools} -> {texts, [tu | tools]}
-      _, acc -> acc
+    Enum.reduce(content, {[], [], []}, fn
+      %Thinking{text: text} = th, {thinks, texts, tools} when is_binary(text) and text != "" ->
+        {[th | thinks], texts, tools}
+
+      %Text{} = t, {thinks, texts, tools} ->
+        {thinks, [t | texts], tools}
+
+      %ToolUse{} = tu, {thinks, texts, tools} ->
+        {thinks, texts, [tu | tools]}
+
+      _, acc ->
+        acc
     end)
-    |> then(fn {texts, tools} ->
-      {Enum.reverse(texts), Enum.reverse(tools)}
+    |> then(fn {thinks, texts, tools} ->
+      {Enum.reverse(thinks), Enum.reverse(texts), Enum.reverse(tools)}
     end)
   end
 
@@ -476,6 +549,10 @@ defmodule Omni.Dialects.OpenAICompletions do
   defp normalize_stop_reason("tool_calls"), do: :tool_use
   defp normalize_stop_reason("content_filter"), do: :refusal
   defp normalize_stop_reason("function_call"), do: :tool_use
+
+  # Mistral
+  defp normalize_stop_reason("model_length"), do: :length
+  defp normalize_stop_reason("error"), do: :error
 
   # Non-standard finish_reason values seen in the wild (GLM models), kept in
   # the one union table.

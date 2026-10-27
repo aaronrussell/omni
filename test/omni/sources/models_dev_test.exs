@@ -102,14 +102,14 @@ defmodule Omni.Sources.ModelsDevTest do
     test "skips with a warning when a model's own npm maps to no dialect" do
       data =
         provider_data([
-          model_entry("own-unmapped", %{"provider" => %{"npm" => "@ai-sdk/mistral"}}),
+          model_entry("own-unmapped", %{"provider" => %{"npm" => "some-unmapped-sdk"}}),
           model_entry("kept")
         ])
 
       {models, log} = with_log(fn -> ModelsDev.transform_provider(data, "test") end)
 
       assert Enum.map(models, & &1.id) == ["kept"]
-      assert log =~ "skipping test:own-unmapped: npm package @ai-sdk/mistral maps to no dialect"
+      assert log =~ "skipping test:own-unmapped: npm package some-unmapped-sdk maps to no dialect"
       assert log =~ "loaded 1 models, skipped 1"
     end
 
@@ -269,7 +269,7 @@ defmodule Omni.Sources.ModelsDevTest do
       by_id = Map.new(models, &{&1.id, &1.dialects.text})
       assert by_id["claude-haiku-4-5"] == Omni.Dialects.AnthropicMessages
       assert by_id["gpt-5.2"] == Omni.Dialects.OpenAIResponses
-      refute Map.has_key?(by_id, "mistral-large-4")
+      assert by_id["mistral-large-4"] == Omni.Dialects.OpenAICompletions
     end
 
     test "returns :unknown_provider for an id not in the snapshot" do

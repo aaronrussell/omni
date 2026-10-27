@@ -61,6 +61,7 @@ defmodule Omni.Sources.LLMDB do
     "@ai-sdk/anthropic" => "anthropic_messages",
     "@ai-sdk/google" => "google_gemini",
     "@ai-sdk/groq" => "openai_completions",
+    "@ai-sdk/mistral" => "openai_completions",
     "@ai-sdk/openai" => "openai_responses",
     "@ai-sdk/openai-compatible" => "openai_completions",
     "@openrouter/ai-sdk-provider" => "openai_completions",

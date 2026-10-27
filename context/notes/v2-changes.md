@@ -58,6 +58,8 @@ config :omni, :providers,
 
 **Built-in quirks are compat flags.** *(phase 2)* Moonshot, Z.ai, Alibaba, NearAI, Venice and OpenRouter set compat flags in `config/0` instead of rewriting request bodies; inspect them with `Omni.get_provider(id)`. Groq's per-model effort clamping is gone — model thinking data does it for every provider. Venice keeps `models/2` (`:pdf` on every model); Groq keeps a small `modify_body/4` asking for parsed reasoning. Fixed along the way: Z.ai now sends `max_tokens` (it ignored `max_completion_tokens`, so `:max_tokens` had no effect); Groq asks non-gpt-oss reasoning models for parsed reasoning even when `:thinking` is unset (they inlined `<think>` tags in the answer).
 
+**New built-in: Mistral (`:mistral`).** *(Mistral)* Mistral AI over Chat Completions, reading `MISTRAL_API_KEY`. Reasoning models take one effort, so every `:thinking` level sends `"high"`, and earlier thinking goes back as a thinking chunk at the head of the assistant message. Both sources now map `@ai-sdk/mistral` to Completions, so OpenCode Zen's `mistral-large-4` loads (it was skipped with a warning).
+
 **Provider modules changed shape.** *(phase 1)*
 - `use Omni.Provider, id: ..., dialect: ...` is gone; modules declare `@behaviour Omni.Provider` and carry no id.
 - Attach a custom module with `module:` in the provider's config entry.
@@ -113,6 +115,8 @@ config :omni, :providers,
 
 **Completions reads every packed tool call.** *(fixture audit)* A chunk carrying several calls in `delta.tool_calls` kept only the first.
 
+**Completions reads list-form content and more tool call shapes.** *(Mistral)* `delta.content` as a list of thinking and text chunks was dropped, losing reasoning and some answer text; it now parses, including thinking signatures. Tool calls without `index` take their position in the list (several such calls collided at index 0), a continuation with `"name": ""` no longer starts a new call, and arguments sent as a JSON object are encoded to a string. `model_length` and `error` finish reasons map to `:length` and `:error` (were `:stop`).
+
 ## Sources
 
 **`Omni.Source.build_model/1` reads `"reasoning_options"`** (models.dev's list form, string or atom keys) into `:thinking`. *(phase 2)* The llm_db source passes them through, falls back to OpenRouter's `supported_efforts`, and reads `extra` with string keys as well as atom keys (llm_db 2026.7.2+).
@@ -124,6 +128,8 @@ config :omni, :providers,
 ## Dialects
 
 **New required callback `compat_schema/0`.** *(phase 2)* A Peri schema of the compat flags the dialect understands; return `%{}` for none. Read a provider's flags with `Omni.Dialect.compat(model, __MODULE__)`. `Omni.Dialects.OpenAICompletions` documents its flags; the other built-in dialects have none yet.
+
+**`thinking_replay_field` is now `thinking_replay_format`.** *(Mistral)* On `Omni.Dialects.OpenAICompletions`: `thinking_replay_field: "reasoning_details"` becomes `thinking_replay_format: :reasoning_details`. New values: `:content_chunks` (thinking as a leading `content` chunk) and `:none`.
 
 **`handle_event/2` receives the model.** *(phase 2)* `handle_event(event, model)` (was `handle_event/1`).
 
