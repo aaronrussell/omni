@@ -57,6 +57,8 @@ matrix = [
   {:venice, "qwen-3-8-flash", add: [:no_thinking, :image, :pdf, :kitchen_sink]},
   {:venice, "claude-haiku-5-5", off},
   {:nearai, "zai-org/GLM-5.1-FP8", off},
+  {:xai, "grok-4.3", all},
+  {:xai, "grok-4.7", loop},
   # Fails structured_output: Ollama Cloud doesn't enforce `format` (gemma4 and
   # gpt-oss:20b answer in prose; local Ollama passes). Kept as a known failure.
   {:ollama_cloud, "gemma4:31b", add: [:no_thinking, :image, :kitchen_sink]},

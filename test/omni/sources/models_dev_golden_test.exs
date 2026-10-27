@@ -52,6 +52,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
     opencode: 25..125,
     openrouter: 120..640,
     venice: 35..180,
+    xai: 4..18,
     zai: 7..35
   }
 

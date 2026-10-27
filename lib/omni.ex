@@ -33,6 +33,7 @@ defmodule Omni do
   | OpenCode | `:opencode` | `OPENCODE_API_KEY` |
   | OpenRouter | `:openrouter` | `OPENROUTER_API_KEY` |
   | Venice AI | `:venice` | `VENICE_API_KEY` |
+  | xAI | `:xai` | `XAI_API_KEY` |
   | Z.ai | `:zai` | `ZAI_API_KEY` |
 
   A provider for a local Ollama instance (`:ollama`) is also built in. It

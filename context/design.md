@@ -15,7 +15,7 @@ The design separates three distinct concerns:
 - **Providers** -- data describing a specific service: where requests go, how they authenticate, and how it deviates from the wire format it speaks
 - **Dialects** -- code for the wire format of a family of APIs (how requests are built and responses are parsed)
 
-The relationship: there are five dialects, hundreds of possible providers (14 built-ins; any provider in the models.dev catalog loads by id; most speak one dialect, though gateways like OpenCode Zen use several), and thousands of models (each belonging to one provider). Each `%Model{}` embeds its `%Provider{}` and names its dialect per capability (`dialects: %{text: Module}`), so dispatch is always per-model and nothing is looked up at request time.
+The relationship: there are five dialects, hundreds of possible providers (15 built-ins; any provider in the models.dev catalog loads by id; most speak one dialect, though gateways like OpenCode Zen use several), and thousands of models (each belonging to one provider). Each `%Model{}` embeds its `%Provider{}` and names its dialect per capability (`dialects: %{text: Module}`), so dispatch is always per-model and nothing is looked up at request time.
 
 ---
 
@@ -306,7 +306,7 @@ Omni doesn't call a provider "verified". Verification is per model and per day (
 
 ### Built-in providers
 
-Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the fourteen built-in ids to `Omni.Providers.*` modules, and each module's `config/0` *is* the built-in overlay: its base URL, key variable, and compat, set explicitly even where the catalog agrees, so `like:` has a complete set to copy. Their moduledocs are the per-provider reference (quirks, regions, the flags they set). Modules carry no id; the Builtins map supplies it, and other providers attach a module with `module:` in config.
+Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the fifteen built-in ids to `Omni.Providers.*` modules, and each module's `config/0` *is* the built-in overlay: its base URL, key variable, and compat, set explicitly even where the catalog agrees, so `like:` has a complete set to copy. Their moduledocs are the per-provider reference (quirks, regions, the flags they set). Modules carry no id; the Builtins map supplies it, and other providers attach a module with `module:` in config.
 
 | Id | Module | Dialect | Module code beyond `config/0` |
 |---|---|---|---|
@@ -323,13 +323,16 @@ Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the fourteen bu
 | `:opencode` | `OpenCode` | per model | -- |
 | `:openrouter` | `OpenRouter` | Completions | -- |
 | `:venice` | `Venice` | Completions | `models/2`: adds `:pdf` to every model |
+| `:xai` | `XAI` | Responses | `models/2`: re-stamps every model to Responses; `modify_body/4`: no `reasoning` without effort data |
 | `:zai` | `Zai` | Completions | -- |
 
-The three pieces of residual code each exist because no flag could express them:
+The five pieces of residual code each exist because no flag could express them:
 
 - **Groq `modify_body/4`.** Groq's `reasoning_format` defaults to `raw` (`<think>` tags in the content) on reasoning models other than gpt-oss, which doesn't support the parameter. The module sends `"parsed"` to non-gpt-oss reasoning models unless thinking is off. It depends on the model id, so it isn't a provider-wide flag.
 - **Ollama Cloud `models/2`.** The catalog describes Ollama's OpenAI-compatible endpoint; Omni uses the native chat API. Model data decides a model's dialect, so changing catalog models' dialects takes code.
 - **Venice `models/2`.** Venice extracts PDF text at its API layer for every model, which the catalog doesn't record.
+- **xAI `models/2`.** llm_db describes xAI's legacy Chat Completions endpoint (its wire protocol outranks npm metadata); Omni uses Responses, xAI's preferred API and the only one with encrypted reasoning. As with Ollama Cloud, changing catalog models' dialects takes code.
+- **xAI `modify_body/4`.** Models with no effort data (`grok-4.20-0309-reasoning`, `grok-build-0.1`) reject `reasoning.effort` with any value, `"none"` included, so the module drops `reasoning` for them. It depends on the model's thinking data, so it isn't a provider-wide flag.
 
 `anthropic-version` stays in the Anthropic module rather than a dialect header callback: other Anthropic-compatible endpoints ignore it and none require it.
 
@@ -404,7 +407,7 @@ A provider module declares `@behaviour Omni.Provider`. Every callback is optiona
 | Callback | When | Purpose |
 |---|---|---|
 | `config/0` | Load | Keyword overrides over source data: base URL, key, auth, headers, dialects, compat |
-| `models/2` | Load | Receives the merged models and provider; returns the final list (Venice, Ollama Cloud) |
+| `models/2` | Load | Receives the merged models and provider; returns the final list (Venice, Ollama Cloud, xAI) |
 | `modify_body/4` | Request | `(body, model, context, opts)` after the dialect builds the body. Receives the model, so it can vary by model (Groq) |
 | `modify_request/3` | Request | `(req, provider, opts)` last touch on the finished `%Req.Request{}`, after data auth. For signing, token fetches, query params. Returns `{:ok, req} \| {:error, reason}` because credentials can depend on external state |
 
@@ -518,7 +521,7 @@ The Completions flag table, with what each value does on the wire, is in the `Om
 
 #### Built-in flags
 
-All on `Omni.Dialects.OpenAICompletions`. Anthropic, Google, OpenAI, OpenCode, Groq and both Ollamas set none.
+All on `Omni.Dialects.OpenAICompletions`. Anthropic, Google, OpenAI, OpenCode, Groq, xAI and both Ollamas set none.
 
 | Provider | Flags | Why |
 |---|---|---|

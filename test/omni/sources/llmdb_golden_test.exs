@@ -59,6 +59,7 @@ if Code.ensure_loaded?(LLMDB) do
       opencode: 35..180,
       openrouter: 120..640,
       venice: 35..180,
+      xai: 18..90,
       zai: 7..35
     }
 

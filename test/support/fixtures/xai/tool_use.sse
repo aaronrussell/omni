@@ -1,0 +1,42 @@
+event: response.created
+data: {"sequence_number":0,"type":"response.created","response":{"created_at":1793127683,"completed_at":null,"id":"134e6b48-bd3e-9868-a7d8-1132c145b3f7","max_output_tokens":null,"model":"grok-4.3","object":"response","output":[],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"temperature":0.7,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"function","description":"Gets the current weather for a city","name":"get_weather","parameters":{"type":"object","required":["city"],"properties":{"city":{"type":"string","description":"City name"}}},"strict":null}],"top_p":0.95,"usage":null,"user":null,"incomplete_details":null,"status":"in_progress","store":false,"metadata":{"system_fingerprint":"fp_eb3c003fc66c14ed"},"background":false,"service_tier":"default","truncation":"disabled","top_logprobs":0,"presence_penalty":0.0,"frequency_penalty":0.0,"prompt_cache_key":null,"max_tool_calls":null,"safety_identifier":null,"error":null,"instructions":null}}
+
+event: response.in_progress
+data: {"sequence_number":1,"type":"response.in_progress","response":{"created_at":1793127683,"completed_at":null,"id":"134e6b48-bd3e-9868-a7d8-1132c145b3f7","max_output_tokens":null,"model":"grok-4.3","object":"response","output":[],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"temperature":0.7,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"function","description":"Gets the current weather for a city","name":"get_weather","parameters":{"type":"object","required":["city"],"properties":{"city":{"type":"string","description":"City name"}}},"strict":null}],"top_p":0.95,"usage":null,"user":null,"incomplete_details":null,"status":"in_progress","store":false,"metadata":{"system_fingerprint":"fp_eb3c003fc66c14ed"},"background":false,"service_tier":"default","truncation":"disabled","top_logprobs":0,"presence_penalty":0.0,"frequency_penalty":0.0,"prompt_cache_key":null,"max_tool_calls":null,"safety_identifier":null,"error":null,"instructions":null}}
+
+event: response.output_item.added
+data: {"sequence_number":2,"type":"response.output_item.added","item":{"id":"rs_134e6b48-bd3e-9868-a7d8-1132c145b3f7","summary":[],"type":"reasoning","status":"in_progress"},"output_index":0}
+
+event: response.reasoning_summary_part.added
+data: {"sequence_number":3,"type":"response.reasoning_summary_part.added","item_id":"rs_134e6b48-bd3e-9868-a7d8-1132c145b3f7","output_index":0,"part":{"text":"","type":"summary_text"},"summary_index":0}
+
+event: response.reasoning_summary_text.delta
+data: {"sequence_number":4,"type":"response.reasoning_summary_text.delta","delta":"Checking the current","item_id":"rs_134e6b48-bd3e-9868-a7d8-1132c145b3f7","output_index":0,"summary_index":0}
+
+event: response.reasoning_summary_text.delta
+data: {"sequence_number":5,"type":"response.reasoning_summary_text.delta","delta":" weather in London.","item_id":"rs_134e6b48-bd3e-9868-a7d8-1132c145b3f7","output_index":0,"summary_index":0}
+
+event: response.reasoning_summary_text.done
+data: {"sequence_number":6,"type":"response.reasoning_summary_text.done","item_id":"rs_134e6b48-bd3e-9868-a7d8-1132c145b3f7","output_index":0,"summary_index":0,"text":"Checking the current weather in London."}
+
+event: response.reasoning_summary_part.done
+data: {"sequence_number":7,"type":"response.reasoning_summary_part.done","item_id":"rs_134e6b48-bd3e-9868-a7d8-1132c145b3f7","output_index":0,"part":{"text":"Checking the current weather in London.","type":"summary_text"},"summary_index":0}
+
+event: response.output_item.done
+data: {"sequence_number":8,"type":"response.output_item.done","item":{"id":"rs_134e6b48-bd3e-9868-a7d8-1132c145b3f7","summary":[{"text":"Checking the current weather in London.","type":"summary_text"}],"type":"reasoning","status":"completed","encrypted_content":"criSkyORG0JKLVpymdBLkY3y5CuX6Psek+bzsOdun5+DLXUy5TbwfrOJ2Y2eI9HQA5SGAU7w3//bZufhj3ZhiVcIix7SzAbVbsoGgrs3bApiZ6jtEPcOJlsAu70H2GB4CBQgnFKItUR6VcWwznPHHBUDHakaB95BfSeuHTfJTkaIrJSWihBUhb+voQcXJgJ7WVODjcWVkNGJd4i8S2WI/bDgKmhiJDR4z4NKfE/cHwXc7WnbGGewxhQ/ZkFwkz89ZZfl4eC1WZe0EJUdCrc0CpFFIPKcYN6VU7H2UbybU1tY0vptiDWl6X9WrgXO3jjuCkSSCZwjuaKKPGiNDjZ67ySR9jMVgmLqq+jOdUQsTTsiTOjAhyuvZ490q66MZvykV/ri6ZyWmaT3CnCrjrwuciLhT6tQrdUSddkBOF0gC/x3FPKo8HiWx0NKiT5sPp50EBnhMC0h6MaX2zBh/y+Uoc+hJuqPUnI1J6Hf"},"output_index":0}
+
+event: response.output_item.added
+data: {"sequence_number":9,"type":"response.output_item.added","item":{"arguments":"","call_id":"call-093bfe54-e412-482c-8f07-f1f0e6a02b5b-0","name":"get_weather","type":"function_call","id":"fc_134e6b48-bd3e-9868-a7d8-1132c145b3f7_0","status":"in_progress"},"output_index":1}
+
+event: response.function_call_arguments.delta
+data: {"sequence_number":10,"type":"response.function_call_arguments.delta","delta":"{\"city\":\"London\"}","item_id":"fc_134e6b48-bd3e-9868-a7d8-1132c145b3f7_0","output_index":1}
+
+event: response.function_call_arguments.done
+data: {"sequence_number":11,"type":"response.function_call_arguments.done","arguments":"{\"city\":\"London\"}","item_id":"fc_134e6b48-bd3e-9868-a7d8-1132c145b3f7_0","name":"get_weather","output_index":1}
+
+event: response.output_item.done
+data: {"sequence_number":12,"type":"response.output_item.done","item":{"arguments":"{\"city\":\"London\"}","call_id":"call-093bfe54-e412-482c-8f07-f1f0e6a02b5b-0","name":"get_weather","type":"function_call","id":"fc_134e6b48-bd3e-9868-a7d8-1132c145b3f7_0","status":"completed"},"output_index":1}
+
+event: response.completed
+data: {"sequence_number":13,"type":"response.completed","response":{"created_at":1793127683,"completed_at":1793127684,"id":"134e6b48-bd3e-9868-a7d8-1132c145b3f7","max_output_tokens":null,"model":"grok-4.3","object":"response","output":[{"id":"rs_134e6b48-bd3e-9868-a7d8-1132c145b3f7","summary":[{"text":"Checking the current weather in London.","type":"summary_text"}],"type":"reasoning","status":"completed","encrypted_content":"criSkyORG0JKLVpymdBLkY3y5CuX6Psek+bzsOdun5+DLXUy5TbwfrOJ2Y2eI9HQA5SGAU7w3//bZufhj3ZhiVcIix7SzAbVbsoGgrs3bApiZ6jtEPcOJlsAu70H2GB4CBQgnFKItUR6VcWwznPHHBUDHakaB95BfSeuHTfJTkaIrJSWihBUhb+voQcXJgJ7WVODjcWVkNGJd4i8S2WI/bDgKmhiJDR4z4NKfE/cHwXc7WnbGGewxhQ/ZkFwkz89ZZfl4eC1WZe0EJUdCrc0CpFFIPKcYN6VU7H2UbybU1tY0vptiDWl6X9WrgXO3jjuCkSSCZwjuaKKPGiNDjZ67ySR9jMVgmLqq+jOdUQsTTsiTOjAhyuvZ490q66MZvykV/ri6ZyWmaT3CnCrjrwuciLhT6tQrdUSddkBOF0gC/x3FPKo8HiWx0NKiT5sPp50EBnhMC0h6MaX2zBh/y+Uoc+hJuqPUnI1J6Hf"},{"arguments":"{\"city\":\"London\"}","call_id":"call-093bfe54-e412-482c-8f07-f1f0e6a02b5b-0","name":"get_weather","type":"function_call","id":"fc_134e6b48-bd3e-9868-a7d8-1132c145b3f7_0","status":"completed"}],"parallel_tool_calls":true,"previous_response_id":null,"reasoning":{"effort":null,"summary":null},"temperature":0.7,"text":{"format":{"type":"text"}},"tool_choice":"auto","tools":[{"type":"function","description":"Gets the current weather for a city","name":"get_weather","parameters":{"type":"object","required":["city"],"properties":{"city":{"type":"string","description":"City name"}}},"strict":null}],"top_p":0.95,"usage":{"input_tokens":285,"input_tokens_details":{"cached_tokens":128},"output_tokens":87,"output_tokens_details":{"reasoning_tokens":77},"total_tokens":372,"num_sources_used":0,"num_server_side_tools_used":0,"cost_in_usd_ticks":4393500,"context_details":{"input_tokens":285,"output_tokens":90}},"user":null,"incomplete_details":null,"status":"completed","store":false,"metadata":{"system_fingerprint":"fp_eb3c003fc66c14ed"},"background":false,"service_tier":"default","truncation":"disabled","top_logprobs":0,"presence_penalty":0.0,"frequency_penalty":0.0,"prompt_cache_key":null,"max_tool_calls":null,"safety_identifier":null,"error":null,"instructions":null}}
+

@@ -19,6 +19,7 @@ defmodule Omni.Provider.Builtins do
     opencode: Omni.Providers.OpenCode,
     openrouter: Omni.Providers.OpenRouter,
     venice: Omni.Providers.Venice,
+    xai: Omni.Providers.XAI,
     zai: Omni.Providers.Zai
   }
 

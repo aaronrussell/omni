@@ -87,6 +87,7 @@ defmodule Omni.Sources.ModelsDev do
     "@ai-sdk/mistral" => "openai_completions",
     "@ai-sdk/openai" => "openai_responses",
     "@ai-sdk/openai-compatible" => "openai_completions",
+    "@ai-sdk/xai" => "openai_responses",
     "@openrouter/ai-sdk-provider" => "openai_completions",
     "venice-ai-sdk-provider" => "openai_completions"
   }
