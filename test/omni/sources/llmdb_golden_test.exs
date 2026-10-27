@@ -12,16 +12,21 @@ if Code.ensure_loaded?(LLMDB) do
     # reads app config that other sync tests may set temporarily.
     use ExUnit.Case, async: false
 
+    import ExUnit.CaptureLog
+
     alias Omni.Provider.Loader
 
     # Assembled without touching the store, so llm_db models never leak into
-    # tests that read the boot-time catalog.
+    # tests that read the boot-time catalog. Load warnings (models skipped for
+    # having no dialect) are captured, not printed mid-run.
     setup_all do
-      models =
-        Omni.Source.with_cache(fn ->
-          Map.new(Omni.Provider.builtins(), fn id ->
-            {_provider, models} = Loader.assemble(id, source: Omni.Sources.LLMDB)
-            {id, models}
+      {models, _log} =
+        with_log(fn ->
+          Omni.Source.with_cache(fn ->
+            Map.new(Omni.Provider.builtins(), fn id ->
+              {_provider, models} = Loader.assemble(id, source: Omni.Sources.LLMDB)
+              {id, models}
+            end)
           end)
         end)
 
