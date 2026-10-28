@@ -532,12 +532,12 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       end
     end
 
-    test "thinking: true uses dynamic thinking (-1)" do
+    test "thinking: true uses the medium budget" do
       context = Context.new("Hello")
       body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: true})
 
       assert body["generationConfig"]["thinkingConfig"] == %{
-               "thinkingBudget" => -1,
+               "thinkingBudget" => 4096,
                "includeThoughts" => true
              }
     end
@@ -639,10 +639,13 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       refute Map.has_key?(body["generationConfig"]["thinkingConfig"], "thinkingBudget")
     end
 
-    test "thinking: true sends no level, leaving the model dynamic" do
+    test "thinking: true sends the medium level" do
       body = GoogleGemini.handle_body(@gemini3_model, Context.new("Hello"), %{thinking: true})
 
-      assert body["generationConfig"]["thinkingConfig"] == %{"includeThoughts" => true}
+      assert body["generationConfig"]["thinkingConfig"] == %{
+               "thinkingLevel" => "medium",
+               "includeThoughts" => true
+             }
     end
 
     test "thinking: false sends nothing — Gemini 3 can't switch thinking off" do

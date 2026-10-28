@@ -16,9 +16,13 @@ defmodule Omni.Dialect.ThinkingTest do
       assert Thinking.resolve(model(false), true) == nil
     end
 
-    test "true is dynamic" do
-      assert Thinking.resolve(model(true), true) == :dynamic
-      assert Thinking.resolve(model(%{toggle: true}), true) == :dynamic
+    test "true is :medium" do
+      assert Thinking.resolve(model(true), true) == %{level: :medium, effort: nil, budget: 4096}
+
+      assert Thinking.resolve(model(%{toggle: true}), true) ==
+               %{level: :medium, effort: nil, budget: nil}
+
+      assert %{effort: "high"} = Thinking.resolve(model(%{efforts: ["low", "high"]}), true)
     end
 
     test "false is :off when the model can switch off" do

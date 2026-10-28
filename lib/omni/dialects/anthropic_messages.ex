@@ -183,11 +183,6 @@ defmodule Omni.Dialects.AnthropicMessages do
       :off ->
         Map.put(body, "thinking", %{"type" => "disabled"})
 
-      :dynamic ->
-        if adaptive?(model),
-          do: put_adaptive(body, nil),
-          else: apply_thinking(body, model, :medium)
-
       %{effort: effort, level: level, budget: budget} ->
         if adaptive?(model),
           do: put_adaptive(body, effort || Atom.to_string(level)),
@@ -199,7 +194,7 @@ defmodule Omni.Dialects.AnthropicMessages do
     body
     |> Map.delete("temperature")
     |> Map.put("thinking", %{"type" => "adaptive", "display" => "summarized"})
-    |> maybe_put("output_config", if(effort, do: %{"effort" => effort}))
+    |> Map.put("output_config", %{"effort" => effort})
   end
 
   defp put_budget(body, budget) do

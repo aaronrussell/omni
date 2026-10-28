@@ -61,14 +61,10 @@ defmodule Omni.Dialects.OllamaChat do
     case Dialect.Thinking.resolve(model, option) do
       nil -> nil
       :off -> false
-      :dynamic -> if efforts?(model), do: encode_thinking(model, :medium), else: true
       %{effort: nil} -> true
       %{effort: effort} -> effort
     end
   end
-
-  defp efforts?(%Model{thinking: %{efforts: _}}), do: true
-  defp efforts?(_model), do: false
 
   # Output schema
 

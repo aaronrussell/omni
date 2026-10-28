@@ -181,9 +181,6 @@ defmodule Omni.Dialects.OpenAIResponses do
       :off ->
         %{"effort" => "none"}
 
-      :dynamic ->
-        encode_thinking(model, :medium)
-
       %{effort: effort, level: level} ->
         %{"effort" => effort || effort_string(level), "summary" => "auto"}
     end

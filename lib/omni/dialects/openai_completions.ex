@@ -121,11 +121,6 @@ defmodule Omni.Dialects.OpenAICompletions do
       :off ->
         put_toggle(body, toggle, false)
 
-      :dynamic ->
-        if toggle && not match?(%{efforts: _}, model.thinking),
-          do: put_toggle(body, toggle, true),
-          else: apply_thinking(body, model, :medium, compat)
-
       %{effort: effort, level: level, budget: budget} ->
         cond do
           effort -> put_path(body, effort_field, effort)

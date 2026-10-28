@@ -51,8 +51,7 @@ defmodule Omni.Dialects.GoogleGemini do
   # Thinking
   #
   # Models listing effort values (Gemini 3) take thinkingLevel, matched by
-  # name; the rest (Gemini 2.5) take thinkingBudget, where -1 is "dynamic"
-  # (the model picks a budget). Gemini 3 is dynamic when no level is sent.
+  # name; the rest (Gemini 2.5) take thinkingBudget.
 
   defp encode_thinking(model, option) do
     case Dialect.Thinking.resolve(model, option) do
@@ -61,11 +60,6 @@ defmodule Omni.Dialects.GoogleGemini do
 
       :off ->
         thinking_config(%{"thinkingBudget" => 0})
-
-      :dynamic ->
-        if efforts?(model),
-          do: thinking_config(%{"includeThoughts" => true}),
-          else: thinking_config(%{"thinkingBudget" => -1, "includeThoughts" => true})
 
       %{effort: effort} when is_binary(effort) ->
         thinking_config(%{"thinkingLevel" => effort, "includeThoughts" => true})
@@ -77,9 +71,6 @@ defmodule Omni.Dialects.GoogleGemini do
   end
 
   defp thinking_config(config), do: %{"thinkingConfig" => config}
-
-  defp efforts?(%Model{thinking: %{efforts: _}}), do: true
-  defp efforts?(_model), do: false
 
   # Output schema
 

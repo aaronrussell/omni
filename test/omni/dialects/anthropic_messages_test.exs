@@ -506,7 +506,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       refute Map.has_key?(body, "output_config")
     end
 
-    test "thinking: true on an adaptive model sends no effort" do
+    test "thinking: true on an adaptive model sends the medium effort" do
       body =
         AnthropicMessages.handle_body(@adaptive_model, Context.new("Hello"), %{
           thinking: true,
@@ -514,7 +514,7 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
         })
 
       assert body["thinking"] == %{"type" => "adaptive", "display" => "summarized"}
-      refute Map.has_key?(body, "output_config")
+      assert body["output_config"] == %{"effort" => "medium"}
       assert body["max_tokens"] == 4096
     end
 

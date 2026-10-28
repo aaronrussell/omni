@@ -1262,7 +1262,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
                %{"enable_thinking" => false}
 
       assert body(model, %{thinking: true}) |> Map.take(["enable_thinking", "thinking_budget"]) ==
-               %{"enable_thinking" => true}
+               %{"enable_thinking" => true, "thinking_budget" => 4096}
     end
 
     test "models with effort values get the effort and no budget" do

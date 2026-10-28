@@ -7,6 +7,7 @@ defmodule Omni.Dialect.Thinking do
   `Omni.Model`) decides what is sent, so every dialect agrees on how levels
   map to a model's effort values and budgets:
 
+    * `true` is `:medium`.
     * Effort levels are clamped to the model's values on one ladder,
       `minimal < low < medium < high < xhigh < max`: round up to the nearest
       supported value, else down. A model whose only "on" value is
@@ -20,8 +21,6 @@ defmodule Omni.Dialect.Thinking do
     * `nil` — send nothing: thinking wasn't requested, the model doesn't
       reason, or it was switched off on a model that can't be switched off
     * `:off` — switch thinking off
-    * `:dynamic` — on, and the model decides how much (`thinking: true`). A
-      dialect with no native dynamic mode resolves `:medium` instead.
     * a map — on, with:
       * `:level` — the requested Omni level
       * `:effort` — the model's effort value for that level, or `nil` when
@@ -46,7 +45,6 @@ defmodule Omni.Dialect.Thinking do
   @type t ::
           nil
           | :off
-          | :dynamic
           | %{level: level(), effort: String.t() | nil, budget: non_neg_integer() | nil}
 
   @doc """
@@ -60,7 +58,7 @@ defmodule Omni.Dialect.Thinking do
   def resolve(%Model{thinking: false}, _option), do: nil
   def resolve(_model, nil), do: nil
   def resolve(model, false), do: if(switchable?(model), do: :off)
-  def resolve(_model, true), do: :dynamic
+  def resolve(model, true), do: on(model, :medium, nil)
   def resolve(model, level) when is_atom(level), do: on(model, level, nil)
 
   def resolve(model, %{} = option) do

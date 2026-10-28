@@ -190,8 +190,7 @@ defmodule Omni do
     * `:max_tokens` — maximum output tokens (Anthropic defaults to 4096)
     * `:temperature` — sampling temperature (number)
     * `:thinking` — extended thinking. Ignored for models that don't reason.
-      * `true` — on, and the model decides how much: its dynamic mode where
-        it has one, otherwise `:medium`
+      * `true` — on, at `:medium`
       * `:low`, `:medium`, `:high`, `:xhigh` or `:max` — an effort level,
         rounded to the nearest the model supports, or turned into a token
         budget for models that take one

@@ -103,7 +103,7 @@ config :omni, :providers,
 
 ## Requests
 
-**`thinking: true` is dynamic thinking.** *(phase 2)* "On, the model decides": Anthropic adaptive thinking with no effort, Gemini 2.5 `thinkingBudget: -1`, Gemini 3 with no level; switch-only models switch on; elsewhere `:medium`.
+**`thinking: true` is `:medium`.** *(phase 2)* The same request as `thinking: :medium` on every model: switch-only models switch on, Claude adaptive models get effort `"medium"`, Gemini 3 level `"medium"`, Gemini 2.5 a 4096 budget.
 
 **Thinking levels follow each model's capabilities.** *(phase 2)* A level rounds up to the nearest effort the model accepts, else down (so `:max` on gpt-oss sends `"high"`, `:low` on a `["minimal", "high"]` model sends `"high"`). Budget models get a budget from the level (low 1024, medium 4096, high 16384, xhigh 24576, max 32768), clamped to the model's range; `%{budget: n}` sets it exactly, on budget models only. `thinking: false` sends nothing to a model that can't switch off. Behaviour changes:
 - Gemini 3 levels match by name (`:high` → `"high"`, was `"medium"`); `thinking: false` sends nothing to Gemini 3; Gemini 2.5 budgets follow the shared table and `:max` is the model's maximum budget (was `-1`).

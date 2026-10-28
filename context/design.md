@@ -588,11 +588,11 @@ Shared by all five dialects and public, so custom dialects agree too. `resolve(m
 
 - `nil` -- send nothing: option unset, model doesn't reason, or off requested on a model whose data shows no way to switch off.
 - `:off` -- switch off (toggle, `"none"` in efforts, or no data).
-- `:dynamic` -- `thinking: true`: on, the model decides. A dialect with no native dynamic mode resolves `:medium` instead.
 - `%{level, effort, budget}` -- on. `effort` is the model's value for the level, or `nil` with no effort list. `budget` is set when the model has a budget range or no data at all.
 
 Rules:
 
+- **`true` is `:medium`**, the same request a dialect builds for `:medium`.
 - **One ladder:** `minimal < low < medium < high < xhigh < max`. A level clamps to the model's efforts: round up to the nearest supported value, else down. On never crosses into off.
 - **`"default"`** is sent for any "on" request when it is the model's only "on" value (Groq Qwen).
 - **Budgets** come from one table -- low 1024, medium 4096, high 16384, xhigh 24576, max 32768 -- clamped to the model's range. `%{effort:, budget:}` sets an exact budget, on budget models only; elsewhere its effort applies.
@@ -602,10 +602,12 @@ Rules:
 | Dialect | Encoding |
 |---|---|
 | OpenAI Completions | **Off:** the `thinking_toggle_format` spelling if set, else `"none"` at `thinking_effort_field`. **On, model has efforts:** the effort at `thinking_effort_field`, even when a toggle format is set. **On, no efforts:** the toggle if set (plus a budget at `thinking_budget_field` when set and the model takes one), else the level's effort string. `omit: [:thinking]` sends nothing |
-| OpenAI Responses | `reasoning.effort` (clamped), `"none"` for off, `summary: "auto"`. Dynamic resolves `:medium`. With no data, `:max` sends `"xhigh"` |
-| Anthropic Messages | **Efforts and no budget range** (Claude 5, Opus 4.7+): adaptive (`thinking.type: "adaptive"`, plus `output_config.effort` unless dynamic). **Budget range, or no data:** `enabled` with `budget_tokens`, added to `max_tokens`; dynamic resolves `:medium`. **Off:** `disabled`. Temperature is dropped when thinking is on |
-| Google Gemini | **Efforts** (Gemini 3): `thinkingLevel` matched by name; dynamic sends no level. **Budget or no data** (Gemini 2.5): `thinkingBudget`; dynamic is `-1`. **Off:** `thinkingBudget: 0`, only where the model can be switched off |
-| Ollama Chat | **Efforts:** the clamped string (dynamic resolves `:medium`). **Toggle or no data:** boolean |
+| OpenAI Responses | `reasoning.effort` (clamped), `"none"` for off, `summary: "auto"`. With no data, `:max` sends `"xhigh"` |
+| Anthropic Messages | **Efforts and no budget range** (Claude 5, Opus 4.7+): adaptive (`thinking.type: "adaptive"` plus `output_config.effort`). **Budget range, or no data:** `enabled` with `budget_tokens`, added to `max_tokens`. **Off:** `disabled`. Temperature is dropped when thinking is on |
+| Google Gemini | **Efforts** (Gemini 3): `thinkingLevel` matched by name. **Budget or no data** (Gemini 2.5): `thinkingBudget`. **Off:** `thinkingBudget: 0`, only where the model can be switched off |
+| Ollama Chat | **Efforts:** the clamped string. **Toggle or no data:** boolean |
+
+Not adopted: a dynamic mode (`true` meaning "on, the model decides"). On current models adapting is how thinking works, not a mode to switch on: Claude 4.6+ adaptive thinking and Gemini 3 take the effort as a guide, and OpenAI models choose within an effort. Only Gemini 2.5 (`thinkingBudget: -1`) has a separate dynamic setting. Sending no level where an API allows it handed users the provider's default (`high` on Claude and Gemini 3) on some models and Omni's `:medium` on others, so `true` is one Omni default instead. Prior art has no cross-provider dynamic value either: pi takes levels only, ai-sdk's `'provider-default'` sends nothing (Omni's unset), and req_llm's `:default` sends adaptive with `"medium"` on Anthropic and nothing on OpenAI.
 
 Older models need not be perfect: Opus 4.5 and 4.6 moved from adaptive to budget thinking when their hard-coded prefix list went. Anthropic's `@strict_sampling_prefixes` (Opus 4.7 rejects non-default sampling) is unrelated to thinking and stays.
 
