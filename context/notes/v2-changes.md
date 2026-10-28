@@ -60,6 +60,8 @@ config :omni, :providers,
 
 **New built-in: Mistral (`:mistral`).** *(Mistral)* Mistral AI over Chat Completions, reading `MISTRAL_API_KEY`. Reasoning models take one effort, so every `:thinking` level sends `"high"`, and earlier thinking goes back as a thinking chunk at the head of the assistant message. Both sources now map `@ai-sdk/mistral` to Completions, so OpenCode Zen's `mistral-large-4` loads (it was skipped with a warning).
 
+**New built-in: Together AI (`:togetherai`).** *(Together)* Together AI over Chat Completions, reading `TOGETHER_API_KEY`. Hybrid models switch thinking with `reasoning: {enabled: ...}`; effort models take `reasoning_effort`. Earlier reasoning is not sent back. Both sources map `@ai-sdk/togetherai` to Completions. The Completions parser also reads cached tokens reported flat on `usage` and Together's `"eos"` finish reason.
+
 **New built-in: xAI (`:xai`).** *(xAI)* Grok models over the Responses API, reading `XAI_API_KEY`. Reasoning carries across turns as encrypted content. `thinking: false` switches off only models that list a `"none"` effort (`grok-4.3`); models with no effort data (`grok-4.20-0309-reasoning`, `grok-build-0.1`) get no `reasoning` at all, since they reject any effort. Both sources map `@ai-sdk/xai` to Responses, and llm_db's models (described as Chat Completions) are moved to Responses on load.
 
 **Provider modules changed shape.** *(phase 1)*

@@ -655,6 +655,12 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       end
     end
 
+    test "Together eos finish_reason maps to :stop" do
+      event = %{"choices" => [%{"index" => 0, "delta" => %{}, "finish_reason" => "eos"}]}
+
+      assert [{:message, %{stop_reason: :stop}}] = OpenAICompletions.handle_event(event, @model)
+    end
+
     test "content as a list of thinking and text chunks" do
       event = %{
         "choices" => [
@@ -794,6 +800,22 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert [{:message, %{usage: usage}}] = OpenAICompletions.handle_event(event, @model)
       assert usage["input_tokens"] == 26
       assert usage["output_tokens"] == 17
+      assert usage["cache_read_tokens"] == 20
+    end
+
+    test "usage takes cached tokens reported flat on usage (Together)" do
+      event = %{
+        "choices" => [],
+        "usage" => %{
+          "prompt_tokens" => 46,
+          "completion_tokens" => 17,
+          "total_tokens" => 63,
+          "cached_tokens" => 20
+        }
+      }
+
+      assert [{:message, %{usage: usage}}] = OpenAICompletions.handle_event(event, @model)
+      assert usage["input_tokens"] == 26
       assert usage["cache_read_tokens"] == 20
     end
 

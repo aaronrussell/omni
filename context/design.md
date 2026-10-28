@@ -15,7 +15,7 @@ The design separates three distinct concerns:
 - **Providers** -- data describing a specific service: where requests go, how they authenticate, and how it deviates from the wire format it speaks
 - **Dialects** -- code for the wire format of a family of APIs (how requests are built and responses are parsed)
 
-The relationship: there are five dialects, hundreds of possible providers (15 built-ins; any provider in the models.dev catalog loads by id; most speak one dialect, though gateways like OpenCode Zen use several), and thousands of models (each belonging to one provider). Each `%Model{}` embeds its `%Provider{}` and names its dialect per capability (`dialects: %{text: Module}`), so dispatch is always per-model and nothing is looked up at request time.
+The relationship: there are five dialects, hundreds of possible providers (16 built-ins; any provider in the models.dev catalog loads by id; most speak one dialect, though gateways like OpenCode Zen use several), and thousands of models (each belonging to one provider). Each `%Model{}` embeds its `%Provider{}` and names its dialect per capability (`dialects: %{text: Module}`), so dispatch is always per-model and nothing is looked up at request time.
 
 ---
 
@@ -306,7 +306,7 @@ Omni doesn't call a provider "verified". Verification is per model and per day (
 
 ### Built-in providers
 
-Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the fifteen built-in ids to `Omni.Providers.*` modules, and each module's `config/0` *is* the built-in overlay: its base URL, key variable, and compat, set explicitly even where the catalog agrees, so `like:` has a complete set to copy. Their moduledocs are the per-provider reference (quirks, regions, the flags they set). Modules carry no id; the Builtins map supplies it, and other providers attach a module with `module:` in config.
+Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the sixteen built-in ids to `Omni.Providers.*` modules, and each module's `config/0` *is* the built-in overlay: its base URL, key variable, and compat, set explicitly even where the catalog agrees, so `like:` has a complete set to copy. Their moduledocs are the per-provider reference (quirks, regions, the flags they set). Modules carry no id; the Builtins map supplies it, and other providers attach a module with `module:` in config.
 
 | Id | Module | Dialect | Module code beyond `config/0` |
 |---|---|---|---|
@@ -322,6 +322,7 @@ Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the fifteen bui
 | `:openai` | `OpenAI` | Responses | -- |
 | `:opencode` | `OpenCode` | per model | -- |
 | `:openrouter` | `OpenRouter` | Completions | -- |
+| `:togetherai` | `Together` | Completions | -- |
 | `:venice` | `Venice` | Completions | `models/2`: adds `:pdf` to every model |
 | `:xai` | `XAI` | Responses | `models/2`: re-stamps every model to Responses; `modify_body/4`: no `reasoning` without effort data |
 | `:zai` | `Zai` | Completions | -- |
@@ -530,6 +531,7 @@ All on `Omni.Dialects.OpenAICompletions`. Anthropic, Google, OpenAI, OpenCode, G
 | Moonshot | `thinking_toggle_format: :thinking_type` | `thinking: {type: ...}` on toggle models. `max_completion_tokens` is honoured; `reasoning_content` replay was not needed in tool loops |
 | NearAI | `max_tokens_field: "max_tokens"`, `omit: [:cache, :thinking, :strict_schema]` | Ported from v1; not verified live (no key) |
 | OpenRouter | `thinking_effort_field: "reasoning.effort"`, `thinking_replay_format: :reasoning_details` | Nested effort; `reasoning_details` must round-trip in multi-turn |
+| Together | `max_tokens_field: "max_tokens"`, `thinking_toggle_format: :reasoning_enabled`, `omit: [:cache]` | No `max_completion_tokens`; hybrid models switch with `reasoning: {enabled: ...}` (`reasoning_effort` takes no `"none"`); caching is automatic, with no retention field |
 | Venice | `thinking_toggle_format: :reasoning_enabled` | Venice recommends `reasoning: {enabled: false}` over `reasoning_effort: "none"` |
 | Z.ai | `max_tokens_field: "max_tokens"`, `thinking_toggle_format: :thinking_type`, `output_format: :json_object`, `attachment_format: :file_url` | Ignores `max_completion_tokens`; no JSON Schema constraints; files as `file_url` parts |
 
@@ -557,7 +559,7 @@ The cost: `extra_body` is provider-wide and unconditional. A field only some mod
 
 #### Parse tolerantly, encode by flag
 
-No library surveyed uses flags to parse Completions streams, and Omni doesn't either. The Completions parser is a union: `reasoning_content` or `reasoning`, `content` as a string or a list of thinking and text chunks (Mistral), tool calls with or without `index` and with arguments as a string or an object (Mistral), every known finish reason (including Z.ai's and Mistral's), packed chunks (Venice), in-stream errors. All variation is on the encode side.
+No library surveyed uses flags to parse Completions streams, and Omni doesn't either. The Completions parser is a union: `reasoning_content` or `reasoning`, `content` as a string or a list of thinking and text chunks (Mistral), tool calls with or without `index` and with arguments as a string or an object (Mistral), every known finish reason (including Z.ai's, Mistral's and Together's), cached tokens under `prompt_tokens_details` or flat on `usage` (Together), packed chunks (Venice), in-stream errors. All variation is on the encode side.
 
 The one parse-side read of compat is capture for replay: with `thinking_replay_format: :reasoning_details`, the dialect stashes `reasoning_details` into `Message.private` while parsing and sends them back on that assistant message when encoding. Capture and replay share the flag, so data is only collected when it will be sent back. That is why `handle_event/2` receives the model.
 

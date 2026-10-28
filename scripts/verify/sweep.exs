@@ -37,33 +37,27 @@ loop_off = [add: [:no_thinking, :kitchen_sink]]
 off = [add: [:no_thinking]]
 
 matrix = [
+  {:alibaba, "qwen3.8-flash", add: [:no_thinking, :image, :kitchen_sink, :cache_usage]},
+  {:alibaba, "qwen3.8-max", add: [:no_thinking, :pdf]},
   {:anthropic, "claude-haiku-5-5", all},
   {:anthropic, "claude-opus-5-5", loop},
-  {:openai, "gpt-6-luna", all},
-  {:openai, "gpt-6-astra", loop},
   # Gemini's implicit cache never reported a hit in testing, even 60s apart.
   {:google, "gemini-3.8-flash", add: [:image, :pdf, :kitchen_sink]},
   {:google, "gemini-3.5-flash-lite", []},
   {:groq, "openai/gpt-oss-120b", loop},
   {:groq, "qwen/qwen3.8-27b", add: [:no_thinking, :image]},
-  {:moonshotai, "kimi-k3", add: [:image, :kitchen_sink, :cache_usage]},
-  # The free tier serves Ministral only; Mistral's reasoning models run
+  # Mistral free tier serves Ministral only; Mistral's reasoning models verified
   # through OpenCode Zen, which passes Mistral's wire through.
   {:mistral, "ministral-8b-2512", add: [:image], skip: [:thinking]},
-  {:alibaba, "qwen3.8-flash", add: [:no_thinking, :image, :kitchen_sink, :cache_usage]},
-  {:alibaba, "qwen3.8-max", add: [:no_thinking, :pdf]},
-  {:zai, "glm-5.3-flash", add: [:image, :pdf, :kitchen_sink, :cache_usage]},
-  {:zai, "glm-4.7-flash", off},
-  {:venice, "qwen-3-8-flash", add: [:no_thinking, :image, :pdf, :kitchen_sink]},
-  {:venice, "claude-haiku-5-5", off},
+  {:moonshotai, "kimi-k3", add: [:image, :kitchen_sink, :cache_usage]},
   {:nearai, "zai-org/GLM-5.1-FP8", off},
-  {:xai, "grok-4.3", all},
-  {:xai, "grok-4.7", loop},
   # Fails structured_output: Ollama Cloud doesn't enforce `format` (gemma4 and
   # gpt-oss:20b answer in prose; local Ollama passes). Kept as a known failure.
   {:ollama_cloud, "gemma4:31b", add: [:no_thinking, :image, :kitchen_sink]},
   {:ollama, [id: "qwen3.8:27b-mlx", thinking: true, input_modalities: [:text, :image]],
    add: [:no_thinking, :image, :kitchen_sink]},
+  {:openai, "gpt-6-luna", all},
+  {:openai, "gpt-6-astra", loop},
   {:opencode, "claude-haiku-5-5", off},
   {:opencode, "gpt-6-luna", off},
   {:opencode, "deepseek-v4.1-flash", []},
@@ -72,7 +66,20 @@ matrix = [
   {:openrouter, "anthropic/claude-haiku-5.5", loop_off},
   {:openrouter, "openai/gpt-6-luna", loop_off},
   {:openrouter, "google/gemini-3.8-flash", loop},
-  {:openrouter, "deepseek/deepseek-v4.1-flash", loop_off}
+  {:openrouter, "deepseek/deepseek-v4.1-flash", loop_off},
+  {:togetherai, "Qwen/Qwen3.5-9B", add: [:no_thinking, :image, :kitchen_sink]},
+  {:togetherai, "openai/gpt-oss-120b", loop},
+  # Fails no_thinking: it reasons through `reasoning: {enabled: false}`. Kept
+  # as a known failure.
+  {:togetherai, "deepseek-ai/DeepSeek-V4-Pro-0813", loop_off},
+  {:togetherai, "zai-org/GLM-5.3-Flash", add: [:image, :kitchen_sink, :cache_usage]},
+  {:togetherai, "moonshotai/Kimi-K3", add: [:image, :kitchen_sink, :cache_usage]},
+  {:venice, "qwen-3-8-flash", add: [:no_thinking, :image, :pdf, :kitchen_sink]},
+  {:venice, "claude-haiku-5-5", off},
+  {:xai, "grok-4.3", all},
+  {:xai, "grok-4.7", loop},
+  {:zai, "glm-5.3-flash", add: [:image, :pdf, :kitchen_sink, :cache_usage]},
+  {:zai, "glm-4.7-flash", off}
 ]
 
 results_dir = Path.join(__DIR__, "results")

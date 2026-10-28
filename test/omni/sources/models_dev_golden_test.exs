@@ -51,6 +51,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
     openai: 20..100,
     opencode: 25..125,
     openrouter: 120..640,
+    togetherai: 8..45,
     venice: 35..180,
     xai: 4..18,
     zai: 7..35

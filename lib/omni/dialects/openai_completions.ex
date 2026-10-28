@@ -530,8 +530,9 @@ defmodule Omni.Dialects.OpenAICompletions do
   defp normalize_usage(nil), do: nil
 
   # `prompt_tokens` includes cached tokens; Omni's `input_tokens` doesn't.
+  # Some servers (Together) report the cached count flat on `usage`.
   defp normalize_usage(usage) do
-    cached = get_in(usage, ["prompt_tokens_details", "cached_tokens"])
+    cached = get_in(usage, ["prompt_tokens_details", "cached_tokens"]) || usage["cached_tokens"]
 
     %{}
     |> maybe_put("input_tokens", uncached(usage["prompt_tokens"], cached))
@@ -553,6 +554,9 @@ defmodule Omni.Dialects.OpenAICompletions do
   # Mistral
   defp normalize_stop_reason("model_length"), do: :length
   defp normalize_stop_reason("error"), do: :error
+
+  # Together
+  defp normalize_stop_reason("eos"), do: :stop
 
   # Non-standard finish_reason values seen in the wild (GLM models), kept in
   # the one union table.

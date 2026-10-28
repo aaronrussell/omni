@@ -58,6 +58,7 @@ if Code.ensure_loaded?(LLMDB) do
       openai: 20..100,
       opencode: 35..180,
       openrouter: 120..640,
+      togetherai: 14..70,
       venice: 35..180,
       xai: 18..90,
       zai: 7..35

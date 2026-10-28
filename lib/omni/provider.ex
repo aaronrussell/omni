@@ -28,6 +28,7 @@ defmodule Omni.Provider do
   | `:openai` | `Omni.Providers.OpenAI` | `Omni.Dialects.OpenAIResponses` | `OPENAI_API_KEY` |
   | `:opencode` | `Omni.Providers.OpenCode` | per model | `OPENCODE_API_KEY` |
   | `:openrouter` | `Omni.Providers.OpenRouter` | `Omni.Dialects.OpenAICompletions` | `OPENROUTER_API_KEY` |
+  | `:togetherai` | `Omni.Providers.Together` | `Omni.Dialects.OpenAICompletions` | `TOGETHER_API_KEY` |
   | `:venice` | `Omni.Providers.Venice` | `Omni.Dialects.OpenAICompletions` | `VENICE_API_KEY` |
   | `:xai` | `Omni.Providers.XAI` | `Omni.Dialects.OpenAIResponses` | `XAI_API_KEY` |
   | `:zai` | `Omni.Providers.Zai` | `Omni.Dialects.OpenAICompletions` | `ZAI_API_KEY` |
