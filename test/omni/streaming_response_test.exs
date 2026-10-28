@@ -169,6 +169,30 @@ defmodule Omni.StreamingResponseTest do
     end
   end
 
+  describe "origin" do
+    test "the message records the model and its dialect" do
+      model = Fixtures.model(id: "test-model", dialect: AnthropicMessages)
+
+      events = [
+        {:block_delta, %{type: :text, index: 0, delta: "Hi"}},
+        {:message, %{stop_reason: :stop}}
+      ]
+
+      {:done, _, resp} = events |> collect_scripted(model: model) |> List.last()
+      assert resp.message.origin == %{model: {:test, "test-model"}, dialect: AnthropicMessages}
+    end
+
+    test "is nil without a model" do
+      events = [
+        {:block_delta, %{type: :text, index: 0, delta: "Hi"}},
+        {:message, %{stop_reason: :stop}}
+      ]
+
+      {:done, _, resp} = events |> collect_scripted() |> List.last()
+      assert resp.message.origin == nil
+    end
+  end
+
   describe "private data" do
     test "accumulated on Message.private" do
       events = [

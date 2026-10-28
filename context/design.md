@@ -650,6 +650,7 @@ defmodule Omni.Message do
     :role,            # :user | :assistant
     content: [],      # list of content blocks
     timestamp: nil,   # DateTime, local metadata -- not from the API
+    origin: nil,      # %{model: {provider_id, model_id}, dialect: module} on assistant messages Omni produced
     private: %{}      # provider-specific opaque round-trip data
   ]
 
@@ -662,6 +663,18 @@ end
 ```
 
 `private` holds data a dialect captures while parsing and must send back when encoding the same message later -- OpenRouter's `reasoning_details` is the current example. Keys are flat atoms; dialects write and read them, users don't. Provider-specific data goes here, not on content blocks.
+
+`origin` records which model wrote an assistant message and the dialect it spoke. `StreamingResponse` stamps it; user messages, and messages built by hand, have none. `Codec` writes it readably (`%{"model" => "provider/model", "dialect" => "Omni.Dialects.AnthropicMessages"}`), and a provider or dialect unknown to the decoding node decodes as `nil`. It is a field, not a `private` key, because Omni core writes and reads it (dialects don't), and because "which model wrote this" is useful to users too.
+
+#### Replay across models
+
+Thinking, signatures and `private` go back only to the provider and dialect that produced them. Before the dialect encodes, `Request.build/3` strips every assistant message whose origin differs from the target's provider or dialect, or is `nil`: thinking blocks are dropped, `signature` is cleared on text and tool uses, `private` is emptied, and a message left with no content is dropped. Text and tool uses always go through. Within one provider and dialect everything is sent, whatever the model: Anthropic, OpenAI and Google document that their APIs drop reasoning the target model can't read, and OpenRouter does the same across its upstreams.
+
+Why both keys: another provider's signatures fail validation (OpenAI's encrypted reasoning sent to Anthropic: `Invalid signature in thinking block`), and the dialect matters on multi-dialect gateways (OpenCode Zen's GPT reasoning sent to its Claude models fails the same way). Readable thinking from another provider is dropped too, rather than sent as reasoning to Completions providers that would take it, so there is one rule; turning it into visible text (pi's old behaviour) makes the new model write its reasoning into the answer. pi drops thinking from any other model, keyed by model; ai-sdk and req_llm key by provider. Keying by model would lose continuity on a switch within one provider, against Anthropic's guidance to keep sending blocks unchanged.
+
+What the target then needs, the dialect fills: Anthropic never sends a thinking block without a signature (a stream cut off mid-block), and Gemini puts Google's `skip_thought_signature_validator` sentinel on the first unsigned tool use of each step in the current turn (from the last user message that isn't only tool results), since Gemini 3 rejects an unsigned function call there. Anthropic's adaptive mode doesn't require leading thinking on a tool-use turn, so a foreign tool loop continues there without one.
+
+Verified live with a one-off script (2026-10-28): every same-provider switch tested passed unchanged (Haiku 5.5 to Opus 5.5, gpt-6-luna to astra, Gemini 3.8 Flash and 3.5 Flash-Lite both ways, grok-4.3 to 4.7, OpenRouter Claude, GPT and Gemini); foreign thinking failed on Claude and passed once dropped, mid tool loop too; Gemini 3 needed the sentinel, literal or base64.
 
 **Why structs, not plain maps?** Structs give field validation at construction time, better documentation through typespecs, and pattern matching on the struct name. A typo like `%{roles: :user}` silently passes with maps; `%Message{roles: :user}` blows up at compile time.
 

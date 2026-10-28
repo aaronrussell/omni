@@ -17,8 +17,8 @@ defmodule Omni.Request do
   #   - validate_context/2 — checks attachment media types against model modalities
   @moduledoc false
 
-  alias Omni.Content.Attachment
-  alias Omni.{Context, Model, Parsers, Provider, StreamingResponse}
+  alias Omni.Content.{Attachment, Text, Thinking, ToolUse}
+  alias Omni.{Context, Message, Model, Parsers, Provider, StreamingResponse}
 
   import Omni.Util, only: [maybe_put: 3]
 
@@ -56,6 +56,8 @@ defmodule Omni.Request do
 
     with {:ok, opts} <- validate(model, opts),
          :ok <- validate_context(model, context) do
+      context = drop_foreign_replay(context, provider, dialect)
+
       # Some catalog base URLs end in a slash; dialect paths start with one.
       url = String.trim_trailing(opts.base_url, "/") <> dialect.handle_path(model, opts)
 
@@ -173,6 +175,44 @@ defmodule Omni.Request do
 
   defp dialect!(%Model{id: id}) do
     raise ArgumentError, "model #{inspect(id)} has no text dialect"
+  end
+
+  # Thinking, signatures and `private` go back only to the provider and
+  # dialect that produced them: another API's signatures fail validation, and
+  # another model's readable thinking would pass as this model's own. Within
+  # one provider and dialect everything is sent, and the API drops what the
+  # model can't read. A message with no origin counts as foreign. One left
+  # empty (it held only thinking) is dropped, since APIs reject empty turns.
+  defp drop_foreign_replay(%Context{} = context, %Provider{id: provider_id}, dialect) do
+    messages =
+      Enum.flat_map(context.messages, fn
+        %Message{role: :assistant, origin: %{model: {^provider_id, _}, dialect: ^dialect}} = msg ->
+          [msg]
+
+        %Message{role: :assistant} = msg ->
+          case strip_replay(msg) do
+            %Message{content: []} -> []
+            msg -> [msg]
+          end
+
+        msg ->
+          [msg]
+      end)
+
+    %{context | messages: messages}
+  end
+
+  defp strip_replay(%Message{} = message) do
+    content =
+      message.content
+      |> Enum.reject(&match?(%Thinking{}, &1))
+      |> Enum.map(fn
+        %Text{} = text -> %{text | signature: nil}
+        %ToolUse{} = use -> %{use | signature: nil}
+        block -> block
+      end)
+
+    %{message | content: content, private: %{}}
   end
 
   defp modify_body(body, provider, model, context, opts) do

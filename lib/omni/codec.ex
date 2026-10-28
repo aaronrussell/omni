@@ -21,6 +21,13 @@ defmodule Omni.Codec do
 
   Lists of any combination of the above are also supported.
 
+  ## Message origin
+
+  `Message.origin` is encoded readably, as `%{"model" => "provider/model",
+  "dialect" => "Omni.Dialects.AnthropicMessages"}`. A provider or dialect
+  unknown to the decoding node decodes as `nil`, so that message's thinking
+  is not sent back.
+
   ## Opaque fields
 
   `Message.private` and `Attachment.meta` can hold arbitrary terms (atoms,
@@ -138,7 +145,14 @@ defmodule Omni.Codec do
       "content" => Enum.map(m.content, &encode/1),
       "timestamp" => DateTime.to_iso8601(m.timestamp)
     }
+    |> maybe_put("origin", encode_origin(m.origin))
     |> maybe_put("private", encode_etf(m.private))
+  end
+
+  defp encode_origin(nil), do: nil
+
+  defp encode_origin(%{model: {provider_id, model_id}, dialect: dialect}) do
+    %{"model" => "#{provider_id}/#{model_id}", "dialect" => inspect(dialect)}
   end
 
   defp encode_text(%Text{} = t) do
@@ -237,10 +251,32 @@ defmodule Omni.Codec do
          role: role,
          content: content,
          timestamp: timestamp,
+         origin: decode_origin(Map.get(map, "origin")),
          private: private
        }}
     end
   end
+
+  # Model ids can hold slashes; provider ids can't, so the first one splits.
+  # A provider or dialect this node doesn't know decodes as no origin, which
+  # only means the message's thinking isn't sent back.
+  defp decode_origin(%{"model" => ref, "dialect" => dialect})
+       when is_binary(ref) and is_binary(dialect) do
+    case String.split(ref, "/", parts: 2) do
+      [provider_id, model_id] ->
+        %{
+          model: {String.to_existing_atom(provider_id), model_id},
+          dialect: String.to_existing_atom("Elixir." <> dialect)
+        }
+
+      _ ->
+        nil
+    end
+  rescue
+    ArgumentError -> nil
+  end
+
+  defp decode_origin(_), do: nil
 
   defp decode_text(map) do
     with {:ok, text} <- require_field(map, "text") do

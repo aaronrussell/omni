@@ -39,6 +39,26 @@ defmodule Omni.MessageTest do
       assert msg.timestamp == ts
     end
 
+    test "records a model as its reference and dialect" do
+      model = Omni.Test.Fixtures.model(id: "test-model", dialect: Omni.Dialects.AnthropicMessages)
+      msg = Message.new(role: :assistant, content: "hi", origin: model)
+
+      assert msg.origin == %{
+               model: {:test, "test-model"},
+               dialect: Omni.Dialects.AnthropicMessages
+             }
+    end
+
+    test "passes an origin map through, and defaults to nil" do
+      origin = %{
+        model: {:anthropic, "claude-haiku-5-5"},
+        dialect: Omni.Dialects.AnthropicMessages
+      }
+
+      assert Message.new(role: :assistant, content: "hi", origin: origin).origin == origin
+      assert Message.new("hi").origin == nil
+    end
+
     test "raises on unknown keys" do
       assert_raise KeyError, fn ->
         Message.new(role: :user, content: "hello", bogus: true)

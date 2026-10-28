@@ -433,6 +433,58 @@ defmodule Omni.Dialects.GoogleGeminiTest do
     end
   end
 
+  describe "handle_body/3 tool uses without a thought signature" do
+    defp call(id, signature \\ nil),
+      do: ToolUse.new(id: id, name: "get_weather", input: %{}, signature: signature)
+
+    defp result(id), do: ToolResult.new(tool_use_id: id, name: "get_weather", content: "4°C")
+
+    defp signatures(context) do
+      for content <- GoogleGemini.handle_body(@model, context, %{})["contents"],
+          content["role"] == "model",
+          do: Enum.map(content["parts"], & &1["thoughtSignature"])
+    end
+
+    test "the current turn's first unsigned call gets the skip sentinel" do
+      context =
+        Context.new([
+          Message.new("Weather?"),
+          Message.new(role: :assistant, content: [call("a"), call("b")]),
+          Message.new(role: :user, content: [result("a"), result("b")]),
+          Message.new(role: :assistant, content: [Text.new(text: "Checking"), call("c")]),
+          Message.new(role: :user, content: [result("c")])
+        ])
+
+      assert signatures(context) == [
+               ["skip_thought_signature_validator", nil],
+               [nil, "skip_thought_signature_validator"]
+             ]
+    end
+
+    test "a step with a signed call is left alone" do
+      context =
+        Context.new([
+          Message.new("Weather?"),
+          Message.new(role: :assistant, content: [call("a", "sig_a"), call("b")])
+        ])
+
+      assert signatures(context) == [["sig_a", nil]]
+    end
+
+    test "calls before the last user message are not signed" do
+      context =
+        Context.new([
+          Message.new("Weather?"),
+          Message.new(role: :assistant, content: [call("a")]),
+          Message.new(role: :user, content: [result("a")]),
+          Message.new(role: :assistant, content: [Text.new(text: "4°C")]),
+          Message.new("And tomorrow?")
+        ])
+
+      assert signatures(context) == [[nil], [nil]]
+    end
+  end
+
   describe "handle_body/3 thinking — budget models (Gemini 2.5)" do
     @reasoning_model Fixtures.model(
                        id: "gemini-2.5-flash",

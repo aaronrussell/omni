@@ -263,8 +263,15 @@ defmodule Omni.Dialects.AnthropicMessages do
     end)
   end
 
+  # Thinking without a signature (a stream cut off mid-block) can't go back:
+  # the API requires one.
   defp encode_message(%{role: role, content: content}) do
-    %{"role" => to_string(role), "content" => Enum.map(content, &encode_content/1)}
+    content =
+      content
+      |> Enum.reject(&match?(%Thinking{signature: nil, redacted_data: nil}, &1))
+      |> Enum.map(&encode_content/1)
+
+    %{"role" => to_string(role), "content" => content}
   end
 
   # Content block encoding

@@ -123,6 +123,14 @@ config :omni, :providers,
 
 **Completions reads list-form content and more tool call shapes.** *(Mistral)* `delta.content` as a list of thinking and text chunks was dropped, losing reasoning and some answer text; it now parses, including thinking signatures. Tool calls without `index` take their position in the list (several such calls collided at index 0), a continuation with `"name": ""` no longer starts a new call, and arguments sent as a JSON object are encoded to a string. `model_length` and `error` finish reasons map to `:length` and `:error` (were `:stop`).
 
+**Thinking goes back only to the provider and dialect that produced it.** *(thinking from other models)* An assistant message from another provider or dialect, or with no origin, is sent without its thinking blocks, signatures (on text and tool uses) and `private`; text and tool uses are kept. Before, thinking went back whichever model wrote it, so switching from OpenAI or Gemini to Claude failed (`Invalid signature in thinking block`, or a nil signature). Behaviour changes:
+- Assistant messages built by hand or decoded without an origin lose their thinking on replay. Set `origin` (`Message.new(origin: model)` takes the `%Model{}` that wrote it), or persist messages with `Omni.Codec`, to keep it.
+- Completions providers no longer receive another provider's reasoning in `reasoning_content` or `reasoning`.
+- Anthropic never sends thinking without a signature.
+- Gemini sends `skip_thought_signature_validator` on the first unsigned tool use of each step in the current turn, so a tool loop from another model continues on Gemini 3.
+
+**New: `Message.origin`.** *(thinking from other models)* `%{model: {provider_id, model_id}, dialect: module}` on assistant messages Omni produces, `nil` otherwise. `Message.new/1` builds it from a `%Model{}` passed as `:origin`. `Omni.Codec` encodes it as `%{"model" => "provider/model", "dialect" => "Omni.Dialects.…"}`; an unknown provider or dialect decodes as `nil`.
+
 ## Sources
 
 **`Omni.Source.build_model/1` reads `"reasoning_options"`** (models.dev's list form, string or atom keys) into `:thinking`. *(phase 2)* The llm_db source passes them through, falls back to OpenRouter's `supported_efforts`, and reads `extra` with string keys as well as atom keys (llm_db 2026.7.2+).

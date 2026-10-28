@@ -66,6 +66,30 @@ defmodule Omni.RequestTest do
     end
   end
 
+  defmodule EchoDialect do
+    @moduledoc false
+    @behaviour Omni.Dialect
+
+    @impl true
+    def option_schema, do: %{}
+
+    @impl true
+    def compat_schema, do: %{}
+
+    @impl true
+    def auth, do: :bearer
+
+    @impl true
+    def handle_path(_model, _opts), do: "/echo"
+
+    # Hands back the messages, so tests see what a dialect is given.
+    @impl true
+    def handle_body(_model, context, _opts), do: %{"messages" => context.messages}
+
+    @impl true
+    def handle_event(_event, _model), do: []
+  end
+
   @provider %Omni.Provider{
     id: :request_test,
     base_url: "https://api.test.com/v1",
@@ -306,6 +330,74 @@ defmodule Omni.RequestTest do
 
       {:ok, opts} = Request.validate(model, [])
       assert opts[:max_tokens] == 4096
+    end
+  end
+
+  describe "build/3 replay of other models' turns" do
+    alias Omni.{Context, Message}
+    alias Omni.Content.{Text, Thinking, ToolUse}
+
+    defp assistant(origin, content \\ nil) do
+      Message.new(
+        role: :assistant,
+        origin: origin,
+        private: %{reasoning_details: [%{"type" => "reasoning.text"}]},
+        content:
+          content ||
+            [
+              Thinking.new(text: "Hmm", signature: "sig"),
+              Text.new(text: "Checking", signature: "text_sig"),
+              ToolUse.new(id: "t1", name: "lookup", input: %{}, signature: "use_sig")
+            ]
+      )
+    end
+
+    defp sent(messages) do
+      model = make_model(@provider, EchoDialect)
+      {:ok, req} = Request.build(model, Context.new(messages), %{api_key: "sk-test"})
+      req.options.json["messages"]
+    end
+
+    defp stripped?(%Message{content: content, private: private}) do
+      private == %{} and
+        content == [
+          Text.new(text: "Checking"),
+          ToolUse.new(id: "t1", name: "lookup", input: %{})
+        ]
+    end
+
+    test "sends everything back to the same provider and dialect, whatever the model" do
+      messages = [
+        Message.new("Hi"),
+        assistant(%{model: {:request_test, "other-model"}, dialect: EchoDialect})
+      ]
+
+      assert sent(messages) == messages
+    end
+
+    test "drops thinking, signatures and private from another provider" do
+      [_, message] =
+        sent([Message.new("Hi"), assistant(%{model: {:other, "m"}, dialect: EchoDialect})])
+
+      assert stripped?(message)
+    end
+
+    test "drops them from the same provider on another dialect" do
+      origin = %{model: {:request_test, "test-model"}, dialect: DummyDialect}
+      [_, message] = sent([Message.new("Hi"), assistant(origin)])
+      assert stripped?(message)
+    end
+
+    test "drops them from a message with no origin" do
+      [_, message] = sent([Message.new("Hi"), assistant(nil)])
+      assert stripped?(message)
+    end
+
+    test "drops a foreign message that held only thinking" do
+      only_thinking = assistant(nil, [Thinking.new(text: "Hmm", signature: "sig")])
+
+      assert [%Message{role: :user}, %Message{role: :user}] =
+               sent([Message.new("Hi"), only_thinking, Message.new("Again")])
     end
   end
 

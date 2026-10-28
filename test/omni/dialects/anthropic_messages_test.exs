@@ -156,6 +156,18 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       assert block["signature"] == "sig123"
     end
 
+    test "skips thinking without a signature" do
+      msg =
+        Message.new(
+          role: :assistant,
+          content: [Thinking.new(text: "Let me think..."), Text.new(text: "Hi")]
+        )
+
+      body = AnthropicMessages.handle_body(@model, Context.new([msg]), %{})
+
+      assert [%{"content" => [%{"type" => "text", "text" => "Hi"}]}] = body["messages"]
+    end
+
     test "encodes redacted thinking content block" do
       msg =
         Message.new(

@@ -238,6 +238,47 @@ defmodule Omni.CodecTest do
       assert {:ok, ^msg} = Codec.decode(encoded)
     end
 
+    test "round-trips an origin, encoded readably" do
+      msg = %Message{
+        role: :assistant,
+        content: [%Text{text: "hi"}],
+        timestamp: ~U[2025-01-01 00:00:00Z],
+        origin: %{
+          model: {:openrouter, "anthropic/claude-haiku-5.5"},
+          dialect: Omni.Dialects.OpenAICompletions
+        }
+      }
+
+      encoded = Codec.encode(msg)
+
+      assert encoded["origin"] == %{
+               "model" => "openrouter/anthropic/claude-haiku-5.5",
+               "dialect" => "Omni.Dialects.OpenAICompletions"
+             }
+
+      assert {:ok, ^msg} = Codec.decode(encoded)
+    end
+
+    test "omits a nil origin from encoded output" do
+      refute Map.has_key?(Codec.encode(Message.new("hi")), "origin")
+    end
+
+    test "decodes an unknown provider or dialect as no origin" do
+      encoded = Codec.encode(Message.new(role: :assistant, content: "hi"))
+
+      for origin <- [
+            %{
+              "model" => "codec_test_no_such_provider/m",
+              "dialect" => "Omni.Dialects.OpenAICompletions"
+            },
+            %{"model" => "anthropic/m", "dialect" => "Omni.Dialects.CodecTestNoSuchDialect"},
+            %{"model" => "no-slash", "dialect" => "Omni.Dialects.OpenAICompletions"},
+            "junk"
+          ] do
+        assert {:ok, %Message{origin: nil}} = Codec.decode(Map.put(encoded, "origin", origin))
+      end
+    end
+
     test "omits empty private from encoded output" do
       msg = Message.new("hi")
       encoded = Codec.encode(msg)

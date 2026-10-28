@@ -111,6 +111,7 @@ lib/mix/tasks/omni.{snapshot,verify}.ex
 - The term is "tool use", not "tool call" (aligns with Anthropic's API).
 - Attachment sources use tagged tuples: `{:base64, data}` or `{:url, url_string}`.
 - `Message.private` is a `%{}` map for provider-specific opaque round-trip data. Dialects/providers write during parsing, read during encoding. Flat atom keys.
+- `Message.origin` is `%{model: {provider_id, model_id}, dialect: module}` on assistant messages Omni produced (stamped by `StreamingResponse`), else `nil`. `Request.build/3` strips thinking, signatures and `private` from assistant messages whose origin differs from the target's provider or dialect, or is `nil`, before the dialect encodes; dialects never see foreign replay data.
 - Content blocks may carry a `signature` field (round-trip integrity tokens). `Thinking.redacted_data` holds Anthropic's encrypted redacted thinking — when present, `text` is `nil`. Provider-specific data goes in `Message.private`, not on content blocks.
 - Struct constructors (`new/1`) return bare structs without validation. Validation happens once at the API boundary via Peri schemas.
 - `Omni.Schema` preserves property key types as-is. Snake_case option keywords normalize to camelCase JSON Schema keywords.

@@ -464,7 +464,14 @@ defmodule Omni.StreamingResponse do
         acc.blocks |> Map.fetch!(key) |> build_block()
       end)
 
-    message = Message.new(role: :assistant, content: content, private: acc.private)
+    message =
+      Message.new(
+        role: :assistant,
+        content: content,
+        origin: acc.model,
+        private: acc.private
+      )
+
     usage = build_usage(acc.usage, acc.model)
 
     Response.new(

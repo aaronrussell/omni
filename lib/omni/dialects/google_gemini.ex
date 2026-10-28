@@ -199,8 +199,52 @@ defmodule Omni.Dialects.GoogleGemini do
   # Message encoding
 
   defp encode_messages(messages) do
-    Enum.map(messages, &encode_message/1)
+    messages
+    |> sign_current_turn()
+    |> Enum.map(&encode_message/1)
   end
+
+  # Gemini 3 rejects a function call in the current turn without a thought
+  # signature. A call from another model (whose signature was dropped on the
+  # way) gets the sentinel Google documents for histories from elsewhere, on
+  # the first call of each step, as Gemini signs only the first of parallel
+  # calls. The current turn starts at the last user message that isn't only
+  # tool results.
+  @skip_signature "skip_thought_signature_validator"
+
+  defp sign_current_turn(messages) do
+    start =
+      messages
+      |> Enum.with_index()
+      |> Enum.reduce(0, fn
+        {%{role: :user, content: content}, index}, start ->
+          if Enum.all?(content, &match?(%ToolResult{}, &1)), do: start, else: index
+
+        _, start ->
+          start
+      end)
+
+    {earlier, current} = Enum.split(messages, start)
+    earlier ++ Enum.map(current, &sign_first_tool_use/1)
+  end
+
+  defp sign_first_tool_use(%{role: :assistant, content: content} = message) do
+    uses = Enum.filter(content, &match?(%ToolUse{}, &1))
+
+    if uses != [] and Enum.all?(uses, &is_nil(&1.signature)) do
+      {content, _signed?} =
+        Enum.map_reduce(content, false, fn
+          %ToolUse{} = use, false -> {%{use | signature: @skip_signature}, true}
+          block, signed? -> {block, signed?}
+        end)
+
+      %{message | content: content}
+    else
+      message
+    end
+  end
+
+  defp sign_first_tool_use(message), do: message
 
   defp encode_message(%{role: role, content: content}) do
     %{
