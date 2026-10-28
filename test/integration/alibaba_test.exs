@@ -28,6 +28,11 @@ defmodule Integration.AlibabaTest do
       assert_tool_use(model, "#{@dir}/tool_use.sse")
     end
 
+    test "thinking replay request", %{model: model} do
+      {thinking, assistant} = replay_thinking(model, :thinking, "#{@dir}/thinking.sse")
+      assert assistant["reasoning_content"] == thinking
+    end
+
     test "structured output request", %{model: model} do
       body = request_body(model, :structured_output)
       assert body["response_format"] == %{"type" => "json_object"}

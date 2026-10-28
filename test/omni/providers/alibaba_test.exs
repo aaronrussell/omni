@@ -36,6 +36,7 @@ defmodule Omni.Providers.AlibabaTest do
                Omni.Dialects.OpenAICompletions => %{
                  thinking_toggle_format: :enable_thinking,
                  thinking_budget_field: "thinking_budget",
+                 thinking_replay_format: :reasoning_content,
                  output_format: :json_object
                }
              }

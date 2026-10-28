@@ -31,7 +31,8 @@ defmodule Omni.Providers.Alibaba do
   `:thinking` is supported. Most models switch thinking on with
   `enable_thinking` and take a token budget, which effort levels map to:
   higher effort allows more reasoning tokens. Models that take effort levels
-  get the nearest level the model supports.
+  get the nearest level the model supports. Earlier reasoning is sent back in
+  the `reasoning_content` field of assistant messages.
 
   ## Structured output
 
@@ -45,6 +46,7 @@ defmodule Omni.Providers.Alibaba do
 
     * `thinking_toggle_format: :enable_thinking`
     * `thinking_budget_field: "thinking_budget"`
+    * `thinking_replay_format: :reasoning_content`
     * `output_format: :json_object`
   """
 
@@ -59,6 +61,7 @@ defmodule Omni.Providers.Alibaba do
         Omni.Dialects.OpenAICompletions => [
           thinking_toggle_format: :enable_thinking,
           thinking_budget_field: "thinking_budget",
+          thinking_replay_format: :reasoning_content,
           output_format: :json_object
         ]
       }

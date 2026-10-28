@@ -38,4 +38,55 @@ defmodule Omni.Providers.OpenCodeTest do
       assert by_id["mistral-large-4"] == Omni.Dialects.OpenAICompletions
     end
   end
+
+  describe "compat" do
+    test "assembles with its Completions flags" do
+      {provider, _models} = Loader.assemble(:opencode)
+
+      assert provider.compat == %{
+               Omni.Dialects.OpenAICompletions => %{thinking_replay_format: :reasoning_content}
+             }
+    end
+  end
+
+  describe "modify_body/4" do
+    defp modify(body, id),
+      do: OpenCode.modify_body(body, Omni.Model.new(id: id, name: id), %Omni.Context{}, %{})
+
+    defp assistant(fields), do: Map.merge(%{"role" => "assistant"}, fields)
+
+    test "moves a Mistral model's reasoning into a leading thinking chunk" do
+      tool_calls = [%{"id" => "call_1", "type" => "function"}]
+
+      body = %{
+        "messages" => [
+          %{"role" => "user", "content" => "Hi"},
+          assistant(%{"content" => "Hello", "reasoning_content" => "Hmm."}),
+          assistant(%{"reasoning_content" => "Tools.", "tool_calls" => tool_calls})
+        ]
+      }
+
+      [user, answer, tool_use] = modify(body, "mistral-large-4")["messages"]
+
+      thinking = &%{"type" => "thinking", "thinking" => [%{"type" => "text", "text" => &1}]}
+
+      assert user == %{"role" => "user", "content" => "Hi"}
+
+      assert answer ==
+               assistant(%{
+                 "content" => [thinking.("Hmm."), %{"type" => "text", "text" => "Hello"}]
+               })
+
+      assert tool_use ==
+               assistant(%{"content" => [thinking.("Tools.")], "tool_calls" => tool_calls})
+    end
+
+    test "leaves Mistral messages without reasoning, and other models, untouched" do
+      body = %{"messages" => [assistant(%{"content" => "Hello"})]}
+      assert modify(body, "mistral-large-4") == body
+
+      body = %{"messages" => [assistant(%{"content" => "Hello", "reasoning_content" => "Hmm."})]}
+      assert modify(body, "glm-5.3") == body
+    end
+  end
 end

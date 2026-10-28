@@ -36,6 +36,7 @@ defmodule Omni.Providers.TogetherTest do
                Omni.Dialects.OpenAICompletions => %{
                  max_tokens_field: "max_tokens",
                  thinking_toggle_format: :reasoning_enabled,
+                 thinking_replay_format: :reasoning,
                  omit: [:cache]
                }
              }

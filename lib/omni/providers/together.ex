@@ -16,7 +16,8 @@ defmodule Omni.Providers.Together do
   toggle (such as gpt-oss) can't be switched off, so `thinking: false` sends
   nothing to them.
 
-  Earlier reasoning is not sent back on later turns.
+  Earlier reasoning is sent back in the `reasoning` field of assistant
+  messages, the field it arrives in.
 
   ## Limitations
 
@@ -29,6 +30,7 @@ defmodule Omni.Providers.Together do
 
     * `max_tokens_field: "max_tokens"`
     * `thinking_toggle_format: :reasoning_enabled`
+    * `thinking_replay_format: :reasoning`
     * `omit: [:cache]`
   """
 
@@ -46,6 +48,8 @@ defmodule Omni.Providers.Together do
           # `reasoning_effort` takes no "none"; hybrid models switch with
           # `reasoning: {enabled: ...}`.
           thinking_toggle_format: :reasoning_enabled,
+          # Reasoning arrives in `reasoning`; Together asks for it back there.
+          thinking_replay_format: :reasoning,
           # Caching is automatic; there is no retention field.
           omit: [:cache]
         ]

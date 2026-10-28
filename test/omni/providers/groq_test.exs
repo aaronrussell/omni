@@ -28,6 +28,16 @@ defmodule Omni.Providers.GroqTest do
     end
   end
 
+  describe "compat" do
+    test "assembles with its Completions flags" do
+      {provider, _models} = Loader.assemble(:groq)
+
+      assert provider.compat == %{
+               Omni.Dialects.OpenAICompletions => %{thinking_replay_format: :reasoning}
+             }
+    end
+  end
+
   describe "modify_body/4" do
     defp model(id, thinking), do: Omni.Model.new(id: id, name: id, thinking: thinking)
     defp modify(body, model), do: Groq.modify_body(body, model, %Omni.Context{}, %{})

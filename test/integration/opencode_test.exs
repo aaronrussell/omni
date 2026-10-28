@@ -64,6 +64,12 @@ defmodule Integration.OpenCodeTest do
       assert_text(model, "#{@dir}/oaic_text.sse")
     end
 
+    # DeepSeek reasons in the text scenario too, which sends `thinking: false`.
+    test "thinking replay request", %{model: model} do
+      {thinking, assistant} = replay_thinking(model, :text, "#{@dir}/oaic_text.sse")
+      assert assistant["reasoning_content"] == thinking
+    end
+
     test "target", %{model: model} do
       assert_target(
         model,
@@ -119,6 +125,22 @@ defmodule Integration.OpenCodeTest do
 
       assert [%Thinking{text: thinking}, %Text{text: text}] = resp.message.content
       assert thinking =~ "strawberry"
+      assert text =~ "8 times"
+    end
+
+    # Mistral takes its reasoning back as a leading thinking chunk, not in
+    # the `reasoning_content` field the other Completions models get.
+    test "Mistral thinking replays as a content chunk" do
+      {thinking, assistant} =
+        replay_thinking(model("mistral-large-4"), :thinking, "#{@dir}/mistral_thinking.sse")
+
+      refute Map.has_key?(assistant, "reasoning_content")
+
+      assert [
+               %{"type" => "thinking", "thinking" => [%{"type" => "text", "text" => ^thinking}]},
+               %{"type" => "text", "text" => text}
+             ] = assistant["content"]
+
       assert text =~ "8 times"
     end
   end

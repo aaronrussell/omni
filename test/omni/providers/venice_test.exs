@@ -55,7 +55,10 @@ defmodule Omni.Providers.VeniceTest do
       {provider, _models} = Loader.assemble(:venice)
 
       assert provider.compat == %{
-               Omni.Dialects.OpenAICompletions => %{thinking_toggle_format: :reasoning_enabled}
+               Omni.Dialects.OpenAICompletions => %{
+                 thinking_toggle_format: :reasoning_enabled,
+                 thinking_replay_format: :reasoning_content
+               }
              }
     end
   end

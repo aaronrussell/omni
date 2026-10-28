@@ -15,8 +15,10 @@ defmodule Omni.Providers.Zai do
 
   `:thinking` is supported. Models that take effort levels get the nearest
   level the model supports; the rest switch thinking on and off with
-  `thinking: {type: "enabled" | "disabled"}`. Reasoning from earlier turns
-  isn't sent back, which matches Z.ai's default (`clear_thinking: true`).
+  `thinking: {type: "enabled" | "disabled"}`. Earlier reasoning is sent back
+  in the `reasoning_content` field of assistant messages. By default
+  (`clear_thinking: true`) Z.ai uses it only within a tool loop, and drops
+  reasoning from before the latest user message.
 
   ## Structured output
 
@@ -33,6 +35,7 @@ defmodule Omni.Providers.Zai do
 
     * `max_tokens_field: "max_tokens"`
     * `thinking_toggle_format: :thinking_type`
+    * `thinking_replay_format: :reasoning_content`
     * `output_format: :json_object`
     * `attachment_format: :file_url`
   """
@@ -48,6 +51,7 @@ defmodule Omni.Providers.Zai do
         Omni.Dialects.OpenAICompletions => [
           max_tokens_field: "max_tokens",
           thinking_toggle_format: :thinking_type,
+          thinking_replay_format: :reasoning_content,
           output_format: :json_object,
           attachment_format: :file_url
         ]

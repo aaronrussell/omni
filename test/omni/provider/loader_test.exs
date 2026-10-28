@@ -191,6 +191,7 @@ defmodule Omni.Provider.LoaderTest do
                @completions => %{
                  max_tokens_field: "max_tokens",
                  thinking_toggle_format: :thinking_type,
+                 thinking_replay_format: :reasoning_content,
                  output_format: :json_object,
                  attachment_format: :file
                }
@@ -230,7 +231,12 @@ defmodule Omni.Provider.LoaderTest do
 
       {provider, _} = assemble(source: source, compat: [like: :moonshotai])
 
-      assert provider.compat == %{@completions => %{thinking_toggle_format: :thinking_type}}
+      assert provider.compat == %{
+               @completions => %{
+                 thinking_toggle_format: :thinking_type,
+                 thinking_replay_format: :reasoning_content
+               }
+             }
     end
 
     test "unknown flags raise" do

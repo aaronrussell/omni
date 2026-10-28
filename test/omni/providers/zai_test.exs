@@ -36,6 +36,7 @@ defmodule Omni.Providers.ZaiTest do
                Omni.Dialects.OpenAICompletions => %{
                  max_tokens_field: "max_tokens",
                  thinking_toggle_format: :thinking_type,
+                 thinking_replay_format: :reasoning_content,
                  output_format: :json_object,
                  attachment_format: :file_url
                }

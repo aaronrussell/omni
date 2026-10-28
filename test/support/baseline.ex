@@ -14,7 +14,7 @@ defmodule Omni.Test.Baseline do
   import ExUnit.Assertions
 
   alias Omni.{Context, Message, Model, Request, Response, Tool}
-  alias Omni.Content.{Text, ToolUse}
+  alias Omni.Content.{Text, Thinking, ToolUse}
   alias Omni.Test.Capture
   alias Omni.Verify.Scenarios
 
@@ -89,6 +89,32 @@ defmodule Omni.Test.Baseline do
     {context, opts} = request(scenario)
     assert {:ok, req} = Request.build(model, context, Keyword.put(opts, :api_key, "test-key"))
     req.options.json |> JSON.encode!() |> JSON.decode!()
+  end
+
+  @doc """
+  Replays a scenario's fixture, then builds the next request with the
+  response in its history, without sending it. Returns the response's
+  thinking text and the assistant message as the next request sends it, for
+  asserting where a provider puts earlier reasoning.
+  """
+  @spec replay_thinking(Model.t(), atom(), String.t()) :: {String.t(), map()}
+  def replay_thinking(%Model{} = model, scenario, file) do
+    {resp, _request} = replay(scenario, model, file, [])
+
+    thinking =
+      resp.message.content
+      |> Enum.filter(&match?(%Thinking{text: text} when is_binary(text), &1))
+      |> Enum.map_join(& &1.text)
+
+    assert thinking != ""
+
+    {context, opts} = request(scenario)
+    turn2 = %{context | messages: context.messages ++ [resp.message, Message.new("Thanks.")]}
+
+    assert {:ok, req} = Request.build(model, turn2, Keyword.put(opts, :api_key, "test-key"))
+    body = req.options.json |> JSON.encode!() |> JSON.decode!()
+
+    {thinking, Enum.find(body["messages"], &(&1["role"] == "assistant"))}
   end
 
   @doc """

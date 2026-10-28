@@ -60,7 +60,9 @@ config :omni, :providers,
 
 **New built-in: Mistral (`:mistral`).** *(Mistral)* Mistral AI over Chat Completions, reading `MISTRAL_API_KEY`. Reasoning models take one effort, so every `:thinking` level sends `"high"`, and earlier thinking goes back as a thinking chunk at the head of the assistant message. Both sources now map `@ai-sdk/mistral` to Completions, so OpenCode Zen's `mistral-large-4` loads (it was skipped with a warning).
 
-**New built-in: Together AI (`:togetherai`).** *(Together)* Together AI over Chat Completions, reading `TOGETHER_API_KEY`. Hybrid models switch thinking with `reasoning: {enabled: ...}`; effort models take `reasoning_effort`. Earlier reasoning is not sent back. Both sources map `@ai-sdk/togetherai` to Completions. The Completions parser also reads cached tokens reported flat on `usage` and Together's `"eos"` finish reason.
+**New built-in: Together AI (`:togetherai`).** *(Together)* Together AI over Chat Completions, reading `TOGETHER_API_KEY`. Hybrid models switch thinking with `reasoning: {enabled: ...}`; effort models take `reasoning_effort`. Earlier reasoning is sent back in `reasoning`. Both sources map `@ai-sdk/togetherai` to Completions. The Completions parser also reads cached tokens reported flat on `usage` and Together's `"eos"` finish reason.
+
+**Completions built-ins send earlier reasoning back.** *(thinking replay)* Moonshot, Z.ai, Alibaba, Venice and OpenCode Zen's Completions models send it in `reasoning_content`; Groq and Together in `reasoning`; Zen's Mistral models as a leading thinking chunk. Before, only OpenRouter and Mistral did. Providers that keep reasoning only within a tool loop still drop earlier turns'; to keep it, pass the provider's switch with `extra_body` (Alibaba `preserve_thinking: true`), or set it in a provider module where it nests inside a field Omni sets (Z.ai's `thinking.clear_thinking: false`; `extra_body` merges shallowly).
 
 **New built-in: xAI (`:xai`).** *(xAI)* Grok models over the Responses API, reading `XAI_API_KEY`. Reasoning carries across turns as encrypted content. `thinking: false` switches off only models that list a `"none"` effort (`grok-4.3`); models with no effort data (`grok-4.20-0309-reasoning`, `grok-build-0.1`) get no `reasoning` at all, since they reject any effort. Both sources map `@ai-sdk/xai` to Responses, and llm_db's models (described as Chat Completions) are moved to Responses on load.
 
@@ -133,7 +135,7 @@ config :omni, :providers,
 
 **New required callback `compat_schema/0`.** *(phase 2)* A Peri schema of the compat flags the dialect understands; return `%{}` for none. Read a provider's flags with `Omni.Dialect.compat(model, __MODULE__)`. `Omni.Dialects.OpenAICompletions` documents its flags; the other built-in dialects have none yet.
 
-**`thinking_replay_field` is now `thinking_replay_format`.** *(Mistral)* On `Omni.Dialects.OpenAICompletions`: `thinking_replay_field: "reasoning_details"` becomes `thinking_replay_format: :reasoning_details`. New values: `:content_chunks` (thinking as a leading `content` chunk) and `:none`.
+**`thinking_replay_field` is now `thinking_replay_format`.** *(Mistral)* On `Omni.Dialects.OpenAICompletions`: `thinking_replay_field: "reasoning_details"` becomes `thinking_replay_format: :reasoning_details`. New values: `:content_chunks` (thinking as a leading `content` chunk), `:reasoning_content` and `:reasoning` (thinking text in that field; *thinking replay*), and `:none`.
 
 **`handle_event/2` receives the model.** *(phase 2)* `handle_event(event, model)` (was `handle_event/1`).
 

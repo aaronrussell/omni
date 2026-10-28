@@ -32,6 +32,9 @@ defmodule Omni.Dialects.OpenAICompletions do
   `:thinking_replay_format` values:
 
     * `:none` — reasoning is not sent back
+    * `:reasoning_content` — sends the message's thinking text in a
+      `reasoning_content` field on that assistant message
+    * `:reasoning` — the same, in a `reasoning` field
     * `:reasoning_details` — captures `reasoning_details` from responses and
       sends them back on that assistant message
     * `:content_chunks` — sends the message's thinking as one leading
@@ -62,7 +65,8 @@ defmodule Omni.Dialects.OpenAICompletions do
       max_tokens_field: :string,
       thinking_effort_field: :string,
       thinking_budget_field: :string,
-      thinking_replay_format: {:enum, [:none, :reasoning_details, :content_chunks]},
+      thinking_replay_format:
+        {:enum, [:none, :reasoning_content, :reasoning, :reasoning_details, :content_chunks]},
       thinking_toggle_format: {:enum, [:thinking_type, :enable_thinking, :reasoning_enabled]},
       output_format: {:enum, [:json_schema, :json_object]},
       attachment_format: {:enum, [:file, :file_url]},
@@ -370,7 +374,7 @@ defmodule Omni.Dialects.OpenAICompletions do
         uses -> Map.put(msg, "tool_calls", Enum.with_index(uses, &encode_tool_call/2))
       end
 
-    [put_replay(msg, message, compat)]
+    [put_replay(msg, message, thinking_blocks, compat)]
   end
 
   defp encode_message(%{role: :user, content: content}, compat) do
@@ -395,7 +399,8 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   # With :content_chunks, thinking goes first as a single merged chunk
   # (Mistral rejects more than one leading thinking chunk) and text follows
-  # as parts. Otherwise text is a plain string and thinking is dropped.
+  # as parts. Otherwise text is a plain string, and thinking goes in a field
+  # (put_replay/4) or is dropped.
   defp encode_assistant_content(thinking, texts, %{thinking_replay_format: :content_chunks})
        when thinking != [] do
     [encode_thinking_chunk(thinking) | Enum.map(texts, &%{"type" => "text", "text" => &1.text})]
@@ -418,13 +423,18 @@ defmodule Omni.Dialects.OpenAICompletions do
     end
   end
 
-  defp put_replay(msg, %{private: %{reasoning_details: [_ | _] = details}}, %{
+  defp put_replay(msg, %{private: %{reasoning_details: [_ | _] = details}}, _thinking, %{
          thinking_replay_format: :reasoning_details
        }) do
     Map.put(msg, "reasoning_details", details)
   end
 
-  defp put_replay(msg, _message, _compat), do: msg
+  defp put_replay(msg, _message, [_ | _] = thinking, %{thinking_replay_format: format})
+       when format in [:reasoning_content, :reasoning] do
+    Map.put(msg, Atom.to_string(format), Enum.map_join(thinking, "", & &1.text))
+  end
+
+  defp put_replay(msg, _message, _thinking, _compat), do: msg
 
   # Thinking without text (redacted, or an empty summary) is never sent back.
   defp split_assistant_content(content) do

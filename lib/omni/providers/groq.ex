@@ -18,6 +18,15 @@ defmodule Omni.Providers.Groq do
   `reasoning_format: "parsed"`, because Groq's default puts it in the answer
   as `<think>` tags. This is done in the module's `c:Omni.Provider.modify_body/4`,
   not with a compat flag, so `like: :groq` doesn't copy it.
+
+  Earlier reasoning is sent back in the `reasoning` field of assistant
+  messages.
+
+  ## Compat flags
+
+  Sets this `Omni.Dialects.OpenAICompletions` flag:
+
+    * `thinking_replay_format: :reasoning`
   """
 
   @behaviour Omni.Provider
@@ -26,7 +35,11 @@ defmodule Omni.Providers.Groq do
 
   @impl true
   def config do
-    [base_url: "https://api.groq.com/openai/v1", api_key: {:system, "GROQ_API_KEY"}]
+    [
+      base_url: "https://api.groq.com/openai/v1",
+      api_key: {:system, "GROQ_API_KEY"},
+      compat: %{Omni.Dialects.OpenAICompletions => [thinking_replay_format: :reasoning]}
+    ]
   end
 
   # Groq's reasoning_format defaults to "raw" (<think> tags in the content)

@@ -11,7 +11,8 @@ defmodule Omni.Providers.Venice do
 
   `:thinking` is supported. Thinking is switched off with
   `reasoning: {enabled: false}`, which Venice recommends over
-  `reasoning_effort: "none"`.
+  `reasoning_effort: "none"`. Earlier reasoning is sent back in the
+  `reasoning_content` field of assistant messages.
 
   ## PDF input
 
@@ -21,9 +22,10 @@ defmodule Omni.Providers.Venice do
 
   ## Compat flags
 
-  Sets this `Omni.Dialects.OpenAICompletions` flag:
+  Sets these `Omni.Dialects.OpenAICompletions` flags:
 
     * `thinking_toggle_format: :reasoning_enabled`
+    * `thinking_replay_format: :reasoning_content`
   """
 
   @behaviour Omni.Provider
@@ -33,9 +35,14 @@ defmodule Omni.Providers.Venice do
     [
       base_url: "https://api.venice.ai/api/v1",
       api_key: {:system, "VENICE_API_KEY"},
-      # Venice recommends `reasoning: {enabled: false}` over
-      # `reasoning_effort: "none"`, which has limited support.
-      compat: %{Omni.Dialects.OpenAICompletions => [thinking_toggle_format: :reasoning_enabled]}
+      compat: %{
+        Omni.Dialects.OpenAICompletions => [
+          # Venice recommends `reasoning: {enabled: false}` over
+          # `reasoning_effort: "none"`, which has limited support.
+          thinking_toggle_format: :reasoning_enabled,
+          thinking_replay_format: :reasoning_content
+        ]
+      }
     ]
   end
 

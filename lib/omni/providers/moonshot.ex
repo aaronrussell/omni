@@ -14,7 +14,8 @@ defmodule Omni.Providers.Moonshot do
 
   `:thinking` is supported. Models that take effort levels get the nearest
   level the model supports; the rest switch thinking on and off with
-  `thinking: {type: "enabled" | "disabled"}`.
+  `thinking: {type: "enabled" | "disabled"}`. Earlier reasoning is sent back
+  in the `reasoning_content` field of assistant messages.
 
   ## Limitations
 
@@ -24,9 +25,10 @@ defmodule Omni.Providers.Moonshot do
 
   ## Compat flags
 
-  Sets this `Omni.Dialects.OpenAICompletions` flag:
+  Sets these `Omni.Dialects.OpenAICompletions` flags:
 
     * `thinking_toggle_format: :thinking_type`
+    * `thinking_replay_format: :reasoning_content`
   """
 
   @behaviour Omni.Provider
@@ -38,7 +40,8 @@ defmodule Omni.Providers.Moonshot do
       api_key: {:system, "MOONSHOT_API_KEY"},
       compat: %{
         Omni.Dialects.OpenAICompletions => [
-          thinking_toggle_format: :thinking_type
+          thinking_toggle_format: :thinking_type,
+          thinking_replay_format: :reasoning_content
         ]
       }
     ]

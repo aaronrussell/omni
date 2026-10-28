@@ -1444,11 +1444,46 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       end
     end
 
+    test "thinking_replay_format :reasoning_content and :reasoning send thinking in that field" do
+      content = [
+        Thinking.new(text: "Let me "),
+        Text.new("Hello"),
+        Thinking.new(text: "think."),
+        ToolUse.new(id: "call_1", name: "get_weather", input: %{"city" => "London"})
+      ]
+
+      for format <- [:reasoning_content, :reasoning] do
+        assistant = assistant_body([thinking_replay_format: format], content)
+
+        assert assistant[Atom.to_string(format)] == "Let me think."
+        assert assistant["content"] == "Hello"
+        assert [%{"id" => "call_1"}] = assistant["tool_calls"]
+      end
+    end
+
+    test "thinking_replay_format :reasoning_content leaves out the field without thinking" do
+      for content <- [
+            [Text.new("Hello")],
+            [Thinking.new(redacted_data: "opaque"), Text.new("Hello")],
+            [Thinking.new(text: ""), Text.new("Hello")]
+          ] do
+        assistant = assistant_body([thinking_replay_format: :reasoning_content], content)
+
+        refute Map.has_key?(assistant, "reasoning_content")
+        assert assistant["content"] == "Hello"
+      end
+    end
+
     test "thinking is dropped without a replay format, or with :none" do
       content = [Thinking.new(text: "Hmm."), Text.new("Hello")]
 
-      assert assistant_body([], content)["content"] == "Hello"
-      assert assistant_body([thinking_replay_format: :none], content)["content"] == "Hello"
+      for flags <- [[], [thinking_replay_format: :none]] do
+        assistant = assistant_body(flags, content)
+
+        assert assistant["content"] == "Hello"
+        refute Map.has_key?(assistant, "reasoning_content")
+        refute Map.has_key?(assistant, "reasoning")
+      end
     end
   end
 end

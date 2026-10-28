@@ -27,6 +27,11 @@ defmodule Integration.GroqTest do
       assert_tool_use(model, "#{@dir}/tool_use.sse")
     end
 
+    test "thinking replay request", %{model: model} do
+      {thinking, assistant} = replay_thinking(model, :thinking, "#{@dir}/thinking.sse")
+      assert assistant["reasoning"] == thinking
+    end
+
     test "structured output request", %{model: model} do
       body = request_body(model, :structured_output)
       assert %{"type" => "json_schema"} = body["response_format"]

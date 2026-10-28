@@ -522,18 +522,20 @@ The Completions flag table, with what each value does on the wire, is in the `Om
 
 #### Built-in flags
 
-All on `Omni.Dialects.OpenAICompletions`. Anthropic, Google, OpenAI, OpenCode, Groq, xAI and both Ollamas set none.
+All on `Omni.Dialects.OpenAICompletions`. Anthropic, Google, OpenAI, xAI and both Ollamas set none.
 
 | Provider | Flags | Why |
 |---|---|---|
-| Alibaba | `thinking_toggle_format: :enable_thinking`, `thinking_budget_field: "thinking_budget"`, `output_format: :json_object` | Switches thinking with `enable_thinking` and takes a budget; strict `json_schema` is turned into JSON mode server-side and then fails, so JSON mode with the schema in the prompt is used |
+| Alibaba | `thinking_toggle_format: :enable_thinking`, `thinking_budget_field: "thinking_budget"`, `thinking_replay_format: :reasoning_content`, `output_format: :json_object` | Switches thinking with `enable_thinking` and takes a budget; reasoning goes back in the field it arrives in; strict `json_schema` is turned into JSON mode server-side and then fails, so JSON mode with the schema in the prompt is used |
+| Groq | `thinking_replay_format: :reasoning` | Reasoning arrives in `reasoning` and goes back there (req_llm strips `reasoning_content` for Groq, which rejects it) |
 | Mistral | `max_tokens_field: "max_tokens"`, `thinking_replay_format: :content_chunks` | No `max_completion_tokens`; reasoning streams as thinking chunks in `content`, and Mistral asks for them back at the head of the assistant message. The chunk replay was verified through OpenCode Zen, which passes Mistral's wire through: the free tier serves no reasoning model |
-| Moonshot | `thinking_toggle_format: :thinking_type` | `thinking: {type: ...}` on toggle models. `max_completion_tokens` is honoured; `reasoning_content` replay was not needed in tool loops |
+| Moonshot | `thinking_toggle_format: :thinking_type`, `thinking_replay_format: :reasoning_content` | `thinking: {type: ...}` on toggle models. `max_completion_tokens` is honoured. Tool loops pass without reasoning sent back, but Kimi's docs ask for it |
 | NearAI | `max_tokens_field: "max_tokens"`, `omit: [:cache, :thinking, :strict_schema]` | Ported from v1; not verified live (no key) |
+| OpenCode | `thinking_replay_format: :reasoning_content` (keyed by Completions) | Zen's GLM, Kimi and DeepSeek models take reasoning in `reasoning_content`. Mistral models (`mistral-*`) take it as a leading thinking chunk, which `modify_body/4` makes from the field: Zen passes Mistral's wire through, and Mistral rejects unknown fields |
 | OpenRouter | `thinking_effort_field: "reasoning.effort"`, `thinking_replay_format: :reasoning_details` | Nested effort; `reasoning_details` must round-trip in multi-turn |
-| Together | `max_tokens_field: "max_tokens"`, `thinking_toggle_format: :reasoning_enabled`, `omit: [:cache]` | No `max_completion_tokens`; hybrid models switch with `reasoning: {enabled: ...}` (`reasoning_effort` takes no `"none"`); caching is automatic, with no retention field |
-| Venice | `thinking_toggle_format: :reasoning_enabled` | Venice recommends `reasoning: {enabled: false}` over `reasoning_effort: "none"` |
-| Z.ai | `max_tokens_field: "max_tokens"`, `thinking_toggle_format: :thinking_type`, `output_format: :json_object`, `attachment_format: :file_url` | Ignores `max_completion_tokens`; no JSON Schema constraints; files as `file_url` parts |
+| Together | `max_tokens_field: "max_tokens"`, `thinking_toggle_format: :reasoning_enabled`, `thinking_replay_format: :reasoning`, `omit: [:cache]` | No `max_completion_tokens`; reasoning arrives in `reasoning`, and Together's docs ask for it back in the field it arrived in; hybrid models switch with `reasoning: {enabled: ...}` (`reasoning_effort` takes no `"none"`); caching is automatic, with no retention field |
+| Venice | `thinking_toggle_format: :reasoning_enabled`, `thinking_replay_format: :reasoning_content` | Venice recommends `reasoning: {enabled: false}` over `reasoning_effort: "none"`; reasoning goes back in the field it arrives in |
+| Z.ai | `max_tokens_field: "max_tokens"`, `thinking_toggle_format: :thinking_type`, `thinking_replay_format: :reasoning_content`, `output_format: :json_object`, `attachment_format: :file_url` | Ignores `max_completion_tokens`; reasoning goes back in the field it arrives in, which Z.ai uses within a tool loop (by default, `clear_thinking` drops it from earlier turns); no JSON Schema constraints; files as `file_url` parts |
 
 `like: :zai` copies a built-in's whole compat map (all dialects); the layer's own flags overlay it. It copies compat only -- not module, base URL or key.
 
@@ -561,7 +563,9 @@ The cost: `extra_body` is provider-wide and unconditional. A field only some mod
 
 No library surveyed uses flags to parse Completions streams, and Omni doesn't either. The Completions parser is a union: `reasoning_content` or `reasoning`, `content` as a string or a list of thinking and text chunks (Mistral), tool calls with or without `index` and with arguments as a string or an object (Mistral), every known finish reason (including Z.ai's, Mistral's and Together's), cached tokens under `prompt_tokens_details` or flat on `usage` (Together), packed chunks (Venice), in-stream errors. All variation is on the encode side.
 
-The one parse-side read of compat is capture for replay: with `thinking_replay_format: :reasoning_details`, the dialect stashes `reasoning_details` into `Message.private` while parsing and sends them back on that assistant message when encoding. Capture and replay share the flag, so data is only collected when it will be sent back. That is why `handle_event/2` receives the model.
+The one parse-side read of compat is capture for replay: with `thinking_replay_format: :reasoning_details`, the dialect stashes `reasoning_details` into `Message.private` while parsing and sends them back on that assistant message when encoding. Capture and replay share the flag, so data is only collected when it will be sent back. That is why `handle_event/2` receives the model. The other replay values need no capture: `:reasoning_content` and `:reasoning` send the message's thinking text in that field, and `:content_chunks` as a leading chunk.
+
+Not adopted: replaying reasoning in the field it arrived in (pi). The flag lets the receiving API decide the shape, so a history from one provider never sends another's field to an API that rejects unknown fields (Mistral, Groq). Nor are the switches that keep reasoning from earlier turns (Z.ai `clear_thinking: false`, Alibaba `preserve_thinking: true`, Together's `chat_template_kwargs`) sent: they trade input tokens for continuity, a choice left to users: `extra_body`, or module code where the switch nests inside a field Omni sets (Z.ai's sits in `thinking`, and `extra_body` merges shallowly). Without them, providers use replayed reasoning within a tool loop, which is where it matters most.
 
 Not adopted: a stateful parse hook (init, per-event state, flush) for reasoning streamed inline as `<think>` tags. No built-in needs it.
 
@@ -1547,7 +1551,7 @@ Every fixture lives in the lowest tier where it is the only set of real bytes ex
 
 - **Reference providers** are each dialect's home API, matching what "no compat flags" means: Anthropic (`claude-haiku-5-5`), OpenAI Responses (`gpt-6-luna`), Google (`gemini-3.8-flash`), local Ollama, and OpenAI's own `/chat/completions` for Completions (`gpt-6-luna` re-stamped to the Completions dialect, since no built-in speaks it).
 - **Dialect cases** cover what every provider on the dialect shares: cache read/write (`cache_1`, `cache_2`), length stops mid tool call (`tool_length`, `length`), parallel tool calls and reasoning replay (`tools_1`, `tools_2`), Anthropic redacted thinking, and synthetic error events.
-- **Provider files** have a `baseline` block — text, thinking, tool use (via `Omni.Test.Baseline`), the request target (host, path, auth headers) and request shape — then `cases` and `synthetic` blocks only for genuine quirks. Most have neither. OpenCode runs a dialect and target test per dialect from its `*_text` fixtures.
+- **Provider files** have a `baseline` block — text, thinking, tool use (via `Omni.Test.Baseline`), the request target (host, path, auth headers) and request shape, including where earlier reasoning goes (`replay_thinking/3`) — then `cases` and `synthetic` blocks only for genuine quirks. Most have neither. OpenCode runs a dialect and target test per dialect from its `*_text` fixtures.
 - **Request shape is asserted, not snapshotted:** capture the outgoing body via the plug and assert the fields the provider's compat flags control. Dialect unit tests cover each flag in isolation.
 - **No structured output fixtures.** Parsing is plain text on every dialect; whether a provider obeys the schema is verify's job. Its request fields are asserted in request shape tests.
 - **Baseline assertions survive re-recording:** stop reason, tool input mentions London, usage present; thinking is lenient (text, signature or encrypted reasoning).

@@ -33,7 +33,10 @@ defmodule Omni.Providers.MoonshotTest do
       {provider, _models} = Loader.assemble(:moonshotai)
 
       assert provider.compat == %{
-               Omni.Dialects.OpenAICompletions => %{thinking_toggle_format: :thinking_type}
+               Omni.Dialects.OpenAICompletions => %{
+                 thinking_toggle_format: :thinking_type,
+                 thinking_replay_format: :reasoning_content
+               }
              }
     end
   end
