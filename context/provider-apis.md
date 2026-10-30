@@ -2,9 +2,11 @@
 
 Markdown resources documenting each provider's API. These are large documents — fetch only when actively working on the relevant provider/dialect.
 
-## Alibaba (html resources - completions & responses)
+## Alibaba (html resources - completions, responses & messages - systemone)
 https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-chat-completions
 https://www.alibabacloud.com/help/en/model-studio/qwen-api-via-openai-responses
+https://www.alibabacloud.com/help/en/model-studio/anthropic-api-messages
+https://www.alibabacloud.com/help/en/model-studio/decision-model-api
 
 ## Anthropic Messages
 https://platform.claude.com/docs/en/api/messages/create.md
@@ -28,27 +30,33 @@ https://platform.kimi.ai/docs/api/messages.md
 https://docs.near.ai/api-reference/chat/create-chat-completion.md
 https://docs.near.ai/api-reference/responses/create-response.md
 
-## Ollama (ollama chat & completions)
+## Ollama (ollama chat & completions - systemone)
 https://docs.ollama.com/api/chat.md
 https://docs.ollama.com/api/openai-compatibility.md
+https://docs.ollama.com/api/systemone
 
-## OpenAI Chat Completions
+## OpenAI Completions
 https://developers.openai.com/api/reference/resources/chat/subresources/completions/methods/create/index.md
+
+## OpenAI Decisions
+https://developers.openai.com/api/reference/resources/decisions/methods/create/index.md
 
 ## OpenAI Responses
 https://developers.openai.com/api/reference/resources/responses/methods/create/index.md
 
-## OpenRouter (completions, responses & messages)
+## OpenRouter (completions, responses & messages - systemone)
 https://openrouter.ai/docs/api/api-reference/chat/send-chat-completion-request.md
 https://openrouter.ai/docs/api/api-reference/responses/create-a-response.md
 https://openrouter.ai/docs/api/api-reference/anthropic-messages/create-a-message.md
+https://openrouter.ai/docs/api/api-reference/systemone/submit-a-system-one-request.md
 
 ## Together AI
 https://docs.together.ai/reference/chat-completions.md
 
-## Venice AI (completions & responses)
+## Venice AI (completions & responses - systemone)
 https://docs.venice.ai/api-reference/endpoint/chat/completions.md
 https://docs.venice.ai/api-reference/endpoint/responses/create.md
+https://docs.venice.ai/api-reference/endpoint/decisions/create.md
 
 ## xAI
 https://docs.x.ai/developers/model-capabilities/text/generate-text
