@@ -1,12 +1,12 @@
 # Decisions API — design (pass two)
 
-*2026-10-30. The agreed plan, replacing the 2026-10-09 brainstorm. Everything here was settled in discussion; the phases at the end are the order of work. The research behind it (wire formats, hosts, catalog) is summarised rather than reproduced.*
+*2026-10-30. The agreed plan, replacing the 2026-10-09 brainstorm. Everything here was settled in discussion; the phases at the end are the order of work. Provider endpoints revised 2026-11-03 after a first implementation. The research behind it (wire formats, hosts, catalog) is summarised rather than reproduced.*
 
 ## What we are building
 
 A second capability beside text generation: send one shared input plus a set of independent, typed questions, and get back calibrated probabilities instead of prose. No streaming, no tools, no multi-turn. Two wire formats cover every known host: TypeSafe's **System One** (the de facto open standard, served by TypeSafe, Ollama, OpenRouter, OpenCode Zen, Alibaba, Venice, Cloudflare, Liquid and others) and **OpenAI Decisions** (`gpt-6-luna` only, also proxied by Vercel). Hosts differ in paths, image encoding, option caps and confidence formulas, none of which needs a third dialect: variation is compat flags and tolerant parsing.
 
-The work also restructures the provider so that each dialect it serves has its own endpoint (a path prefix on the provider's host, plus compat), which fixes the "per-model base URL" backlog item and is needed before OpenCode's catalog data can be refreshed.
+The work also restructures the provider so that each dialect it serves has its own endpoint (a whole base URL, plus compat), which fixes the "per-model base URL" backlog item and is needed before OpenCode's catalog data can be refreshed.
 
 ```elixir
 {:ok, decision} =
@@ -44,15 +44,15 @@ Live models.dev with `?type=all` (checked 2026-10-30) carries 69 decision models
 
 **Hosts in scope**, all with keys to verify:
 
-| Host | Dialect | Mount | Notes |
+| Host | Dialect | Endpoint URL | Notes |
 |---|---|---|---|
-| TypeSafe (new) | System One | `https://api.typesafe.ai` + `/v1` | New `Omni.Providers.TypeSafe`. Models from llm_db when that source is used; otherwise hardcoded in `models/2` when the catalog returns none. System One's home API, so dialect-tier fixtures record here |
-| OpenAI | OpenAI Decisions | `https://api.openai.com` + `/v1` | `models/2` stamps `decision: Omni.Dialects.OpenAIDecisions` on `gpt-6-luna`. $0.10/M input, cached $0.01 |
-| OpenRouter | System One | `https://openrouter.ai` + `/api/v1` (alias `/systemone`) | 34 catalog models, same prefix as the text dialects. Extra response fields ignored |
-| OpenCode | System One | `https://opencode.ai` + `/inference/systemone/v1` | Catalog mount, derived by the source. The module stops hardcoding `zen/v1` |
-| Ollama | System One | `http://localhost:11434` + `/v1` | Config-listed models, `type: :decision` sugar. Chat is at `/api/chat` with an empty prefix. Images later |
+| TypeSafe (new) | System One | `https://api.typesafe.ai/v1` | New `Omni.Providers.TypeSafe`. Models from llm_db when that source is used; otherwise hardcoded in `models/2` when the catalog returns none. System One's home API, so dialect-tier fixtures record here |
+| OpenAI | OpenAI Decisions | `https://api.openai.com/v1` | Same URL as the Responses endpoint. `models/2` stamps `decision: Omni.Dialects.OpenAIDecisions` on `gpt-6-luna`. $0.10/M input, cached $0.01 |
+| OpenRouter | System One | `https://openrouter.ai/api/v1` (alias `/systemone`) | 34 catalog models, same URL as the text endpoint. Extra response fields ignored |
+| OpenCode | System One | `https://opencode.ai/inference/systemone/v1` | From the catalog's model-level URL. The module stops hardcoding `zen/v1` |
+| Ollama | System One | `http://localhost:11434/v1` | Config-listed models, `type: :decision` sugar. Chat's endpoint is `http://localhost:11434` (its path is `/api/chat`); `host:` moves both. Images later |
 
-Held for catalog data: Ollama Cloud (`https://ollama.com/v1/systemone`, `clef:cloud`), Alibaba (`https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/systemone`, `decision-model-preview`, 16 questions), Venice (`/api/v1/systemone` alias, `jev-latest`, `clef`, `clef-api`). Not built-ins: Cloudflare, Vercel, nano-gpt, vivgrid, melious, NearAI.
+Held for catalog data: Ollama Cloud (`https://ollama.com/v1/systemone`, `clef:cloud`), Alibaba (`https://{WorkspaceId}.ap-southeast-1.maas.aliyuncs.com/compatible-mode/v1/systemone`, `decision-model-preview`, 16 questions; same API key as chat, so an endpoint on `:alibaba` rather than a second provider), Venice (`/api/v1/systemone` alias, `jev-latest`, `clef`, `clef-api`). Not built-ins: Cloudflare, Vercel, nano-gpt, vivgrid, melious, NearAI.
 
 **Catalog hazard.** Live models.dev now lists OpenCode's provider `api` as `https://opencode.ai/inference/openai/v1` with per-model mounts (`/inference/anthropic/v1` ×24, `/inference/google/v1beta` ×9, `/inference/systemone/v1` ×2). The current source skips models whose mount differs from the provider's, so a snapshot refresh would drop 33 OpenCode models. Per-dialect endpoints (phase 1) must land before the snapshot is refreshed (phase 3).
 
@@ -68,7 +68,7 @@ Held for catalog data: Ollama Cloud (`https://ollama.com/v1/systemone`, `clef:cl
 - **Answers are a keyword list** aligned with the questions, so `answers[:name]` works and order survives: `Omni.Answer.Predicate{probability}`, `Omni.Answer.Choice{choice, probabilities, confidence}`, `Omni.Answer.Score{score, probabilities, confidence}`, `Omni.Answer.Refusal{}`. `probabilities` is a list of `{key, probability}` pairs in the caller's order with the caller's keys (System One's option strings and level indices are mapped back; its `legend` is dropped as redundant). Confidence is the provider's number, nil where the API gives none.
 - **Validation** happens once at the boundary with a Peri schema: at least one question, non-empty instructions (a map or list is JSON-encoded for OpenAI), at least two choices or levels. Provider caps are left to the provider.
 - **Capability errors** before any HTTP: `decide` on a model with no decision dialect returns `{:error, {:unsupported_capability, :decision}}`; `generate_text` on a decision-only model returns `{:error, {:unsupported_capability, :text}}`.
-- **Options**: the universal config keys (`api_key`, `base_url`, `headers`, `plug`, `timeout`, `raw`) plus the dialect's own schema (`safety_identifier`, `prompt_cache_key` on OpenAI; none on System One).
+- **Options**: the universal config keys (`api_key`, `host`, `headers`, `plug`, `timeout`, `raw`) plus the dialect's own schema (`safety_identifier`, `prompt_cache_key` on OpenAI; none on System One).
 
 ### Dialect behaviours
 
@@ -102,45 +102,62 @@ Neither dialect ships a compat flag at first. Host quirks (option caps, required
 
 ### Provider endpoints
 
-Every known split in a gateway's lineup is by dialect and by path, never by host: OpenCode mounts `/inference/openai/v1`, `/inference/anthropic/v1`, `/inference/google/v1beta` and `/inference/systemone/v1`; ofox `/anthropic/v1` and `/gemini/v1beta`; Cloudflare `/ai/v1` and `/ai/run`. So a provider is one host with one mount per dialect, and the struct says so. The request URL is three parts:
+A provider can serve several dialects, each at its own URL. OpenCode's live catalog entry mounts `/inference/openai/v1`, `/inference/anthropic/v1`, `/inference/google/v1beta` and `/inference/systemone/v1`; ofox `/anthropic/v1` and `/gemini/v1beta`; Ollama serves chat at `/api/chat` and System One at `/v1/systemone`. Some put a dialect on another host altogether: freemodel serves Anthropic from `cc.freemodel.dev/v1` and Completions from `api.freemodel.dev/v1`, and Alibaba's decision host is per workspace. So each dialect a provider serves gets an endpoint holding its own whole base URL, and the request URL is one join:
 
 ```
-provider.base_url <> endpoint.path_prefix <> dialect.handle_path(model, opts)
+endpoint.base_url <> dialect.handle_path(model, opts)
 ```
+
+The call-site `host:` option, when given, replaces the origin of `endpoint.base_url` first. A trailing slash on the base URL is trimmed, as today.
 
 ```elixir
 %Omni.Provider{
   id: :opencode,
   name: "OpenCode Zen",
-  base_url: "https://opencode.ai",
   api_key: {:system, "OPENCODE_API_KEY"},
   auth: :dialect,
   headers: %{},
   module: Omni.Providers.OpenCode,
   dialects: %{
-    Omni.Dialects.OpenAICompletions => %Omni.Provider.Endpoint{path_prefix: "/inference/openai/v1", compat: %{max_tokens_field: "max_tokens"}},
-    Omni.Dialects.AnthropicMessages => %Omni.Provider.Endpoint{path_prefix: "/inference/anthropic/v1", compat: %{}},
-    Omni.Dialects.SystemOne => %Omni.Provider.Endpoint{path_prefix: "/inference/systemone/v1", compat: %{}}
+    Omni.Dialects.OpenAICompletions => %Omni.Provider.Endpoint{
+      base_url: "https://opencode.ai/inference/openai/v1",
+      compat: %{thinking_replay_format: :reasoning_content}
+    },
+    Omni.Dialects.OpenAIResponses => %Omni.Provider.Endpoint{base_url: "https://opencode.ai/inference/openai/v1"},
+    Omni.Dialects.AnthropicMessages => %Omni.Provider.Endpoint{base_url: "https://opencode.ai/inference/anthropic/v1"},
+    Omni.Dialects.GoogleGemini => %Omni.Provider.Endpoint{base_url: "https://opencode.ai/inference/google/v1beta"},
+    Omni.Dialects.SystemOne => %Omni.Provider.Endpoint{base_url: "https://opencode.ai/inference/systemone/v1"}
   }
 }
 ```
 
-- **`base_url` is the root every endpoint shares**, scheme and host at least. For catalog providers the source puts the version segment in the endpoint prefix; a custom single-dialect provider may fold it into `base_url` and leave the prefix empty (`gpu_box: [base_url: "http://gpu-box:8000/v1", dialects: %{Omni.Dialects.OpenAICompletions => []}]`). This replaces the v1 rule "base_url includes the version segment". A provider is one origin; a host that serves a dialect from another origin (Alibaba's per-workspace decision host) is a second provider id.
-- **The endpoint is the mount and its deviations**: `path_prefix` (default `""`) and `compat`. The `compat` field and the capability-keyed `dialects: %{text: [mods]}` map leave the provider; `Omni.Dialect.capability/1` answers the Loader's questions from the module's behaviours. `%Model{}` is unchanged: `dialects: %{text: Mod, decision: Mod}`, plus `Model.dialect/2` and `Model.supports?/2`.
-- **Auth and headers stay on the provider.** Nobody configures auth per dialect; what varies per dialect is the resolution of `:dialect` to the home scheme, which the request does as now. Headers users set today are per host. If a gateway ever needs either per dialect, the field joins the endpoint and overrides the provider's. **The API key stays on the provider**: a provider is one account, and a different key means a different provider id.
-- **Call-site `base_url:` replaces the provider's `base_url`** and keeps the endpoint prefix, so the key means the same thing everywhere: the shared root. A mirror or test host is the use case; a per-request mount change is not one. `api_key:` and `headers:` at the call site work as today.
-- **Config.** Provider keys are `name`, `base_url`, `api_key`, `auth`, `headers`, `module`, `models`, `source` and `dialects`. Everything about an endpoint goes under its dialect: `dialects: %{Module => [path_prefix: ..., compat: [...]]}`; a module key with `[]` declares that the provider serves the dialect. `compat: [like: :id]` under a dialect copies that dialect's flags from a built-in. The v1 forms, flat `compat:`, keyed `compat: %{Module => ...}` and `dialects: %{text: Module}`, go, and the boot-time migration message names them.
-- **Merge rule.** Layers merge in the existing order, source ← module `config/0` ← app config, each stating only its deltas. Provider fields replace, `headers` merge by key. `dialects` merge by module, then by field, with `compat` merging by flag and `path_prefix` replacing. Configuring one flag on one endpoint touches nothing else. A module key that no layer declares and no model speaks is a config error with a message, as unknown compat keys are today.
-- **Sources derive the table.** Parse the catalog's provider `api` into origin and path: origin is `base_url`, path is the prefix of the provider's own dialect. A model-level mount on the same origin gives its dialect a prefix (its models must agree, or the odd one out is skipped with a warning); a mount on another origin is skipped with a warning, as now. This replaces `check_mount`. The provider-level npm hint becomes an endpoint entry with an empty prefix.
-- **Model capabilities come from model data.** The only fill is text: a model with no dialect at all gets the provider's only text endpoint, or is skipped with a warning when there are several or none. Decision dialects are never filled, since filling would mark every chat model on a System One host as a decision model. A provider's models must each have at least one capability; "must have text" goes.
-- **Built-in modules.** Single-dialect modules write `base_url` as the origin and the prefix under the dialect (`base_url: "https://api.together.ai", dialects: %{Omni.Dialects.OpenAICompletions => [path_prefix: "/v1", compat: [...]]}`). OpenCode's module stops hardcoding `zen/v1` and lets the catalog mounts stand. Ollama's module sets `base_url: "http://localhost:11434"`, `auth: :none`, OllamaChat with an empty prefix (its path is `/api/chat`) and SystemOne with `/v1`; moving it to another host is one line. Alibaba's region table becomes a `base_url` change too, since regions differ by host and share `/compatible-mode/v1`.
+- **The endpoint is a whole URL and its deviations**: `base_url` and `compat`. `base_url` means what every SDK and API doc means by it: the full URL, version segment included (`https://api.together.ai/v1`). The provider has no `base_url`, and its `compat` field and capability-keyed `dialects: %{text: [mods]}` map go; `Omni.Dialect.capability/1` answers the Loader's questions from the module's behaviours. `%Model{}` is unchanged: `dialects: %{text: Mod, decision: Mod}`, plus `Model.dialect/2` and `Model.supports?/2`.
+- **Auth, headers and the API key stay on the provider.** Nobody configures auth per dialect; what varies per dialect is the resolution of `:dialect` to the home scheme, which the request does as now. Headers users set today are per host. If a gateway ever needs either per dialect, the field joins the endpoint and overrides the provider's. A provider is one account, and a different key means a different provider id.
+- **`host` moves every endpoint.** It replaces the scheme, host and port of each endpoint URL and keeps the path: `ollama: [host: "http://gpu:11434"]` sends chat to `http://gpu:11434/api/chat` and System One to `http://gpu:11434/v1/systemone`. It is the one knob for the common moves (another box, a region, a proxy on the same paths, Bypass in tests) and fills catalog URLs templated only in the origin (`https://${DATABRICKS_HOST}/ai-gateway/mlflow/v1`, `${NEON_AI_GATEWAY_BASE_URL}/v1`, Snowflake, both Azure mounts). The rewrite works on whole URLs, once: nothing is stored in pieces or reassembled per request.
+- **Where URLs are set**, each level doing one thing:
+
+  | Where | Sets | When |
+  |---|---|---|
+  | `dialects: %{Mod => [base_url: url]}` | one endpoint's whole URL | load |
+  | provider `host:` (app config) | the origin of every endpoint URL that came from the source or the module | load |
+  | call-site `host:` | the origin of this request's URL | request |
+
+  An endpoint URL written in app config is used as written; provider `host:` doesn't touch it (Alibaba: `host:` picks the chat region, an explicit workspace URL for System One stays put). The call-site `host:` overrides everything. There is no provider-level `base_url` and no call-site `base_url`: every case found fits `host:` or is clearer per endpoint. The one loss is changing a path for a single request, for which no use case was found; a path-changing gateway in front of a built-in (Cloudflare AI Gateway) is an endpoint URL in config.
+- **Config.** Provider keys are `name`, `host`, `api_key`, `auth`, `headers`, `module`, `models`, `source` and `dialects`; module `config/0` takes `name`, `api_key`, `auth`, `headers` and `dialects`. Everything about an endpoint goes under its dialect: `dialects: %{Module => [base_url: ..., compat: [...]]}`. A module key with `[]` declares that the provider serves the dialect; it then needs a URL from some layer. `compat: [like: :id]` under a dialect copies that dialect's flags from a built-in. The v1 forms raise at boot with a migration message: provider-level `base_url:` (suggesting `host:` with the origin when the path matches the endpoint's, otherwise the `dialects:` form naming the module), flat `compat:`, keyed `compat: %{Module => ...}`, and `dialects: %{text: Module}`.
+- **Merge rule.** Layers merge in the existing order, source ← module `config/0` ← app config, each stating only its deltas. Provider fields replace, `headers` merge by key. `dialects` merge by module, then by field: `base_url` replaces, `compat` merges by flag. The Loader applies `host` after merging. There is no check for endpoints no model uses.
+- **Sources write whole URLs and split nothing.** A dialect's endpoint URL is the URL of its models: a model's own URL (models.dev `provider.api`, llm_db `base_url`) when it has one, otherwise the catalog's provider URL. Another host is fine. When models of one dialect disagree, the first by id wins and the rest are skipped with a warning (in the bundled catalog only google-vertex, whose URLs are templated anyway). Templated URLs are kept verbatim, in both forms (`${VAR}` from models.dev, `{var}` from llm_db), so `host:` can fill them; the code that drops them goes. A catalog provider URL with no known dialect has no endpoint to land on and is dropped: declaring the dialect means writing its `base_url` too (about 80 llm_db providers, and merge-gateway on models.dev). This replaces `check_mount`. Freemodel's Completions models and Cohere's one Completions model, skipped today, load.
+- **Model capabilities come from model data.** The only fill is text: a model with no dialect at all gets the provider's only text endpoint, or is skipped with a warning when there are several or none. Decision dialects are never filled, since filling would mark every chat model on a System One host as a decision model. A model whose dialect has no endpoint is skipped with a warning. A provider's models must each have at least one capability; "must have text" goes.
+- **Missing URLs fail at request time.** Nothing is checked at load, and today's boot raise for a provider with no `base_url` goes. A model whose dialect has no endpoint returns `{:error, {:no_endpoint, dialect}}` (models built by hand; a future `put_dialect` raises instead). An endpoint with no URL, or one still holding a placeholder after `host`, returns `{:error, {:no_base_url, dialect}}`.
+- **Built-in modules** write each endpoint's URL under its dialect: `dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "https://api.together.ai/v1", compat: [...]]}`. OpenCode's module stops hardcoding `zen/v1` and lets the catalog URLs stand. Ollama: `auth: :none`, OllamaChat at `http://localhost:11434` and System One at `http://localhost:11434/v1`. Ollama Cloud adds OllamaChat at `https://ollama.com`; the catalog's Completions endpoint at `https://ollama.com/v1` stays, unused. Alibaba's region table becomes a table of `host:` values, since regions share `/compatible-mode/v1`; its decision endpoint, when catalog data lands, is a templated per-workspace URL the user sets under `dialects:`.
+
+*History: the first attempt (branch `v2-decisions-api`, commit `d8fd552`) split the URL into a provider `base_url` holding the shared host and a per-endpoint `path_prefix`. It made `base_url` mean the host (so `openai: [base_url: "http://localhost:4000/v1"]` went to `/v1/v1/responses`), left it holding the whole URL where no endpoint could take the path, needed about 60 lines in sources to take catalog URLs apart, couldn't represent another host, and had three joins. Its endpoint table, config shape under `dialects:`, merging, Loader fill and error are kept.*
 
 ### Request pipeline
 
 | Piece | Change |
 |---|---|
-| `Request.build/3` | Takes `%Context{}` or `%Decision{}`; the struct picks the capability, hence the dialect and the endpoint. `into: :self` only for text. URL is `provider.base_url <> endpoint.path_prefix <> dialect.handle_path/2` |
-| `Request.validate/2` | Universal config keys split from text inference keys; each capability merges its own dialect schema. Provider `base_url`, `api_key` and `headers` merge with call-site opts as today |
+| `Request.build/3` | Takes `%Context{}` or `%Decision{}`; the struct picks the capability, hence the dialect and the endpoint. `into: :self` only for text. URL is `endpoint.base_url` (origin replaced by a call-site `host:`) `<> dialect.handle_path/2`; `{:no_endpoint, dialect}` and `{:no_base_url, dialect}` errors before any HTTP |
+| `Request.validate/2` | Universal config keys split from text inference keys; each capability merges its own dialect schema. Provider `api_key` and `headers` merge with call-site opts as today; `host` replaces `base_url` as a call-site key, and the URL itself is read from the endpoint, not merged as an option |
 | `Request.send/3` | New sibling of `stream/3`: request, `check_status`, JSON decode, `dialect.handle_response/3`, cost stamped on usage |
 | `Omni.Usage` | Cost computation moves out of `StreamingResponse` into `Usage` so both paths share it; gains `reasoning_tokens` from OpenAI's details (also a backlog item) |
 | Provider hooks | `modify_body(body, model, %Context{} \| %Decision{}, opts)`: the struct is the discriminator, so no capability atom. `modify_request/3` unchanged |
@@ -154,7 +171,7 @@ provider.base_url <> endpoint.path_prefix <> dialect.handle_path(model, opts)
 
 ## Phases
 
-1. **Provider endpoints** (text only, no behaviour change). `Omni.Provider.Endpoint`, three-part URL, Loader merge and config migration messages, `Omni.Dialect.capability/1`, sources split origin from prefix and derive mounts, OpenCode module and its target assertions, docs for `Omni.Provider`. Exit: `mix precommit` green, integration targets unchanged, a sweep over the existing matrix passes.
+1. **Provider endpoints** (text only). `Omni.Provider.Endpoint{base_url, compat}`; the provider loses `base_url` and `compat`; one-join URL; `host` in app config (applied by the Loader after merging) and at the call site, replacing call-site `base_url`; Loader merge and config migration messages (provider `base_url:`, `compat:`, `dialects: %{text: ...}`); request-time `no_endpoint` and `no_base_url` errors, and the boot `base_url` raise goes; `Omni.Dialect.capability/1`; sources write whole endpoint URLs and keep templates (replacing `check_mount` and the template-dropping code); built-in modules write endpoint URLs, OpenCode's stops hardcoding `zen/v1`; the sweep's Ollama reachability check reads the endpoint URL; docs for `Omni.Provider`. Much of `d8fd552` is reusable (endpoint table, config shape, merge, Loader fill, `no_endpoint`); `Omni.Source.build_endpoints/3` and `path_prefix` are not. Exit: `mix precommit` green, built-in model sets and integration request targets unchanged, zenmux, ofox, freemodel and cohere gain their off-mount models, a sweep over the existing matrix passes.
 2. **Core decisions.** `Omni.Dialect` split with `use`, `Omni.Dialect.Text` and `.Decision`, `Omni.Decision`, `Omni.Question.*`, `Omni.Answer.*`, Peri schema, `Request.build/validate` split, `Request.send/3`, `Usage` cost extraction, `Omni.Dialects.SystemOne` and `OpenAIDecisions`, `Omni.decide/3`, capability errors. Unit tests on hand-written bodies.
 3. **Catalog and providers.** `mix omni.snapshot` and live mode fetch `?type=all`; type-aware eligibility (decision models need no `tool_call`; other non-text types stay out); decision dialect inference (`type: decision` ⇒ systemone unless the model npm is `@ai-sdk/openai`); LLMDB reads `execution.evaluate.family`; OpenAI stamps `gpt-6-luna`; new TypeSafe module; Ollama `type: :decision` sugar and System One endpoint; golden test. Snapshot refresh happens here, after phase 1.
 4. **Live verification and fixtures.** Scenarios, `.json` capture, dialect fixtures from TypeSafe and OpenAI, provider baselines for OpenRouter, OpenCode and Ollama, sweep entries.
