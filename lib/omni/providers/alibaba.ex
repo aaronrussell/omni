@@ -9,22 +9,24 @@ defmodule Omni.Providers.Alibaba do
 
   ## Regions
 
-  Defaults to the International (Singapore) endpoint. To use another region,
-  set `:base_url`:
+  Defaults to the International (Singapore) endpoint,
+  `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`. Every region
+  serves the same `/compatible-mode/v1` path, so to use another, set `:host`:
 
       config :omni, :providers,
-        alibaba: [base_url: "https://dashscope-us.aliyuncs.com/compatible-mode/v1"]
+        alibaba: [host: "https://dashscope-us.aliyuncs.com"]
 
-  | Region                    | Base URL                                                                  |
-  |---------------------------|---------------------------------------------------------------------------|
-  | International (Singapore) | `https://dashscope-intl.aliyuncs.com/compatible-mode/v1`                  |
-  | US (Virginia)             | `https://dashscope-us.aliyuncs.com/compatible-mode/v1`                    |
-  | Germany (Frankfurt)       | `https://{WorkspaceId}.eu-central-1.maas.aliyuncs.com/compatible-mode/v1` |
-  | China (Beijing)           | `https://dashscope.aliyuncs.com/compatible-mode/v1`                       |
-  | China (Hong Kong)         | `https://cn-hongkong.dashscope.aliyuncs.com/compatible-mode/v1`           |
+  | Region                    | Host                                                  |
+  |---------------------------|-------------------------------------------------------|
+  | International (Singapore) | `https://dashscope-intl.aliyuncs.com`                 |
+  | US (Virginia)             | `https://dashscope-us.aliyuncs.com`                   |
+  | Germany (Frankfurt)       | `https://{WorkspaceId}.eu-central-1.maas.aliyuncs.com` |
+  | China (Beijing)           | `https://dashscope.aliyuncs.com`                      |
+  | China (Hong Kong)         | `https://cn-hongkong.dashscope.aliyuncs.com`          |
 
   The catalog also lists the Beijing endpoint as its own provider,
-  `:alibaba_cn`; `compat: [like: :alibaba]` gives it these flags.
+  `:alibaba_cn`, which takes these flags with
+  `dialects: %{Omni.Dialects.OpenAICompletions => [compat: [like: :alibaba]]}`.
 
   ## Reasoning
 
@@ -55,14 +57,16 @@ defmodule Omni.Providers.Alibaba do
   @impl true
   def config do
     [
-      base_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
       api_key: {:system, "DASHSCOPE_API_KEY"},
-      compat: %{
+      dialects: %{
         Omni.Dialects.OpenAICompletions => [
-          thinking_toggle_format: :enable_thinking,
-          thinking_budget_field: "thinking_budget",
-          thinking_replay_format: :reasoning_content,
-          output_format: :json_object
+          base_url: "https://dashscope-intl.aliyuncs.com/compatible-mode/v1",
+          compat: [
+            thinking_toggle_format: :enable_thinking,
+            thinking_budget_field: "thinking_budget",
+            thinking_replay_format: :reasoning_content,
+            output_format: :json_object
+          ]
         ]
       }
     ]

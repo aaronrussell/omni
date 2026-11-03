@@ -15,9 +15,9 @@ defmodule Omni.Providers.Anthropic do
   @impl true
   def config do
     [
-      base_url: "https://api.anthropic.com/v1",
       api_key: {:system, "ANTHROPIC_API_KEY"},
-      headers: %{"anthropic-version" => "2023-06-01"}
+      headers: %{"anthropic-version" => "2023-06-01"},
+      dialects: %{Omni.Dialects.AnthropicMessages => [base_url: "https://api.anthropic.com/v1"]}
     ]
   end
 end

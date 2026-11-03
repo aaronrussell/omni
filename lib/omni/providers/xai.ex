@@ -9,8 +9,10 @@ defmodule Omni.Providers.XAI do
 
   xAI also serves Chat Completions, as a legacy endpoint. Omni uses
   Responses, xAI's preferred API and the only one that returns encrypted
-  reasoning, so every catalog model is given the Responses dialect when the
-  provider loads.
+  reasoning, so every model is given the Responses dialect when the provider
+  loads, in the module's `c:Omni.Provider.models/2`. That runs after config
+  `models:` entries are merged, so a `:dialects` set in config is replaced
+  too.
 
   ## Reasoning
 
@@ -35,9 +37,8 @@ defmodule Omni.Providers.XAI do
   @impl true
   def config do
     [
-      base_url: "https://api.x.ai/v1",
       api_key: {:system, "XAI_API_KEY"},
-      dialects: %{text: Omni.Dialects.OpenAIResponses}
+      dialects: %{Omni.Dialects.OpenAIResponses => [base_url: "https://api.x.ai/v1"]}
     ]
   end
 

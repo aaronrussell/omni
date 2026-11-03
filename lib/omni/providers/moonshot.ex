@@ -7,8 +7,9 @@ defmodule Omni.Providers.Moonshot do
   configuration is needed if it is set. Override any setting under
   `config :omni, :providers, moonshotai: [...]` (see `Omni.Provider`).
 
-  The catalog lists the China endpoint as its own provider, `:moonshotai_cn`;
-  `compat: [like: :moonshotai]` gives it these flags.
+  The catalog lists the China endpoint as its own provider, `:moonshotai_cn`,
+  which takes these flags with
+  `dialects: %{Omni.Dialects.OpenAICompletions => [compat: [like: :moonshotai]]}`.
 
   ## Reasoning
 
@@ -36,12 +37,14 @@ defmodule Omni.Providers.Moonshot do
   @impl true
   def config do
     [
-      base_url: "https://api.moonshot.ai/v1",
       api_key: {:system, "MOONSHOT_API_KEY"},
-      compat: %{
+      dialects: %{
         Omni.Dialects.OpenAICompletions => [
-          thinking_toggle_format: :thinking_type,
-          thinking_replay_format: :reasoning_content
+          base_url: "https://api.moonshot.ai/v1",
+          compat: [
+            thinking_toggle_format: :thinking_type,
+            thinking_replay_format: :reasoning_content
+          ]
         ]
       }
     ]

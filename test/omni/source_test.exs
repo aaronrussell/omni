@@ -62,6 +62,52 @@ defmodule Omni.SourceTest do
     end
   end
 
+  describe "endpoints/3" do
+    alias Omni.Provider.Endpoint
+
+    @completions Omni.Dialects.OpenAICompletions
+    @messages Omni.Dialects.AnthropicMessages
+
+    defp m(id, dialect), do: Omni.Model.new(id: id, name: id, dialects: %{text: dialect})
+
+    test "each dialect takes its first model's URL, else the provider URL" do
+      pairs = [
+        {m("b", @completions), nil},
+        {m("a", @messages), "https://gw.test/anthropic/v1"}
+      ]
+
+      {endpoints, models, []} = Omni.Source.endpoints(pairs, "https://gw.test/v1", nil)
+
+      assert endpoints == %{
+               @completions => %Endpoint{base_url: "https://gw.test/v1"},
+               @messages => %Endpoint{base_url: "https://gw.test/anthropic/v1"}
+             }
+
+      assert Enum.map(models, & &1.id) == ["a", "b"]
+    end
+
+    test "a later model of a dialect at another URL is skipped" do
+      pairs = [{m("b", @completions), "https://two.test/v1"}, {m("a", @completions), nil}]
+
+      {endpoints, models, [{skipped, url}]} =
+        Omni.Source.endpoints(pairs, "https://one.test/v1", nil)
+
+      assert endpoints == %{@completions => %Endpoint{base_url: "https://one.test/v1"}}
+      assert Enum.map(models, & &1.id) == ["a"]
+      assert {skipped.id, url} == {"b", "https://two.test/v1"}
+    end
+
+    test "the provider-level dialect gets the provider URL with no models" do
+      assert {%{@completions => %Endpoint{base_url: "https://x.test/v1"}}, [], []} =
+               Omni.Source.endpoints([], "https://x.test/v1", @completions)
+    end
+
+    test "a provider URL with no dialect is dropped" do
+      assert {endpoints, [], []} = Omni.Source.endpoints([], "https://x.test/v1", nil)
+      assert endpoints == %{}
+    end
+  end
+
   describe "build_model/1" do
     @fixture_file Path.expand("../support/fixtures/test_models.json", __DIR__)
     @multi_dialect_fixture_file Path.expand(

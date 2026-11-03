@@ -40,13 +40,15 @@ defmodule Omni.Providers.Mistral do
   @impl true
   def config do
     [
-      base_url: "https://api.mistral.ai/v1",
       api_key: {:system, "MISTRAL_API_KEY"},
-      compat: %{
+      dialects: %{
         Omni.Dialects.OpenAICompletions => [
-          # Mistral has no `max_completion_tokens`.
-          max_tokens_field: "max_tokens",
-          thinking_replay_format: :content_chunks
+          base_url: "https://api.mistral.ai/v1",
+          compat: [
+            # Mistral has no `max_completion_tokens`.
+            max_tokens_field: "max_tokens",
+            thinking_replay_format: :content_chunks
+          ]
         ]
       }
     ]

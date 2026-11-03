@@ -124,7 +124,7 @@ Omni.generate_text(model, context,
 
   # Request config (merged over the provider's values)
   api_key: "sk-ant-...",
-  base_url: "https://custom-proxy.com/v1",
+  host: "https://custom-proxy.com",   # swaps the endpoint URL's origin, keeps its path
   headers: %{"x-custom" => "value"},
   timeout: 300_000
 )
@@ -158,7 +158,7 @@ Each dialect translates the option into the appropriate mechanism:
 | `:short` | Breakpoints, 5min TTL | Nothing sent (default retention) | Nothing sent | Nothing sent |
 | `:long` | Breakpoints, 1h TTL | `prompt_cache_retention: "24h"` | `prompt_cache_retention: "24h"` | Nothing sent |
 
-For Anthropic, the dialect places `cache_control` breakpoints on the system prompt, the tools, and the last message content block. The provider's prefix matching handles the rest -- previous messages that match the cached prefix get cache hits automatically, even as new messages are appended. Where a dialect has no mechanism, the option is silently ignored (caching is an optimisation hint, not a semantic requirement). A provider that rejects the Completions field drops it with `compat: [omit: [:cache]]`.
+For Anthropic, the dialect places `cache_control` breakpoints on the system prompt, the tools, and the last message content block. The provider's prefix matching handles the rest -- previous messages that match the cached prefix get cache hits automatically, even as new messages are appended. Where a dialect has no mechanism, the option is silently ignored (caching is an optimisation hint, not a semantic requirement). A provider that rejects the Completions field drops it with `omit: [:cache]` in its Completions endpoint's compat.
 
 ---
 
@@ -192,7 +192,7 @@ A model is a data struct -- not a module. It describes a specific LLM's identity
 - **`thinking`** is `false` (no reasoning), `true` (reasons, nothing more known), or a map of what the model accepts (`:efforts`, `:toggle`, `:budget`). See [Thinking](#thinking).
 - Supported modalities are defined on `Omni.Model`: input `:text`, `:image`, `:pdf`; output `:text`. Anything else in catalog data is dropped.
 
-`Model.new/1` takes `provider:` as a struct or the id of a loaded provider, fills missing `dialects` capabilities from the provider's first dialect, and accepts `thinking:` as a boolean, map, or keyword list (an empty map means `true`). It does not validate values; validation happens at the API boundary.
+`Model.new/1` takes `provider:` as a struct or the id of a loaded provider, and accepts `thinking:` as a boolean, map, or keyword list (an empty map means `true`). It never fills `dialects` from the provider: a model names its own, and `Omni.put_model/1` raises for one with none. It does not validate values; validation happens at the API boundary.
 
 ### Where model data comes from -- model sources
 
@@ -205,16 +205,16 @@ Catalog data comes from a pluggable **model source**: a module implementing the 
 
 It receives the provider's id and returns **raw catalog data only**:
 
-- a partial `%Provider{}`: `id`, plus whatever the catalog knows of `name`, `base_url`, `api_key` (`{:system, var}` only when the catalog names exactly one variable -- several variables signal bespoke credentials that need config), and a provider-level `dialects` hint;
-- models **without** a provider, each with `dialects` from its own catalog data, or empty when nothing maps.
+- a partial `%Provider{}`: `id`, plus whatever the catalog knows of `name`, `api_key` (`{:system, var}` only when the catalog names exactly one variable -- several variables signal bespoke credentials that need config), and `dialects`: an endpoint per dialect its models speak, holding the catalog's whole URL for it;
+- models **without** a provider, each with `dialects` from its own catalog data. A model the catalog gives no dialect for is skipped, since Omni never fills one in.
 
-Translating the id to the catalog's key is the source's job (`Omni.Sources.ModelsDev` hyphenates; `Omni.Sources.LLMDB` uses it verbatim). `Omni.Source.build_model/1` builds a model from a string-keyed map (dates, defaults, `"reasoning"` and `"reasoning_options"` into `:thinking`). Sources skip, with a warning, models they can't represent faithfully: a model whose own npm package maps to no dialect (it explicitly differs from its provider, so filling it would be a guess), and a model served from a different base URL than its provider (per-model base URLs; on the roadmap backlog). `{:error, :unknown_provider}` means the catalog doesn't know the id, so the provider is custom; any other error is logged and treated the same way. There is no cross-source fallback.
+Translating the id to the catalog's key is the source's job (`Omni.Sources.ModelsDev` hyphenates; `Omni.Sources.LLMDB` uses it verbatim). `Omni.Source.build_model/1` builds a model from a string-keyed map (dates, defaults, `"reasoning"` and `"reasoning_options"` into `:thinking`). `Omni.Source.endpoints/3` derives the endpoints from the models' URLs: each dialect takes the URL of its first model by id (the model's own catalog URL, else the provider's), on whatever path or host that is; the provider-level dialect gets the provider URL when no model claimed it; a provider URL with no dialect is dropped. Templated URLs (`${VAR}`, `{var}`) are kept for `host:` to fill. Sources skip, with a warning, models they can't represent faithfully: a model whose npm package -- its own, or its provider's when it has none -- maps to no dialect Omni speaks (the catalog says it speaks another API; a provider-level miss is logged at debug and counted in the summary), and a model at another URL than the first model of its dialect (only google-vertex has one in the bundled catalog). The llm_db source also skips models llm_db marks `catalog_only` and models with no wire protocol or npm package. `{:error, :unknown_provider}` means the catalog doesn't know the id, so the provider is custom; any other error is logged and treated the same way. There is no cross-source fallback.
 
-The npm-package-to-dialect table lives in each source. A bespoke package that is OpenAI-compatible in practice (`@ai-sdk/xai`, `@ai-sdk/togetherai`, ...) is mapped there when its provider becomes a built-in, not before: these providers have no catalog base URL, so a mapping without the module adds little.
+The npm-package-to-dialect table lives in each source. A bespoke package that is OpenAI-compatible in practice (`@ai-sdk/xai`, `@ai-sdk/togetherai`, ...) is mapped there when its provider becomes a built-in, not before: these providers have no catalog URL, so a mapping without the module adds little.
 
 Omni ships two sources:
 
-- **`Omni.Sources.ModelsDev`** (default) -- reads a snapshot of the full [models.dev](https://models.dev/) catalog bundled in the package (`priv/models/models_dev.json`, refreshed with `mix omni.snapshot` and committed to the repository). The snapshot content is verbatim; only the encoding is normalized (pretty-printed, keys sorted) so snapshot updates produce minimal, reviewable git diffs. It is transformed at load time: deprecated models and those without tool use or text modalities are filtered out, and each model's dialect is inferred from npm package metadata (the model's own package, else its provider's). The provider record supplies `name`, `api` (base URL), `env` and `npm`. Because the snapshot is unpruned, any catalog provider can be loaded by id. An optional **live mode** (`source: {Omni.Sources.ModelsDev, live: true}`) fetches fresh catalog data from models.dev at boot with a disk cache (`cache_ttl:`, `cache_dir:` opts), degrading gracefully: fresh cache → fetch → stale cache → bundled snapshot, warning at each step.
+- **`Omni.Sources.ModelsDev`** (default) -- reads a snapshot of the full [models.dev](https://models.dev/) catalog bundled in the package (`priv/models/models_dev.json`, refreshed with `mix omni.snapshot` and committed to the repository). The snapshot content is verbatim; only the encoding is normalized (pretty-printed, keys sorted) so snapshot updates produce minimal, reviewable git diffs. It is transformed at load time: deprecated models and those without tool use or text modalities are filtered out, and each model's dialect is inferred from npm package metadata (the model's own package, else its provider's). The provider record supplies `name`, `api` (the URL for its provider-level dialect, unless a model carries its own), `env` and `npm`. Because the snapshot is unpruned, any catalog provider can be loaded by id. An optional **live mode** (`source: {Omni.Sources.ModelsDev, live: true}`) fetches fresh catalog data from models.dev at boot with a disk cache (`cache_ttl:`, `cache_dir:` opts), degrading gracefully: fresh cache → fetch → stale cache → bundled snapshot, warning at each step.
 - **`Omni.Sources.LLMDB`** -- sources the catalog from the optional [`llm_db`](https://hex.pm/packages/llm_db) hex package. Selecting it without the package in deps raises at boot. Dialects come from the wire protocol, then npm metadata. Filtering and freshness are llm_db's own concerns (`config :llm_db, allow:/deny:/sources:`), deliberately not wrapped by Omni.
 
 The source is chosen per provider (`config :omni, :providers, openai: [source: ...]`), else globally (`config :omni, :models, source: ...`), else the default. A source value is a module or a `{module, opts}` tuple.
@@ -265,20 +265,24 @@ A provider is an LLM service, described as data: a `%Omni.Provider{}` struct ass
 %Omni.Provider{
   id: :groq,                                     # catalog key, snake_cased
   name: "Groq",
-  base_url: "https://api.groq.com/openai/v1",    # includes the version segment
   api_key: {:system, "GROQ_API_KEY"},            # string | {:system, var} | {M, F, A} | nil
   auth: :dialect,                                # :bearer | {:header, name} | :none | :dialect
   headers: %{},
-  dialects: %{text: [Omni.Dialects.OpenAICompletions]},  # derived from its models
-  compat: %{},                                   # %{dialect_module => flags}
+  dialects: %{                                   # an endpoint per dialect it serves
+    Omni.Dialects.OpenAICompletions => %Omni.Provider.Endpoint{
+      base_url: "https://api.groq.com/openai/v1",  # the whole URL, version segment included
+      compat: %{thinking_replay_format: :reasoning}
+    }
+  },
   module: Omni.Providers.Groq                    # optional code for what flags can't express
 }
 ```
 
-- **`base_url` includes the version segment** (`/v1`, `/v1beta`, `/api/paas/v4`). Dialect paths are resource paths only (`/chat/completions`, `/messages`). This follows the catalog (190 of the ~200 catalog base URLs include it) and the OpenAI SDK convention, and removed every URL-building override. The few catalog base URLs without a version segment (`https://api.deepseek.com`, `https://api.githubcopilot.com`) are roots those APIs serve directly, not omissions. Local Ollama's documented root has no version, so its dialect path stays `/api/chat`.
+- **`dialects` maps each dialect the provider serves to an endpoint**: its whole base URL and its compat flags. A request goes to `endpoint.base_url <> dialect.handle_path(model, opts)`, so a gateway serves each dialect from its own path or host (OpenCode's live catalog mounts `/inference/openai/v1`, `/inference/anthropic/v1`, `/inference/google/v1beta`; freemodel serves Anthropic from `cc.freemodel.dev` and Completions from `api.freemodel.dev`). See [Endpoints](#endpoints).
+- **`base_url` includes the version segment** (`/v1`, `/v1beta`, `/api/paas/v4`), as SDKs and API docs mean it. Dialect paths are resource paths only (`/chat/completions`, `/messages`). This follows the catalog (190 of the ~200 catalog base URLs include it) and the OpenAI SDK convention, and removed every URL-building override. The few catalog base URLs without a version segment (`https://api.deepseek.com`, `https://api.githubcopilot.com`) are roots those APIs serve directly, not omissions. Local Ollama's documented root has no version, so its dialect path stays `/api/chat`.
+- **Auth, headers and the API key stay on the provider.** Nobody configures them per dialect; what varies per dialect is the resolution of `:dialect` to the home scheme, done per request. A provider is one account: a different key means a different provider id.
 - **`auth` is pure data.** `:dialect` (the default) means "use the scheme of the dialect's home API" (`Dialect.auth/0`: Anthropic Messages → `x-api-key`, Gemini → `x-goog-api-key`, OpenAI → bearer). That is how a gateway like OpenCode Zen authenticates each model the way its upstream does, with no code. No function-valued forms; anything exotic goes through `modify_request/3`.
-- **`dialects`** lists, per capability, every dialect the provider's models speak. It is derived at load from the models, not declared.
-- **`compat`** holds compat flags keyed by dialect module. See [Compat flags](#compat-flags).
+- **No dialect is a default.** Each model names its own dialect; the provider's endpoints say where each is served. `Omni.Provider.dialects/2` lists a capability's dialects, read through `Omni.Dialect.capability/1`.
 - **No `tier` field.** v2 briefly stamped `tier: :verified | :catalog | :custom`. Nothing read it, built-in membership is `Omni.Provider.builtins/0`, and "verified" promised something about a whole provider that is only ever checked model by model. Removed before release.
 
 ### Why providers are data
@@ -296,8 +300,8 @@ Any provider can be loaded; Omni knows more about some than others. These are pl
 
 | Kind | What it is | What Omni supplies |
 |---|---|---|
-| Built-in | An id in `Omni.Provider.Builtins`, with a module in `Omni.Providers.*` | Base URL, key variable and compat set explicitly; quirks in its moduledoc; baseline fixtures and a provider test; models in the sweep matrix |
-| Catalog | Any other provider the source's catalog knows | Endpoint, key variable, models and dialect from catalog data; speaks its dialect plain, with no flags. The user sets flags, or borrows a built-in's with `like:` |
+| Built-in | An id in `Omni.Provider.Builtins`, with a module in `Omni.Providers.*` | Endpoint URLs, key variable and compat set explicitly; quirks in its moduledoc; baseline fixtures and a provider test; models in the sweep matrix |
+| Catalog | Any other provider the source's catalog knows | Endpoint URLs, key variable, models and dialects from catalog data; speaks each dialect plain, with no flags. The user sets flags, or borrows a built-in's with `like:` |
 | Custom | An id the catalog doesn't know | Nothing beyond what config defines |
 
 Omni doesn't call a provider "verified". Verification is per model and per day (see [Verification and testing](#verification-and-testing)): a built-in has had some of its models run against its live API, never all of them. Users check any model, on any kind of provider, with `mix omni.verify`.
@@ -306,7 +310,7 @@ Omni doesn't call a provider "verified". Verification is per model and per day (
 
 ### Built-in providers
 
-Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the sixteen built-in ids to `Omni.Providers.*` modules, and each module's `config/0` *is* the built-in overlay: its base URL, key variable, and compat, set explicitly even where the catalog agrees, so `like:` has a complete set to copy. Their moduledocs are the per-provider reference (quirks, regions, the flags they set). Modules carry no id; the Builtins map supplies it, and other providers attach a module with `module:` in config.
+Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the sixteen built-in ids to `Omni.Providers.*` modules, and each module's `config/0` *is* the built-in overlay: its endpoint URL, key variable, and compat, set explicitly under `dialects:` even where the catalog agrees, so `like:` has a complete set to copy. OpenCode is the exception for URLs: it sets only compat and takes each dialect's URL from the catalog, which knows the gateway's mounts. Their moduledocs are the per-provider reference (quirks, regions, the flags they set). Modules carry no id; the Builtins map supplies it, and other providers attach a module with `module:` in config.
 
 | Id | Module | Dialect | Module code beyond `config/0` |
 |---|---|---|---|
@@ -317,7 +321,7 @@ Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the sixteen bui
 | `:mistral` | `Mistral` | Completions | -- |
 | `:moonshotai` | `Moonshot` | Completions | -- |
 | `:nearai` | `NearAI` | Completions | -- |
-| `:ollama` | `Ollama` | Ollama Chat | -- (`auth: :none`, models from config) |
+| `:ollama` | `Ollama` | Ollama Chat | `models/2`: stamps Ollama Chat on config models with no dialect (`auth: :none`, models from config) |
 | `:ollama_cloud` | `OllamaCloud` | Ollama Chat | `models/2`: re-stamps every model to Ollama Chat |
 | `:openai` | `OpenAI` | Responses | -- |
 | `:opencode` | `OpenCode` | per model | -- |
@@ -327,10 +331,11 @@ Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the sixteen bui
 | `:xai` | `XAI` | Responses | `models/2`: re-stamps every model to Responses; `modify_body/4`: no `reasoning` without effort data |
 | `:zai` | `Zai` | Completions | -- |
 
-The five pieces of residual code each exist because no flag could express them:
+The six pieces of residual code each exist because no flag could express them:
 
 - **Groq `modify_body/4`.** Groq's `reasoning_format` defaults to `raw` (`<think>` tags in the content) on reasoning models other than gpt-oss, which doesn't support the parameter. The module sends `"parsed"` to non-gpt-oss reasoning models unless thinking is off. It depends on the model id, so it isn't a provider-wide flag.
-- **Ollama Cloud `models/2`.** The catalog describes Ollama's OpenAI-compatible endpoint; Omni uses the native chat API. Model data decides a model's dialect, so changing catalog models' dialects takes code.
+- **Ollama `models/2`.** A local instance's models come from config by id alone, and Omni never fills a dialect in, so the module stamps Ollama Chat on those with none. An entry naming its own dialect keeps it.
+- **Ollama Cloud `models/2`.** The catalog describes Ollama's OpenAI-compatible endpoint (`https://ollama.com/v1`, which stays as an unused endpoint); Omni uses the native chat API at `https://ollama.com`. Model data decides a model's dialect, so changing catalog models' dialects takes code. It runs after config `models:` merge, so it also replaces a dialect set there.
 - **Venice `models/2`.** Venice extracts PDF text at its API layer for every model, which the catalog doesn't record.
 - **xAI `models/2`.** llm_db describes xAI's legacy Chat Completions endpoint (its wire protocol outranks npm metadata); Omni uses Responses, xAI's preferred API and the only one with encrypted reasoning. As with Ollama Cloud, changing catalog models' dialects takes code.
 - **xAI `modify_body/4`.** Models with no effort data (`grok-4.20-0309-reasoning`, `grok-build-0.1`) reject `reasoning.effort` with any value, `"none"` included, so the module drops `reasoning` for them. It depends on the model's thinking data, so it isn't a provider-wide flag.
@@ -339,7 +344,7 @@ The five pieces of residual code each exist because no flag could express them:
 
 ### Provider ids
 
-A provider's id is its catalog key, snake_cased: `:anthropic`, `:fireworks_ai`, `:ollama_cloud`. It is the single identity -- config keys, `get_model/2` lookup, and source catalog lookups all use it, and sources translate it to their own key format. There is no renaming and no separate catalog id. Two instances of one provider (two regions, two accounts) are not supported; call-site `base_url:` and `api_key:` cover those cases.
+A provider's id is its catalog key, snake_cased: `:anthropic`, `:fireworks_ai`, `:ollama_cloud`. It is the single identity -- config keys, `get_model/2` lookup, and source catalog lookups all use it, and sources translate it to their own key format. There is no renaming and no separate catalog id. Two instances of one provider (two regions, two accounts) are not supported; call-site `host:` and `api_key:` cover those cases.
 
 ### Configuration
 
@@ -353,25 +358,50 @@ config :omni, :models,
 
 config :omni, :providers,
   anthropic: [api_key: {:system, "MY_ANTHROPIC_KEY"}],
-  zai_coding_plan: [compat: [like: :zai]],
-  ollama: [models: ["llama3.1:8b", [id: "qwen3.5:4b", context_size: 32_768, thinking: true]]],
-  openai: [models: [[id: "ft:gpt-4o:acme::abc123", context_size: 128_000]]],
+  zai_coding_plan: [dialects: %{Omni.Dialects.OpenAICompletions => [compat: [like: :zai]]}],
+  ollama: [
+    host: "http://gpu-box:11434",
+    models: ["llama3.1:8b", [id: "qwen3.5:4b", context_size: 32_768, thinking: true]]
+  ],
+  openai: [
+    models: [
+      [id: "gpt-6", context_size: 1_000_000],   # corrects the catalog model
+      [id: "ft:gpt-4o:acme::abc123", dialects: %{text: Omni.Dialects.OpenAIResponses}]
+    ]
+  ],
   gpu_box: [
-    base_url: "http://gpu-box:8000/v1",
-    dialects: %{text: Omni.Dialects.OpenAICompletions},
+    dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "http://gpu-box:8000/v1"]},
     auth: :none,
-    models: ["llama-3.3-70b"]
+    models: [[id: "llama-3.3-70b", dialects: %{text: Omni.Dialects.OpenAICompletions}]]
   ]
 ```
 
 - **`:models` keys:** `providers` (ids; `:builtins` expands to every built-in and may sit in the list), `source`, `filter`.
-- **`:providers` keys:** `name`, `base_url`, `api_key`, `auth`, `headers`, `dialects`, `compat`, `module`, `models`, `source`. Unknown keys are boot errors, including in entries for providers that aren't loaded.
+- **`:providers` keys:** `name`, `host`, `api_key`, `auth`, `headers`, `dialects`, `module`, `models`, `source`. A module's `config/0` takes `name`, `api_key`, `auth`, `headers`, `dialects`; an endpoint under `dialects:` takes `base_url` and `compat`. Unknown keys are boot errors, including in entries for providers that aren't loaded.
 - **Dialects are module names** in config. A user's own dialect works with no registration. String ids (`"openai_completions"`) are an internal detail for reading catalog data (`Omni.Dialect.get/1`).
-- **`models:`** adds models (ids or `Model.new/1` keyword lists) alongside the catalog's; a matching id replaces the catalog model. A custom provider and local Ollama have nothing else. Removal is the filter's job.
+- **`models:`** corrects or adds models (ids or `Model.new/1` keyword lists). An entry whose id the catalog has merges over the catalog model field by field (`dialects` by capability), so one field can be corrected without restating the rest; an entry with a new id adds a model, which names its dialect (or has the module's `models/2` stamp one). Entries in app config and in `load/1` opts for the same id merge too. A custom provider and local Ollama have nothing else. Removal is the filter's job.
 - **`filter:`** is a predicate over each finished `%Model{}` (provider embedded), run at load, including config-defined models. It is `{Mod, :fun}` or a named capture, because anonymous functions don't survive compile-time config.
-- **v1 config raises** at boot with a migration message: per-module keys (`config :omni, Omni.Providers.X`), the old `:providers` list, modules in `providers:`, `auth_header:`.
+- **v1 config raises** at boot with a migration message: per-module keys (`config :omni, Omni.Providers.X`), the old `:providers` list, modules in `providers:`, `auth_header:`, provider-level `base_url:` (suggesting `host:` when the path matches the endpoint's, else the `dialects:` form naming the module; raised in `assemble/2`, where the endpoint is known), top-level `compat:`, and `dialects: %{text: Module}`.
 
-**One merge rule.** A provider is built from three layers, later winning: source data ← module `config/0` ← app config (← call-site opts, at request time). Values without identity replace. Collections with identity merge shallowly by key: `headers` by header name, `dialects` by capability, `models` by model id, `compat` by dialect and then by flag. Keyword lists in config are maps in disguise and are normalised before merging. Within compat, `omit` and `extra_body` values replace rather than merge.
+**One merge rule.** A provider is built from three layers, later winning: source data ← module `config/0` ← app config (← call-site opts, at request time). Values without identity replace. Collections with identity merge shallowly by key: `headers` by header name, `dialects` by dialect module and then by field (`base_url` replaces, `compat` merges by flag), `models` by model id and then by field. Keyword lists in config are maps in disguise and are normalised before merging. Within compat, `omit` and `extra_body` values replace rather than merge.
+
+### Endpoints
+
+Each dialect a provider serves has an `%Omni.Provider.Endpoint{base_url, compat}`. `base_url` is the whole URL, and the request URL is one join, `endpoint.base_url <> dialect.handle_path(model, opts)` (a trailing slash on the base URL is trimmed). URLs are set in three places, each doing one thing:
+
+| Where | Sets | When |
+|---|---|---|
+| `dialects: %{Mod => [base_url: url]}` | one endpoint's whole URL | load |
+| provider `host:` (app config) | the origin of every endpoint URL from the source or the module | load |
+| `host:` request option | the origin of this request's URL | request |
+
+- **`host:` is an origin** -- scheme, host and port, no path -- and keeps each URL's path: `ollama: [host: "http://gpu:11434"]` sends chat to `http://gpu:11434/api/chat`. It is the one knob for the common moves (another box, a region, a proxy on the same paths, Bypass in tests), and fills catalog URLs templated only in their origin (`https://${DATABRICKS_HOST}/ai-gateway/mlflow/v1`; for a scheme-less template such as `${NEON_AI_GATEWAY_BASE_URL}/v1` the origin is the leading `${VAR}`). A value with a path raises at load and is `{:error, {:invalid_host, host}}` at the call site: if `host:` took a path it would be a base URL by another name, with the same ambiguity (`openai: [host: "http://localhost:4000/v1"]` would go to `/v1/v1/responses`). To change a path, set the endpoint's URL.
+- **App config URLs are used as written.** The Loader applies provider `host:` to the source and module endpoints before app config's endpoints merge, so `host:` picks Alibaba's chat region while an explicit per-workspace URL on another endpoint stays put. The call-site `host:` overrides everything. `host:` is not stored on the struct.
+- **There is no provider-level `base_url` and no call-site `base_url`.** Every case found fits `host:` or is clearer per endpoint. The one loss is changing a path for a single request, for which no use case was found; a path-changing gateway in front of a built-in (Cloudflare AI Gateway) is an endpoint URL in config.
+- **Missing URLs fail at request time.** A provider loads with no URL for an endpoint (a catalog provider whose catalog has none, a custom provider still being configured). A request to it returns `{:error, {:no_base_url, dialect}}`, as does one to a URL still holding a placeholder after `host:`; a model whose dialect has no endpoint (only possible for a hand-built model) returns `{:error, {:no_endpoint, dialect}}`.
+- **One URL per dialect.** When a catalog's models of one dialect disagree on the URL, the first by id wins and the rest are skipped with a warning. It is a limit of the design, accepted while only google-vertex (templated anyway) hits it.
+
+*History: the first attempt split the URL into a provider `base_url` holding the shared host and a per-endpoint `path_prefix`. It made `base_url` mean the host (so `openai: [base_url: "http://localhost:4000/v1"]` went to `/v1/v1/responses`), needed code in sources to take catalog URLs apart, couldn't represent another host, and had three joins.*
 
 ### Assembly and loading
 
@@ -380,25 +410,25 @@ config :omni, :providers,
 For each provider id the Loader:
 
 1. Resolves the module: config `module:`, else the built-in.
-2. Fetches catalog data from the source. An id the catalog doesn't know starts empty (`:custom`).
-3. Merges the provider: source ← module `config/0` ← app config. Config `models:` merge with source models by id.
-4. Passes models through the module's `models/2`.
-5. Resolves dialects. **Model data decides each model's dialect.** A model with none takes the first of the provider's own configured dialects; with none configured, the one dialect all its other models share, if there is exactly one; otherwise it stays unresolved. The provider's list is its own plus its models'. A configured `dialects:` therefore only fills gaps -- it never changes a model that already has one.
-6. Resolves compat: each layer's flags (module, then app config) keyed by dialect, now that the dialects are known, and validates them against each dialect's `compat_schema/0`.
-7. Fills defaults (`auth: :dialect`, name from id), validates, skips unresolved models with a warning, stamps the provider onto every model, applies the filter, and stores.
+2. Fetches catalog data from the source: the provider with its endpoints, and the models. An id the catalog doesn't know starts empty.
+3. Merges the provider: source ← module `config/0`, then applies `host:` to those endpoint URLs, then ← app config. Endpoints merge by dialect module, then by field; `like:` resolves within each layer.
+4. Fills defaults (`auth: :dialect`, name from id) and validates: every endpoint's key is a dialect module, its compat flags pass the dialect's `compat_schema/0`, and `auth` is valid.
+5. Merges config `models:` over source models by id (field by field; new ids are added), then passes them through the module's `models/2`.
+6. Checks models. **Model data decides each model's dialect, and nothing fills one in.** A model with no dialect, or with a dialect the provider has no endpoint for, is skipped with a warning if it came from the catalog, and raises if config named it.
+7. Stamps the provider onto every model, applies the filter, and stores.
 
 `Loader.assemble/2` runs steps 1-7 without touching the store, which is what tests use. A load pass runs inside `Omni.Source.with_cache/1`, a pass-scoped cache (process dictionary): sources memoize shared expensive work (the ~9 MB decoded snapshot) with `Omni.Source.memo/2`, computed once per pass and garbage collected when it ends.
 
-**Nothing is guessed.** A wrong dialect produces confusing errors far from the cause, so refusing beats defaulting:
+**Nothing is guessed.** A wrong dialect produces confusing errors far from the cause, so refusing beats defaulting. An earlier rule filled a dialect-less model from the provider's only text endpoint, or from the dialect its other models shared; it went once providers served several text dialects, since it guessed from whatever endpoints happened to exist (Cohere's one Completions model would have pulled its native-API models onto the compatibility endpoint). The data shows nothing is lost: models.dev's dialect-less models belong to providers needing a module or a new dialect anyway, and llm_db's are ones it marks `catalog_only`. llm_db and req_llm take the same line: llm_db applies provider-level defaults per operation only where it has curated them and marks the rest `catalog_only`; req_llm refuses those.
 
 | Condition | Result |
 |---|---|
-| No base URL (catalog has none, or provider is custom) | Raise: "set `base_url:`" |
-| Models, but no dialect for any of them | Raise: "set `dialects:`" |
-| Unknown or invalid compat flag; flat flags on a multi-dialect provider | Raise |
+| No endpoint URL (catalog has none, or provider is custom) | Not an error at load; a request returns `{:error, {:no_base_url, dialect}}` |
+| Catalog model with no dialect, or one with no endpoint | Skipped with a warning |
+| Config model with no dialect, or one with no endpoint | Raise |
+| Unknown or invalid compat flag; `host:` with a path | Raise |
 | v1-style config | Raise with migration message |
-| No models | Warning |
-| Some models with no resolvable dialect | Skipped with a warning |
+| No endpoints and no models | Warning |
 | No API key | Not an error -- a key can be passed per request; a request without one returns `{:error, :no_api_key}` |
 
 ### Provider modules
@@ -407,8 +437,8 @@ A provider module declares `@behaviour Omni.Provider`. Every callback is optiona
 
 | Callback | When | Purpose |
 |---|---|---|
-| `config/0` | Load | Keyword overrides over source data: base URL, key, auth, headers, dialects, compat |
-| `models/2` | Load | Receives the merged models and provider; returns the final list (Venice, Ollama Cloud, xAI) |
+| `config/0` | Load | Keyword overrides over source data: name, key, auth, headers, and endpoints (URL and compat) under `dialects:` |
+| `models/2` | Load | Receives the merged models (config entries included) and provider; returns the final list (Venice, Ollama, Ollama Cloud, xAI) |
 | `modify_body/4` | Request | `(body, model, context, opts)` after the dialect builds the body. Receives the model, so it can vary by model (Groq) |
 | `modify_request/3` | Request | `(req, provider, opts)` last touch on the finished `%Req.Request{}`, after data auth. For signing, token fetches, query params. Returns `{:ok, req} \| {:error, reason}` because credentials can depend on external state |
 
@@ -439,7 +469,7 @@ A dialect answers the question: **"What does this API family expect to receive, 
 
 Given Omni's internal types (Context, Messages, Content blocks, Tools, options), a dialect knows how to reshape them into the JSON structure a particular API family expects. And given streaming events coming back, it knows how to interpret them as Omni's normalised deltas. A dialect has no concept of "where" the API lives or "who" is calling it. It's a bidirectional translator between Omni's world and a wire format.
 
-The separation from providers exists because many providers share the same wire format. The OpenAI Chat Completions dialect is written and tested once, and each provider that speaks it is a struct with a base URL, a key, and perhaps a few compat flags.
+The separation from providers exists because many providers share the same wire format. The OpenAI Chat Completions dialect is written and tested once, and each provider that speaks it is a struct with an endpoint (a URL and perhaps a few compat flags) and a key.
 
 ### The dialects
 
@@ -460,7 +490,7 @@ String ids exist for catalog data; `Omni.Dialect.get/1` resolves them. Config us
 | `option_schema/0` | `map()` | Peri schema of dialect-specific options, merged with the universal schema |
 | `compat_schema/0` | `map()` | Peri schema of the compat flags the dialect understands (`%{}` for none) |
 | `auth/0` | `:bearer \| {:header, name}` | The home API's key scheme, used when a provider's `auth` is `:dialect` |
-| `handle_path/2` | `String.t()` | Resource path for the model and opts, appended to `base_url` |
+| `handle_path/2` | `String.t()` | Resource path for the model and opts, appended to the endpoint's `base_url` |
 | `handle_body/3` | `map()` | Builds the request body from model, context, and validated options |
 | `handle_event/2` | `[delta]` | Parses one decoded stream event into delta tuples; receives the model |
 
@@ -468,7 +498,7 @@ String ids exist for catalog data; `Omni.Dialect.get/1` resolves them. Config us
 
 ### Dialect callback details
 
-**`handle_path/2`** -- returns the resource path. The version segment belongs to `base_url`:
+**`handle_path/2`** -- returns the resource path. The version segment belongs to the endpoint's `base_url`:
 
 ```elixir
 # Anthropic Messages
@@ -494,7 +524,7 @@ end
 
 ### Option validation
 
-Options are validated once, early, in `Request.validate/2`. The schema is the universal schema in `Omni.Request` (inference options plus type-loose config keys: `api_key`, `base_url`, `headers`, `plug`) merged with `dialect.option_schema/0`. The provider's `base_url`, `api_key` and `headers` are merged under the call-site opts first, then the whole map is validated in one strict Peri pass (unknown keys rejected, catching typos). Loop options (`raw`, `max_steps`, `tool_timeout`) are taken by `Omni.Loop` before this, and `output` is read by both. All downstream callbacks receive the one validated map.
+Options are validated once, early, in `Request.validate/2`. The schema is the universal schema in `Omni.Request` (inference options plus type-loose config keys: `api_key`, `host`, `headers`, `plug`) merged with `dialect.option_schema/0`. The provider's `api_key` and `headers` are merged under the call-site opts first (the URL is read from the endpoint, not merged as an option), then the whole map is validated in one strict Peri pass (unknown keys rejected, catching typos). Loop options (`raw`, `max_steps`, `tool_timeout`) are taken by `Omni.Loop` before this, and `output` is read by both. All downstream callbacks receive the one validated map.
 
 ### Compat flags
 
@@ -537,17 +567,17 @@ All on `Omni.Dialects.OpenAICompletions`. Anthropic, Google, OpenAI, xAI and bot
 | Venice | `thinking_toggle_format: :reasoning_enabled`, `thinking_replay_format: :reasoning_content` | Venice recommends `reasoning: {enabled: false}` over `reasoning_effort: "none"`; reasoning goes back in the field it arrives in |
 | Z.ai | `max_tokens_field: "max_tokens"`, `thinking_toggle_format: :thinking_type`, `thinking_replay_format: :reasoning_content`, `output_format: :json_object`, `attachment_format: :file_url` | Ignores `max_completion_tokens`; reasoning goes back in the field it arrives in, which Z.ai uses within a tool loop (by default, `clear_thinking` drops it from earlier turns); no JSON Schema constraints; files as `file_url` parts |
 
-`like: :zai` copies a built-in's whole compat map (all dialects); the layer's own flags overlay it. It copies compat only -- not module, base URL or key.
+`like: :zai`, under a dialect, copies that dialect's flags from a built-in; the layer's own flags overlay it. It copies compat only -- not module, URL or key.
 
 #### Where compat lives
 
-Compat lives on the provider only, keyed by dialect module. Models carry no compat; they pick a dialect per capability, and the dialect reads that dialect's flags from the provider:
+Compat lives on the provider's endpoints, one set per dialect. Models carry no compat; they pick a dialect per capability, and the dialect reads that endpoint's flags:
 
 ```elixir
-compat = model.provider.compat[model.dialects.text]   # what Dialect.compat/2 does
+compat = model.provider.dialects[model.dialects.text].compat   # what Dialect.compat/2 does
 ```
 
-This handles every provider shape with no special case: a single-dialect provider has one key; a gateway (OpenCode) has one key per dialect its models speak; a future decision dialect is another key. In config, a flat keyword list is sugar for "my single dialect" and is an error on a multi-dialect provider.
+This handles every provider shape with no special case: a single-dialect provider has one endpoint; a gateway (OpenCode) has one per dialect its models speak; a future decision dialect is another. In config, flags always go under their dialect: `dialects: %{Mod => [compat: [...]]}`.
 
 Per-model compat was ruled out because what looked like per-model variation resolves elsewhere:
 
@@ -623,8 +653,8 @@ assert body["messages"] == [...]
 deltas = AnthropicMessages.handle_event(%{"type" => "content_block_delta", ...}, model)
 assert deltas == [{:block_delta, %{type: :text, index: 0, delta: "Hello"}}]
 
-# A compat flag: build a model whose provider carries it
-model = Fixtures.model(provider: [compat: %{OpenAICompletions => %{max_tokens_field: "max_tokens"}}])
+# A compat flag: build a model whose provider's endpoint carries it
+model = Fixtures.model(provider: [compat: %{max_tokens_field: "max_tokens"}])
 assert OpenAICompletions.handle_body(model, context, opts)["max_tokens"] == 4096
 
 # Provider assembly without touching the store
@@ -1414,11 +1444,11 @@ end)
 ```elixir
 # In Omni.Request:
 def build(%Model{provider: provider} = model, context, opts) do
-  dialect = model.dialects.text
-
-  with {:ok, opts} <- validate(model, opts),
-       :ok <- validate_context(model, context) do
-    url = opts.base_url <> dialect.handle_path(model, opts)
+  with {:ok, dialect} <- text_dialect(model),                  # {:unsupported_capability, :text}
+       {:ok, endpoint} <- Provider.endpoint(provider, dialect), # {:no_endpoint, dialect}
+       {:ok, opts} <- validate(model, opts),
+       :ok <- validate_context(model, context),
+       {:ok, url} <- url(endpoint, dialect, model, opts) do     # host: swap; {:no_base_url, dialect}
 
     body =
       model
@@ -1451,8 +1481,9 @@ end
 
 The key architectural points:
 
-- **Everything comes from the model.** The dialect is `model.dialects.text`; base URL, key, auth, headers, compat and module are on `model.provider`. Nothing is looked up at request time.
-- **`validate/2` is a two-tier merge plus one strict pass.** The provider's `base_url`, `api_key` and `headers` sit under the call-site opts (headers merge by key), and the merged map is validated against the universal schema plus `dialect.option_schema/0`. Every callback receives the one validated map, config and inference options together.
+- **Everything comes from the model.** The dialect is `model.dialects.text`; the endpoint (URL and compat), key, auth, headers and module are on `model.provider`. Nothing is looked up at request time.
+- **The URL is one join.** `endpoint.base_url`, its origin swapped by a call-site `host:`, plus `dialect.handle_path/2`. An endpoint with no URL, or one still holding a placeholder, is `{:error, {:no_base_url, dialect}}` before any HTTP.
+- **`validate/2` is a two-tier merge plus one strict pass.** The provider's `api_key` and `headers` sit under the call-site opts (headers merge by key), and the merged map is validated against the universal schema plus `dialect.option_schema/0`. Every callback receives the one validated map, config and inference options together.
 - **`validate_context/2`** rejects attachments whose media type the model's `input_modalities` don't cover, before anything is sent.
 - **Auth is data.** `auth_scheme/2` maps `:dialect` (and an unset value, for hand-built structs) to `dialect.auth/0`; `:none` sends nothing; `:bearer` and `{:header, name}` resolve the key with `Provider.resolve_auth/1`, returning `{:error, :no_api_key}` when there is none. `modify_request/3` runs after, so it can overwrite anything.
 - **`:timeout` with a generous default.** Defaults to 300,000ms (5 minutes), mapped to Req's `receive_timeout`: the longest wait for each chunk, not for the whole response, so a stream that keeps arriving is never cut off. LLM APIs routinely exceed Req's default 15s before the first token, especially thinking models.
@@ -1479,10 +1510,11 @@ Omni.stream_text(model, context, opts)
 └── 3. Loop.stream(model, context, opts)
       ├── Pop :raw, :max_steps, :tool_timeout
       ├── Request.build(model, context, opts)
-      │     ├── validate: provider base_url/api_key/headers <- call-site opts; one strict Peri pass
+      │     ├── endpoint = provider.dialects[model.dialects.text]
+      │     ├── validate: provider api_key/headers <- call-site opts; one strict Peri pass
       │     ├── validate_context: attachment media types vs model modalities
-      │     ├── url  = base_url <> dialect.handle_path(model, opts)
-      │     ├── body = dialect.handle_body(model, context, opts)   (reads provider compat)
+      │     ├── url  = endpoint.base_url (origin ← host:) <> dialect.handle_path(model, opts)
+      │     ├── body = dialect.handle_body(model, context, opts)   (reads endpoint compat)
       │     │          |> module.modify_body/4                     (optional)
       │     ├── Req.new(url, json: body, into: :self, receive_timeout: timeout, headers, plug)
       │     ├── authenticate per provider.auth (:dialect → dialect.auth/0)

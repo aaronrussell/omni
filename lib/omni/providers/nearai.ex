@@ -25,12 +25,11 @@ defmodule Omni.Providers.NearAI do
   @impl true
   def config do
     [
-      base_url: "https://cloud-api.near.ai/v1",
       api_key: {:system, "NEARAI_API_KEY"},
-      compat: %{
+      dialects: %{
         Omni.Dialects.OpenAICompletions => [
-          max_tokens_field: "max_tokens",
-          omit: [:cache, :thinking, :strict_schema]
+          base_url: "https://cloud-api.near.ai/v1",
+          compat: [max_tokens_field: "max_tokens", omit: [:cache, :thinking, :strict_schema]]
         ]
       }
     ]

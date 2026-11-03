@@ -8,7 +8,9 @@ defmodule Omni.Providers.OpenAITest do
     test "returns expected configuration" do
       config = Map.new(OpenAI.config())
 
-      assert config.base_url == "https://api.openai.com/v1"
+      assert config.dialects[Omni.Dialects.OpenAIResponses][:base_url] ==
+               "https://api.openai.com/v1"
+
       assert config.api_key == {:system, "OPENAI_API_KEY"}
     end
   end
@@ -18,7 +20,7 @@ defmodule Omni.Providers.OpenAITest do
       {provider, models} = Loader.assemble(:openai)
 
       assert provider.module == OpenAI
-      assert provider.dialects == %{text: [Omni.Dialects.OpenAIResponses]}
+      assert Map.keys(provider.dialects) == [Omni.Dialects.OpenAIResponses]
       assert models != []
 
       for model <- models do

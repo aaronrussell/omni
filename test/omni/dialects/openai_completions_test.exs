@@ -1170,7 +1170,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
           [
             id: "flagged",
             dialect: OpenAICompletions,
-            provider: %{compat: %{OpenAICompletions => Map.new(flags)}}
+            provider: %{compat: Map.new(flags)}
           ],
           attrs
         )

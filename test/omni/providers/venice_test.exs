@@ -8,7 +8,9 @@ defmodule Omni.Providers.VeniceTest do
     test "returns expected configuration" do
       config = Map.new(Venice.config())
 
-      assert config.base_url == "https://api.venice.ai/api/v1"
+      assert config.dialects[Omni.Dialects.OpenAICompletions][:base_url] ==
+               "https://api.venice.ai/api/v1"
+
       assert config.api_key == {:system, "VENICE_API_KEY"}
     end
   end
@@ -18,7 +20,7 @@ defmodule Omni.Providers.VeniceTest do
       {provider, models} = Loader.assemble(:venice)
 
       assert provider.module == Venice
-      assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
+      assert Map.keys(provider.dialects) == [Omni.Dialects.OpenAICompletions]
       assert models != []
 
       for model <- models do
@@ -54,11 +56,9 @@ defmodule Omni.Providers.VeniceTest do
     test "assembles with its Completions flags" do
       {provider, _models} = Loader.assemble(:venice)
 
-      assert provider.compat == %{
-               Omni.Dialects.OpenAICompletions => %{
-                 thinking_toggle_format: :reasoning_enabled,
-                 thinking_replay_format: :reasoning_content
-               }
+      assert provider.dialects[Omni.Dialects.OpenAICompletions].compat == %{
+               thinking_toggle_format: :reasoning_enabled,
+               thinking_replay_format: :reasoning_content
              }
     end
   end

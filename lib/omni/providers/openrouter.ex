@@ -26,12 +26,14 @@ defmodule Omni.Providers.OpenRouter do
   @impl true
   def config do
     [
-      base_url: "https://openrouter.ai/api/v1",
       api_key: {:system, "OPENROUTER_API_KEY"},
-      compat: %{
+      dialects: %{
         Omni.Dialects.OpenAICompletions => [
-          thinking_effort_field: "reasoning.effort",
-          thinking_replay_format: :reasoning_details
+          base_url: "https://openrouter.ai/api/v1",
+          compat: [
+            thinking_effort_field: "reasoning.effort",
+            thinking_replay_format: :reasoning_details
+          ]
         ]
       }
     ]

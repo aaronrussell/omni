@@ -6,7 +6,11 @@ defmodule Omni.Sources.ModelsDevTest do
   @moduletag :capture_log
 
   alias Omni.Provider
+  alias Omni.Provider.Endpoint
   alias Omni.Sources.ModelsDev
+
+  @completions Omni.Dialects.OpenAICompletions
+  @messages Omni.Dialects.AnthropicMessages
 
   defp model_entry(id, overrides \\ %{}) do
     Map.merge(
@@ -91,12 +95,13 @@ defmodule Omni.Sources.ModelsDevTest do
       assert by_id["other"].dialects.text == Omni.Dialects.AnthropicMessages
     end
 
-    test "an unmapped provider-level npm leaves the dialect empty" do
+    test "skips models when the provider-level npm maps to no dialect" do
       data = provider_data([model_entry("local")], %{"npm" => "some-unknown-sdk"})
 
-      [model] = ModelsDev.transform_provider(data, "test")
+      {models, log} = with_log(fn -> ModelsDev.transform_provider(data, "test") end)
 
-      assert model.dialects == %{}
+      assert models == []
+      assert log =~ "loaded 0 models, skipped 1"
     end
 
     test "skips with a warning when a model's own npm maps to no dialect" do
@@ -113,21 +118,40 @@ defmodule Omni.Sources.ModelsDevTest do
       assert log =~ "loaded 1 models, skipped 1"
     end
 
-    test "skips with a warning when a model is served from another base URL" do
+    test "skips with a warning a model at another URL than the first of its dialect" do
       data =
         provider_data(
           [
-            model_entry("elsewhere", %{"provider" => %{"api" => "https://other.test/v1"}}),
-            model_entry("same", %{"provider" => %{"api" => "https://api.test/v1"}}),
-            model_entry("kept")
+            model_entry("a-first", %{"provider" => %{"api" => "https://one.test/v1"}}),
+            model_entry("b-other", %{"provider" => %{"api" => "https://two.test/v1"}})
           ],
-          %{"api" => "https://api.test/v1"}
+          %{"api" => nil}
         )
 
       {models, log} = with_log(fn -> ModelsDev.transform_provider(data, "test") end)
 
-      assert Enum.map(models, & &1.id) == ["kept", "same"]
-      assert log =~ "skipping test:elsewhere: served from https://other.test/v1"
+      assert Enum.map(models, & &1.id) == ["a-first"]
+      assert log =~ "skipping test:b-other: served from https://two.test/v1"
+    end
+
+    test "keeps models of other dialects at their own URLs" do
+      data =
+        provider_data(
+          [
+            model_entry("claude", %{
+              "provider" => %{
+                "npm" => "@ai-sdk/anthropic",
+                "api" => "https://gw.test/anthropic/v1"
+              }
+            }),
+            model_entry("plain")
+          ],
+          %{"api" => "https://gw.test/v1"}
+        )
+
+      models = ModelsDev.transform_provider(data, "test")
+
+      assert Enum.map(models, & &1.id) == ["claude", "plain"]
     end
   end
 
@@ -231,20 +255,39 @@ defmodule Omni.Sources.ModelsDevTest do
       assert provider.id == :openai
       assert provider.name == "OpenAI"
       assert provider.api_key == {:system, "OPENAI_API_KEY"}
-      assert provider.dialects == %{text: [Omni.Dialects.OpenAIResponses]}
+      assert provider.dialects == %{Omni.Dialects.OpenAIResponses => %Endpoint{base_url: nil}}
       assert models != []
       assert Enum.all?(models, &(&1.provider == nil))
     end
 
-    test "maps the catalog base URL, and leaves it unset when absent" do
-      assert {:ok, %Provider{base_url: "https://api.moonshot.ai/v1"}, _} =
-               ModelsDev.fetch(:moonshotai, [])
-
-      assert {:ok, %Provider{base_url: nil}, _} = ModelsDev.fetch(:openai, [])
+    test "gives the provider-level dialect the catalog base URL" do
+      assert {:ok, %Provider{dialects: dialects}, _} = ModelsDev.fetch(:moonshotai, [])
+      assert dialects == %{@completions => %Endpoint{base_url: "https://api.moonshot.ai/v1"}}
     end
 
-    test "leaves a templated base URL unset" do
-      assert {:ok, %Provider{base_url: nil}, _} = ModelsDev.fetch(:databricks, [])
+    test "keeps a templated base URL for host: to fill" do
+      assert {:ok, %Provider{dialects: dialects}, _} = ModelsDev.fetch(:databricks, [])
+      assert dialects[@completions].base_url == "https://${DATABRICKS_HOST}/ai-gateway/mlflow/v1"
+    end
+
+    test "gives each dialect of a gateway its models' URL" do
+      assert {:ok, %Provider{dialects: dialects}, models} = ModelsDev.fetch(:zenmux, [])
+
+      assert dialects[@completions].base_url == "https://zenmux.ai/api/v1"
+      assert dialects[@messages].base_url == "https://zenmux.ai/api/anthropic/v1"
+      assert Enum.any?(models, &(&1.dialects.text == @messages))
+    end
+
+    test "puts a dialect on another host" do
+      assert {:ok, %Provider{dialects: dialects}, _} = ModelsDev.fetch(:freemodel, [])
+
+      assert dialects[@messages].base_url == "https://cc.freemodel.dev/v1"
+      assert dialects[@completions].base_url == "https://api.freemodel.dev/v1"
+    end
+
+    test "drops a provider URL no dialect is known for" do
+      assert {:ok, %Provider{dialects: dialects}, []} = ModelsDev.fetch(:merge_gateway, [])
+      assert dialects == %{}
     end
 
     test "sets api_key only when the catalog lists exactly one variable" do
@@ -259,8 +302,8 @@ defmodule Omni.Sources.ModelsDevTest do
 
       # The catalog reports Ollama's OpenAI-compatible endpoint; the native
       # dialect preference is re-applied by OllamaCloud's models/2.
-      assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
-      assert Enum.all?(ollama, &(&1.dialects.text == Omni.Dialects.OpenAICompletions))
+      assert provider.dialects == %{@completions => %Endpoint{base_url: "https://ollama.com/v1"}}
+      assert Enum.all?(ollama, &(&1.dialects.text == @completions))
     end
 
     test "resolves per-model dialects for a gateway" do

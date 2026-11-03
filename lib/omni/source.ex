@@ -34,17 +34,23 @@ defmodule Omni.Source do
   layers provider modules and config over it afterwards:
 
     * `provider` — a `%Omni.Provider{}` with `id`, and whatever the catalog
-      knows of `name`, `base_url`, `api_key` (`{:system, var}` when the
-      catalog names exactly one environment variable), and `dialects` (from
-      a provider-level dialect hint). Leave the rest unset.
+      knows of `name`, `api_key` (`{:system, var}` when the catalog names
+      exactly one environment variable), and `dialects`: an
+      `%Omni.Provider.Endpoint{}` per dialect the provider's models speak,
+      holding the catalog's whole URL for it. Leave the rest unset.
     * `models` — `%Omni.Model{}` structs **without** a provider. Each model's
       `dialects` comes from the catalog's own data (for example, an npm
-      package mapped to a dialect); leave it empty when nothing maps. Omni
-      fills empty dialects from the provider afterwards.
+      package mapped to a dialect). Omni never fills in a missing dialect,
+      so skip a model the catalog gives no dialect for.
+
+  Use `endpoints/3` to derive the endpoints from the models' URLs. Keep
+  templated URLs (`https://${ACCOUNT}.example.com/v1`) as they are: a
+  provider's `host:` config fills the origin, and a request to a URL still
+  holding a placeholder returns an error.
 
   Skip (with a warning) models the source can't represent faithfully — for
-  example, a model whose own dialect hint is set but unrecognised, or one
-  served from a different base URL than its provider.
+  example, a model whose dialect hint is unrecognised, or one served from a
+  different URL than other models of its dialect.
 
   Return `{:error, :unknown_provider}` when the catalog has no such provider;
   Omni then treats it as a custom provider defined in config. Any other error
@@ -63,6 +69,7 @@ defmodule Omni.Source do
   """
 
   alias Omni.{Model, Provider}
+  alias Omni.Provider.Endpoint
 
   @typedoc "A source in configuration: a module or a `{module, opts}` tuple."
   @type t :: module() | {module(), keyword()}
@@ -76,6 +83,56 @@ defmodule Omni.Source do
               {:ok, Provider.t(), [Model.t()]} | {:error, term()}
 
   @cache_key {__MODULE__, :cache}
+
+  @doc """
+  Derives a provider's endpoints from its models' URLs.
+
+  Takes `{model, url}` pairs, where `url` is the model's own URL in the
+  catalog or `nil`, the catalog's provider URL, and the dialect the catalog
+  names at provider level (or `nil`). Each dialect's endpoint takes the URL
+  of its first model by id: the model's own URL, else the provider URL. A
+  later model of the same dialect at a different URL can't be served, and
+  is returned in `skipped` with its URL. The provider-level dialect gets the provider URL
+  when no model claimed it. A provider URL with no dialect is dropped.
+
+      {endpoints, models, skipped} =
+        Omni.Source.endpoints(pairs, "https://api.acme.ai/v1", Omni.Dialects.OpenAICompletions)
+  """
+  @spec endpoints([{Model.t(), String.t() | nil}], String.t() | nil, module() | nil) ::
+          {%{module() => Endpoint.t()}, [Model.t()], [{Model.t(), String.t()}]}
+  def endpoints(pairs, provider_url, provider_dialect) do
+    {endpoints, models, skipped} =
+      pairs
+      |> Enum.sort_by(fn {model, _url} -> model.id end)
+      |> Enum.reduce({%{}, [], []}, fn {model, url}, {endpoints, models, skipped} ->
+        url = url || provider_url
+
+        conflict =
+          Enum.find(model.dialects, fn {_capability, dialect} ->
+            match?(%{^dialect => %Endpoint{base_url: other}} when other != url, endpoints)
+          end)
+
+        case conflict do
+          nil ->
+            endpoints =
+              Enum.reduce(model.dialects, endpoints, fn {_capability, dialect}, acc ->
+                Map.put_new(acc, dialect, %Endpoint{base_url: url})
+              end)
+
+            {endpoints, [model | models], skipped}
+
+          {_capability, _dialect} ->
+            {endpoints, models, [{model, url} | skipped]}
+        end
+      end)
+
+    endpoints =
+      if provider_dialect,
+        do: Map.put_new(endpoints, provider_dialect, %Endpoint{base_url: provider_url}),
+        else: endpoints
+
+    {endpoints, Enum.reverse(models), Enum.reverse(skipped)}
+  end
 
   @doc """
   Builds a provider-less `%Omni.Model{}` from a string-keyed data map.

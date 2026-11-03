@@ -5,7 +5,7 @@ defmodule Omni.Provider.LoaderTest do
   import ExUnit.CaptureLog
 
   alias Omni.{Model, Provider}
-  alias Omni.Provider.Loader
+  alias Omni.Provider.{Endpoint, Loader}
   alias Omni.Test.{Fixtures, StubSource}
 
   @completions Omni.Dialects.OpenAICompletions
@@ -17,7 +17,11 @@ defmodule Omni.Provider.LoaderTest do
 
     @impl true
     def config do
-      [name: "From Module", base_url: "https://module.test/v1", headers: %{"x-module" => "1"}]
+      [
+        name: "From Module",
+        headers: %{"x-module" => "1"},
+        dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "https://module.test/v1"]}
+      ]
     end
 
     @impl true
@@ -33,10 +37,9 @@ defmodule Omni.Provider.LoaderTest do
     @impl true
     def config do
       [
-        compat: %{
+        dialects: %{
           Omni.Dialects.OpenAICompletions => [
-            max_tokens_field: "max_tokens",
-            omit: [:cache]
+            compat: [max_tokens_field: "max_tokens", omit: [:cache]]
           ]
         }
       ]
@@ -51,6 +54,28 @@ defmodule Omni.Provider.LoaderTest do
       do: Enum.map(models, &%{&1 | dialects: %{text: Omni.Dialects.AnthropicMessages}})
   end
 
+  defmodule StampModule do
+    @behaviour Omni.Provider
+
+    @impl true
+    def models(models, _provider) do
+      Enum.map(models, fn
+        %{dialects: dialects} = model when dialects == %{} ->
+          %{model | dialects: %{text: Omni.Dialects.OpenAICompletions}}
+
+        model ->
+          model
+      end)
+    end
+  end
+
+  defmodule BaseUrlModule do
+    @behaviour Omni.Provider
+
+    @impl true
+    def config, do: [base_url: "https://module.test/v1"]
+  end
+
   defmodule MemoSource do
     @behaviour Omni.Source
 
@@ -58,7 +83,7 @@ defmodule Omni.Provider.LoaderTest do
     def fetch(id, opts) do
       value = Omni.Source.memo({__MODULE__, :value}, fn -> :erlang.unique_integer() end)
       send(opts[:notify], {:memo_value, value})
-      {:ok, %Provider{id: id, base_url: "https://memo.test/v1"}, []}
+      {:ok, %Provider{id: id}, []}
     end
   end
 
@@ -74,15 +99,16 @@ defmodule Omni.Provider.LoaderTest do
     Model.new(id: id, name: id, dialects: dialects)
   end
 
+  @catalog_url "https://catalog.test/v1"
+
   defp catalog(provider_attrs, models) do
     provider =
       struct!(
         %Provider{
           id: :cat,
           name: "Catalog",
-          base_url: "https://catalog.test/v1",
           api_key: {:system, "CAT_KEY"},
-          dialects: %{text: [@completions]}
+          dialects: %{@completions => %Endpoint{base_url: @catalog_url}}
         },
         provider_attrs
       )
@@ -92,24 +118,28 @@ defmodule Omni.Provider.LoaderTest do
 
   defp assemble(opts, id \\ :cat), do: Loader.assemble(id, opts)
 
+  defp url(provider, dialect), do: provider.dialects[dialect].base_url
+
   describe "layering" do
     test "uses source values when nothing overrides them" do
       {provider, [model]} = assemble(source: catalog([], [model("m", @completions)]))
 
       assert provider.name == "Catalog"
-      assert provider.base_url == "https://catalog.test/v1"
+      assert url(provider, @completions) == @catalog_url
       assert provider.api_key == {:system, "CAT_KEY"}
       assert provider.auth == :dialect
       assert model.provider == provider
     end
 
     test "module config overrides the source; app config overrides the module" do
-      Application.put_env(:omni, :providers, cat: [base_url: "https://app.test/v1"])
+      Application.put_env(:omni, :providers,
+        cat: [dialects: %{@completions => [base_url: "https://app.test/v1"]}]
+      )
 
       {provider, _} = assemble(source: catalog([], []), module: ConfigModule)
 
       assert provider.name == "From Module"
-      assert provider.base_url == "https://app.test/v1"
+      assert url(provider, @completions) == "https://app.test/v1"
       assert provider.module == ConfigModule
     end
 
@@ -139,238 +169,306 @@ defmodule Omni.Provider.LoaderTest do
              }
     end
 
-    test "config models merge with source models by id" do
-      source = catalog([], [model("a", @completions), model("b", @completions)])
-
-      {_provider, models} =
-        assemble(source: source, models: [[id: "b", name: "Replaced"], "c"])
-
-      assert Enum.map(models, &{&1.id, &1.name}) == [{"a", "a"}, {"b", "Replaced"}, {"c", "c"}]
-    end
-
     test "models/2 receives the merged provider" do
       assemble(source: catalog([], [model("m", @completions)]), module: ConfigModule)
 
-      assert_received {:models_called, %Provider{base_url: "https://module.test/v1"}}
+      assert_received {:models_called, provider}
+      assert url(provider, @completions) == "https://module.test/v1"
+    end
+  end
+
+  describe "endpoints" do
+    test "a layer adds an endpoint for another dialect" do
+      {provider, _} =
+        assemble(
+          source: catalog([], []),
+          dialects: %{@messages => [base_url: "https://catalog.test/anthropic/v1"]}
+        )
+
+      assert url(provider, @completions) == @catalog_url
+      assert url(provider, @messages) == "https://catalog.test/anthropic/v1"
+    end
+
+    test "[] declares a dialect with no URL" do
+      {provider, _} = assemble(source: catalog([], []), dialects: %{@messages => []})
+
+      assert provider.dialects[@messages] == %Endpoint{base_url: nil, compat: %{}}
+    end
+
+    test "a layer setting only compat keeps the URL below it" do
+      {provider, _} =
+        assemble(
+          source: catalog([], []),
+          dialects: %{@completions => [compat: [max_tokens_field: "max_tokens"]]}
+        )
+
+      assert provider.dialects[@completions] == %Endpoint{
+               base_url: @catalog_url,
+               compat: %{max_tokens_field: "max_tokens"}
+             }
+    end
+
+    test "an unknown endpoint key raises" do
+      assert_raise ArgumentError, ~r/unknown key :path_prefix/, fn ->
+        assemble(source: catalog([], []), dialects: %{@completions => [path_prefix: "/v1"]})
+      end
+    end
+  end
+
+  describe "host" do
+    test "moves every endpoint URL from the source and module, keeping paths" do
+      source =
+        catalog(
+          [
+            dialects: %{
+              @completions => %Endpoint{base_url: "https://catalog.test/v1"},
+              @messages => %Endpoint{base_url: "https://other.test/anthropic/v1"}
+            }
+          ],
+          []
+        )
+
+      {provider, _} = assemble(source: source, host: "http://localhost:4000")
+
+      assert url(provider, @completions) == "http://localhost:4000/v1"
+      assert url(provider, @messages) == "http://localhost:4000/anthropic/v1"
+    end
+
+    test "fills a templated origin" do
+      source =
+        catalog([dialects: %{@completions => %Endpoint{base_url: "${GW_BASE_URL}/v1"}}], [])
+
+      {provider, _} = assemble(source: source, host: "https://gw.example.com")
+
+      assert url(provider, @completions) == "https://gw.example.com/v1"
+    end
+
+    test "leaves URLs written in app config as written" do
+      {provider, _} =
+        assemble(
+          source: catalog([], []),
+          host: "http://localhost:4000",
+          dialects: %{@messages => [base_url: "https://pinned.test/v1"]}
+        )
+
+      assert url(provider, @completions) == "http://localhost:4000/v1"
+      assert url(provider, @messages) == "https://pinned.test/v1"
+    end
+
+    test "a host with a path raises, pointing to endpoint URLs" do
+      assert_raise ArgumentError, ~r/host: takes an origin.*dialects:/s, fn ->
+        assemble(source: catalog([], []), host: "http://localhost:4000/v1")
+      end
+    end
+
+    test "is not stored on the provider" do
+      {provider, _} = assemble(source: catalog([], []), host: "http://localhost:4000")
+
+      refute Map.has_key?(Map.from_struct(provider), :host)
     end
   end
 
   describe "compat" do
-    test "flat flags apply to the provider's single dialect" do
+    test "flags are set under their dialect" do
       {provider, [model]} =
         assemble(
           source: catalog([], [model("m", @completions)]),
-          compat: [max_tokens_field: "max_tokens"]
+          dialects: %{@completions => [compat: [max_tokens_field: "max_tokens"]]}
         )
 
-      assert provider.compat == %{@completions => %{max_tokens_field: "max_tokens"}}
-      assert model.provider.compat == provider.compat
+      assert provider.dialects[@completions].compat == %{max_tokens_field: "max_tokens"}
+      assert Omni.Dialect.compat(model, @completions) == %{max_tokens_field: "max_tokens"}
     end
 
-    test "flags keyed by dialect are kept as given" do
-      {provider, _} =
-        assemble(
-          source: catalog([], [model("a", @completions), model("b", @messages)]),
-          compat: %{@completions => [max_tokens_field: "max_tokens"], @messages => %{}}
-        )
-
-      assert provider.compat == %{
-               @completions => %{max_tokens_field: "max_tokens"},
-               @messages => %{}
-             }
-    end
-
-    test "like: copies a built-in's flags, with the layer's own over them" do
+    test "like: copies a built-in's flags for the dialect, with the layer's own over them" do
       {provider, _} =
         assemble(
           source: catalog([], [model("m", @completions)]),
-          compat: [like: :zai, attachment_format: :file]
+          dialects: %{@completions => [compat: [like: :zai, attachment_format: :file]]}
         )
 
-      assert provider.compat == %{
-               @completions => %{
-                 max_tokens_field: "max_tokens",
-                 thinking_toggle_format: :thinking_type,
-                 thinking_replay_format: :reasoning_content,
-                 output_format: :json_object,
-                 attachment_format: :file
-               }
+      assert provider.dialects[@completions].compat == %{
+               max_tokens_field: "max_tokens",
+               thinking_toggle_format: :thinking_type,
+               thinking_replay_format: :reasoning_content,
+               output_format: :json_object,
+               attachment_format: :file
              }
     end
 
+    test "like: raises when the built-in sets no endpoint for the dialect" do
+      assert_raise ArgumentError, ~r/sets no endpoint for/, fn ->
+        assemble(source: catalog([], []), dialects: %{@messages => [compat: [like: :zai]]})
+      end
+    end
+
     test "app config flags merge one at a time over a module's" do
-      Application.put_env(:omni, :providers, cat: [compat: [max_tokens_field: "max_tokens_v2"]])
+      Application.put_env(:omni, :providers,
+        cat: [dialects: %{@completions => [compat: [max_tokens_field: "max_tokens_v2"]]}]
+      )
 
       {provider, _} =
         assemble(source: catalog([], [model("m", @completions)]), module: CompatModule)
 
-      assert provider.compat == %{
-               @completions => %{max_tokens_field: "max_tokens_v2", omit: [:cache]}
-             }
-    end
-
-    test "inline flags layer over app config" do
-      Application.put_env(:omni, :providers, cat: [compat: [omit: [:cache]]])
-
-      {provider, _} =
-        assemble(source: catalog([], [model("m", @completions)]), compat: [omit: [:thinking]])
-
-      assert provider.compat == %{@completions => %{omit: [:thinking]}}
-    end
-
-    test "flat flags on a multi-dialect provider raise, naming the fix" do
-      source = catalog([], [model("a", @completions), model("b", @messages)])
-
-      assert_raise ArgumentError, ~r/must be keyed by dialect/, fn ->
-        assemble(source: source, compat: [max_tokens_field: "max_tokens"])
-      end
-    end
-
-    test "like: alone is fine on a multi-dialect provider" do
-      source = catalog([], [model("a", @completions), model("b", @messages)])
-
-      {provider, _} = assemble(source: source, compat: [like: :moonshotai])
-
-      assert provider.compat == %{
-               @completions => %{
-                 thinking_toggle_format: :thinking_type,
-                 thinking_replay_format: :reasoning_content
-               }
+      assert provider.dialects[@completions].compat == %{
+               max_tokens_field: "max_tokens_v2",
+               omit: [:cache]
              }
     end
 
     test "unknown flags raise" do
       assert_raise ArgumentError, ~r/unknown compat flags \[:max_token_field\]/, fn ->
-        assemble(source: catalog([], [model("m", @completions)]), compat: [max_token_field: "x"])
+        assemble(
+          source: catalog([], []),
+          dialects: %{@completions => [compat: [max_token_field: "x"]]}
+        )
       end
     end
 
     test "invalid flag values raise" do
       assert_raise ArgumentError, ~r/invalid compat flags/, fn ->
         assemble(
-          source: catalog([], [model("m", @completions)]),
-          compat: [output_format: :yaml]
-        )
-      end
-    end
-
-    test "flags for a dialect the provider doesn't speak raise" do
-      assert_raise ArgumentError, ~r/none of its models speak/, fn ->
-        assemble(
-          source: catalog([], [model("m", @completions)]),
-          compat: %{@messages => []}
+          source: catalog([], []),
+          dialects: %{@completions => [compat: [output_format: :yaml]]}
         )
       end
     end
 
     test "like: must name a built-in" do
       assert_raise ArgumentError, ~r/is not a built-in provider/, fn ->
-        assemble(source: catalog([], [model("m", @completions)]), compat: [like: :nope])
+        assemble(source: catalog([], []), dialects: %{@completions => [compat: [like: :nope]]})
       end
     end
 
-    test "mixing flags and dialect keys raises" do
-      assert_raise ArgumentError, ~r/mixes flags with dialect keys/, fn ->
-        assemble(
-          source: catalog([], [model("m", @completions)]),
-          compat: %{@completions => [], :omit => [:cache]}
-        )
-      end
-    end
-
-    test "every built-in's compat is keyed by dialect and validates" do
+    test "every built-in's compat validates" do
       for id <- Provider.builtins() do
         {provider, _models} = Loader.assemble(id)
 
-        for {dialect, flags} <- provider.compat do
+        for {dialect, %Endpoint{compat: flags}} <- provider.dialects do
           assert is_atom(dialect) and is_map(flags)
         end
       end
     end
   end
 
-  describe "dialects" do
-    test "a model without a dialect takes the provider's first" do
-      {_provider, [model]} = assemble(source: catalog([], [model("m")]))
+  describe "models" do
+    test "a config entry merges over the source model with its id" do
+      source = catalog([], [model("a", @completions), model("b", @completions)])
+
+      {_provider, models} =
+        assemble(source: source, models: [[id: "b", name: "Renamed", context_size: 1000]])
+
+      b = Enum.find(models, &(&1.id == "b"))
+      assert b.name == "Renamed"
+      assert b.context_size == 1000
+      assert b.dialects == %{text: @completions}
+      assert Enum.map(models, & &1.id) == ["a", "b"]
+    end
+
+    test "dialects in a config entry merge by capability" do
+      endpoints = %{
+        @completions => %Endpoint{base_url: @catalog_url},
+        @responses => %Endpoint{base_url: @catalog_url}
+      }
+
+      source = catalog([dialects: endpoints], [model("m", @responses)])
+
+      {_provider, [model]} =
+        assemble(source: source, models: [[id: "m", dialects: %{text: @completions}]])
 
       assert model.dialects == %{text: @completions}
     end
 
-    test "the provider's list is derived from its own plus its models'" do
-      source = catalog([], [model("a", @completions), model("b", @messages)])
+    test "a config entry with a new id is added" do
+      {_provider, models} =
+        assemble(
+          source: catalog([], [model("a", @completions)]),
+          models: [[id: "c", dialects: %{text: @completions}]]
+        )
 
-      {provider, _} = assemble(source: source)
-
-      assert provider.dialects == %{text: [@completions, @messages]}
+      assert Enum.map(models, & &1.id) == ["a", "c"]
     end
 
-    test "configured dialects fill gaps but never re-stamp a model" do
-      source = catalog([], [model("has", @completions), model("lacks")])
+    test "entries for the same id in app config and inline opts merge" do
+      Application.put_env(:omni, :providers,
+        cat: [models: [[id: "c", dialects: %{text: @completions}, context_size: 10]]]
+      )
 
-      {provider, models} = assemble(source: source, dialects: %{text: @responses})
+      {_provider, [model]} = assemble(source: catalog([], []), models: [[id: "c", name: "C"]])
 
-      by_id = Map.new(models, &{&1.id, &1.dialects.text})
-      assert by_id == %{"has" => @completions, "lacks" => @responses}
-      assert provider.dialects == %{text: [@responses, @completions]}
+      assert {model.name, model.context_size} == {"C", 10}
     end
 
-    test "with no own list, a dialect every model shares fills the rest" do
-      source = catalog([dialects: %{}], [model("a", @completions), model("b")])
-
-      {_provider, models} = assemble(source: source)
-
-      assert Enum.all?(models, &(&1.dialects == %{text: @completions}))
+    test "a config model with no dialect raises" do
+      assert_raise ArgumentError, ~r/model "c" in config.*has no dialect/s, fn ->
+        assemble(source: catalog([], []), models: ["c"])
+      end
     end
 
-    test "with no own list and mixed model dialects, dialect-less models are skipped" do
-      source =
-        catalog([dialects: %{}], [model("a", @completions), model("b", @messages), model("c")])
+    test "a module's models/2 can stamp config models before the check" do
+      {_provider, [model]} =
+        assemble(source: catalog([], []), module: StampModule, models: ["c"])
 
+      assert model.dialects == %{text: @completions}
+    end
+
+    test "a config model whose dialect has no endpoint raises" do
+      assert_raise ArgumentError, ~r/no endpoint for/, fn ->
+        assemble(source: catalog([], []), models: [[id: "c", dialects: %{text: @messages}]])
+      end
+    end
+
+    test "a catalog model with no dialect is skipped with a warning, never filled" do
       log =
         capture_log(fn ->
-          {_provider, models} = assemble(source: source)
-          assert Enum.map(models, & &1.id) == ["a", "b"]
+          {_provider, models} =
+            assemble(source: catalog([], [model("a", @completions), model("b")]))
+
+          assert Enum.map(models, & &1.id) == ["a"]
         end)
 
-      assert log =~ "skipped 1 models with no dialect (c)"
+      assert log =~ "skipped 1 models with no dialect: b"
+    end
+
+    test "a catalog model whose dialect has no endpoint is skipped with a warning" do
+      log =
+        capture_log(fn ->
+          {_provider, models} =
+            assemble(source: catalog([], [model("a", @completions), model("b", @messages)]))
+
+          assert Enum.map(models, & &1.id) == ["a"]
+        end)
+
+      assert log =~ "skipped 1 models with a dialect it has no endpoint for: b"
     end
 
     test "a module's models/2 can re-stamp models" do
-      {provider, [model]} =
+      {_provider, [model]} =
         assemble(
           source: catalog([], [model("m", @completions)]),
           module: RestampModule,
-          dialects: %{text: @messages}
+          dialects: %{@messages => [base_url: "https://x.test/v1"]}
         )
 
       assert model.dialects == %{text: @messages}
-      assert provider.dialects == %{text: [@messages]}
+    end
+
+    test "put_model/1 raises for a model with no dialects" do
+      provider = Fixtures.provider()
+      model = Model.new(id: "x", name: "x", provider: provider)
+
+      assert_raise ArgumentError, ~r/has no dialects/, fn -> Loader.put_model(model) end
     end
   end
 
   describe "validation" do
-    test "an unknown id without a base_url raises, saying it isn't in the catalog" do
-      assert_raise ArgumentError, ~r/no base_url — it is not in the catalog/, fn ->
-        assemble([source: StubSource], :not_in_catalog)
-      end
-    end
-
-    test "a catalog provider without a base URL raises, saying so" do
-      assert_raise ArgumentError, ~r/the catalog has no base URL for it/, fn ->
-        assemble(source: catalog([base_url: nil], []))
-      end
-    end
-
-    test "models with no resolvable dialect raise" do
-      assert_raise ArgumentError, ~r/no dialect for its models/, fn ->
-        assemble(source: catalog([dialects: %{}], [model("a"), model("b")]))
-      end
-    end
-
-    test "a provider with no models and no dialect only warns" do
+    test "an unknown id loads with no endpoints; a missing URL is a request-time error" do
       log =
         capture_log(fn ->
-          assert {_provider, []} = assemble(source: catalog([dialects: %{}], []))
+          assert {%Provider{dialects: dialects}, []} =
+                   assemble([source: StubSource], :not_in_catalog)
+
+          assert dialects == %{}
         end)
 
       assert log =~ "loaded no models"
@@ -378,7 +476,7 @@ defmodule Omni.Provider.LoaderTest do
 
     test "an invalid dialect module raises" do
       assert_raise ArgumentError, ~r/is not an Omni.Dialect module/, fn ->
-        assemble(source: catalog([], []), dialects: %{text: String})
+        assemble(source: catalog([], []), dialects: %{String => []})
       end
     end
 
@@ -413,11 +511,52 @@ defmodule Omni.Provider.LoaderTest do
     end
   end
 
+  describe "migration" do
+    test "provider base_url: that only moves the origin suggests host:" do
+      assert_raise ArgumentError, ~r/cat: \[host: "http:\/\/localhost:4000"\]/, fn ->
+        assemble(source: catalog([], []), base_url: "http://localhost:4000/v1")
+      end
+    end
+
+    test "provider base_url: with another path suggests the endpoint URL" do
+      message =
+        ~r/cat: \[dialects: %\{Omni.Dialects.OpenAICompletions => \[base_url: "https:\/\/x.test\/api"\]\}\]/
+
+      assert_raise ArgumentError, message, fn ->
+        assemble(source: catalog([], []), base_url: "https://x.test/api")
+      end
+    end
+
+    test "provider base_url: with no endpoints suggests the dialects: form" do
+      assert_raise ArgumentError, ~r/dialects: %\{Omni.Dialects.OpenAICompletions/, fn ->
+        assemble([source: StubSource, base_url: "http://gpu:8000/v1"], :gpu_box)
+      end
+    end
+
+    test "base_url: in a module's config/0 raises" do
+      assert_raise ArgumentError, ~r/base_url: moved to each dialect's endpoint/, fn ->
+        assemble(source: catalog([], []), module: BaseUrlModule)
+      end
+    end
+
+    test "top-level compat: raises, pointing under the dialect" do
+      assert_raise ArgumentError, ~r/compat: moved under its dialect/, fn ->
+        assemble(source: catalog([], []), compat: [like: :zai])
+      end
+    end
+
+    test "capability-keyed dialects: raises" do
+      assert_raise ArgumentError, ~r/dialects: is now keyed by dialect module/, fn ->
+        assemble(source: catalog([], []), dialects: %{text: @completions})
+      end
+    end
+  end
+
   describe "defaults" do
     test "an id the catalog doesn't know is named after its id" do
       {provider, _} =
         assemble(
-          [source: StubSource, base_url: "https://x.test/v1", dialects: %{text: @completions}],
+          [source: StubSource, dialects: %{@completions => [base_url: "https://x.test/v1"]}],
           :not_in_catalog
         )
 
@@ -437,8 +576,11 @@ defmodule Omni.Provider.LoaderTest do
 
       {_provider, models} =
         assemble(
-          source: catalog([], [model("keep-a", @completions), model("drop-b")]),
-          models: ["keep-c", "drop-d"]
+          source: catalog([], [model("keep-a", @completions), model("drop-b", @completions)]),
+          models: [
+            [id: "keep-c", dialects: %{text: @completions}],
+            [id: "drop-d", dialects: %{text: @completions}]
+          ]
         )
 
       assert Enum.map(models, & &1.id) == ["keep-a", "keep-c"]
@@ -448,7 +590,13 @@ defmodule Omni.Provider.LoaderTest do
       Application.put_env(:omni, :models, filter: {__MODULE__, :reasoning?})
 
       {_provider, models} =
-        assemble(source: catalog([], []), models: [[id: "r", thinking: true], "plain"])
+        assemble(
+          source: catalog([], []),
+          models: [
+            [id: "r", thinking: true, dialects: %{text: @completions}],
+            [id: "plain", dialects: %{text: @completions}]
+          ]
+        )
 
       assert Enum.map(models, & &1.id) == ["r"]
     end
@@ -491,11 +639,10 @@ defmodule Omni.Provider.LoaderTest do
           {provider, []} =
             assemble(
               source: {StubSource, return: {:error, :boom}},
-              base_url: "https://x.test/v1",
-              dialects: %{text: @completions}
+              dialects: %{@completions => [base_url: "https://x.test/v1"]}
             )
 
-          assert provider.base_url == "https://x.test/v1"
+          assert url(provider, @completions) == "https://x.test/v1"
         end)
 
       assert log =~ ":boom"
@@ -534,7 +681,8 @@ defmodule Omni.Provider.LoaderTest do
         {provider, models} = Loader.assemble(:anthropic, source: Omni.Sources.LLMDB)
 
         assert [%Model{} | _] = models
-        assert provider.dialects == %{text: [@messages]}
+        assert Map.keys(provider.dialects) == [@messages]
+        assert url(provider, @messages) == "https://api.anthropic.com/v1"
       end
     else
       # only exercisable when the optional llm_db package is compiled out

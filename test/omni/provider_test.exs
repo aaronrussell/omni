@@ -13,12 +13,29 @@ defmodule Omni.ProviderTest do
 
   describe "get/1" do
     test "returns a loaded provider" do
-      assert {:ok, %Provider{id: :anthropic, base_url: "https://api.anthropic.com/v1"}} =
-               Provider.get(:anthropic)
+      assert {:ok, %Provider{id: :anthropic} = provider} = Provider.get(:anthropic)
+
+      assert {:ok, %{base_url: "https://api.anthropic.com/v1"}} =
+               Provider.endpoint(provider, Omni.Dialects.AnthropicMessages)
     end
 
     test "returns an error for a provider that isn't loaded" do
       assert {:error, {:unknown_provider, :nonexistent}} = Provider.get(:nonexistent)
+    end
+  end
+
+  describe "endpoint/2" do
+    test "returns an error for a dialect the provider has no endpoint for" do
+      assert {:error, {:no_endpoint, Omni.Dialects.GoogleGemini}} =
+               Provider.endpoint(Fixtures.provider(), Omni.Dialects.GoogleGemini)
+    end
+  end
+
+  describe "dialects/2" do
+    test "lists the provider's dialects for a capability" do
+      provider = Fixtures.provider(dialect: Omni.Dialects.OpenAIResponses)
+      assert Provider.dialects(provider, :text) == [Omni.Dialects.OpenAIResponses]
+      assert Provider.dialects(provider, :decision) == []
     end
   end
 
@@ -53,21 +70,23 @@ defmodule Omni.ProviderTest do
     test "reloading an id replaces its provider and models" do
       id = Fixtures.load_provider(models: ["old"])
 
+      completions = Omni.Dialects.OpenAICompletions
+
       :ok =
         Provider.load([
           {id,
-           base_url: "https://other.test/v1",
-           dialects: %{text: Omni.Dialects.OpenAICompletions},
-           models: ["new"]}
+           dialects: %{completions => [base_url: "https://other.test/v1"]},
+           models: [[id: "new", dialects: %{text: completions}]]}
         ])
 
-      assert {:ok, %Provider{base_url: "https://other.test/v1"}} = Provider.get(id)
+      assert {:ok, provider} = Provider.get(id)
+      assert provider.dialects[completions].base_url == "https://other.test/v1"
       assert {:ok, [%Omni.Model{id: "new"}]} = Omni.list_models(id)
     end
 
     test "raises for a provider that can't be assembled" do
-      assert_raise ArgumentError, ~r/no base_url/, fn ->
-        Provider.load([:"unknown_#{System.unique_integer([:positive])}"])
+      assert_raise ArgumentError, ~r/has no dialect/, fn ->
+        Provider.load([{:"unknown_#{System.unique_integer([:positive])}", models: ["x"]}])
       end
     end
   end

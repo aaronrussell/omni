@@ -64,10 +64,21 @@ defmodule Omni.Model do
   ## Custom models
 
   When a model isn't in the source's catalog (new releases, fine-tunes),
-  add it under its provider in config:
+  add it under its provider in config. A new model names its dialect, since
+  there is no catalog data to take it from:
 
       config :omni, :providers,
-        openai: [models: [[id: "ft:gpt-4o:acme::abc123", context_size: 128_000]]]
+        openai: [
+          models: [
+            [id: "ft:gpt-4o:acme::abc123", dialects: %{text: Omni.Dialects.OpenAIResponses}]
+          ]
+        ]
+
+  An entry whose id the catalog already has is merged over the catalog
+  model instead, which corrects catalog data without restating it:
+
+      config :omni, :providers,
+        openai: [models: [[id: "gpt-6", context_size: 1_000_000]]]
 
   Or create and register one at runtime:
 
@@ -75,6 +86,7 @@ defmodule Omni.Model do
         id: "my-fine-tune",
         name: "My Fine-Tune",
         provider: :openai,
+        dialects: %{text: Omni.Dialects.OpenAIResponses},
         context_size: 128_000,
         max_output_tokens: 16_384,
         input_cost: 2.0,
@@ -206,8 +218,8 @@ defmodule Omni.Model do
 
   Makes the model discoverable via `get/2` and `list/1`. If a model with the
   same ID already exists for that provider, it is replaced. The model's
-  provider must be loaded. See the "Custom models" section in the moduledoc
-  for a full example.
+  provider must be loaded, and the model must name its dialects. See the
+  "Custom models" section in the moduledoc for a full example.
   """
   @spec put(t()) :: :ok
   def put(%__MODULE__{provider: %Provider{}} = model), do: Omni.Provider.Loader.put_model(model)
@@ -220,8 +232,8 @@ defmodule Omni.Model do
   Creates a new model struct from a keyword list or map.
 
   `:provider` may be a `%Omni.Provider{}` or the id of a loaded provider.
-  `:dialects` is optional: `%{text: Module}`, with any capability missing
-  filled from the provider's first dialect for it. `:thinking` takes a
+  `:dialects` is `%{text: Module}`; it is never filled from the provider, so
+  a model without one can't make requests. `:thinking` takes a
   boolean or a map (or keyword list) of `:efforts`, `:toggle` and `:budget`;
   an empty map means `true`.
 
@@ -242,11 +254,7 @@ defmodule Omni.Model do
 
     provider = resolve_provider(Map.get(attrs, :provider))
 
-    dialects =
-      attrs
-      |> Map.get(:dialects, %{})
-      |> Map.new()
-      |> fill_dialects(provider)
+    dialects = attrs |> Map.get(:dialects, %{}) |> Map.new()
 
     model =
       struct!(
@@ -277,15 +285,6 @@ defmodule Omni.Model do
       {:error, _} ->
         raise ArgumentError, "cannot build model: provider #{inspect(id)} is not loaded"
     end
-  end
-
-  defp fill_dialects(dialects, nil), do: dialects
-
-  defp fill_dialects(dialects, %Provider{dialects: defaults}) do
-    Enum.reduce(defaults, dialects, fn
-      {capability, [first | _]}, acc -> Map.put_new(acc, capability, first)
-      _, acc -> acc
-    end)
   end
 
   defp normalize_thinking(thinking) when is_boolean(thinking), do: thinking

@@ -21,14 +21,16 @@ defmodule Omni.Providers.Ollama do
           ]
         ]
 
-  Without this config the provider loads no models.
+  Models listed this way speak `Omni.Dialects.OllamaChat`; an entry that
+  names its own `:dialects` keeps them. Without this config the provider
+  loads no models.
 
   ## Configuration
 
-  For another host or port, set `:base_url`:
+  For another host or port, set `:host`:
 
       config :omni, :providers,
-        ollama: [base_url: "http://192.168.1.10:11434"]
+        ollama: [host: "http://192.168.1.10:11434"]
 
   Requests are sent without credentials. For an instance behind an
   authenticating proxy, send a key as a Bearer token:
@@ -48,9 +50,21 @@ defmodule Omni.Providers.Ollama do
   @impl true
   def config do
     [
-      base_url: "http://localhost:11434",
       auth: :none,
-      dialects: %{text: Omni.Dialects.OllamaChat}
+      dialects: %{Omni.Dialects.OllamaChat => [base_url: "http://localhost:11434"]}
     ]
+  end
+
+  # Models listed in config by id alone speak Ollama's chat API. A model
+  # that names its own dialect keeps it.
+  @impl true
+  def models(models, _provider) do
+    Enum.map(models, fn
+      %{dialects: dialects} = model when dialects == %{} ->
+        %{model | dialects: %{text: Omni.Dialects.OllamaChat}}
+
+      model ->
+        model
+    end)
   end
 end

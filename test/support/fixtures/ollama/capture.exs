@@ -15,6 +15,7 @@ model =
     id: "qwen3.8:27b-mlx",
     name: "qwen3.8:27b-mlx",
     provider: :ollama,
+    dialects: %{text: Omni.Dialects.OllamaChat},
     thinking: true
   )
 

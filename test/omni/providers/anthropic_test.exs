@@ -8,7 +8,9 @@ defmodule Omni.Providers.AnthropicTest do
     test "returns expected configuration" do
       config = Map.new(Anthropic.config())
 
-      assert config.base_url == "https://api.anthropic.com/v1"
+      assert config.dialects[Omni.Dialects.AnthropicMessages][:base_url] ==
+               "https://api.anthropic.com/v1"
+
       assert config.api_key == {:system, "ANTHROPIC_API_KEY"}
       assert config.headers == %{"anthropic-version" => "2023-06-01"}
     end
@@ -19,7 +21,7 @@ defmodule Omni.Providers.AnthropicTest do
       {provider, models} = Loader.assemble(:anthropic)
 
       assert provider.module == Anthropic
-      assert provider.dialects == %{text: [Omni.Dialects.AnthropicMessages]}
+      assert Map.keys(provider.dialects) == [Omni.Dialects.AnthropicMessages]
       assert models != []
 
       for model <- models do

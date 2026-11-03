@@ -8,9 +8,8 @@ defmodule Omni.Providers.XAITest do
     test "returns expected configuration" do
       config = Map.new(XAI.config())
 
-      assert config.base_url == "https://api.x.ai/v1"
+      assert config.dialects[Omni.Dialects.OpenAIResponses][:base_url] == "https://api.x.ai/v1"
       assert config.api_key == {:system, "XAI_API_KEY"}
-      assert config.dialects == %{text: Omni.Dialects.OpenAIResponses}
     end
   end
 
@@ -47,8 +46,8 @@ defmodule Omni.Providers.XAITest do
       {provider, models} = Loader.assemble(:xai)
 
       assert provider.module == XAI
-      assert provider.dialects == %{text: [Omni.Dialects.OpenAIResponses]}
-      assert provider.compat == %{}
+      assert Map.keys(provider.dialects) == [Omni.Dialects.OpenAIResponses]
+      assert provider.dialects[Omni.Dialects.OpenAIResponses].compat == %{}
       assert models != []
 
       for model <- models do

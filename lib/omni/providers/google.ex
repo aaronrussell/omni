@@ -13,8 +13,12 @@ defmodule Omni.Providers.Google do
   @impl true
   def config do
     [
-      base_url: "https://generativelanguage.googleapis.com/v1beta",
-      api_key: {:system, "GEMINI_API_KEY"}
+      api_key: {:system, "GEMINI_API_KEY"},
+      dialects: %{
+        Omni.Dialects.GoogleGemini => [
+          base_url: "https://generativelanguage.googleapis.com/v1beta"
+        ]
+      }
     ]
   end
 end

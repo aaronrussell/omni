@@ -19,13 +19,14 @@ defmodule Omni.Request do
 
   alias Omni.Content.{Attachment, Text, Thinking, ToolUse}
   alias Omni.{Context, Message, Model, Parsers, Provider, StreamingResponse}
+  alias Omni.Provider.Endpoint
 
   import Omni.Util, only: [maybe_put: 3]
 
   @schema %{
     # Config (type-loose — validated by infrastructure, not user input)
     api_key: :any,
-    base_url: :any,
+    host: :string,
     headers: {:map, {:default, %{}}},
     plug: :any,
 
@@ -52,14 +53,12 @@ defmodule Omni.Request do
   @spec build(Model.t(), Context.t(), keyword() | map()) ::
           {:ok, Req.Request.t()} | {:error, term()}
   def build(%Model{provider: %Provider{} = provider} = model, %Context{} = context, opts) do
-    dialect = dialect!(model)
-
-    with {:ok, opts} <- validate(model, opts),
-         :ok <- validate_context(model, context) do
+    with {:ok, dialect} <- text_dialect(model),
+         {:ok, endpoint} <- Provider.endpoint(provider, dialect),
+         {:ok, opts} <- validate(model, opts),
+         :ok <- validate_context(model, context),
+         {:ok, url} <- url(endpoint, dialect, model, opts) do
       context = drop_foreign_replay(context, provider, dialect)
-
-      # Some catalog base URLs end in a slash; dialect paths start with one.
-      url = String.trim_trailing(opts.base_url, "/") <> dialect.handle_path(model, opts)
 
       body =
         model
@@ -107,17 +106,16 @@ defmodule Omni.Request do
   @doc false
   @spec validate(Model.t(), keyword() | map()) :: {:ok, map()} | {:error, term()}
   def validate(%Model{provider: %Provider{} = provider} = model, opts) do
-    schema = Map.merge(@schema, dialect!(model).option_schema())
-
     # Two tiers: the provider (which already absorbed app config) <- call site
     data =
       provider
-      |> Map.take([:base_url, :api_key, :headers])
+      |> Map.take([:api_key, :headers])
       |> Map.merge(Map.new(opts), &merge_config/3)
 
-    with :ok <- check_unknown_keys(data, schema),
-         {:ok, validated} <- Peri.validate(schema, data) do
-      {:ok, validated}
+    with {:ok, dialect} <- text_dialect(model),
+         schema = Map.merge(@schema, dialect.option_schema()),
+         :ok <- check_unknown_keys(data, schema) do
+      Peri.validate(schema, data)
     end
   end
 
@@ -171,10 +169,34 @@ defmodule Omni.Request do
 
   # -- Private helpers --
 
-  defp dialect!(%Model{dialects: %{text: dialect}}) when is_atom(dialect), do: dialect
+  defp text_dialect(%Model{dialects: %{text: dialect}})
+       when is_atom(dialect) and not is_nil(dialect),
+       do: {:ok, dialect}
 
-  defp dialect!(%Model{id: id}) do
-    raise ArgumentError, "model #{inspect(id)} has no text dialect"
+  defp text_dialect(%Model{}), do: {:error, {:unsupported_capability, :text}}
+
+  defp dialect!(%Model{} = model) do
+    case text_dialect(model) do
+      {:ok, dialect} -> dialect
+      {:error, _} -> raise ArgumentError, "model #{inspect(model.id)} has no text dialect"
+    end
+  end
+
+  # The endpoint's whole URL, its origin swapped by a call-site host:, plus
+  # the dialect's resource path. Some catalog URLs end in a slash; dialect
+  # paths start with one.
+  defp url(%Endpoint{base_url: base_url}, dialect, model, opts) do
+    with {:ok, base_url} <- put_host(base_url, opts[:host]) do
+      if is_binary(base_url) and not Endpoint.placeholder?(base_url),
+        do: {:ok, String.trim_trailing(base_url, "/") <> dialect.handle_path(model, opts)},
+        else: {:error, {:no_base_url, dialect}}
+    end
+  end
+
+  defp put_host(base_url, nil), do: {:ok, base_url}
+
+  defp put_host(base_url, host) do
+    with :ok <- Endpoint.validate_host(host), do: {:ok, Endpoint.put_host(base_url, host)}
   end
 
   # Thinking, signatures and `private` go back only to the provider and

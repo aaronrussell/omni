@@ -210,13 +210,13 @@ defmodule Omni.Sources.ModelsDevLiveTest do
     test "live opts survive the loader's source resolution path", %{tmp_dir: tmp_dir} do
       {provider, models} =
         Omni.Provider.Loader.assemble(:livetest,
-          base_url: "https://api.test.com/v1",
+          dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "https://api.test.com/v1"]},
           source: {ModelsDev, live: true, cache_dir: tmp_dir, plug: serve(catalog_body(["e2e"]))}
         )
 
       assert Enum.map(models, & &1.id) == ["e2e"]
       assert Enum.all?(models, &(&1.provider == provider))
-      assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
+      assert Map.keys(provider.dialects) == [Omni.Dialects.OpenAICompletions]
     end
   end
 end

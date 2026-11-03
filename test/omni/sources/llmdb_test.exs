@@ -11,12 +11,16 @@ if Code.ensure_loaded?(LLMDB) do
     alias Omni.Provider
     alias Omni.Sources.LLMDB, as: Source
 
-    # Merges are shallow: an override replaces its whole top-level key.
+    @chat %{text: %{supported: true, wire_protocol: "openai_chat"}}
+
+    # Merges are shallow: an override replaces its whole top-level key. The
+    # default speaks Chat Completions; `execution: nil` drops the signal.
     defp llmdb_model(id, overrides \\ %{}) do
       %{
         id: id,
         provider: :test,
         name: id,
+        execution: @chat,
         modalities: %{input: [:text], output: [:text]},
         capabilities: %{chat: true, tools: %{enabled: true}},
         cost: %{input: 1.0, output: 2.0},
@@ -27,7 +31,7 @@ if Code.ensure_loaded?(LLMDB) do
     end
 
     describe "transform_provider/2 eligibility" do
-      test "rejects non-chat, tool-less, retired, and non-text models" do
+      test "rejects non-chat, tool-less, retired, non-text and catalog-only models" do
         models = [
           llmdb_model("kept"),
           llmdb_model("no-chat", %{capabilities: %{chat: false, tools: %{enabled: true}}}),
@@ -35,7 +39,8 @@ if Code.ensure_loaded?(LLMDB) do
           llmdb_model("retired-flag", %{retired: true}),
           llmdb_model("retired-dated", %{lifecycle: %{status: "active", retires_at: "2020-01-01"}}),
           llmdb_model("no-text-in", %{modalities: %{input: [:image], output: [:text]}}),
-          llmdb_model("no-text-out", %{modalities: %{input: [:text], output: [:image]}})
+          llmdb_model("no-text-out", %{modalities: %{input: [:text], output: [:image]}}),
+          llmdb_model("catalog-only", %{catalog_only: true})
         ]
 
         loaded = Source.transform_provider(models, :test)
@@ -143,7 +148,12 @@ if Code.ensure_loaded?(LLMDB) do
       end
 
       test "npm metadata resolves models of multi-dialect providers" do
-        models = [llmdb_model("claude-x", %{extra: %{provider: %{npm: "@ai-sdk/anthropic"}}})]
+        models = [
+          llmdb_model("claude-x", %{
+            execution: nil,
+            extra: %{provider: %{npm: "@ai-sdk/anthropic"}}
+          })
+        ]
 
         [model] = Source.transform_provider(models, :test)
 
@@ -152,7 +162,10 @@ if Code.ensure_loaded?(LLMDB) do
 
       test "npm metadata is read from string-keyed extra (llm_db 2026.7.2+)" do
         models = [
-          llmdb_model("claude-x", %{extra: %{"provider" => %{"npm" => "@ai-sdk/anthropic"}}})
+          llmdb_model("claude-x", %{
+            execution: nil,
+            extra: %{"provider" => %{"npm" => "@ai-sdk/anthropic"}}
+          })
         ]
 
         [model] = Source.transform_provider(models, :test)
@@ -205,16 +218,22 @@ if Code.ensure_loaded?(LLMDB) do
         assert model.dialects.text == Omni.Dialects.AnthropicMessages
       end
 
-      test "a model with no dialect signal is left for the provider to fill" do
-        [model] = Source.transform_provider([llmdb_model("bare")], :test)
+      test "skips with a warning a model with no dialect signal" do
+        models = [llmdb_model("bare", %{execution: nil}), llmdb_model("kept")]
 
-        assert model.dialects == %{}
+        {loaded, log} = with_log(fn -> Source.transform_provider(models, :test) end)
+
+        assert Enum.map(loaded, & &1.id) == ["kept"]
+        assert log =~ "skipping test:bare: no wire protocol or npm package maps to a dialect"
       end
 
       test "skips with a warning when the model's npm maps to no dialect" do
         models = [
-          llmdb_model("unmapped", %{extra: %{provider: %{npm: "some-unmapped-sdk"}}}),
-          llmdb_model("kept", %{extra: %{provider: %{npm: "@ai-sdk/openai"}}})
+          llmdb_model("unmapped", %{
+            execution: nil,
+            extra: %{provider: %{npm: "some-unmapped-sdk"}}
+          }),
+          llmdb_model("kept", %{execution: nil, extra: %{provider: %{npm: "@ai-sdk/openai"}}})
         ]
 
         {loaded, log} = with_log(fn -> Source.transform_provider(models, :test) end)
@@ -224,17 +243,17 @@ if Code.ensure_loaded?(LLMDB) do
         assert log =~ "loaded 1 models, skipped 1"
       end
 
-      test "skips with a warning when a model is served from another base URL" do
+      test "skips with a warning a model at another URL than the first of its dialect" do
         models = [
-          llmdb_model("elsewhere", %{base_url: "https://other.test/v1"}),
-          llmdb_model("kept")
+          llmdb_model("a-first"),
+          llmdb_model("b-elsewhere", %{base_url: "https://other.test/v1"})
         ]
 
         {loaded, log} =
           with_log(fn -> Source.transform_provider(models, :test, "https://api.test/v1") end)
 
-        assert Enum.map(loaded, & &1.id) == ["kept"]
-        assert log =~ "served from https://other.test/v1"
+        assert Enum.map(loaded, & &1.id) == ["a-first"]
+        assert log =~ "skipping test:b-elsewhere: served from https://other.test/v1"
       end
     end
 
@@ -393,10 +412,15 @@ if Code.ensure_loaded?(LLMDB) do
         assert Enum.all?(ollama, &(&1.dialects.text == Omni.Dialects.OpenAICompletions))
       end
 
-      test "gives opencode a provider-level dialect for models with no signal" do
-        assert {:ok, provider, [_ | _]} = Source.fetch(:opencode, [])
+      test "gives each dialect its models' URL" do
+        assert {:ok, provider, [_ | _]} = Source.fetch(:anthropic, [])
+        {:ok, llmdb_provider} = LLMDB.provider(:anthropic)
 
-        assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
+        assert provider.dialects == %{
+                 Omni.Dialects.AnthropicMessages => %Omni.Provider.Endpoint{
+                   base_url: llmdb_provider.base_url
+                 }
+               }
       end
 
       test "returns :unknown_provider for a catalog id llm_db doesn't know" do

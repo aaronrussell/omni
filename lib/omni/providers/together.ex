@@ -6,7 +6,7 @@ defmodule Omni.Providers.Together do
   Provider id `:togetherai`. Reads the API key from `TOGETHER_API_KEY`, so no
   configuration is needed if it is set. Override any setting under
   `config :omni, :providers, togetherai: [...]` (see `Omni.Provider`). For
-  US-only inference, set `base_url: "https://us-api.together.ai/v1"`.
+  US-only inference, set `host: "https://us-api.together.ai"`.
 
   ## Reasoning
 
@@ -39,19 +39,21 @@ defmodule Omni.Providers.Together do
   @impl true
   def config do
     [
-      base_url: "https://api.together.ai/v1",
       api_key: {:system, "TOGETHER_API_KEY"},
-      compat: %{
+      # No `max_completion_tokens` in Together's API.
+      dialects: %{
         Omni.Dialects.OpenAICompletions => [
-          # No `max_completion_tokens` in Together's API.
-          max_tokens_field: "max_tokens",
-          # `reasoning_effort` takes no "none"; hybrid models switch with
-          # `reasoning: {enabled: ...}`.
-          thinking_toggle_format: :reasoning_enabled,
-          # Reasoning arrives in `reasoning`; Together asks for it back there.
-          thinking_replay_format: :reasoning,
-          # Caching is automatic; there is no retention field.
-          omit: [:cache]
+          base_url: "https://api.together.ai/v1",
+          compat: [
+            max_tokens_field: "max_tokens",
+            # `reasoning_effort` takes no "none"; hybrid models switch with
+            # `reasoning: {enabled: ...}`.
+            thinking_toggle_format: :reasoning_enabled,
+            # Reasoning arrives in `reasoning`; Together asks for it back there.
+            thinking_replay_format: :reasoning,
+            # Caching is automatic; there is no retention field.
+            omit: [:cache]
+          ]
         ]
       }
     ]

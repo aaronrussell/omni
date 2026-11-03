@@ -5,16 +5,28 @@ defmodule Omni.Test.Fixtures do
   # depend on what the catalog loaded at boot.
 
   alias Omni.{Model, Provider}
+  alias Omni.Provider.Endpoint
 
-  @doc "A provider struct with test defaults; `attrs` override."
+  @base_url "https://api.test.com/v1"
+
+  @doc """
+  A provider struct with test defaults; `attrs` override. `:dialect` (default
+  `Omni.Dialects.OpenAICompletions`) gets an endpoint at `:base_url` with
+  `:compat`, unless `:dialects` is given.
+  """
   def provider(attrs \\ []) do
+    attrs = Map.new(attrs)
+    {dialect, attrs} = Map.pop(attrs, :dialect, Omni.Dialects.OpenAICompletions)
+    {base_url, attrs} = Map.pop(attrs, :base_url, @base_url)
+    {compat, attrs} = Map.pop(attrs, :compat, %{})
+
     struct!(
       %Provider{
         id: :test,
         name: "Test",
-        base_url: "https://api.test.com/v1",
         api_key: "test-key",
-        auth: :dialect
+        auth: :dialect,
+        dialects: %{dialect => %Endpoint{base_url: base_url, compat: Map.new(compat)}}
       },
       attrs
     )
@@ -34,7 +46,7 @@ defmodule Omni.Test.Fixtures do
           provider
 
         provider_attrs ->
-          provider(Map.to_list(provider_attrs || %{}) ++ [dialects: %{text: [dialect]}])
+          provider(Map.put(Map.new(provider_attrs || %{}), :dialect, dialect))
       end
 
     attrs
@@ -46,18 +58,27 @@ defmodule Omni.Test.Fixtures do
 
   @doc """
   Loads a throwaway custom provider under a unique id and returns the id.
-  Unloaded when the calling test exits.
+  Model ids given as strings speak Completions. Unloaded when the calling
+  test exits.
   """
   def load_provider(opts \\ []) do
     id = :"test_provider_#{System.unique_integer([:positive])}"
 
+    opts =
+      Keyword.update(opts, :models, [], fn models ->
+        Enum.map(models, fn
+          model_id when is_binary(model_id) ->
+            [id: model_id, dialects: %{text: Omni.Dialects.OpenAICompletions}]
+
+          attrs ->
+            attrs
+        end)
+      end)
+
     Provider.load([
       {id,
        Keyword.merge(
-         [
-           base_url: "https://api.test.com/v1",
-           dialects: %{text: Omni.Dialects.OpenAICompletions}
-         ],
+         [dialects: %{Omni.Dialects.OpenAICompletions => [base_url: @base_url]}],
          opts
        )}
     ])

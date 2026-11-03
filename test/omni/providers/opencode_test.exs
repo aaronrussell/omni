@@ -8,9 +8,9 @@ defmodule Omni.Providers.OpenCodeTest do
     test "returns expected configuration" do
       config = Map.new(OpenCode.config())
 
-      assert config.base_url == "https://opencode.ai/zen/v1"
       assert config.api_key == {:system, "OPENCODE_API_KEY"}
-      refute Map.has_key?(config, :dialects)
+      # The catalog supplies the URLs; the module sets only compat.
+      refute Keyword.has_key?(config.dialects[Omni.Dialects.OpenAICompletions], :base_url)
     end
   end
 
@@ -21,7 +21,7 @@ defmodule Omni.Providers.OpenCodeTest do
       assert provider.module == OpenCode
       assert provider.auth == :dialect
 
-      assert Enum.sort(provider.dialects.text) ==
+      assert Enum.sort(Map.keys(provider.dialects)) ==
                Enum.sort([
                  Omni.Dialects.AnthropicMessages,
                  Omni.Dialects.GoogleGemini,
@@ -43,9 +43,13 @@ defmodule Omni.Providers.OpenCodeTest do
     test "assembles with its Completions flags" do
       {provider, _models} = Loader.assemble(:opencode)
 
-      assert provider.compat == %{
-               Omni.Dialects.OpenAICompletions => %{thinking_replay_format: :reasoning_content}
+      assert provider.dialects[Omni.Dialects.OpenAICompletions].compat == %{
+               thinking_replay_format: :reasoning_content
              }
+
+      for {_dialect, endpoint} <- provider.dialects do
+        assert endpoint.base_url == "https://opencode.ai/zen/v1"
+      end
     end
   end
 

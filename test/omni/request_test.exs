@@ -2,6 +2,7 @@ defmodule Omni.RequestTest do
   use ExUnit.Case, async: true
 
   alias Omni.Request
+  alias Omni.Provider.Endpoint
 
   defmodule DummyDialect do
     @moduledoc false
@@ -92,16 +93,19 @@ defmodule Omni.RequestTest do
 
   @provider %Omni.Provider{
     id: :request_test,
-    base_url: "https://api.test.com/v1",
     api_key: {:system, "TEST_PROVIDER_KEY"},
     auth: :dialect,
     headers: %{"x-custom" => "from-config"},
-    dialects: %{text: [DummyDialect]}
+    dialects: %{DummyDialect => %Endpoint{base_url: "https://api.test.com/v1"}}
   }
 
   defp provider(attrs), do: struct!(@provider, attrs)
 
+  # The provider gets an endpoint for the model's dialect if it has none.
   defp make_model(provider \\ @provider, dialect \\ DummyDialect) do
+    endpoint = %Endpoint{base_url: "https://api.test.com/v1"}
+    provider = %{provider | dialects: Map.put_new(provider.dialects, dialect, endpoint)}
+
     Omni.Model.new(
       id: "test-model",
       name: "Test Model",
@@ -109,6 +113,10 @@ defmodule Omni.RequestTest do
       dialects: %{text: dialect},
       max_output_tokens: 2048
     )
+  end
+
+  defp endpoint_model(base_url) do
+    make_model(provider(dialects: %{DummyDialect => %Endpoint{base_url: base_url}}))
   end
 
   describe "validate/2" do
@@ -119,7 +127,6 @@ defmodule Omni.RequestTest do
         Request.validate(model, api_key: "sk-test", max_tokens: 1024, temperature: 0.7)
 
       assert opts.api_key == "sk-test"
-      assert opts.base_url == "https://api.test.com/v1"
       assert opts[:max_tokens] == 1024
       assert opts[:temperature] == 0.7
     end
@@ -138,19 +145,18 @@ defmodule Omni.RequestTest do
       assert opts.api_key == {:system, "TEST_PROVIDER_KEY"}
     end
 
-    test "base_url override via opts" do
-      model = make_model()
-
-      {:ok, opts} = Request.validate(model, base_url: "https://custom.api.com")
-      assert opts.base_url == "https://custom.api.com"
-    end
-
-    test "provider struct fields other than base_url, api_key and headers are not options" do
+    test "provider struct fields other than api_key and headers are not options" do
       model = make_model()
 
       {:ok, opts} = Request.validate(model, [])
       refute Map.has_key?(opts, :dialects)
       refute Map.has_key?(opts, :auth)
+      refute Map.has_key?(opts, :host)
+    end
+
+    test "base_url is no longer an option" do
+      assert {:error, {:unknown_options, [:base_url]}} =
+               Request.validate(make_model(), base_url: "https://custom.api.com")
     end
 
     test "plug extraction" do
@@ -408,8 +414,7 @@ defmodule Omni.RequestTest do
 
       {:ok, req} =
         Request.build(model, context, %{
-          api_key: "sk-test",
-          base_url: "https://api.test.com/v1"
+          api_key: "sk-test"
         })
 
       assert %Req.Request{} = req
@@ -419,12 +424,67 @@ defmodule Omni.RequestTest do
 
     test "joins a base URL with a trailing slash without doubling it" do
       {:ok, req} =
-        Request.build(make_model(), Omni.Context.new("Hello"), %{
-          api_key: "sk-test",
-          base_url: "https://api.test.com/v1/"
-        })
+        Request.build(endpoint_model("https://api.test.com/v1/"), Omni.Context.new("Hello"),
+          api_key: "sk-test"
+        )
 
       assert URI.to_string(req.url) == "https://api.test.com/v1/dummy"
+    end
+
+    test "host: replaces the origin of the endpoint URL and keeps its path" do
+      {:ok, req} =
+        Request.build(make_model(), Omni.Context.new("Hello"),
+          api_key: "sk-test",
+          host: "http://localhost:4000"
+        )
+
+      assert URI.to_string(req.url) == "http://localhost:4000/v1/dummy"
+    end
+
+    test "host: fills a templated origin" do
+      model = endpoint_model("${GATEWAY_BASE_URL}/openai/v1")
+
+      {:ok, req} =
+        Request.build(model, Omni.Context.new("Hello"),
+          api_key: "sk-test",
+          host: "https://gw.example.com"
+        )
+
+      assert URI.to_string(req.url) == "https://gw.example.com/openai/v1/dummy"
+    end
+
+    test "host: with a path is an error" do
+      assert {:error, {:invalid_host, "http://localhost:4000/v1"}} =
+               Request.build(make_model(), Omni.Context.new("Hello"),
+                 api_key: "sk-test",
+                 host: "http://localhost:4000/v1"
+               )
+    end
+
+    test "a model whose dialect has no endpoint is an error" do
+      model = %{make_model() | provider: provider(dialects: %{})}
+
+      assert {:error, {:no_endpoint, DummyDialect}} =
+               Request.build(model, Omni.Context.new("Hello"), api_key: "sk-test")
+    end
+
+    test "an endpoint with no URL is an error" do
+      assert {:error, {:no_base_url, DummyDialect}} =
+               Request.build(endpoint_model(nil), Omni.Context.new("Hello"), api_key: "sk-test")
+    end
+
+    test "an endpoint URL still holding a placeholder is an error" do
+      model = endpoint_model("https://{region}.api.test.com/v1")
+
+      assert {:error, {:no_base_url, DummyDialect}} =
+               Request.build(model, Omni.Context.new("Hello"), api_key: "sk-test")
+    end
+
+    test "a model with no text dialect is an error" do
+      model = %{make_model() | dialects: %{}}
+
+      assert {:error, {:unsupported_capability, :text}} =
+               Request.build(model, Omni.Context.new("Hello"), api_key: "sk-test")
     end
 
     test "applies merged headers" do
@@ -434,7 +494,6 @@ defmodule Omni.RequestTest do
       {:ok, req} =
         Request.build(model, context, %{
           api_key: "sk-test",
-          base_url: "https://api.test.com/v1",
           headers: %{"x-custom" => "from-config", "x-extra" => "from-call"}
         })
 
@@ -448,8 +507,7 @@ defmodule Omni.RequestTest do
 
       {:ok, req} =
         Request.build(model, context, %{
-          api_key: "sk-test",
-          base_url: "https://api.test.com/v1"
+          api_key: "sk-test"
         })
 
       assert Req.Request.get_header(req, "authorization") == ["Bearer sk-test"]
@@ -461,8 +519,7 @@ defmodule Omni.RequestTest do
 
       {:ok, req} =
         Request.build(model, context, %{
-          api_key: "sk-test",
-          base_url: "https://api.test.com/v1"
+          api_key: "sk-test"
         })
 
       assert req.options.json["modified"] == "test-model"
@@ -476,7 +533,6 @@ defmodule Omni.RequestTest do
       {:ok, req} =
         Request.build(model, context, %{
           api_key: "sk-test",
-          base_url: "https://api.test.com/v1",
           plug: plug
         })
 
@@ -489,8 +545,7 @@ defmodule Omni.RequestTest do
 
       assert {:error, :no_api_key} =
                Request.build(model, context, %{
-                 api_key: nil,
-                 base_url: "https://api.test.com/v1"
+                 api_key: nil
                })
     end
 
@@ -500,8 +555,7 @@ defmodule Omni.RequestTest do
 
       {:ok, req} =
         Request.build(model, context, %{
-          api_key: "sk-test",
-          base_url: "https://api.test.com/v1"
+          api_key: "sk-test"
         })
 
       assert req.into == :self
@@ -524,8 +578,7 @@ defmodule Omni.RequestTest do
 
       {:ok, req} =
         Request.build(model, context, %{
-          api_key: "sk-test",
-          base_url: "https://api.test.com/v1"
+          api_key: "sk-test"
         })
 
       assert req.options[:receive_timeout] == 300_000
@@ -538,7 +591,6 @@ defmodule Omni.RequestTest do
       {:ok, req} =
         Request.build(model, context, %{
           api_key: "sk-test",
-          base_url: "https://api.test.com/v1",
           timeout: 60_000
         })
 

@@ -28,8 +28,8 @@ defmodule Omni.Providers.OpenCode do
 
     * `thinking_replay_format: :reasoning_content`
 
-  Compat flags for this provider must be keyed by dialect (see
-  `Omni.Provider`).
+  Each dialect's URL comes from the catalog: the bundled snapshot serves
+  every dialect from `https://opencode.ai/zen/v1`.
   """
 
   @behaviour Omni.Provider
@@ -39,9 +39,10 @@ defmodule Omni.Providers.OpenCode do
   @impl true
   def config do
     [
-      base_url: "https://opencode.ai/zen/v1",
       api_key: {:system, "OPENCODE_API_KEY"},
-      compat: %{Omni.Dialects.OpenAICompletions => [thinking_replay_format: :reasoning_content]}
+      dialects: %{
+        Omni.Dialects.OpenAICompletions => [compat: [thinking_replay_format: :reasoning_content]]
+      }
     ]
   end
 

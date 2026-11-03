@@ -8,7 +8,9 @@ defmodule Omni.Providers.MoonshotTest do
     test "returns expected configuration" do
       config = Map.new(Moonshot.config())
 
-      assert config.base_url == "https://api.moonshot.ai/v1"
+      assert config.dialects[Omni.Dialects.OpenAICompletions][:base_url] ==
+               "https://api.moonshot.ai/v1"
+
       assert config.api_key == {:system, "MOONSHOT_API_KEY"}
     end
   end
@@ -18,7 +20,7 @@ defmodule Omni.Providers.MoonshotTest do
       {provider, models} = Loader.assemble(:moonshotai)
 
       assert provider.module == Moonshot
-      assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
+      assert Map.keys(provider.dialects) == [Omni.Dialects.OpenAICompletions]
       assert models != []
 
       for model <- models do
@@ -32,11 +34,9 @@ defmodule Omni.Providers.MoonshotTest do
     test "assembles with its Completions flags" do
       {provider, _models} = Loader.assemble(:moonshotai)
 
-      assert provider.compat == %{
-               Omni.Dialects.OpenAICompletions => %{
-                 thinking_toggle_format: :thinking_type,
-                 thinking_replay_format: :reasoning_content
-               }
+      assert provider.dialects[Omni.Dialects.OpenAICompletions].compat == %{
+               thinking_toggle_format: :thinking_type,
+               thinking_replay_format: :reasoning_content
              }
     end
   end

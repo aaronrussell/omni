@@ -33,14 +33,16 @@ defmodule Omni.Providers.Venice do
   @impl true
   def config do
     [
-      base_url: "https://api.venice.ai/api/v1",
       api_key: {:system, "VENICE_API_KEY"},
-      compat: %{
+      # Venice recommends `reasoning: {enabled: false}` over
+      dialects: %{
         Omni.Dialects.OpenAICompletions => [
-          # Venice recommends `reasoning: {enabled: false}` over
-          # `reasoning_effort: "none"`, which has limited support.
-          thinking_toggle_format: :reasoning_enabled,
-          thinking_replay_format: :reasoning_content
+          base_url: "https://api.venice.ai/api/v1",
+          compat: [
+            # `reasoning_effort: "none"`, which has limited support.
+            thinking_toggle_format: :reasoning_enabled,
+            thinking_replay_format: :reasoning_content
+          ]
         ]
       }
     ]

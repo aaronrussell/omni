@@ -5,7 +5,7 @@ defmodule Omni.Test.Cases do
   # record them and tests replay them with the same request, as
   # `Omni.Test.Baseline.request/1` does for verify's scenarios.
 
-  alias Omni.{Context, Message, Model}
+  alias Omni.{Context, Message, Model, Provider}
   alias Omni.Dialects.OpenAICompletions
 
   @doc """
@@ -19,11 +19,22 @@ defmodule Omni.Test.Cases do
   def reference(:google_gemini), do: get_model!(:google, "gemini-3.8-flash")
 
   def reference(:openai_completions) do
-    %{get_model!(:openai, "gpt-6-luna") | dialects: %{text: OpenAICompletions}}
+    model = get_model!(:openai, "gpt-6-luna")
+    {:ok, endpoint} = Provider.endpoint(model.provider, Omni.Dialects.OpenAIResponses)
+    provider = model.provider
+    provider = %{provider | dialects: Map.put(provider.dialects, OpenAICompletions, endpoint)}
+
+    %{model | dialects: %{text: OpenAICompletions}, provider: provider}
   end
 
   def reference(:ollama_chat) do
-    Model.new(id: "qwen3.8:27b-mlx", name: "qwen3.8:27b-mlx", provider: :ollama, thinking: true)
+    Model.new(
+      id: "qwen3.8:27b-mlx",
+      name: "qwen3.8:27b-mlx",
+      provider: :ollama,
+      dialects: %{text: Omni.Dialects.OllamaChat},
+      thinking: true
+    )
   end
 
   defp get_model!(provider, id) do

@@ -84,8 +84,9 @@ defmodule Omni.Dialect do
 
   Providers that speak a dialect with small deviations from its home API
   describe them as compat flags, which the dialect declares in
-  `c:compat_schema/0` and reads with `compat/2` while it encodes. A
-  provider's flags are validated against the schema when it loads. See
+  `c:compat_schema/0` and reads with `compat/2` while it encodes. Flags are
+  set per endpoint (see `Omni.Provider.Endpoint`) and validated against the
+  schema when the provider loads. See
   `Omni.Dialects.OpenAICompletions` for the flags it understands.
 
   ## Thinking
@@ -134,6 +135,7 @@ defmodule Omni.Dialect do
   """
 
   alias Omni.{Context, Model, Provider}
+  alias Omni.Provider.Endpoint
 
   @registry %{
     "anthropic_messages" => Omni.Dialects.AnthropicMessages,
@@ -171,17 +173,35 @@ defmodule Omni.Dialect do
   @doc """
   Returns the compat flags a provider has set for a dialect.
 
-  Reads `model.provider.compat[dialect]`, returning `%{}` when the provider
-  sets none (or the model has no provider):
+  Reads the flags of the provider's endpoint for the dialect, returning `%{}`
+  when it sets none (or the model has no provider):
 
       compat = Omni.Dialect.compat(model, __MODULE__)
       field = Map.get(compat, :max_tokens_field, "max_completion_tokens")
   """
   @spec compat(Model.t(), module()) :: map()
-  def compat(%Model{provider: %Provider{compat: compat}}, dialect),
-    do: Map.get(compat, dialect, %{})
+  def compat(%Model{provider: %Provider{dialects: dialects}}, dialect) do
+    case dialects do
+      %{^dialect => %Endpoint{compat: compat}} -> compat
+      _ -> %{}
+    end
+  end
 
   def compat(%Model{}, _dialect), do: %{}
+
+  @doc """
+  Returns the capability a dialect module serves, or `nil` for a module that
+  is not a dialect.
+
+  Every dialect today generates text:
+
+      Omni.Dialect.capability(Omni.Dialects.AnthropicMessages)  #=> :text
+  """
+  @spec capability(module()) :: :text | nil
+  def capability(module) when is_atom(module) do
+    if Code.ensure_loaded?(module) and function_exported?(module, :handle_event, 2),
+      do: :text
+  end
 
   @doc """
   Returns a Peri schema map for dialect-specific options.
@@ -234,9 +254,10 @@ defmodule Omni.Dialect do
   @doc """
   Returns the URL path for the given model and options.
 
-  The path is the API's resource path, appended to the provider's base URL.
-  The base URL carries any version segment (`https://api.openai.com/v1`), so
-  the path does not. Most dialects return a static path:
+  The path is the API's resource path, appended to the base URL of the
+  provider's endpoint for the dialect. The base URL carries any version
+  segment (`https://api.openai.com/v1`), so the path does not. Most dialects
+  return a static path:
 
       def handle_path(_model, _opts), do: "/chat/completions"
 

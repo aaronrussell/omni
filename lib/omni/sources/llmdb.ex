@@ -17,7 +17,8 @@ defmodule Omni.Sources.LLMDB do
 
   Models are read from llm_db's catalog store and transformed at load time:
   retired models and those without tool use or text modalities are filtered
-  out (deprecated models are kept — they remain callable), aliases are
+  out (deprecated models are kept — they remain callable), as are those
+  llm_db marks `catalog_only` (described, but not callable), aliases are
   expanded so friendly ids keep resolving (canonical records win on id
   collisions), and negative cost sentinels are clamped to zero. Models that
   still fail to build are skipped with a warning.
@@ -28,16 +29,18 @@ defmodule Omni.Sources.LLMDB do
 
   Provider ids are llm_db's own ids — snake_cased models.dev keys — so no
   translation is applied. llm_db's provider record supplies the provider's
-  name, base URL (unless it is a template such as `{region}`), and API key
-  environment variable (when exactly one is listed).
+  name and API key environment variable (when exactly one is listed). Each
+  dialect's endpoint takes its models' URL: a model's own `base_url` when it
+  has one, otherwise the provider's. Templated URLs (`{region}`) are kept
+  for `host:` to fill.
 
   ## Dialect resolution
 
   Catalog data is the source of truth, resolved per model: the wire
   protocol, then npm package metadata. A model whose npm package maps to no
-  dialect is skipped with a warning, as is one served from a different base
-  URL than its provider; a model with no signal at all is left for Omni to
-  fill from its provider. Known upstream data issue: `wire_protocol`
+  dialect is skipped with a warning, as is one with no signal at all, and
+  one served from a different URL than the first model of its dialect.
+  Known upstream data issue: `wire_protocol`
   mislabels some Responses-only OpenAI models as `openai_chat` — those
   models load with the Completions dialect until it's corrected upstream. (A
   second upstream issue, `capabilities.reasoning.enabled` under-reporting
@@ -78,12 +81,6 @@ defmodule Omni.Sources.LLMDB do
     "openai_responses"
   ]
 
-  # llm_db provider id -> provider-level dialect. llm_db has no provider-level
-  # npm, so multi-dialect gateways need one for models that carry neither npm
-  # nor wire-protocol metadata (mirrors models.dev's provider-level
-  # @ai-sdk/openai-compatible on opencode).
-  @gateway_fallback %{opencode: "openai_completions"}
-
   # llm_db modalities are atom lists — no stringifying here (compare ModelsDev)
   @supported_input_modalities Model.supported_modalities(:input)
   @supported_output_modalities Model.supported_modalities(:output)
@@ -94,36 +91,24 @@ defmodule Omni.Sources.LLMDB do
 
     case LLMDB.provider(id) do
       {:ok, llmdb_provider} ->
-        provider = build_provider(id, llmdb_provider)
-        {:ok, provider, transform_provider(LLMDB.models(id), id, provider.base_url)}
+        {endpoints, models} = transform(LLMDB.models(id), id, llmdb_provider.base_url)
+
+        provider = %Provider{
+          id: id,
+          name: llmdb_provider.name,
+          api_key: api_key(llmdb_provider.env),
+          dialects: endpoints
+        }
+
+        {:ok, provider, models}
 
       {:error, :not_found} ->
         {:error, :unknown_provider}
     end
   end
 
-  defp build_provider(id, llmdb_provider) do
-    %Provider{
-      id: id,
-      name: llmdb_provider.name,
-      base_url: base_url(llmdb_provider.base_url),
-      api_key: api_key(llmdb_provider.env),
-      dialects: provider_dialects(@gateway_fallback[id])
-    }
-  end
-
-  # Templated base URLs ("https://{region}.example.com") need user config.
-  defp base_url(url) when is_binary(url) do
-    if String.contains?(url, "{"), do: nil, else: url
-  end
-
-  defp base_url(_), do: nil
-
   defp api_key([env_var]) when is_binary(env_var), do: {:system, env_var}
   defp api_key(_), do: nil
-
-  defp provider_dialects(nil), do: %{}
-  defp provider_dialects(name), do: %{text: [Omni.Dialect.get!(name)]}
 
   # The catalog lives in llm_db's own :persistent_term store, loaded by its
   # application start — reads are O(1), so unlike ModelsDev there is nothing
@@ -149,11 +134,16 @@ defmodule Omni.Sources.LLMDB do
   @doc false
   @spec transform_provider([struct()], atom(), String.t() | nil) :: [Model.t()]
   def transform_provider(llmdb_models, provider_id, base_url \\ nil) do
+    {_endpoints, models} = transform(llmdb_models, provider_id, base_url)
+    models
+  end
+
+  defp transform(llmdb_models, provider_id, base_url) do
     {entries, skipped} =
       llmdb_models
       |> Enum.filter(&eligible?/1)
       |> Enum.reduce({[], 0}, fn llmdb_model, {entries, skipped} ->
-        case transform(llmdb_model, provider_id, base_url) do
+        case transform_model(llmdb_model, provider_id) do
           {:ok, data} ->
             aliases = Enum.map(llmdb_model.aliases || [], &Map.put(data, "id", &1))
             {[{data, aliases} | entries], skipped}
@@ -163,16 +153,24 @@ defmodule Omni.Sources.LLMDB do
         end
       end)
 
-    {models, skipped} =
+    {pairs, skipped} =
       entries
       |> Enum.reverse()
       |> expand_aliases()
-      |> Enum.reduce({[], skipped}, fn data, {models, skipped} ->
+      |> Enum.reduce({[], skipped}, fn data, {pairs, skipped} ->
         case build(data, provider_id) do
-          {:ok, model} -> {[model | models], skipped}
-          :skip -> {models, skipped + 1}
+          {:ok, model} -> {[{model, data["url"]} | pairs], skipped}
+          :skip -> {pairs, skipped + 1}
         end
       end)
+
+    {endpoints, models, off_mount} = Source.endpoints(pairs, base_url, nil)
+
+    for {model, url} <- off_mount do
+      skip(provider_id, model.id, "served from #{url}, not its dialect's endpoint")
+    end
+
+    skipped = skipped + length(off_mount)
 
     if skipped > 0 do
       Logger.warning(
@@ -183,15 +181,16 @@ defmodule Omni.Sources.LLMDB do
       Logger.debug("Omni.Sources.LLMDB: #{provider_id}: loaded #{length(models)} models")
     end
 
-    Enum.sort_by(models, & &1.id)
+    {endpoints, Enum.sort_by(models, & &1.id)}
   end
 
   # Retired models are dropped; deprecated ones are kept — they remain
   # callable. (ModelsDev filters on deprecated instead; aligning the two is
-  # a future decision.)
+  # a future decision.) Catalog-only models are ones llm_db describes but
+  # says can't be called.
   defp eligible?(model) do
     chat?(model) and tools?(model) and not LLMDB.Model.retired?(model) and
-      text_in_and_out?(model)
+      text_in_and_out?(model) and Map.get(model, :catalog_only) != true
   end
 
   defp chat?(%{capabilities: %{chat: true}}), do: true
@@ -210,9 +209,8 @@ defmodule Omni.Sources.LLMDB do
   # llm_db's extra field is an unmapped models.dev passthrough, fragile
   # across llm_db versions — the rescue keeps one bad model from failing the
   # whole provider.
-  defp transform(model, provider_id, base_url) do
-    with :ok <- check_mount(model, base_url),
-         {:ok, dialect} <- infer_dialect(model) do
+  defp transform_model(model, provider_id) do
+    with {:ok, dialect} <- infer_dialect(model) do
       cost = model.cost || %{}
       limits = model.limits || %{}
       %{input: input, output: output} = model.modalities
@@ -225,6 +223,7 @@ defmodule Omni.Sources.LLMDB do
          "reasoning_options" => reasoning_options(model),
          "release_date" => model.release_date,
          "dialect" => dialect,
+         "url" => model.base_url,
          "input_modalities" => filter_modalities(input, @supported_input_modalities),
          "output_modalities" => filter_modalities(output, @supported_output_modalities),
          "input_cost" => cost_for(cost, :input),
@@ -246,17 +245,9 @@ defmodule Omni.Sources.LLMDB do
     :skip
   end
 
-  # A model served from its own base URL can't use the provider's.
-  defp check_mount(%{base_url: url}, base_url) when is_binary(url) and url != base_url do
-    {:skip, "served from #{url}, not the provider's base URL"}
-  end
-
-  defp check_mount(_model, _base_url), do: :ok
-
   # Catalog data is the source of truth: the wire protocol, then npm
-  # metadata. An npm package that maps to no dialect is skipped (it is the
-  # model's own, so filling it from the provider would be a guess); no signal
-  # at all yields nil, which Omni fills from the provider.
+  # metadata. An npm package that maps to no dialect is skipped, and so is a
+  # model with no signal at all: Omni never guesses a dialect.
   defp infer_dialect(model) do
     case wire_dialect(model) do
       nil -> npm_dialect(model)
@@ -284,7 +275,7 @@ defmodule Omni.Sources.LLMDB do
         end
 
       _ ->
-        {:ok, nil}
+        {:skip, "no wire protocol or npm package maps to a dialect"}
     end
   end
 

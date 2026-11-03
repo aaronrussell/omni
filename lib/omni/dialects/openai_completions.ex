@@ -9,7 +9,9 @@ defmodule Omni.Dialects.OpenAICompletions do
   The Chat Completions format is spoken by many providers, most with small
   deviations from OpenAI's own API. With no flags, the dialect behaves
   exactly like OpenAI's API; each flag describes one deviation. Set them on
-  a provider with `compat:` (see `Omni.Provider`).
+  a provider's endpoint for this dialect,
+  `dialects: %{Omni.Dialects.OpenAICompletions => [compat: [...]]}` (see
+  `Omni.Provider`).
 
   | Flag | Default (OpenAI) | Setting it |
   |---|---|---|

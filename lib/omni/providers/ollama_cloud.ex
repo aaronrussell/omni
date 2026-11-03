@@ -9,8 +9,10 @@ defmodule Omni.Providers.OllamaCloud do
   a local Ollama instance, use `Omni.Providers.Ollama`.
 
   The catalog describes Ollama's OpenAI-compatible endpoint. Omni uses the
-  native chat API instead, so every catalog model is given the Ollama Chat
-  dialect when the provider loads.
+  native chat API at `https://ollama.com` instead, so every model is given
+  the Ollama Chat dialect when the provider loads, in the module's
+  `c:Omni.Provider.models/2`. That runs after config `models:` entries are
+  merged, so a `:dialects` set in config is replaced too.
 
   ## Limitations
 
@@ -28,9 +30,8 @@ defmodule Omni.Providers.OllamaCloud do
   @impl true
   def config do
     [
-      base_url: "https://ollama.com",
       api_key: {:system, "OLLAMA_API_KEY"},
-      dialects: %{text: Omni.Dialects.OllamaChat}
+      dialects: %{Omni.Dialects.OllamaChat => [base_url: "https://ollama.com"]}
     ]
   end
 

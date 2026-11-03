@@ -54,7 +54,13 @@ matrix = [
   # Fails structured_output: Ollama Cloud doesn't enforce `format` (gemma4 and
   # gpt-oss:20b answer in prose; local Ollama passes). Kept as a known failure.
   {:ollama_cloud, "gemma4:31b", add: [:no_thinking, :image, :kitchen_sink]},
-  {:ollama, [id: "qwen3.8:27b-mlx", thinking: true, input_modalities: [:text, :image]],
+  {:ollama,
+   [
+     id: "qwen3.8:27b-mlx",
+     dialects: %{text: Omni.Dialects.OllamaChat},
+     thinking: true,
+     input_modalities: [:text, :image]
+   ],
    add: [:no_thinking, :image, :kitchen_sink]},
   {:openai, "gpt-6-luna", all},
   {:openai, "gpt-6-astra", loop},
@@ -98,9 +104,11 @@ defmodule Sweep do
         end
 
       {:ok, %{auth: :none} = provider} ->
-        case Req.get(provider.base_url, receive_timeout: 1_000, retry: false) do
+        url = provider.dialects |> Map.values() |> Enum.find_value(& &1.base_url)
+
+        case Req.get(url, receive_timeout: 1_000, retry: false) do
           {:ok, _} -> nil
-          {:error, _} -> "not reachable at #{provider.base_url}"
+          {:error, _} -> "not reachable at #{url}"
         end
 
       {:ok, provider} ->

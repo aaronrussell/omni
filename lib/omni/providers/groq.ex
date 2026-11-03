@@ -36,9 +36,13 @@ defmodule Omni.Providers.Groq do
   @impl true
   def config do
     [
-      base_url: "https://api.groq.com/openai/v1",
       api_key: {:system, "GROQ_API_KEY"},
-      compat: %{Omni.Dialects.OpenAICompletions => [thinking_replay_format: :reasoning]}
+      dialects: %{
+        Omni.Dialects.OpenAICompletions => [
+          base_url: "https://api.groq.com/openai/v1",
+          compat: [thinking_replay_format: :reasoning]
+        ]
+      }
     ]
   end
 

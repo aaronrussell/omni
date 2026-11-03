@@ -13,15 +13,18 @@ defmodule Omni.Sources.ModelsDev do
   those Omni supports, and each model's dialect is inferred from models.dev's
   npm package metadata — the model's own package if it has one, otherwise
   its provider's. Models that can't be represented faithfully are skipped
-  with a warning: those whose own npm package maps to no dialect, and those
-  served from a different base URL than their provider.
+  with a warning: those whose npm package maps to no dialect Omni speaks,
+  and those served from a different URL than the first model of their
+  dialect.
 
   Provider ids are translated mechanically to models.dev keys —
   `:fireworks_ai` becomes `"fireworks-ai"`. Any catalog id works, including
   providers Omni ships no module for (see `Omni.Provider`). The catalog's
-  provider record supplies the provider's name, base URL (`api`), API key
-  environment variable (when exactly one is listed), and provider-level
-  dialect.
+  provider record supplies the provider's name, API key environment variable
+  (when exactly one is listed), and provider-level dialect. Each dialect's
+  endpoint takes its models' URL: a model's own `provider.api` when it has
+  one, otherwise the provider's `api`. Templated URLs (`${VAR}`) are kept
+  for `host:` to fill.
 
   ## Options
 
@@ -101,34 +104,23 @@ defmodule Omni.Sources.ModelsDev do
     catalog_id = id |> to_string() |> String.replace("_", "-")
 
     with {:ok, provider_data} <- lookup(catalog_id, opts) do
-      {:ok, build_provider(id, provider_data), transform_provider(provider_data, catalog_id)}
+      {endpoints, models} = transform(provider_data, catalog_id)
+
+      provider = %Provider{
+        id: id,
+        name: provider_data["name"],
+        api_key: api_key(provider_data["env"]),
+        dialects: endpoints
+      }
+
+      {:ok, provider, models}
     end
   end
-
-  defp build_provider(id, provider_data) do
-    %Provider{
-      id: id,
-      name: provider_data["name"],
-      base_url: base_url(provider_data["api"]),
-      api_key: api_key(provider_data["env"]),
-      dialects: provider_dialects(@npm_to_dialect[provider_data["npm"]])
-    }
-  end
-
-  # Templated base URLs ("https://${DATABRICKS_HOST}/...") need user config.
-  defp base_url(url) when is_binary(url) do
-    if String.contains?(url, "${"), do: nil, else: url
-  end
-
-  defp base_url(_), do: nil
 
   # Only an unambiguous single variable becomes the default key; providers
   # listing several (alternatives or multi-part credentials) need config.
   defp api_key([env_var]) when is_binary(env_var), do: {:system, env_var}
   defp api_key(_), do: nil
-
-  defp provider_dialects(nil), do: %{}
-  defp provider_dialects(name), do: %{text: [Omni.Dialect.get!(name)]}
 
   defp lookup(catalog_id, opts) do
     case Map.fetch(catalog(opts), catalog_id) do
@@ -309,16 +301,36 @@ defmodule Omni.Sources.ModelsDev do
   @doc false
   @spec transform_provider(map(), String.t()) :: [Model.t()]
   def transform_provider(provider_data, catalog_id) do
-    {models, skipped} =
+    {_endpoints, models} = transform(provider_data, catalog_id)
+    models
+  end
+
+  defp transform(provider_data, catalog_id) do
+    {pairs, skipped} =
       provider_data
       |> get_models()
       |> Enum.filter(&eligible?/1)
-      |> Enum.reduce({[], 0}, fn model_data, {models, skipped} ->
+      |> Enum.reduce({[], 0}, fn model_data, {pairs, skipped} ->
         case build(model_data, provider_data, catalog_id) do
-          {:ok, model} -> {[model | models], skipped}
-          :skip -> {models, skipped + 1}
+          {:ok, model} -> {[{model, get_in(model_data, ["provider", "api"])} | pairs], skipped}
+          :skip -> {pairs, skipped + 1}
         end
       end)
+
+    provider_dialect =
+      case @npm_to_dialect[provider_data["npm"]] do
+        nil -> nil
+        name -> Omni.Dialect.get!(name)
+      end
+
+    {endpoints, models, off_mount} =
+      Source.endpoints(pairs, provider_data["api"], provider_dialect)
+
+    for {model, url} <- off_mount do
+      skip(catalog_id, %{"id" => model.id}, "served from #{url}, not its dialect's endpoint")
+    end
+
+    skipped = skipped + length(off_mount)
 
     if skipped > 0 do
       Logger.warning(
@@ -329,7 +341,7 @@ defmodule Omni.Sources.ModelsDev do
       Logger.debug("Omni.Sources.ModelsDev: #{catalog_id}: loaded #{length(models)} models")
     end
 
-    Enum.sort_by(models, & &1.id)
+    {endpoints, Enum.sort_by(models, & &1.id)}
   end
 
   defp get_models(%{"models" => models}) when is_map(models), do: Map.values(models)
@@ -351,11 +363,18 @@ defmodule Omni.Sources.ModelsDev do
   end
 
   defp build(model_data, provider_data, catalog_id) do
-    with :ok <- check_mount(model_data, provider_data),
-         {:ok, dialect} <- model_dialect(model_data, provider_data) do
+    with {:ok, dialect} <- model_dialect(model_data, provider_data) do
       {:ok, Source.build_model(model_data(model_data, dialect))}
     else
-      {:skip, reason} -> skip(catalog_id, model_data, reason)
+      {:skip, reason} ->
+        skip(catalog_id, model_data, reason)
+
+      {:skip_quietly, reason} ->
+        Logger.debug(
+          "Omni.Sources.ModelsDev: skipping #{catalog_id}:#{model_data["id"]}: #{reason}"
+        )
+
+        :skip
     end
   rescue
     e -> skip(catalog_id, model_data, Exception.message(e))
@@ -369,26 +388,23 @@ defmodule Omni.Sources.ModelsDev do
     :skip
   end
 
-  # A model served from its own base URL (a gateway mounting each upstream
-  # API under a different prefix) can't use the provider's base URL.
-  defp check_mount(model_data, provider_data) do
-    provider_api = provider_data["api"]
-
-    case get_in(model_data, ["provider", "api"]) do
-      nil -> :ok
-      ^provider_api -> :ok
-      api -> {:skip, "served from #{api}, not the provider's base URL"}
-    end
-  end
-
-  # A model's own npm package overrides its provider's. An own package that
-  # maps to no dialect is skipped — it explicitly differs from the provider,
-  # so filling it from the provider would be a guess. An unmapped provider
-  # package yields nil, which provider config can fill.
+  # A model's own npm package overrides its provider's. A package that maps
+  # to no dialect means the catalog says the model speaks an API Omni has no
+  # dialect for, so the model is skipped.
+  # When the provider's own package is the unmapped one, every model it
+  # doesn't override is skipped, so those go to the debug log and the
+  # warning summary counts them.
   defp model_dialect(model_data, provider_data) do
     case get_in(model_data, ["provider", "npm"]) do
       nil ->
-        {:ok, @npm_to_dialect[provider_data["npm"]]}
+        case @npm_to_dialect[provider_data["npm"]] do
+          nil ->
+            {:skip_quietly,
+             "provider npm package #{inspect(provider_data["npm"])} maps to no dialect"}
+
+          dialect ->
+            {:ok, dialect}
+        end
 
       npm ->
         case @npm_to_dialect[npm] do

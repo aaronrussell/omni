@@ -29,6 +29,17 @@ defmodule Omni.DialectTest do
     end
   end
 
+  describe "capability/1" do
+    test "every built-in dialect generates text" do
+      assert Omni.Dialect.capability(Omni.Dialects.AnthropicMessages) == :text
+      assert Omni.Dialect.capability(Omni.Dialects.OllamaChat) == :text
+    end
+
+    test "a module that is not a dialect has none" do
+      assert Omni.Dialect.capability(String) == nil
+    end
+  end
+
   describe "get!/1" do
     test "returns module for known dialect" do
       assert Omni.Dialects.AnthropicMessages = Dialect.get!("anthropic_messages")

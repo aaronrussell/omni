@@ -207,6 +207,8 @@ defmodule Omni do
       milliseconds (default `300_000`). A response that keeps streaming is not
       cut off; use `:max_tokens` to bound its length
     * `:api_key` — API key, overriding provider/app config
+    * `:host` — an origin (`"http://localhost:4000"`) replacing the origin of
+      the endpoint URL for this request; the path is kept (see `Omni.Provider`)
     * `:raw` — when `true`, attaches raw `{%Req.Request{}, %Req.Response{}}` tuples
       to the response (one per round)
     * `:metadata` — arbitrary metadata map passed to the provider
@@ -283,7 +285,7 @@ defmodule Omni do
   provider with that id is loaded.
 
       {:ok, provider} = Omni.get_provider(:anthropic)
-      provider.base_url  #=> "https://api.anthropic.com/v1"
+      provider.name  #=> "Anthropic"
   """
   @spec get_provider(atom()) :: {:ok, Omni.Provider.t()} | {:error, term()}
   defdelegate get_provider(id), to: Omni.Provider, as: :get

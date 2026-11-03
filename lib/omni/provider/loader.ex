@@ -4,17 +4,18 @@ defmodule Omni.Provider.Loader do
   # For each provider id:
   #
   #   1. Resolve the provider module: config `module:`, else the built-in.
-  #   2. Fetch catalog data from the source: a partial %Provider{} and
-  #      provider-less models. An id the catalog doesn't know starts empty.
-  #   3. Merge the provider: source <- module config/0 <- app config.
-  #      Config `models:` entries merge with source models by id.
-  #   4. Pass models through the module's models/2.
-  #   5. Fill dialect-less models from the provider; derive the provider's
-  #      dialect list from its own plus its models'.
-  #   6. Resolve compat: each layer's flags (module config/0, then app
-  #      config) keyed by dialect, now that the dialects are known.
-  #   7. Validate (raise on a broken provider, skip broken models), stamp
-  #      the provider onto every model, apply the global filter.
+  #   2. Fetch catalog data from the source: a partial %Provider{} with its
+  #      endpoints, and provider-less models. An unknown id starts empty.
+  #   3. Merge the provider: source <- module config/0, then move those
+  #      endpoint URLs to app config's `host:`, then <- app config. Endpoints
+  #      merge by dialect module, then by field.
+  #   4. Merge config `models:` entries over source models by id; entries
+  #      with new ids are added. Pass the models through the module's
+  #      models/2.
+  #   5. Validate the provider (raise), then check each model has a dialect
+  #      the provider has an endpoint for: catalog models without are skipped
+  #      with a warning, config models without raise. Nothing is filled in.
+  #   6. Stamp the provider onto every model, apply the global filter.
   #
   # assemble/2 does all of that without touching the store; load/1 stores.
   @moduledoc false
@@ -22,21 +23,21 @@ defmodule Omni.Provider.Loader do
   require Logger
 
   alias Omni.{Model, Provider, Source}
-  alias Omni.Provider.Builtins
+  alias Omni.Provider.{Builtins, Endpoint}
 
   @config_keys [
     :name,
-    :base_url,
+    :host,
     :api_key,
     :auth,
     :headers,
     :dialects,
-    :compat,
     :module,
     :models,
     :source
   ]
-  @module_config_keys [:name, :base_url, :api_key, :auth, :headers, :dialects, :compat]
+  @module_config_keys [:name, :api_key, :auth, :headers, :dialects]
+  @endpoint_keys [:base_url, :compat]
   @models_keys [:providers, :source, :filter]
 
   @default_source Omni.Sources.ModelsDev
@@ -83,38 +84,41 @@ defmodule Omni.Provider.Loader do
     config = merge_config(app_config(id), normalize_config!(id, opts, @config_keys))
     module = resolve_module!(id, config)
     {source, source_opts} = resolve_source!(config)
-    {source_provider, source_models, found?} = fetch(source, id, source_opts)
-    module_config = module_config(id, module)
+    {source_provider, source_models} = fetch(source, id, source_opts)
 
+    # host: moves the URLs the source and module supply; URLs written in app
+    # config are used as written, so they merge after it.
     provider =
       source_provider
-      |> merge_provider(Map.delete(module_config, :compat))
-      |> merge_provider(Map.drop(config, [:models, :source, :module, :compat]))
+      |> merge_provider(module_config(id, module))
+      |> put_host!(Map.get(config, :host))
+
+    check_legacy_base_url!(id, config, provider)
+
+    provider =
+      provider
+      |> merge_provider(Map.drop(config, [:host, :models, :source, :module]))
       |> Map.put(:module, module)
+      |> fill_defaults()
+
+    validate_provider!(provider)
+
+    {models, config_ids} = merge_models(id, source_models, Map.get(config, :models, []))
 
     models =
-      source_models
-      |> merge_models(config_models(id, Map.get(config, :models, [])))
-      |> then(fn models ->
-        if Provider.callback?(module, :models, 2),
-          do: module.models(models, provider),
-          else: models
-      end)
-
-    {provider, models} = resolve_dialects(provider, models)
-    compat_layers = Map.get(module_config, :compat, []) ++ Map.get(config, :compat, [])
-    provider = %{provider | compat: resolve_compat!(provider, compat_layers)}
-    provider = fill_defaults(provider)
-    validate_provider!(provider, models, found?)
-
-    {models, skipped} = Enum.split_with(models, &Map.has_key?(&1.dialects, :text))
-    warn_skipped(id, skipped)
+      if Provider.callback?(module, :models, 2),
+        do: module.models(models, provider),
+        else: models
 
     models =
-      models
+      provider
+      |> check_models!(models, config_ids)
       |> Enum.map(&%{&1 | provider: provider})
       |> apply_filter()
       |> Enum.sort_by(& &1.id)
+
+    if models == [] and provider.dialects == %{},
+      do: Logger.warning("Omni: provider #{inspect(id)} loaded no models")
 
     {provider, models}
   end
@@ -124,6 +128,12 @@ defmodule Omni.Provider.Loader do
   """
   @spec put_model(Model.t()) :: :ok
   def put_model(%Model{provider: %Provider{id: id}} = model) do
+    if model.dialects == %{} do
+      raise ArgumentError,
+            "cannot register model #{inspect(model.id)}: it has no dialects — set one, " <>
+              "e.g. dialects: %{text: Omni.Dialects.OpenAICompletions}"
+    end
+
     with_lock(fn ->
       unless Map.has_key?(:persistent_term.get(Provider.providers_key(), %{}), id) do
         raise ArgumentError,
@@ -176,10 +186,11 @@ defmodule Omni.Provider.Loader do
   defp fetch(source, id, opts) do
     case source.fetch(id, opts) do
       {:ok, %Provider{} = provider, models} when is_list(models) ->
-        {%{provider | id: id, dialects: normalize_dialects!(id, provider.dialects)}, models, true}
+        dialects = normalize_dialects!(id, provider.dialects)
+        {merge_provider(%{provider | id: id, dialects: %{}}, %{dialects: dialects}), models}
 
       {:error, :unknown_provider} ->
-        {%Provider{id: id}, [], false}
+        {%Provider{id: id}, []}
 
       {:error, reason} ->
         Logger.warning(
@@ -187,162 +198,167 @@ defmodule Omni.Provider.Loader do
             "(#{inspect(reason)}) — loading it from config alone"
         )
 
-        {%Provider{id: id}, [], false}
+        {%Provider{id: id}, []}
     end
   end
 
   # -- Merging ----------------------------------------------------------------
 
-  # Values replace; headers merge by key, dialects by capability (the list
-  # replaces), models by id. Compat layers stack, resolved after dialects.
+  # Merges app config with load/1 opts. Values replace; headers merge by key,
+  # dialects by module and then by field (base_url replaces, compat merges by
+  # flag). Model entries stack, merged by id in merge_models/3.
   defp merge_config(a, b) do
     Map.merge(a, b, fn
       :headers, x, y -> Map.merge(x, y)
-      :dialects, x, y -> Map.merge(x, y)
-      :compat, x, y -> x ++ y
-      :models, x, y -> merge_entries(x, y)
+      :dialects, x, y -> Map.merge(x, y, fn _dialect, e1, e2 -> merge_endpoint(e1, e2) end)
+      :models, x, y -> x ++ y
       _key, _x, y -> y
     end)
   end
 
-  defp merge_entries(a, b) do
-    ids = MapSet.new(b, & &1.id)
-    Enum.reject(a, &MapSet.member?(ids, &1.id)) ++ b
+  defp merge_endpoint(a, b) do
+    Map.merge(a, b, fn
+      :compat, x, y -> Map.merge(x, y)
+      _key, _x, y -> y
+    end)
   end
 
   defp merge_provider(%Provider{} = provider, config) do
     Enum.reduce(config, provider, fn
       {:headers, headers}, acc -> %{acc | headers: Map.merge(acc.headers, headers)}
-      {:dialects, dialects}, acc -> %{acc | dialects: Map.merge(acc.dialects, dialects)}
+      {:dialects, dialects}, acc -> %{acc | dialects: merge_endpoints(acc.dialects, dialects)}
+      {:legacy_base_url, _}, acc -> acc
       {key, value}, acc -> Map.put(acc, key, value)
     end)
   end
 
-  defp merge_models(source_models, config_models) do
-    ids = MapSet.new(config_models, & &1.id)
-    Enum.reject(source_models, &MapSet.member?(ids, &1.id)) ++ config_models
-  end
+  # Applies a layer's endpoint changes to the provider's endpoints.
+  defp merge_endpoints(endpoints, changes) do
+    Enum.reduce(changes, endpoints, fn {dialect, change}, acc ->
+      endpoint = Map.get(acc, dialect, %Endpoint{})
 
-  defp config_models(id, entries) do
-    Enum.map(entries, fn entry ->
-      try do
-        entry |> Map.put_new(:name, entry.id) |> Model.new()
-      rescue
-        e in [KeyError, ArgumentError] ->
-          raise ArgumentError,
-                "invalid model #{inspect(entry.id)} for provider #{inspect(id)} in " <>
-                  "config :omni, :providers — #{Exception.message(e)}"
-      end
+      endpoint = %Endpoint{
+        base_url: Map.get(change, :base_url, endpoint.base_url),
+        compat: Map.merge(endpoint.compat, Map.get(change, :compat, %{}))
+      }
+
+      Map.put(acc, dialect, endpoint)
     end)
   end
 
-  # -- Dialects ---------------------------------------------------------------
+  defp put_host!(provider, nil), do: provider
 
-  # Model data decides each model's dialect; the provider's list is derived
-  # from its own plus its models'. A model with none takes the first of the
-  # provider's own list; with no own list, it takes the dialect every other
-  # model shares, if there is exactly one. Otherwise it stays unresolved and
-  # is skipped — never guessed.
-  defp resolve_dialects(provider, models) do
-    capabilities =
-      models
-      |> Enum.flat_map(&Map.keys(&1.dialects))
-      |> Enum.concat(Map.keys(provider.dialects))
-      |> Enum.concat([:text])
-      |> Enum.uniq()
+  defp put_host!(%Provider{id: id} = provider, host) do
+    case Endpoint.validate_host(host) do
+      :ok ->
+        dialects =
+          Map.new(provider.dialects, fn {dialect, endpoint} ->
+            {dialect, %{endpoint | base_url: Endpoint.put_host(endpoint.base_url, host)}}
+          end)
 
-    Enum.reduce(capabilities, {provider, models}, fn capability, {provider, models} ->
-      own = Map.get(provider.dialects, capability, [])
-      present = models |> Enum.map(&Map.get(&1.dialects, capability)) |> Enum.reject(&is_nil/1)
+        %{provider | dialects: dialects}
 
-      fallback =
-        case {own, Enum.uniq(present)} do
-          {[first | _], _} -> first
-          {[], [only]} -> only
-          _ -> nil
-        end
-
-      models =
-        if fallback,
-          do: Enum.map(models, &%{&1 | dialects: Map.put_new(&1.dialects, capability, fallback)}),
-          else: models
-
-      derived = Enum.uniq(own ++ Enum.map(models, &Map.get(&1.dialects, capability)))
-
-      dialects =
-        case Enum.reject(derived, &is_nil/1) do
-          [] -> Map.delete(provider.dialects, capability)
-          list -> Map.put(provider.dialects, capability, list)
-        end
-
-      {%{provider | dialects: dialects}, models}
-    end)
-  end
-
-  # -- Compat -----------------------------------------------------------------
-
-  # Each layer is {like, own}: `like` is a built-in's keyed compat, `own` the
-  # layer's flags, flat (for the provider's single dialect) or keyed by
-  # dialect. Layers merge in order, by dialect and then by flag.
-  defp resolve_compat!(%Provider{id: id, dialects: dialects}, layers) do
-    modules = dialects |> Map.values() |> List.flatten() |> Enum.uniq()
-
-    Enum.reduce(layers, %{}, fn {like, own}, acc ->
-      acc
-      |> merge_compat(like)
-      |> merge_compat(keyed_compat!(id, own, modules))
-    end)
-  end
-
-  defp merge_compat(a, b), do: Map.merge(a, b, fn _dialect, x, y -> Map.merge(x, y) end)
-
-  defp keyed_compat!(_id, {:keyed, compat}, _modules), do: compat
-  defp keyed_compat!(_id, {:flat, flags}, _modules) when map_size(flags) == 0, do: %{}
-  defp keyed_compat!(_id, {:flat, flags}, [dialect]), do: %{dialect => flags}
-
-  defp keyed_compat!(id, {:flat, _flags}, []) do
-    raise ArgumentError, "provider #{inspect(id)}: compat flags are set but it has no dialect"
-  end
-
-  defp keyed_compat!(id, {:flat, flags}, modules) do
-    raise ArgumentError,
-          "provider #{inspect(id)} speaks several dialects (#{Enum.map_join(modules, ", ", &inspect/1)}), " <>
-            "so its compat flags must be keyed by dialect: " <>
-            "compat: %{#{inspect(hd(modules))} => #{inspect(Map.to_list(flags))}}"
-  end
-
-  defp validate_compat!(%Provider{id: id, dialects: dialects, compat: compat}) do
-    modules = dialects |> Map.values() |> List.flatten()
-
-    for {dialect, flags} <- compat do
-      unless dialect in modules do
+      {:error, _} ->
         raise ArgumentError,
-              "provider #{inspect(id)}: compat is set for #{inspect(dialect)}, which none " <>
-                "of its models speak"
-      end
-
-      schema = dialect.compat_schema()
-
-      case Map.keys(flags) -- Map.keys(schema) do
-        [] ->
-          :ok
-
-        unknown ->
-          raise ArgumentError,
-                "provider #{inspect(id)}: unknown compat flags #{inspect(unknown)} for " <>
-                  "#{inspect(dialect)} — expected any of #{inspect(Map.keys(schema))}"
-      end
-
-      case Peri.validate(schema, flags) do
-        {:ok, _} ->
-          :ok
-
-        {:error, errors} ->
-          raise ArgumentError,
-                "provider #{inspect(id)}: invalid compat flags for #{inspect(dialect)} — " <>
-                  inspect(errors)
-      end
+              "provider #{inspect(id)}: host: takes an origin such as \"http://gpu-box:11434\" " <>
+                "(scheme, host and port, no path), got #{inspect(host)}. To change a path, " <>
+                "set the endpoint's URL: dialects: %{Module => [base_url: \"...\"]}"
     end
+  end
+
+  # Config entries merge over source models with the same id, field by field
+  # (dialects by capability); entries with new ids are added. Returns the
+  # models and the ids config named.
+  defp merge_models(id, source_models, entries) do
+    models = Map.new(source_models, &{&1.id, &1})
+
+    {models, config_ids} =
+      Enum.reduce(entries, {models, MapSet.new()}, fn entry, {models, config_ids} ->
+        model =
+          case Map.fetch(models, entry.id) do
+            {:ok, existing} -> config_model(id, merge_attrs(existing, entry))
+            :error -> config_model(id, Map.put_new(entry, :name, entry.id))
+          end
+
+        {Map.put(models, model.id, model), MapSet.put(config_ids, model.id)}
+      end)
+
+    {Map.values(models), config_ids}
+  end
+
+  defp merge_attrs(%Model{} = model, entry) do
+    attrs = Map.from_struct(model)
+
+    Map.merge(attrs, entry, fn
+      :dialects, x, y -> Map.merge(x, Map.new(y))
+      _key, _x, y -> y
+    end)
+  end
+
+  defp config_model(id, attrs) do
+    Model.new(attrs)
+  rescue
+    e in [KeyError, ArgumentError] ->
+      raise ArgumentError,
+            "invalid model #{inspect(attrs.id)} for provider #{inspect(id)} in " <>
+              "config :omni, :providers — #{Exception.message(e)}"
+  end
+
+  # -- Model checks -----------------------------------------------------------
+
+  # A model needs at least one dialect, and an endpoint for each. Catalog
+  # models that fall short are skipped with a warning (a gap in the data);
+  # config models raise (a mistake in config). Dialects are never filled in.
+  defp check_models!(%Provider{id: id} = provider, models, config_ids) do
+    {models, no_dialect, no_endpoint} =
+      Enum.reduce(models, {[], [], []}, fn model, {models, no_dialect, no_endpoint} ->
+        cond do
+          model.dialects == %{} ->
+            {models, [model | no_dialect], no_endpoint}
+
+          Enum.all?(model.dialects, fn {_cap, dialect} -> served?(provider, dialect) end) ->
+            {[model | models], no_dialect, no_endpoint}
+
+          true ->
+            {models, no_dialect, [model | no_endpoint]}
+        end
+      end)
+
+    {config_no_dialect, no_dialect} = Enum.split_with(no_dialect, &(&1.id in config_ids))
+    {config_no_endpoint, no_endpoint} = Enum.split_with(no_endpoint, &(&1.id in config_ids))
+
+    with [model | _] <- Enum.reverse(config_no_dialect) do
+      raise ArgumentError,
+            "provider #{inspect(id)}: model #{inspect(model.id)} in config :omni, :providers " <>
+              "has no dialect — name it: models: [[id: #{inspect(model.id)}, " <>
+              "dialects: %{text: Omni.Dialects.OpenAICompletions}]]"
+    end
+
+    with [model | _] <- Enum.reverse(config_no_endpoint) do
+      raise ArgumentError,
+            "provider #{inspect(id)}: model #{inspect(model.id)} in config :omni, :providers " <>
+              "speaks #{inspect(Map.values(model.dialects))}, which the provider has no " <>
+              "endpoint for — add one: dialects: %{Module => [base_url: \"https://...\"]}"
+    end
+
+    warn_skipped(id, Enum.reverse(no_dialect), "no dialect", fn _model -> "" end)
+
+    warn_skipped(id, Enum.reverse(no_endpoint), "a dialect it has no endpoint for", fn model ->
+      " (#{inspect(Map.values(model.dialects))})"
+    end)
+
+    Enum.reverse(models)
+  end
+
+  defp served?(%Provider{dialects: dialects}, dialect), do: Map.has_key?(dialects, dialect)
+
+  defp warn_skipped(_id, [], _why, _detail), do: :ok
+
+  defp warn_skipped(id, skipped, why, detail) do
+    Logger.warning(
+      "Omni: provider #{inspect(id)}: skipped #{length(skipped)} models with #{why}: " <>
+        Enum.map_join(skipped, ", ", &"#{&1.id}#{detail.(&1)}")
+    )
   end
 
   # -- Defaults and validation ------------------------------------------------
@@ -351,45 +367,46 @@ defmodule Omni.Provider.Loader do
     %{provider | auth: provider.auth || :dialect, name: provider.name || to_string(id)}
   end
 
-  defp validate_provider!(%Provider{id: id} = provider, models, found?) do
-    unless is_binary(provider.base_url) do
-      where =
-        if found?, do: "the catalog has no base URL for it", else: "it is not in the catalog"
-
-      raise ArgumentError,
-            "provider #{inspect(id)} has no base_url — #{where}. Set one: " <>
-              "config :omni, :providers, #{id}: [base_url: \"https://...\"]"
-    end
-
-    case {Map.get(provider.dialects, :text, []), models} do
-      {[], []} ->
-        Logger.warning("Omni: provider #{inspect(id)} loaded no models")
-
-      {[], _models} ->
-        raise ArgumentError,
-              "provider #{inspect(id)} has no dialect for its models. Set one: " <>
-                "config :omni, :providers, #{id}: [dialects: %{text: Omni.Dialects.OpenAICompletions}]"
-
-      _ ->
-        :ok
-    end
-
-    for {_capability, dialects} <- provider.dialects, dialect <- dialects do
+  defp validate_provider!(%Provider{id: id} = provider) do
+    for {dialect, endpoint} <- provider.dialects do
       validate_dialect!(id, dialect)
+      validate_compat!(id, dialect, endpoint.compat)
     end
-
-    validate_compat!(provider)
 
     validate_auth!(id, provider.auth)
   end
 
   defp validate_dialect!(id, dialect) do
-    unless is_atom(dialect) and Code.ensure_loaded?(dialect) and
+    unless is_atom(dialect) and Omni.Dialect.capability(dialect) != nil and
              function_exported?(dialect, :handle_body, 3) and
              function_exported?(dialect, :auth, 0) and
              function_exported?(dialect, :compat_schema, 0) do
       raise ArgumentError,
             "provider #{inspect(id)}: #{inspect(dialect)} is not an Omni.Dialect module"
+    end
+  end
+
+  defp validate_compat!(id, dialect, flags) do
+    schema = dialect.compat_schema()
+
+    case Map.keys(flags) -- Map.keys(schema) do
+      [] ->
+        :ok
+
+      unknown ->
+        raise ArgumentError,
+              "provider #{inspect(id)}: unknown compat flags #{inspect(unknown)} for " <>
+                "#{inspect(dialect)} — expected any of #{inspect(Map.keys(schema))}"
+    end
+
+    case Peri.validate(schema, flags) do
+      {:ok, _} ->
+        :ok
+
+      {:error, errors} ->
+        raise ArgumentError,
+              "provider #{inspect(id)}: invalid compat flags for #{inspect(dialect)} — " <>
+                inspect(errors)
     end
   end
 
@@ -400,16 +417,6 @@ defmodule Omni.Provider.Loader do
     raise ArgumentError,
           "provider #{inspect(id)}: invalid auth #{inspect(auth)} — expected :bearer, " <>
             "{:header, name}, :none, or :dialect"
-  end
-
-  defp warn_skipped(_id, []), do: :ok
-
-  defp warn_skipped(id, skipped) do
-    Logger.warning(
-      "Omni: provider #{inspect(id)}: skipped #{length(skipped)} models with no dialect " <>
-        "(#{Enum.map_join(skipped, ", ", & &1.id)}) — set dialects: in " <>
-        "config :omni, :providers, #{id}: [...]"
-    )
   end
 
   defp apply_filter(models) do
@@ -488,12 +495,18 @@ defmodule Omni.Provider.Loader do
               "got #{inspect(config)}"
     end
 
-    Map.new(config, fn {key, value} ->
-      unless key in allowed do
-        raise ArgumentError, unknown_key_message(id, key, allowed, where)
-      end
+    Map.new(config, fn
+      # A v1 provider-level base_url: assemble/2 raises once it knows the
+      # provider's endpoints, so the message can say exactly what to write.
+      {:base_url, url} when allowed == @config_keys ->
+        {:legacy_base_url, url}
 
-      {key, normalize_value!(id, key, value)}
+      {key, value} ->
+        unless key in allowed do
+          raise ArgumentError, unknown_key_message(id, key, allowed, where)
+        end
+
+        {key, normalize_value!(id, key, value)}
     end)
   end
 
@@ -508,10 +521,56 @@ defmodule Omni.Provider.Loader do
       "use auth: {:header, \"x-api-key\"}"
   end
 
+  defp unknown_key_message(id, :compat, _allowed, where) do
+    "provider #{inspect(id)} in #{where}: compat: moved under its dialect — use " <>
+      "dialects: %{Omni.Dialects.OpenAICompletions => [compat: [...]]}, with like: " <>
+      "inside it to copy a built-in's flags"
+  end
+
+  defp unknown_key_message(id, :base_url, _allowed, where) do
+    "provider #{inspect(id)} in #{where}: base_url: moved to each dialect's endpoint — use " <>
+      "dialects: %{Omni.Dialects.OpenAICompletions => [base_url: \"https://...\"]}"
+  end
+
   defp unknown_key_message(id, key, allowed, where) do
     "provider #{inspect(id)} in #{where}: unknown key #{inspect(key)} — " <>
       "expected one of #{inspect(allowed)}"
   end
+
+  # Provider-level base_url is gone. Suggest host: when the URL only changes
+  # the origin of the provider's one endpoint, else that endpoint's URL.
+  defp check_legacy_base_url!(id, %{legacy_base_url: url}, %Provider{dialects: dialects}) do
+    {origin, path} = Endpoint.split(url)
+
+    suggestion =
+      case Map.to_list(dialects) do
+        [{_dialect, %Endpoint{base_url: current}}]
+        when is_binary(current) and origin != "" ->
+          {_, current_path} = Endpoint.split(current)
+
+          if String.trim_trailing(current_path, "/") == String.trim_trailing(path, "/"),
+            do: "#{id}: [host: #{inspect(origin)}]",
+            else:
+              "#{id}: [dialects: %{#{inspect(hd(Map.keys(dialects)))} => [base_url: #{inspect(url)}]}]"
+
+        [{dialect, _endpoint}] ->
+          "#{id}: [dialects: %{#{inspect(dialect)} => [base_url: #{inspect(url)}]}]"
+
+        _ ->
+          "#{id}: [dialects: %{Omni.Dialects.OpenAICompletions => [base_url: #{inspect(url)}]}]"
+      end
+
+    raise ArgumentError, """
+    provider #{inspect(id)}: base_url: is no longer a provider key — each dialect \
+    the provider serves has an endpoint with its own base_url, and host: moves \
+    the origin of all of them. Use:
+
+        config :omni, :providers,
+          #{suggestion}
+    """
+  end
+
+  defp check_legacy_base_url!(_id, _config, _provider), do: :ok
 
   defp normalize_value!(id, :dialects, dialects), do: normalize_dialects!(id, dialects)
 
@@ -541,87 +600,26 @@ defmodule Omni.Provider.Loader do
     end)
   end
 
-  defp normalize_value!(id, :compat, compat) when is_list(compat) or is_map(compat) do
-    unless is_map(compat) or Keyword.keyword?(compat) do
-      raise ArgumentError, "provider #{inspect(id)}: invalid compat #{inspect(compat)}"
-    end
-
-    {keyed, flat} = compat |> Map.new() |> Enum.split_with(fn {key, _} -> module_atom?(key) end)
-
-    case {keyed, flat} do
-      {[], flat} ->
-        {like, flags} = flat |> Map.new() |> Map.pop(:like)
-        [{like_compat!(id, like), {:flat, flags}}]
-
-      {keyed, []} ->
-        [{%{}, {:keyed, Map.new(keyed, fn {dialect, flags} -> {dialect, flags!(id, flags)} end)}}]
-
-      _ ->
-        raise ArgumentError,
-              "provider #{inspect(id)}: compat mixes flags with dialect keys — use flags " <>
-                "(for a single-dialect provider) or %{Dialect => flags}, not both"
-    end
+  defp normalize_value!(id, :host, host) when not is_binary(host) do
+    raise ArgumentError, "provider #{inspect(id)}: invalid host #{inspect(host)}"
   end
 
-  defp normalize_value!(id, key, value) when key in [:headers, :models, :compat] do
+  defp normalize_value!(id, key, value) when key in [:headers, :models] do
     raise ArgumentError, "provider #{inspect(id)}: invalid #{key} #{inspect(value)}"
   end
 
   defp normalize_value!(_id, _key, value), do: value
 
-  defp flags!(id, flags) when is_map(flags) or is_list(flags) do
-    unless is_map(flags) or Keyword.keyword?(flags) do
-      raise ArgumentError, "provider #{inspect(id)}: invalid compat flags #{inspect(flags)}"
-    end
-
-    flags = Map.new(flags)
-
-    if Map.has_key?(flags, :like) do
-      raise ArgumentError,
-            "provider #{inspect(id)}: like: goes at the top of compat, not under a dialect"
-    end
-
-    flags
-  end
-
-  defp flags!(id, flags) do
-    raise ArgumentError, "provider #{inspect(id)}: invalid compat flags #{inspect(flags)}"
-  end
-
-  # `like:` copies a built-in's whole compat, which its module keys by dialect.
-  defp like_compat!(_id, nil), do: %{}
-
-  defp like_compat!(id, target) when is_atom(target) do
-    case Builtins.module(target) do
-      nil ->
-        raise ArgumentError,
-              "provider #{inspect(id)}: compat like: #{inspect(target)} is not a built-in " <>
-                "provider — expected one of #{inspect(Builtins.ids())}"
-
-      module ->
-        case module.config() |> Map.new() |> Map.get(:compat, %{}) do
-          compat when map_size(compat) == 0 ->
-            %{}
-
-          compat ->
-            [{%{}, {:keyed, keyed}}] = normalize_value!(target, :compat, compat)
-            keyed
-        end
-    end
-  end
-
-  defp like_compat!(id, target) do
-    raise ArgumentError, "provider #{inspect(id)}: invalid compat like: #{inspect(target)}"
-  end
-
-  # %{text: Mod} and %{text: [Mod]} (or keyword lists) → %{text: [Mod]}
+  # %{Module => [base_url: "...", compat: [...]]} (or keyword lists, or
+  # %Endpoint{} from a source) → %{Module => %{base_url: ..., compat: %{}}},
+  # holding only the fields the layer sets.
   defp normalize_dialects!(id, dialects) when is_list(dialects) or is_map(dialects) do
     Map.new(dialects, fn
-      {capability, modules} when is_atom(capability) and is_list(modules) ->
-        {capability, modules}
+      {dialect, endpoint} when is_atom(dialect) and not is_nil(dialect) ->
+        unless module_atom?(dialect),
+          do: raise(ArgumentError, legacy_dialects_message(id, dialects))
 
-      {capability, module} when is_atom(capability) and is_atom(module) and not is_nil(module) ->
-        {capability, [module]}
+        {dialect, normalize_endpoint!(id, dialect, endpoint)}
 
       other ->
         raise ArgumentError, "provider #{inspect(id)}: invalid dialects entry #{inspect(other)}"
@@ -631,7 +629,108 @@ defmodule Omni.Provider.Loader do
   defp normalize_dialects!(id, other) do
     raise ArgumentError,
           "provider #{inspect(id)}: invalid dialects #{inspect(other)} — expected " <>
-            "%{text: Module} or %{text: [Module, ...]}"
+            "%{Module => [base_url: ..., compat: [...]]}"
+  end
+
+  defp normalize_endpoint!(_id, _dialect, %Endpoint{base_url: url, compat: compat}),
+    do: %{base_url: url, compat: compat}
+
+  defp normalize_endpoint!(id, dialect, endpoint) when is_list(endpoint) or is_map(endpoint) do
+    unless is_map(endpoint) or Keyword.keyword?(endpoint) do
+      raise ArgumentError,
+            "provider #{inspect(id)}: invalid endpoint for #{inspect(dialect)} " <>
+              "#{inspect(endpoint)} — expected [base_url: ..., compat: [...]]"
+    end
+
+    Map.new(endpoint, fn
+      {:base_url, url} -> {:base_url, base_url!(id, dialect, url)}
+      {:compat, compat} -> {:compat, compat!(id, dialect, compat)}
+      {key, _} -> raise ArgumentError, unknown_endpoint_key_message(id, dialect, key)
+    end)
+  end
+
+  defp normalize_endpoint!(id, dialect, other) do
+    raise ArgumentError,
+          "provider #{inspect(id)}: invalid endpoint for #{inspect(dialect)} #{inspect(other)} " <>
+            "— expected [base_url: ..., compat: [...]]"
+  end
+
+  defp base_url!(_id, _dialect, url) when is_binary(url) or is_nil(url), do: url
+
+  defp base_url!(id, dialect, url) do
+    raise ArgumentError,
+          "provider #{inspect(id)}: invalid base_url #{inspect(url)} for #{inspect(dialect)}"
+  end
+
+  # Flags, with `like:` copying a built-in's flags for the same dialect
+  # underneath them.
+  defp compat!(id, dialect, compat) when is_list(compat) or is_map(compat) do
+    unless is_map(compat) or Keyword.keyword?(compat) do
+      raise ArgumentError,
+            "provider #{inspect(id)}: invalid compat for #{inspect(dialect)} #{inspect(compat)}"
+    end
+
+    {like, flags} = compat |> Map.new() |> Map.pop(:like)
+    Map.merge(like_compat!(id, dialect, like), flags)
+  end
+
+  defp compat!(id, dialect, compat) do
+    raise ArgumentError,
+          "provider #{inspect(id)}: invalid compat for #{inspect(dialect)} #{inspect(compat)}"
+  end
+
+  defp like_compat!(_id, _dialect, nil), do: %{}
+
+  defp like_compat!(id, dialect, target) when is_atom(target) do
+    case Builtins.module(target) do
+      nil ->
+        raise ArgumentError,
+              "provider #{inspect(id)}: compat like: #{inspect(target)} is not a built-in " <>
+                "provider — expected one of #{inspect(Builtins.ids())}"
+
+      module ->
+        config =
+          normalize_config!(
+            target,
+            module.config(),
+            @module_config_keys,
+            "#{inspect(module)}.config/0"
+          )
+
+        case config |> Map.get(:dialects, %{}) |> Map.fetch(dialect) do
+          {:ok, endpoint} ->
+            Map.get(endpoint, :compat, %{})
+
+          :error ->
+            raise ArgumentError,
+                  "provider #{inspect(id)}: compat like: #{inspect(target)} — " <>
+                    "#{inspect(target)} sets no endpoint for #{inspect(dialect)}"
+        end
+    end
+  end
+
+  defp like_compat!(id, _dialect, target) do
+    raise ArgumentError, "provider #{inspect(id)}: invalid compat like: #{inspect(target)}"
+  end
+
+  defp unknown_endpoint_key_message(id, dialect, key) do
+    "provider #{inspect(id)}: unknown key #{inspect(key)} for #{inspect(dialect)} — " <>
+      "expected one of #{inspect(@endpoint_keys)}"
+  end
+
+  defp legacy_dialects_message(id, dialects) do
+    """
+    provider #{inspect(id)}: dialects: is now keyed by dialect module, each \
+    with its endpoint (got #{inspect(dialects)}):
+
+        config :omni, :providers,
+          #{id}: [dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "https://..."]}]
+
+    [] declares a dialect whose URL comes from the catalog or the provider \
+    module. Compat flags go under the dialect too: [compat: [...]]. Models no \
+    longer take a default dialect from the provider: a model the catalog \
+    doesn't have names its own, models: [[id: "...", dialects: %{text: Module}]].
+    """
   end
 
   # -- Boot validation --------------------------------------------------------
@@ -725,8 +824,8 @@ defmodule Omni.Provider.Loader do
         config :omni, :providers,
           #{id_hint(module)}: [api_key: {:system, "MY_KEY"}]
 
-    Keys: #{inspect(@config_keys)}. base_url values now include the API \
-    version segment (e.g. "https://api.openai.com/v1").
+    Keys: #{inspect(@config_keys)}. Endpoint URLs are set per dialect, \
+    version segment included: dialects: %{Module => [base_url: "https://api.openai.com/v1"]}.
     """
   end
 
@@ -753,7 +852,7 @@ defmodule Omni.Provider.Loader do
             providers: [:builtins, :togetherai]
 
           config :omni, :providers,
-            togetherai: [base_url: "https://api.together.xyz/v1"]
+            togetherai: [host: "https://api.together.xyz"]
 
     Got: #{inspect(config)}
     """

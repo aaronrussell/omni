@@ -12,6 +12,9 @@ defmodule Omni.Providers.OpenAI do
 
   @impl true
   def config do
-    [base_url: "https://api.openai.com/v1", api_key: {:system, "OPENAI_API_KEY"}]
+    [
+      api_key: {:system, "OPENAI_API_KEY"},
+      dialects: %{Omni.Dialects.OpenAIResponses => [base_url: "https://api.openai.com/v1"]}
+    ]
   end
 end

@@ -8,7 +8,9 @@ defmodule Omni.Providers.GoogleTest do
     test "returns expected configuration" do
       config = Map.new(Google.config())
 
-      assert config.base_url == "https://generativelanguage.googleapis.com/v1beta"
+      assert config.dialects[Omni.Dialects.GoogleGemini][:base_url] ==
+               "https://generativelanguage.googleapis.com/v1beta"
+
       assert config.api_key == {:system, "GEMINI_API_KEY"}
     end
   end
@@ -18,7 +20,7 @@ defmodule Omni.Providers.GoogleTest do
       {provider, models} = Loader.assemble(:google)
 
       assert provider.module == Google
-      assert provider.dialects == %{text: [Omni.Dialects.GoogleGemini]}
+      assert Map.keys(provider.dialects) == [Omni.Dialects.GoogleGemini]
       assert models != []
 
       for model <- models do

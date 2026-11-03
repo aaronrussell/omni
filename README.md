@@ -75,12 +75,11 @@ fully custom provider needs only config:
 ```elixir
 config :omni, :providers,
   anthropic: [api_key: {:system, "MY_ANTHROPIC_KEY"}],
-  togetherai: [base_url: "https://api.together.xyz/v1"],
+  ollama: [host: "http://gpu-box:11434"],
   gpu_box: [
-    base_url: "http://gpu-box:8000/v1",
-    dialects: %{text: Omni.Dialects.OpenAICompletions},
+    dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "http://gpu-box:8000/v1"]},
     auth: :none,
-    models: ["llama-3.3-70b"]
+    models: [[id: "llama-3.3-70b", dialects: %{text: Omni.Dialects.OpenAICompletions}]]
   ]
 ```
 

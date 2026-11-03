@@ -97,19 +97,16 @@ defmodule Omni.ModelTest do
       assert model.dialects == %{}
     end
 
-    test "fills missing dialects from the provider's first dialect" do
-      provider =
-        Fixtures.provider(
-          dialects: %{text: [Omni.Dialects.OpenAIResponses, Omni.Dialects.OpenAICompletions]}
-        )
+    test "never fills dialects from the provider" do
+      provider = Fixtures.provider(dialect: Omni.Dialects.OpenAIResponses)
 
       model = Model.new(id: "test", name: "Test", provider: provider)
 
-      assert model.dialects == %{text: Omni.Dialects.OpenAIResponses}
+      assert model.dialects == %{}
     end
 
-    test "keeps a given dialect over the provider's" do
-      provider = Fixtures.provider(dialects: %{text: [Omni.Dialects.OpenAIResponses]})
+    test "keeps a given dialect" do
+      provider = Fixtures.provider(dialect: Omni.Dialects.OpenAIResponses)
 
       model =
         Model.new(
@@ -127,7 +124,6 @@ defmodule Omni.ModelTest do
       model = Model.new(id: "test", name: "Test", provider: :anthropic)
 
       assert model.provider == anthropic
-      assert model.dialects == %{text: Omni.Dialects.AnthropicMessages}
     end
 
     test "raises for a provider id that isn't loaded" do
@@ -208,19 +204,21 @@ defmodule Omni.ModelTest do
   end
 
   describe "put/1" do
+    @text %{text: Omni.Dialects.OpenAICompletions}
+
     setup do
       %{provider: Fixtures.load_provider()}
     end
 
     test "registers a model retrievable via get/2", %{provider: id} do
-      model = Model.new(id: "custom-1", name: "Custom 1", provider: id)
+      model = Model.new(id: "custom-1", name: "Custom 1", provider: id, dialects: @text)
       assert :ok = Model.put(model)
       assert {:ok, ^model} = Model.get(id, "custom-1")
     end
 
     test "merges with existing models without clobbering", %{provider: id} do
-      model_a = Model.new(id: "model-a", name: "A", provider: id)
-      model_b = Model.new(id: "model-b", name: "B", provider: id)
+      model_a = Model.new(id: "model-a", name: "A", provider: id, dialects: @text)
+      model_b = Model.new(id: "model-b", name: "B", provider: id, dialects: @text)
 
       Model.put(model_a)
       Model.put(model_b)
@@ -230,8 +228,16 @@ defmodule Omni.ModelTest do
     end
 
     test "replaces a model with the same ID", %{provider: id} do
-      original = Model.new(id: "model-x", name: "Original", provider: id)
-      updated = Model.new(id: "model-x", name: "Updated", provider: id, context_size: 100_000)
+      original = Model.new(id: "model-x", name: "Original", provider: id, dialects: @text)
+
+      updated =
+        Model.new(
+          id: "model-x",
+          name: "Updated",
+          provider: id,
+          dialects: @text,
+          context_size: 100_000
+        )
 
       Model.put(original)
       Model.put(updated)
@@ -242,16 +248,27 @@ defmodule Omni.ModelTest do
     end
 
     test "appears in list/1 results", %{provider: id} do
-      model = Model.new(id: "listed-model", name: "Listed", provider: id)
+      model = Model.new(id: "listed-model", name: "Listed", provider: id, dialects: @text)
       Model.put(model)
 
       assert {:ok, models} = Model.list(id)
       assert model in models
     end
 
+    test "raises when the model has no dialects", %{provider: id} do
+      assert_raise ArgumentError, ~r/has no dialects/, fn ->
+        Model.put(Model.new(id: "bare", name: "Bare", provider: id))
+      end
+    end
+
     test "raises when the model's provider isn't loaded" do
       model =
-        Model.new(id: "orphan", name: "Orphan", provider: Fixtures.provider(id: :not_loaded))
+        Model.new(
+          id: "orphan",
+          name: "Orphan",
+          provider: Fixtures.provider(id: :not_loaded),
+          dialects: @text
+        )
 
       assert_raise ArgumentError, ~r/not loaded/, fn -> Model.put(model) end
     end

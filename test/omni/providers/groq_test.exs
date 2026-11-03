@@ -8,7 +8,9 @@ defmodule Omni.Providers.GroqTest do
     test "returns expected configuration" do
       config = Map.new(Groq.config())
 
-      assert config.base_url == "https://api.groq.com/openai/v1"
+      assert config.dialects[Omni.Dialects.OpenAICompletions][:base_url] ==
+               "https://api.groq.com/openai/v1"
+
       assert config.api_key == {:system, "GROQ_API_KEY"}
     end
   end
@@ -18,7 +20,7 @@ defmodule Omni.Providers.GroqTest do
       {provider, models} = Loader.assemble(:groq)
 
       assert provider.module == Groq
-      assert provider.dialects == %{text: [Omni.Dialects.OpenAICompletions]}
+      assert Map.keys(provider.dialects) == [Omni.Dialects.OpenAICompletions]
       assert models != []
 
       for model <- models do
@@ -32,8 +34,8 @@ defmodule Omni.Providers.GroqTest do
     test "assembles with its Completions flags" do
       {provider, _models} = Loader.assemble(:groq)
 
-      assert provider.compat == %{
-               Omni.Dialects.OpenAICompletions => %{thinking_replay_format: :reasoning}
+      assert provider.dialects[Omni.Dialects.OpenAICompletions].compat == %{
+               thinking_replay_format: :reasoning
              }
     end
   end

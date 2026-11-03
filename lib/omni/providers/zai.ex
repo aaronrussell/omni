@@ -9,7 +9,8 @@ defmodule Omni.Providers.Zai do
 
   The catalog lists Z.ai's coding plan, and Zhipu AI's endpoints in China, as
   separate providers (`:zai_coding_plan`, `:zhipuai`,
-  `:zhipuai_coding_plan`); `compat: [like: :zai]` gives them these flags.
+  `:zhipuai_coding_plan`), which take these flags with
+  `dialects: %{Omni.Dialects.OpenAICompletions => [compat: [like: :zai]]}`.
 
   ## Reasoning
 
@@ -45,15 +46,17 @@ defmodule Omni.Providers.Zai do
   @impl true
   def config do
     [
-      base_url: "https://api.z.ai/api/paas/v4",
       api_key: {:system, "ZAI_API_KEY"},
-      compat: %{
+      dialects: %{
         Omni.Dialects.OpenAICompletions => [
-          max_tokens_field: "max_tokens",
-          thinking_toggle_format: :thinking_type,
-          thinking_replay_format: :reasoning_content,
-          output_format: :json_object,
-          attachment_format: :file_url
+          base_url: "https://api.z.ai/api/paas/v4",
+          compat: [
+            max_tokens_field: "max_tokens",
+            thinking_toggle_format: :thinking_type,
+            thinking_replay_format: :reasoning_content,
+            output_format: :json_object,
+            attachment_format: :file_url
+          ]
         ]
       }
     ]
