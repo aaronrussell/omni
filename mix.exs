@@ -85,12 +85,20 @@ defmodule Omni.MixProject do
           Omni.Response,
           Omni.Usage
         ],
+        Decisions: [
+          Omni.Decision,
+          Omni.Question,
+          ~r/Omni\.Question\..+$/,
+          Omni.Answer,
+          ~r/Omni\.Answer\..+$/
+        ],
         Providers: ~r/^Omni\.Provider/,
         Dialects: ~r/^Omni\.Dialect/,
         Sources: ~r/^Omni\.Source/
       ],
       groups_for_docs: [
         "Text Generation": &(&1[:group] == :generation),
+        Decisions: &(&1[:group] == :decisions),
         Models: &(&1[:group] == :models),
         Context: &(&1[:group] == :context)
       ]

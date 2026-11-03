@@ -1,6 +1,6 @@
 # Decisions API — design (pass two)
 
-*2026-10-30. The agreed plan, replacing the 2026-10-09 brainstorm. Everything here was settled in discussion; the phases at the end are the order of work. Provider endpoints revised 2026-11-03 after a first implementation, then settled further (no dialect fill, origin-only `host:`, config models merge by id) and landed as phase 1 the same day. The research behind it (wire formats, hosts, catalog) is summarised rather than reproduced.*
+*2026-10-30. The agreed plan, replacing the 2026-10-09 brainstorm. Everything here was settled in discussion; the phases at the end are the order of work. Provider endpoints revised 2026-11-03 after a first implementation, then settled further (no dialect fill, origin-only `host:`, config models merge by id) and landed as phase 1 the same day. Phase 2's encoding details were settled and it landed on 2026-11-03 too (see Encoding and answers). The research behind it (wire formats, hosts, catalog) is summarised rather than reproduced.*
 
 ## What we are building
 
@@ -69,6 +69,21 @@ Held for catalog data: Ollama Cloud (`https://ollama.com/v1/systemone`, `clef:cl
 - **Validation** happens once at the boundary with a Peri schema: at least one question, non-empty instructions (a map or list is JSON-encoded for OpenAI), at least two choices or levels. Provider caps are left to the provider.
 - **Capability errors** before any HTTP: `decide` on a model with no decision dialect returns `{:error, {:unsupported_capability, :decision}}`; `generate_text` on a decision-only model returns `{:error, {:unsupported_capability, :text}}`.
 - **Options**: the universal config keys (`api_key`, `host`, `headers`, `plug`, `timeout`, `raw`) plus the dialect's own schema (`safety_identifier`, `prompt_cache_key` on OpenAI; none on System One).
+
+### Encoding and answers
+
+Settled before phase 2, from the API references:
+
+- **Score levels start at 0 on both APIs**, so `Answer.Score.score` is the same scale everywhere.
+- **Predicate criteria** are `predicate(instructions, criteria \\ nil)` with `[true: "...", false: "..."]`, either key optional. System One sends them as `criteria: {"true", "false"}`; OpenAI has no field and drops them.
+- **Choices** go to System One as `criteria: {key: description | null}` (null: judged by the key) and to OpenAI as `choices: [{value, description?}]`, values always strings so `true` and `"true"` can't diverge.
+- **Score levels** go to System One as a list of descriptions only, the key standing in for a missing one (its criteria carry no names); to OpenAI as `levels: [{label, description?}]`.
+- **State**: a string is OpenAI's `input`; anything else (a map or a list) is one `input_json` part of a user message (`{type: "input_json", data: state}`), so a list is the same JSON array System One gets.
+- **Instructions**: a map or list is JSON-encoded for OpenAI, whose instruction parts are text and images only.
+- **Strict answers**: a missing answer, an answer for a question not asked, or one of the wrong type is `{:error, {:invalid_answer, name}}`; extra top-level fields are ignored. Choice and level keys must differ as strings.
+- **Usage**: every catalogued decision model is priced per token, input only (output at 0), some with cache reads, so `%Usage{}` fits unchanged and `reasoning_tokens` stays out. `gpt-6-luna` carries its chat pricing (output $0.50/M), but OpenAI's documented decision response has 0 output tokens.
+- **Model helpers**: `Model.dialect/2` (`{:ok, mod}` or `{:unsupported_capability, cap}`) and `Model.supports?/2`. The Loader checks each model names its dialects under their own capability.
+- **Pipeline**: `Request.send/4` (`req, model, decision, opts`) takes the decision, which the dialect needs to map answers back; cost computation is `Usage.price/2`, shared with `StreamingResponse`.
 
 ### Dialect behaviours
 
@@ -173,8 +188,8 @@ The call-site `host:` option, when given, replaces the origin of `endpoint.base_
 ## Phases
 
 1. **Provider endpoints** (text only). `Omni.Provider.Endpoint{base_url, compat}`; the provider loses `base_url` and `compat`; one-join URL; `host` in app config (applied by the Loader after merging) and at the call site, replacing call-site `base_url`; Loader merge and config migration messages (provider `base_url:`, `compat:`, `dialects: %{text: ...}`); request-time `no_endpoint` and `no_base_url` errors, and the boot `base_url` raise goes; `Omni.Dialect.capability/1`; sources write whole endpoint URLs and keep templates (replacing `check_mount` and the template-dropping code); built-in modules write endpoint URLs, OpenCode's stops hardcoding `zen/v1`; no dialect fill, catalog models skipped and config models raising without one; config models merge by id; the sweep's Ollama reachability check reads the endpoint URL; docs for `Omni.Provider`, CLAUDE.md, design.md, README, v2-changes and roadmap. Exit: `mix precommit` green, built-in model sets and integration request targets unchanged on the bundled snapshot, zenmux (+22), ofox (+19), freemodel (+4) and cohere (its one Completions model) gain their off-mount models, llm_db built-ins lose only models llm_db marks `catalog_only` or gives no text execution (opencode 76, nearai 25, alibaba 2 realtime, google 1 live, openrouter 4: two image models and two `auto` routers), a sweep over the existing matrix passes. *Landed 2026-11-03; the sweep is the maintainer's to run.*
-2. **Core decisions.** `Omni.Dialect` split with `use`, `Omni.Dialect.Text` and `.Decision`, `Omni.Decision`, `Omni.Question.*`, `Omni.Answer.*`, Peri schema, `Request.build/validate` split, `Request.send/3`, `Usage` cost extraction, `Omni.Dialects.SystemOne` and `OpenAIDecisions`, `Omni.decide/3`, capability errors. Unit tests on hand-written bodies.
-3. **Catalog and providers.** `mix omni.snapshot` and live mode fetch `?type=all`; type-aware eligibility (decision models need no `tool_call`; other non-text types stay out); decision dialect inference (`type: decision` ⇒ systemone unless the model npm is `@ai-sdk/openai`); LLMDB reads `execution.evaluate.family`; OpenAI stamps `gpt-6-luna`; new TypeSafe module; Ollama `type: :decision` sugar and System One endpoint; golden test. Snapshot refresh happens here, after phase 1.
+2. **Core decisions.** `Omni.Dialect` split with `use`, `Omni.Dialect.Text` and `.Decision`, `Omni.Decision`, `Omni.Question.*`, `Omni.Answer.*`, Peri schema, `Request.build/validate` split, `Request.send/4`, `Usage.price/2`, `Omni.Dialects.SystemOne` and `OpenAIDecisions`, `Omni.decide/3`, capability errors, `Model.dialect/2` and `supports?/2`, the Loader's capability check. Unit tests on hand-written bodies. *Landed 2026-11-03.*
+3. **Catalog and providers.** Modules whose `models/2` puts a text dialect on every model (xAI, Ollama Cloud) must leave decision-only models alone. `mix omni.snapshot` and live mode fetch `?type=all`; type-aware eligibility (decision models need no `tool_call`; other non-text types stay out); decision dialect inference (`type: decision` ⇒ systemone unless the model npm is `@ai-sdk/openai`); LLMDB reads `execution.evaluate.family`; OpenAI stamps `gpt-6-luna`; new TypeSafe module; Ollama `type: :decision` sugar and System One endpoint; golden test. Snapshot refresh happens here, after phase 1.
 4. **Live verification and fixtures.** Scenarios, `.json` capture, dialect fixtures from TypeSafe and OpenAI, provider baselines for OpenRouter, OpenCode and Ollama, sweep entries.
 5. **Docs.** `design.md` (Providers → Endpoints, Dialects → behaviours, a Decisions section), moduledocs, README, `v2-changes.md` entries for endpoints and decisions, roadmap.
 

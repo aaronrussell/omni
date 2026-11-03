@@ -14,8 +14,8 @@ defmodule Omni.Model do
     * `:id` — the provider's string identifier (e.g. `"claude-sonnet-5-5"`)
     * `:name` — human-readable display name (e.g. `"Claude Sonnet 5.5"`)
     * `:provider` — the `%Omni.Provider{}` serving the model
-    * `:dialects` — the dialect module per capability, e.g.
-      `%{text: Omni.Dialects.AnthropicMessages}`
+    * `:dialects` — the dialect module per capability (`:text`, `:decision`),
+      e.g. `%{text: Omni.Dialects.AnthropicMessages}`
     * `:context_size` — maximum input tokens the model accepts
     * `:max_output_tokens` — maximum tokens the model can generate
     * `:thinking` — what thinking the model supports: `false` (none), `true`
@@ -142,6 +142,9 @@ defmodule Omni.Model do
               optional(:budget) => {non_neg_integer() | nil, non_neg_integer() | nil}
             }
 
+  @typedoc "A capability a model can serve: text generation or decisions."
+  @type capability :: :text | :decision
+
   @typedoc """
   An LLM model descriptor.
 
@@ -153,7 +156,7 @@ defmodule Omni.Model do
           id: String.t(),
           name: String.t(),
           provider: Provider.t() | nil,
-          dialects: %{optional(atom()) => module()},
+          dialects: %{optional(capability()) => module()},
           context_size: non_neg_integer(),
           max_output_tokens: non_neg_integer(),
           thinking: thinking(),
@@ -183,6 +186,32 @@ defmodule Omni.Model do
   def to_ref(%__MODULE__{provider: %Provider{id: provider_id}} = model) do
     {provider_id, model.id}
   end
+
+  @doc """
+  Returns the model's dialect for a capability.
+
+      {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-5-5")
+      Model.dialect(model, :text)      #=> {:ok, Omni.Dialects.AnthropicMessages}
+      Model.dialect(model, :decision)  #=> {:error, {:unsupported_capability, :decision}}
+  """
+  @spec dialect(t(), capability()) ::
+          {:ok, module()} | {:error, {:unsupported_capability, capability()}}
+  def dialect(%__MODULE__{dialects: dialects}, capability) do
+    case dialects do
+      %{^capability => dialect} when is_atom(dialect) and not is_nil(dialect) -> {:ok, dialect}
+      _ -> {:error, {:unsupported_capability, capability}}
+    end
+  end
+
+  @doc """
+  Returns whether the model serves a capability.
+
+      {:ok, models} = Omni.list_models(:openrouter)
+      Enum.filter(models, &Model.supports?(&1, :decision))
+  """
+  @spec supports?(t(), capability()) :: boolean()
+  def supports?(%__MODULE__{} = model, capability),
+    do: match?({:ok, _}, dialect(model, capability))
 
   @doc """
   Looks up a model by provider ID and model ID.
@@ -232,8 +261,9 @@ defmodule Omni.Model do
   Creates a new model struct from a keyword list or map.
 
   `:provider` may be a `%Omni.Provider{}` or the id of a loaded provider.
-  `:dialects` is `%{text: Module}`; it is never filled from the provider, so
-  a model without one can't make requests. `:thinking` takes a
+  `:dialects` maps each capability to its dialect (`%{text: Module}`); it is
+  never filled from the provider, so a model without one can't make
+  requests. `:thinking` takes a
   boolean or a map (or keyword list) of `:efforts`, `:toggle` and `:budget`;
   an empty map means `true`.
 

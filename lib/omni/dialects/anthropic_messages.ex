@@ -2,7 +2,7 @@ defmodule Omni.Dialects.AnthropicMessages do
   @moduledoc """
   Dialect implementation for the Anthropic Messages wire format.
 
-  See `Omni.Dialect` for the behaviour specification and delta types.
+  See `Omni.Dialect.Text` for the behaviour specification and delta types.
 
   ## Compat flags
 
@@ -10,7 +10,7 @@ defmodule Omni.Dialects.AnthropicMessages do
   Flags are added as built-in providers need them.
   """
 
-  @behaviour Omni.Dialect
+  use Omni.Dialect, :text
 
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Dialect, Model}

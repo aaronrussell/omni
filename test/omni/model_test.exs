@@ -280,6 +280,33 @@ defmodule Omni.ModelTest do
     end
   end
 
+  describe "dialect/2 and supports?/2" do
+    test "return the dialect a model names for a capability" do
+      model =
+        Fixtures.model(id: "d", capability: :decision, dialect: Omni.Dialects.SystemOne)
+
+      assert Model.dialect(model, :decision) == {:ok, Omni.Dialects.SystemOne}
+      assert Model.dialect(model, :text) == {:error, {:unsupported_capability, :text}}
+      assert Model.supports?(model, :decision)
+      refute Model.supports?(model, :text)
+    end
+
+    test "a model may serve both capabilities" do
+      model =
+        Model.new(
+          id: "both",
+          name: "both",
+          dialects: %{
+            text: Omni.Dialects.OpenAIResponses,
+            decision: Omni.Dialects.OpenAIDecisions
+          }
+        )
+
+      assert Model.supports?(model, :text)
+      assert Model.supports?(model, :decision)
+    end
+  end
+
   describe "to_ref/1" do
     test "returns {provider_id, model_id} for a loaded model" do
       {:ok, [model | _]} = Model.list(:anthropic)

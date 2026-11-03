@@ -69,7 +69,7 @@ defmodule Omni.StreamingResponse do
       {:error, reason, %Response{}}
   """
 
-  alias Omni.{Message, Model, Response, Usage}
+  alias Omni.{Message, Response, Usage}
   alias Omni.Content.{Text, Thinking, ToolUse}
 
   import Omni.Util, only: [maybe_put: 3]
@@ -485,42 +485,16 @@ defmodule Omni.StreamingResponse do
 
   # -- Usage --
 
-  defp build_usage(raw, nil), do: build_usage(raw, %{})
-
-  defp build_usage(raw, %Model{} = model) do
-    pricing = %{
-      input_cost: model.input_cost,
-      output_cost: model.output_cost,
-      cache_read_cost: model.cache_read_cost,
-      cache_write_cost: model.cache_write_cost
-    }
-
-    build_usage(raw, pricing)
-  end
-
-  defp build_usage(raw, pricing) do
-    input = raw["input_tokens"] || 0
-    output = raw["output_tokens"] || 0
-    cache_read = raw["cache_read_tokens"] || 0
-    cache_write = raw["cache_write_tokens"] || 0
-
-    input_cost = input * (pricing[:input_cost] || 0) / 1_000_000
-    output_cost = output * (pricing[:output_cost] || 0) / 1_000_000
-    cache_read_cost = cache_read * (pricing[:cache_read_cost] || 0) / 1_000_000
-    cache_write_cost = cache_write * (pricing[:cache_write_cost] || 0) / 1_000_000
-
+  # Dialects report token counts under string keys; costs come from the
+  # model's pricing.
+  defp build_usage(raw, model) do
     Usage.new(
-      input_tokens: input,
-      output_tokens: output,
-      cache_read_tokens: cache_read,
-      cache_write_tokens: cache_write,
-      total_tokens: input + output + cache_read + cache_write,
-      input_cost: input_cost,
-      output_cost: output_cost,
-      cache_read_cost: cache_read_cost,
-      cache_write_cost: cache_write_cost,
-      total_cost: input_cost + output_cost + cache_read_cost + cache_write_cost
+      input_tokens: raw["input_tokens"] || 0,
+      output_tokens: raw["output_tokens"] || 0,
+      cache_read_tokens: raw["cache_read_tokens"] || 0,
+      cache_write_tokens: raw["cache_write_tokens"] || 0
     )
+    |> Usage.price(model)
   end
 
   # -- Atom Helpers --

@@ -134,6 +134,11 @@ defmodule Omni.Provider.Loader do
               "e.g. dialects: %{text: Omni.Dialects.OpenAICompletions}"
     end
 
+    unless capabilities_match?(model) do
+      raise ArgumentError,
+            "cannot register model #{inspect(model.id)}: it " <> capability_mismatch(model)
+    end
+
     with_lock(fn ->
       unless Map.has_key?(:persistent_term.get(Provider.providers_key(), %{}), id) do
         raise ArgumentError,
@@ -306,48 +311,89 @@ defmodule Omni.Provider.Loader do
 
   # -- Model checks -----------------------------------------------------------
 
-  # A model needs at least one dialect, and an endpoint for each. Catalog
-  # models that fall short are skipped with a warning (a gap in the data);
-  # config models raise (a mistake in config). Dialects are never filled in.
+  # A model needs at least one dialect, each serving the capability it is
+  # named under, and an endpoint for each. Catalog models that fall short
+  # are skipped with a warning (a gap in the data); config models raise (a
+  # mistake in config). Dialects are never filled in.
   defp check_models!(%Provider{id: id} = provider, models, config_ids) do
-    {models, no_dialect, no_endpoint} =
-      Enum.reduce(models, {[], [], []}, fn model, {models, no_dialect, no_endpoint} ->
-        cond do
-          model.dialects == %{} ->
-            {models, [model | no_dialect], no_endpoint}
-
-          Enum.all?(model.dialects, fn {_cap, dialect} -> served?(provider, dialect) end) ->
-            {[model | models], no_dialect, no_endpoint}
-
-          true ->
-            {models, no_dialect, [model | no_endpoint]}
+    {models, skipped} =
+      Enum.reduce(models, {[], %{}}, fn model, {models, skipped} ->
+        case model_problem(provider, model) do
+          nil -> {[model | models], skipped}
+          why -> {models, Map.update(skipped, why, [model], &[model | &1])}
         end
       end)
 
-    {config_no_dialect, no_dialect} = Enum.split_with(no_dialect, &(&1.id in config_ids))
-    {config_no_endpoint, no_endpoint} = Enum.split_with(no_endpoint, &(&1.id in config_ids))
+    skipped = Map.new(skipped, fn {why, models} -> {why, Enum.reverse(models)} end)
 
-    with [model | _] <- Enum.reverse(config_no_dialect) do
-      raise ArgumentError,
-            "provider #{inspect(id)}: model #{inspect(model.id)} in config :omni, :providers " <>
-              "has no dialect — name it: models: [[id: #{inspect(model.id)}, " <>
-              "dialects: %{text: Omni.Dialects.OpenAICompletions}]]"
+    for why <- [:no_dialect, :wrong_capability, :no_endpoint],
+        model <- Map.get(skipped, why, []),
+        model.id in config_ids do
+      raise ArgumentError, config_model_message(id, model, why)
     end
 
-    with [model | _] <- Enum.reverse(config_no_endpoint) do
-      raise ArgumentError,
-            "provider #{inspect(id)}: model #{inspect(model.id)} in config :omni, :providers " <>
-              "speaks #{inspect(Map.values(model.dialects))}, which the provider has no " <>
-              "endpoint for — add one: dialects: %{Module => [base_url: \"https://...\"]}"
-    end
+    warn_skipped(id, Map.get(skipped, :no_dialect, []), "no dialect", fn _model -> "" end)
 
-    warn_skipped(id, Enum.reverse(no_dialect), "no dialect", fn _model -> "" end)
+    warn_skipped(
+      id,
+      Map.get(skipped, :wrong_capability, []),
+      "a dialect for another capability",
+      &" (#{inspect(&1.dialects)})"
+    )
 
-    warn_skipped(id, Enum.reverse(no_endpoint), "a dialect it has no endpoint for", fn model ->
-      " (#{inspect(Map.values(model.dialects))})"
+    warn_skipped(id, Map.get(skipped, :no_endpoint, []), "a dialect it has no endpoint for", fn
+      model -> " (#{inspect(Map.values(model.dialects))})"
     end)
 
     Enum.reverse(models)
+  end
+
+  defp model_problem(provider, model) do
+    cond do
+      model.dialects == %{} -> :no_dialect
+      not capabilities_match?(model) -> :wrong_capability
+      not Enum.all?(model.dialects, fn {_cap, d} -> served?(provider, d) end) -> :no_endpoint
+      true -> nil
+    end
+  end
+
+  defp capabilities_match?(%Model{dialects: dialects}) do
+    Enum.all?(dialects, fn {capability, dialect} ->
+      is_atom(dialect) and Omni.Dialect.capability(dialect) == capability
+    end)
+  end
+
+  defp config_model_message(id, model, :no_dialect) do
+    "provider #{inspect(id)}: model #{inspect(model.id)} in config :omni, :providers " <>
+      "has no dialect — name it: models: [[id: #{inspect(model.id)}, " <>
+      "dialects: %{text: Omni.Dialects.OpenAICompletions}]]"
+  end
+
+  defp config_model_message(id, model, :wrong_capability) do
+    "provider #{inspect(id)}: model #{inspect(model.id)} in config :omni, :providers " <>
+      capability_mismatch(model)
+  end
+
+  defp config_model_message(id, model, :no_endpoint) do
+    "provider #{inspect(id)}: model #{inspect(model.id)} in config :omni, :providers " <>
+      "speaks #{inspect(Map.values(model.dialects))}, which the provider has no " <>
+      "endpoint for — add one: dialects: %{Module => [base_url: \"https://...\"]}"
+  end
+
+  defp capability_mismatch(%Model{dialects: dialects}) do
+    {capability, dialect} =
+      Enum.find(dialects, fn {capability, dialect} ->
+        not (is_atom(dialect) and Omni.Dialect.capability(dialect) == capability)
+      end)
+
+    case is_atom(dialect) && Omni.Dialect.capability(dialect) do
+      actual when actual in [:text, :decision] ->
+        "names #{inspect(dialect)} for #{inspect(capability)}, but it is a " <>
+          "#{inspect(actual)} dialect — use dialects: %{#{actual}: #{inspect(dialect)}}"
+
+      _ ->
+        "names #{inspect(dialect)} for #{inspect(capability)}, which is not an Omni.Dialect module"
+    end
   end
 
   defp served?(%Provider{dialects: dialects}, dialect), do: Map.has_key?(dialects, dialect)
@@ -377,10 +423,7 @@ defmodule Omni.Provider.Loader do
   end
 
   defp validate_dialect!(id, dialect) do
-    unless is_atom(dialect) and Omni.Dialect.capability(dialect) != nil and
-             function_exported?(dialect, :handle_body, 3) and
-             function_exported?(dialect, :auth, 0) and
-             function_exported?(dialect, :compat_schema, 0) do
+    unless is_atom(dialect) and Omni.Dialect.capability(dialect) != nil do
       raise ArgumentError,
             "provider #{inspect(id)}: #{inspect(dialect)} is not an Omni.Dialect module"
     end

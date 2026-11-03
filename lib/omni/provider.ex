@@ -329,10 +329,20 @@ defmodule Omni.Provider do
 
   For quirks compat flags can't express — typically ones that depend on the
   model. The body is the dialect's output, already shaped by any compat
-  flags.
+  flags. The third argument is what is being sent, and so tells the
+  capability: a `%Omni.Context{}` for text generation, a `%Omni.Decision{}`
+  for a decision. Match on it to touch only one kind of request:
+
+      @impl true
+      def modify_body(body, _model, %Omni.Context{}, _opts), do: Map.delete(body, "stream_options")
+      def modify_body(body, _model, _decision, _opts), do: body
   """
-  @callback modify_body(body :: map(), model :: Model.t(), context :: Context.t(), opts :: map()) ::
-              map()
+  @callback modify_body(
+              body :: map(),
+              model :: Model.t(),
+              input :: Context.t() | Omni.Decision.t(),
+              opts :: map()
+            ) :: map()
 
   @optional_callbacks config: 0, models: 2, modify_request: 3, modify_body: 4
 

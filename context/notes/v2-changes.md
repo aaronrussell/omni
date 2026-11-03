@@ -93,6 +93,7 @@ config :omni, :providers,
 - All callbacks are optional: `config/0` (a keyword list of overrides), `models/2` (models plus the merged provider), `modify_request/3` and `modify_body/4`. *(phase 2)* These are settled, no longer provisional; `modify_deltas/3` is removed (parse-side variation lives in the dialect).
 - Removed: `build_url/2`, `authenticate/2`, `modify_events/2`, `models/0`, `id/0`, `dialect/0`.
 - Removed from `Omni.Provider`: `load_models/2`, `providers_from_config/1`, `build_model/2` (now `Omni.Source.build_model/1`).
+- *(decisions)* `modify_body/4`'s third argument is what is being sent: a `%Omni.Context{}` for text, or a `%Omni.Decision{}` for a decision. A hook that reads `context.messages` should match on `%Omni.Context{}`.
 
 **`Omni.Provider.load/1` takes ids**, or `{id, opts}` with inline config; reloading an id replaces its provider and models. *(phase 1)*
 
@@ -161,6 +162,8 @@ config :omni, :providers,
 **Skipped models.** *(phase 1)* Both built-in sources skip, with a warning, models whose own npm package maps to no dialect, and models served from a different base URL than their provider.
 
 ## Dialects
+
+**Dialects declare their capability with `use Omni.Dialect`.** *(decisions)* `Omni.Dialect` is now the base every dialect shares (`auth/0`, `compat_schema/0`, the registry, `compat/2`); the callbacks that build requests and read responses moved to one behaviour per capability. A custom text dialect replaces `@behaviour Omni.Dialect` with `use Omni.Dialect, :text`, which declares both `Omni.Dialect` and `Omni.Dialect.Text`; its callbacks are unchanged. `Omni.Dialect.capability/1` reads the declared behaviour, so a module without it is not a dialect and fails at load. A model's `dialects:` map must name each dialect under its own capability (`%{text: Omni.Dialects.SystemOne}` raises for a config model, is skipped for a catalog model).
 
 **New required callback `compat_schema/0`.** *(phase 2)* A Peri schema of the compat flags the dialect understands; return `%{}` for none. Read a provider's flags with `Omni.Dialect.compat(model, __MODULE__)`. `Omni.Dialects.OpenAICompletions` documents its flags; the other built-in dialects have none yet.
 

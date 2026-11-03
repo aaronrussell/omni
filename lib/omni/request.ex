@@ -1,39 +1,44 @@
 defmodule Omni.Request do
   # Request orchestration for LLM API calls.
   #
-  # Handles validation, request building, streaming execution, and event parsing.
+  # Handles validation, request building, execution, and event parsing.
   # Composes the model's dialect (wire format) and provider (endpoint, auth,
   # optional module hooks) into a complete request pipeline. Everything comes
   # from the %Model{} — its embedded %Provider{} and its dialects — so nothing
-  # is looked up at request time.
+  # is looked up at request time. The struct being sent picks the capability:
+  # a %Context{} is text generation, a %Decision{} a decision.
   #
   # Public API:
   #   - build/3 — validates opts, builds a %Req.Request{} via dialect + provider
-  #   - stream/3 — executes a built request, returns a %StreamingResponse{}
+  #   - stream/3 — executes a built text request, returns a %StreamingResponse{}
+  #   - send/4 — executes a built decision request, returns the answered %Decision{}
   #
   # Internal (public but undocumented):
-  #   - validate/2 — provider + call-site merge + Peri validation
+  #   - validate/3 — provider + call-site merge + Peri validation
   #   - parse_event/2 — dialect handle_event
   #   - validate_context/2 — checks attachment media types against model modalities
   @moduledoc false
 
   alias Omni.Content.{Attachment, Text, Thinking, ToolUse}
-  alias Omni.{Context, Message, Model, Parsers, Provider, StreamingResponse}
+  alias Omni.{Context, Decision, Message, Model, Parsers, Provider, StreamingResponse, Usage}
   alias Omni.Provider.Endpoint
 
   import Omni.Util, only: [maybe_put: 3]
 
-  @schema %{
-    # Config (type-loose — validated by infrastructure, not user input)
+  # Config options every capability takes (type-loose — validated by
+  # infrastructure, not user input).
+  @config_schema %{
     api_key: :any,
     host: :string,
     headers: {:map, {:default, %{}}},
     plug: :any,
+    timeout: {:integer, {:default, 300_000}}
+  }
 
-    # Inference (type-strict)
+  # Text generation options (type-strict).
+  @text_schema %{
     max_tokens: :integer,
     temperature: {:either, {:integer, :float}},
-    timeout: {:integer, {:default, 300_000}},
     cache: {:enum, [:short, :long]},
     metadata: :map,
     thinking:
@@ -44,18 +49,20 @@ defmodule Omni.Request do
   }
 
   @doc """
-  Builds an authenticated `%Req.Request{}` from a model, context, and options.
+  Builds an authenticated `%Req.Request{}` from a model, a context or
+  decision, and options.
 
-  Options can be a keyword list or map. Validates all options via `validate/2`,
-  then delegates body/path building to the dialect, applies the provider's
-  auth and module hooks, and returns the final request ready for execution.
+  Options can be a keyword list or map. Validates all options via
+  `validate/3`, then delegates body/path building to the model's dialect for
+  the capability, applies the provider's auth and module hooks, and returns
+  the final request ready for execution.
   """
-  @spec build(Model.t(), Context.t(), keyword() | map()) ::
+  @spec build(Model.t(), Context.t() | Decision.t(), keyword() | map()) ::
           {:ok, Req.Request.t()} | {:error, term()}
   def build(%Model{provider: %Provider{} = provider} = model, %Context{} = context, opts) do
-    with {:ok, dialect} <- text_dialect(model),
+    with {:ok, dialect} <- Model.dialect(model, :text),
          {:ok, endpoint} <- Provider.endpoint(provider, dialect),
-         {:ok, opts} <- validate(model, opts),
+         {:ok, opts} <- validate(model, :text, opts),
          :ok <- validate_context(model, context),
          {:ok, url} <- url(endpoint, dialect, model, opts) do
       context = drop_foreign_replay(context, provider, dialect)
@@ -65,15 +72,24 @@ defmodule Omni.Request do
         |> dialect.handle_body(context, opts)
         |> modify_body(provider, model, context, opts)
 
-      req =
-        [method: :post, url: url, json: body, receive_timeout: opts[:timeout], into: :self]
-        |> maybe_put(:headers, opts[:headers])
-        |> maybe_put(:plug, opts[:plug])
-        |> Req.new()
+      [method: :post, url: url, json: body, receive_timeout: opts[:timeout], into: :self]
+      |> new_request(provider, dialect, opts)
+    end
+  end
 
-      with {:ok, req} <- authenticate(req, auth_scheme(provider, dialect), opts[:api_key]) do
-        modify_request(req, provider, opts)
-      end
+  def build(%Model{provider: %Provider{} = provider} = model, %Decision{} = decision, opts) do
+    with {:ok, dialect} <- Model.dialect(model, :decision),
+         {:ok, endpoint} <- Provider.endpoint(provider, dialect),
+         {:ok, opts} <- validate(model, :decision, opts),
+         :ok <- Decision.validate(decision),
+         {:ok, url} <- url(endpoint, dialect, model, opts) do
+      body =
+        model
+        |> dialect.handle_body(decision, opts)
+        |> modify_body(provider, model, decision, opts)
+
+      [method: :post, url: url, json: body, receive_timeout: opts[:timeout]]
+      |> new_request(provider, dialect, opts)
     end
   end
 
@@ -103,21 +119,50 @@ defmodule Omni.Request do
     end
   end
 
+  @doc """
+  Executes a built decision request and returns the answered decision.
+
+  Runs the request, checks the HTTP status, hands the decoded JSON body to
+  the dialect's `handle_response/3`, and prices the usage from the model.
+  With `raw: true` the `{req, resp}` pair is attached as `:raw`.
+  """
+  @spec send(Req.Request.t(), Model.t(), Decision.t(), keyword() | map()) ::
+          {:ok, Decision.t()} | {:error, term()}
+  def send(%Req.Request{} = req, %Model{} = model, %Decision{} = decision, opts) do
+    with {:ok, dialect} <- Model.dialect(model, :decision),
+         {:ok, resp} <- Req.request(req),
+         :ok <- check_status(resp),
+         {:ok, body} <- decode_body(resp.body),
+         {:ok, %Decision{} = decision} <- dialect.handle_response(body, decision, model) do
+      usage = Usage.price(decision.usage || %Usage{}, model)
+      raw = if opts[:raw], do: {req, resp}
+
+      {:ok, %{decision | usage: usage, model: model, raw: raw}}
+    end
+  end
+
   @doc false
-  @spec validate(Model.t(), keyword() | map()) :: {:ok, map()} | {:error, term()}
-  def validate(%Model{provider: %Provider{} = provider} = model, opts) do
+  @spec validate(Model.t(), Model.capability(), keyword() | map()) ::
+          {:ok, map()} | {:error, term()}
+  def validate(%Model{provider: %Provider{} = provider} = model, capability, opts) do
     # Two tiers: the provider (which already absorbed app config) <- call site
     data =
       provider
       |> Map.take([:api_key, :headers])
       |> Map.merge(Map.new(opts), &merge_config/3)
 
-    with {:ok, dialect} <- text_dialect(model),
-         schema = Map.merge(@schema, dialect.option_schema()),
+    with {:ok, dialect} <- Model.dialect(model, capability),
+         schema = option_schema(capability, dialect),
          :ok <- check_unknown_keys(data, schema) do
       Peri.validate(schema, data)
     end
   end
+
+  defp option_schema(:text, dialect),
+    do: @config_schema |> Map.merge(@text_schema) |> Map.merge(dialect.option_schema())
+
+  defp option_schema(:decision, dialect),
+    do: Map.merge(@config_schema, dialect.option_schema())
 
   @doc false
   @spec parse_event(Model.t(), map()) :: [{atom(), map() | term()}]
@@ -169,16 +214,22 @@ defmodule Omni.Request do
 
   # -- Private helpers --
 
-  defp text_dialect(%Model{dialects: %{text: dialect}})
-       when is_atom(dialect) and not is_nil(dialect),
-       do: {:ok, dialect}
-
-  defp text_dialect(%Model{}), do: {:error, {:unsupported_capability, :text}}
-
   defp dialect!(%Model{} = model) do
-    case text_dialect(model) do
+    case Model.dialect(model, :text) do
       {:ok, dialect} -> dialect
       {:error, _} -> raise ArgumentError, "model #{inspect(model.id)} has no text dialect"
+    end
+  end
+
+  defp new_request(req_opts, provider, dialect, opts) do
+    req =
+      req_opts
+      |> maybe_put(:headers, opts[:headers])
+      |> maybe_put(:plug, opts[:plug])
+      |> Req.new()
+
+    with {:ok, req} <- authenticate(req, auth_scheme(provider, dialect), opts[:api_key]) do
+      modify_request(req, provider, opts)
     end
   end
 
@@ -237,9 +288,9 @@ defmodule Omni.Request do
     %{message | content: content, private: %{}}
   end
 
-  defp modify_body(body, provider, model, context, opts) do
+  defp modify_body(body, provider, model, input, opts) do
     if Provider.callback?(provider, :modify_body, 4),
-      do: provider.module.modify_body(body, model, context, opts),
+      do: provider.module.modify_body(body, model, input, opts),
       else: body
   end
 
@@ -307,6 +358,19 @@ defmodule Omni.Request do
 
   defp read_error_body(body) when is_binary(body), do: try_decode_json(body)
   defp read_error_body(body), do: body
+
+  # Req decodes JSON responses it recognises; a body it left as a string is
+  # decoded here. A decision response is always a JSON object.
+  defp decode_body(body) when is_map(body), do: {:ok, body}
+
+  defp decode_body(body) when is_binary(body) do
+    case JSON.decode(body) do
+      {:ok, decoded} when is_map(decoded) -> {:ok, decoded}
+      _ -> {:error, {:invalid_response, body}}
+    end
+  end
+
+  defp decode_body(body), do: {:error, {:invalid_response, body}}
 
   defp try_decode_json(binary) do
     case JSON.decode(binary) do

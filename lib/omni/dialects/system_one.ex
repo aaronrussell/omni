@@ -1,0 +1,139 @@
+defmodule Omni.Dialects.SystemOne do
+  @moduledoc """
+  Dialect implementation for the System One decision format.
+
+  System One is TypeSafe's decision API and the de facto open standard,
+  served by TypeSafe, OpenRouter, OpenCode Zen, Ollama and others at
+  `<base_url>/systemone`. See `Omni.Dialect.Decision` for the behaviour.
+
+  ## Encoding
+
+    * The state is sent as given (a string, a map, or a list).
+    * Questions go in a map keyed by name. A predicate is a `noul` question,
+      and its criteria become `{"true": ..., "false": ...}`.
+    * Choices are sent as `{key: description}`, a `nil` description meaning
+      the choice is judged by its key.
+    * Levels are sent as a list of descriptions, lowest first; a level with no
+      description sends its key. System One numbers levels by position, so
+      the keys only map the answer back.
+
+  ## Answers
+
+  Probabilities come back keyed by choice name or level index and are
+  mapped to the question's keys, in the question's order. The level
+  `legend` is dropped as redundant. System One has no refusal answer.
+
+  ## Compat flags
+
+  None yet. Hosts differ in option caps (26 choices on some), whether
+  `instructions` is required, and confidence formulas; Omni leaves caps to
+  the provider and passes confidence through.
+  """
+
+  use Omni.Dialect, :decision
+
+  alias Omni.{Answer, Decision, Model, Usage}
+  alias Omni.Dialect.Decision.Answers
+  alias Omni.Question.{Choice, Predicate, Score}
+
+  @impl true
+  def option_schema, do: %{}
+
+  @impl true
+  def compat_schema, do: %{}
+
+  @impl true
+  def auth, do: :bearer
+
+  @impl true
+  def handle_path(%Model{}, _opts), do: "/systemone"
+
+  @impl true
+  def handle_body(%Model{} = model, %Decision{} = decision, _opts) do
+    %{
+      "model" => model.id,
+      "state" => decision.state,
+      "questions" =>
+        Map.new(decision.questions, fn {name, question} ->
+          {Atom.to_string(name), encode_question(question)}
+        end)
+    }
+  end
+
+  @impl true
+  def handle_response(%{"answers" => answers} = body, %Decision{} = decision, %Model{})
+      when is_map(answers) do
+    with {:ok, answers} <- Answers.decode(decision.questions, answers, &decode_answer/2) do
+      {:ok, %{decision | answers: answers, usage: decode_usage(body["usage"])}}
+    end
+  end
+
+  def handle_response(body, %Decision{}, %Model{}), do: {:error, {:invalid_response, body}}
+
+  # -- Encoding --
+
+  defp encode_question(%Predicate{} = question) do
+    %{"type" => "noul", "instructions" => question.instructions}
+    |> put_criteria(question.criteria)
+  end
+
+  defp encode_question(%Choice{} = question) do
+    %{
+      "type" => "choice",
+      "instructions" => question.instructions,
+      "criteria" => Map.new(question.choices, fn {key, desc} -> {to_string(key), desc} end)
+    }
+  end
+
+  defp encode_question(%Score{} = question) do
+    %{
+      "type" => "score",
+      "instructions" => question.instructions,
+      "criteria" => Enum.map(question.levels, fn {key, desc} -> desc || to_string(key) end)
+    }
+  end
+
+  defp put_criteria(question, nil), do: question
+
+  defp put_criteria(question, criteria) do
+    Map.put(question, "criteria", Map.new(criteria, fn {key, text} -> {to_string(key), text} end))
+  end
+
+  # -- Decoding --
+
+  defp decode_answer(%Predicate{}, %{"type" => "noul", "noul" => probability})
+       when is_number(probability),
+       do: {:ok, %Answer.Predicate{probability: probability}}
+
+  defp decode_answer(%Choice{choices: choices}, %{"type" => "choice"} = answer) do
+    with {:ok, choice} <- Answers.key(choices, answer["choice"]),
+         {:ok, probabilities} <- Answers.probabilities(choices, answer["probabilities"], :key) do
+      {:ok,
+       %Answer.Choice{
+         choice: choice,
+         probabilities: probabilities,
+         confidence: answer["confidence"]
+       }}
+    end
+  end
+
+  defp decode_answer(%Score{levels: levels}, %{"type" => "score", "score" => score} = answer)
+       when is_number(score) do
+    with {:ok, probabilities} <- Answers.probabilities(levels, answer["probabilities"], :index) do
+      {:ok,
+       %Answer.Score{score: score, probabilities: probabilities, confidence: answer["confidence"]}}
+    end
+  end
+
+  defp decode_answer(_question, _answer), do: :error
+
+  # Alibaba reports input only.
+  defp decode_usage(usage) when is_map(usage) do
+    Usage.new(
+      input_tokens: usage["input_tokens"] || 0,
+      output_tokens: usage["output_tokens"] || 0
+    )
+  end
+
+  defp decode_usage(_usage), do: %Usage{}
+end

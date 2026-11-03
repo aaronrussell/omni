@@ -2,7 +2,7 @@ defmodule Omni.Dialects.OpenAICompletions do
   @moduledoc """
   Dialect implementation for the OpenAI Chat Completions wire format.
 
-  See `Omni.Dialect` for the behaviour specification and delta types.
+  See `Omni.Dialect.Text` for the behaviour specification and delta types.
 
   ## Compat flags
 
@@ -49,7 +49,7 @@ defmodule Omni.Dialects.OpenAICompletions do
   without effort values.
   """
 
-  @behaviour Omni.Dialect
+  use Omni.Dialect, :text
 
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Dialect, Model}

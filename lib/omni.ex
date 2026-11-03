@@ -8,7 +8,8 @@ defmodule Omni do
 
   Omni provides a single API for text generation that works with many LLM
   providers. All requests are streaming-first — `generate_text/3` is built on
-  top of `stream_text/3`.
+  top of `stream_text/3`. Decision models answer typed questions with
+  probabilities through `decide/3`.
 
   ## Setup
 
@@ -153,6 +154,24 @@ defmodule Omni do
 
   For reusable tools with validation, define a tool module — see `Omni.Tool`.
 
+  ## Decisions
+
+  Decision models answer typed questions about a shared input with
+  calibrated probabilities instead of prose. Pass the input and a keyword
+  list of questions:
+
+      {:ok, decision} =
+        Omni.decide({:openrouter, "typesafe/jev-1.14"}, {ticket_text, [
+          urgent: Omni.predicate("Does this need a reply within the hour?"),
+          team: Omni.choice("Which team owns this?", billing: "Payments and refunds", infra: "Outages", other: nil),
+          anger: Omni.score("How angry is the customer?", ["Calm", "Frustrated but civil", "Very angry"])
+        ]})
+
+      decision.answers[:urgent]  #=> %Omni.Answer.Predicate{probability: 0.91}
+      decision.answers[:team]    #=> %Omni.Answer.Choice{choice: :infra, probabilities: [billing: 0.02, infra: 0.95, other: 0.03], confidence: 0.93}
+
+  See `Omni.Decision` and `Omni.Question`.
+
   ## Providers
 
   Models are referenced as `{provider_id, model_id}` tuples. To list a
@@ -172,7 +191,7 @@ defmodule Omni do
   `Omni.Provider` for configuring and defining providers.
   """
 
-  alias Omni.{Context, Loop, Model, Response, StreamingResponse}
+  alias Omni.{Context, Decision, Loop, Model, Request, Response, StreamingResponse}
 
   @doc group: :generation
   @doc """
@@ -243,6 +262,64 @@ defmodule Omni do
   def generate_text(model, context, opts \\ []) do
     with {:ok, stream} <- stream_text(model, context, opts) do
       StreamingResponse.complete(stream)
+    end
+  end
+
+  @doc group: :decisions
+  @doc """
+  Asks a decision model typed questions about a shared state.
+
+  The model can be a `%Model{}` struct or a `{provider_id, model_id}` tuple,
+  and must serve decisions (see `Omni.Model.supports?/2`). The decision is a
+  `%Omni.Decision{}` or the shorthand `{state, questions}`: the state is a
+  string, a map, or a list, and the questions a keyword list built with
+  `predicate/2`, `choice/2` and `score/2`.
+
+      {:ok, decision} =
+        Omni.decide({:openrouter, "typesafe/jev-1.14"}, {"I was charged twice", [
+          refund: Omni.predicate("Is the customer asking for a refund?"),
+          tone: Omni.choice("What is the tone?", [:calm, :frustrated, :angry])
+        ]})
+
+      decision.answers[:refund]  #=> %Omni.Answer.Predicate{probability: 0.97}
+      decision.usage             #=> %Omni.Usage{input_tokens: 61, total_cost: 2.6e-6, ...}
+
+  Returns `{:ok, %Decision{}}` with `:answers`, `:usage` and `:model`
+  filled in. A model with no decision dialect returns
+  `{:error, {:unsupported_capability, :decision}}`; invalid questions are an
+  error before any request is made.
+
+  ## Options
+
+    * `:api_key` — API key, overriding provider/app config
+    * `:host` — an origin (`"http://localhost:4000"`) replacing the origin of
+      the endpoint URL for this request; the path is kept (see `Omni.Provider`)
+    * `:headers` — extra request headers, merged over the provider's
+    * `:timeout` — how long to wait for the response, in milliseconds
+      (default `300_000`)
+    * `:raw` — when `true`, attaches the raw `{%Req.Request{}, %Req.Response{}}`
+      pair to the decision
+    * `:plug` — a Req test plug for stubbing HTTP responses in tests
+
+  A dialect may take more: `Omni.Dialects.OpenAIDecisions` takes
+  `:safety_identifier` and `:prompt_cache_key`.
+  """
+  @spec decide(Model.ref() | Model.t(), Decision.t() | {term(), list()}, keyword()) ::
+          {:ok, Decision.t()} | {:error, term()}
+  def decide(model, decision, opts \\ [])
+
+  def decide({provider_id, model_id}, decision, opts) do
+    with {:ok, model} <- Model.get(provider_id, model_id) do
+      decide(model, decision, opts)
+    end
+  end
+
+  def decide(%Model{} = model, decision, opts) do
+    decision = Decision.new(decision)
+    {raw?, opts} = Keyword.pop(opts, :raw, false)
+
+    with {:ok, req} <- Request.build(model, decision, opts) do
+      Request.send(req, model, decision, raw: raw?)
     end
   end
 
@@ -317,6 +394,40 @@ defmodule Omni do
   """
   @spec tool(Enumerable.t()) :: Omni.Tool.t()
   defdelegate tool(attrs), to: Omni.Tool, as: :new
+
+  @doc group: :decisions
+  @doc """
+  Creates a yes/no question for `decide/3`.
+
+  See `Omni.Question.predicate/2`.
+
+      Omni.predicate("Is this spam?", true: "Unsolicited advertising", false: "A real conversation")
+  """
+  @spec predicate(Omni.Question.instructions(), [{boolean(), String.t()}] | nil) ::
+          Omni.Question.Predicate.t()
+  defdelegate predicate(instructions, criteria \\ nil), to: Omni.Question
+
+  @doc group: :decisions
+  @doc """
+  Creates a question with one answer from a set of choices, for `decide/3`.
+
+  See `Omni.Question.choice/2`.
+
+      Omni.choice("Which team owns this?", billing: "Payments and refunds", infra: "Outages", other: nil)
+  """
+  @spec choice(Omni.Question.instructions(), list()) :: Omni.Question.Choice.t()
+  defdelegate choice(instructions, choices), to: Omni.Question
+
+  @doc group: :decisions
+  @doc """
+  Creates a question rating the state on an ordered scale, for `decide/3`.
+
+  See `Omni.Question.score/2`.
+
+      Omni.score("How angry is the customer?", ["Calm", "Frustrated but civil", "Very angry"])
+  """
+  @spec score(Omni.Question.instructions(), list()) :: Omni.Question.Score.t()
+  defdelegate score(instructions, levels), to: Omni.Question
 
   @doc group: :context
   @doc """

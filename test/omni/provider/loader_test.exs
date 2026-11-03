@@ -453,6 +453,60 @@ defmodule Omni.Provider.LoaderTest do
       assert model.dialects == %{text: @messages}
     end
 
+    test "a config model naming a dialect under the wrong capability raises" do
+      assert_raise ArgumentError,
+                   ~r/names .*SystemOne for :text, but it is a :decision dialect/,
+                   fn ->
+                     assemble(
+                       source: catalog([], []),
+                       dialects: %{Omni.Dialects.SystemOne => [base_url: "https://x.test/v1"]},
+                       models: [[id: "c", dialects: %{text: Omni.Dialects.SystemOne}]]
+                     )
+                   end
+    end
+
+    test "a catalog model naming a dialect under the wrong capability is skipped with a warning" do
+      log =
+        capture_log(fn ->
+          {_provider, models} =
+            assemble(
+              source:
+                catalog([], [
+                  model("a", @completions),
+                  Model.new(id: "b", name: "b", dialects: %{decision: @completions})
+                ])
+            )
+
+          assert Enum.map(models, & &1.id) == ["a"]
+        end)
+
+      assert log =~ "skipped 1 models with a dialect for another capability: b"
+    end
+
+    test "a decision model loads beside text models" do
+      {provider, models} =
+        assemble(
+          source:
+            catalog([], [
+              model("a", @completions),
+              Model.new(id: "d", name: "d", dialects: %{decision: Omni.Dialects.SystemOne})
+            ]),
+          dialects: %{Omni.Dialects.SystemOne => [base_url: "https://x.test/v1"]}
+        )
+
+      assert Enum.map(models, & &1.id) == ["a", "d"]
+      assert Provider.dialects(provider, :decision) == [Omni.Dialects.SystemOne]
+    end
+
+    test "put_model/1 raises for a dialect under the wrong capability" do
+      provider = Fixtures.provider()
+
+      model =
+        Model.new(id: "x", name: "x", provider: provider, dialects: %{decision: @completions})
+
+      assert_raise ArgumentError, ~r/:text dialect/, fn -> Loader.put_model(model) end
+    end
+
     test "put_model/1 raises for a model with no dialects" do
       provider = Fixtures.provider()
       model = Model.new(id: "x", name: "x", provider: provider)

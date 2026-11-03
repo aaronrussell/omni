@@ -59,6 +59,47 @@ defmodule Omni.UsageTest do
     end
   end
 
+  describe "price/2" do
+    test "computes costs and totals from the model's per-million rates" do
+      model = %Omni.Model{
+        id: "m",
+        name: "m",
+        input_cost: 3,
+        output_cost: 15,
+        cache_read_cost: 0.3,
+        cache_write_cost: 3.75
+      }
+
+      usage =
+        Usage.new(
+          input_tokens: 1_000_000,
+          output_tokens: 2_000_000,
+          cache_read_tokens: 1_000_000,
+          cache_write_tokens: 1_000_000
+        )
+        |> Usage.price(model)
+
+      assert usage.total_tokens == 5_000_000
+      assert usage.input_cost == 3.0
+      assert usage.output_cost == 30.0
+      assert usage.cache_read_cost == 0.3
+      assert usage.cache_write_cost == 3.75
+      assert_in_delta usage.total_cost, 37.05, 1.0e-9
+    end
+
+    test "a nil model or a nil rate costs nothing" do
+      usage = Usage.new(input_tokens: 100, output_tokens: 50)
+
+      assert %Usage{total_tokens: 150, total_cost: +0.0} = Usage.price(usage, nil)
+
+      model = %Omni.Model{id: "m", name: "m", input_cost: nil, output_cost: 10}
+      priced = Usage.price(usage, model)
+
+      assert priced.input_cost == 0.0
+      assert priced.output_cost == 50 * 10 / 1_000_000
+    end
+  end
+
   describe "sum/1" do
     test "reduces a list of usages" do
       usages = [

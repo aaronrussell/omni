@@ -2,7 +2,7 @@ defmodule Omni.Dialects.GoogleGemini do
   @moduledoc """
   Dialect implementation for the Google Gemini wire format.
 
-  See `Omni.Dialect` for the behaviour specification and delta types.
+  See `Omni.Dialect.Text` for the behaviour specification and delta types.
 
   ## Notable differences
 
@@ -16,7 +16,7 @@ defmodule Omni.Dialects.GoogleGemini do
   Flags are added as built-in providers need them.
   """
 
-  @behaviour Omni.Dialect
+  use Omni.Dialect, :text
 
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Dialect, Model}

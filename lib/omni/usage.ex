@@ -1,9 +1,10 @@
 defmodule Omni.Usage do
   @moduledoc """
-  Token counts and computed costs for a generation request.
+  Token counts and computed costs for a request.
 
   Costs are computed from token counts and the pricing data on the `%Model{}`
-  struct. Available on every `%Response{}` via `response.usage`.
+  struct (see `price/2`). Available on every `%Response{}` via
+  `response.usage`, and on every `%Decision{}` via `decision.usage`.
 
   ## Struct fields
 
@@ -46,6 +47,44 @@ defmodule Omni.Usage do
   @doc "Creates a new usage struct from a keyword list or map."
   @spec new(Enumerable.t()) :: t()
   def new(attrs), do: struct!(__MODULE__, attrs)
+
+  @doc """
+  Fills totals and costs from the token counts and a model's pricing.
+
+  Each cost is the token count times the model's rate per million tokens; a
+  missing rate (or a `nil` model) costs nothing. `:total_tokens` and
+  `:total_cost` are the sums of the four categories. Existing costs and
+  totals are overwritten.
+
+      usage = Usage.new(input_tokens: 1_000, output_tokens: 200)
+      Usage.price(usage, model)
+      #=> %Usage{input_tokens: 1000, output_tokens: 200, total_tokens: 1200,
+      #          input_cost: 0.003, output_cost: 0.003, total_cost: 0.006, ...}
+  """
+  @spec price(t(), Omni.Model.t() | nil) :: t()
+  def price(%__MODULE__{} = usage, model) do
+    input_cost = cost(usage.input_tokens, model, :input_cost)
+    output_cost = cost(usage.output_tokens, model, :output_cost)
+    cache_read_cost = cost(usage.cache_read_tokens, model, :cache_read_cost)
+    cache_write_cost = cost(usage.cache_write_tokens, model, :cache_write_cost)
+
+    %{
+      usage
+      | total_tokens:
+          usage.input_tokens + usage.output_tokens + usage.cache_read_tokens +
+            usage.cache_write_tokens,
+        input_cost: input_cost,
+        output_cost: output_cost,
+        cache_read_cost: cache_read_cost,
+        cache_write_cost: cache_write_cost,
+        total_cost: input_cost + output_cost + cache_read_cost + cache_write_cost
+    }
+  end
+
+  defp cost(tokens, model, field) do
+    rate = (model && Map.get(model, field)) || 0
+    tokens * rate / 1_000_000
+  end
 
   @doc "Sums corresponding fields of two usage structs."
   @spec add(t(), t()) :: t()

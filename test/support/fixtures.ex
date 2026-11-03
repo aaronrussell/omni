@@ -33,12 +33,14 @@ defmodule Omni.Test.Fixtures do
   end
 
   @doc """
-  A model struct. `:dialect` sets the text dialect; `:provider` takes provider
-  attrs or a struct. Other attrs are model fields.
+  A model struct. `:dialect` sets the dialect, for `:capability` (default
+  `:text`); `:provider` takes provider attrs or a struct. Other attrs are
+  model fields.
   """
   def model(attrs) do
     attrs = Map.new(attrs)
     {dialect, attrs} = Map.pop(attrs, :dialect, Omni.Dialects.OpenAICompletions)
+    {capability, attrs} = Map.pop(attrs, :capability, :text)
 
     provider =
       case Map.get(attrs, :provider) do
@@ -51,7 +53,7 @@ defmodule Omni.Test.Fixtures do
 
     attrs
     |> Map.put(:provider, provider)
-    |> Map.put(:dialects, %{text: dialect})
+    |> Map.put(:dialects, %{capability => dialect})
     |> Map.put_new(:name, attrs[:id])
     |> Model.new()
   end

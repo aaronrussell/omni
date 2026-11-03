@@ -6,7 +6,7 @@ defmodule Omni.RequestTest do
 
   defmodule DummyDialect do
     @moduledoc false
-    @behaviour Omni.Dialect
+    use Omni.Dialect, :text
 
     @impl true
     def option_schema, do: %{}
@@ -33,7 +33,7 @@ defmodule Omni.RequestTest do
 
   defmodule HeaderAuthDialect do
     @moduledoc false
-    @behaviour Omni.Dialect
+    use Omni.Dialect, :text
 
     @impl true
     def option_schema, do: %{}
@@ -69,7 +69,7 @@ defmodule Omni.RequestTest do
 
   defmodule EchoDialect do
     @moduledoc false
-    @behaviour Omni.Dialect
+    use Omni.Dialect, :text
 
     @impl true
     def option_schema, do: %{}
@@ -119,12 +119,12 @@ defmodule Omni.RequestTest do
     make_model(provider(dialects: %{DummyDialect => %Endpoint{base_url: base_url}}))
   end
 
-  describe "validate/2" do
+  describe "validate/3" do
     test "merges provider values with call-site opts" do
       model = make_model()
 
       {:ok, opts} =
-        Request.validate(model, api_key: "sk-test", max_tokens: 1024, temperature: 0.7)
+        Request.validate(model, :text, api_key: "sk-test", max_tokens: 1024, temperature: 0.7)
 
       assert opts.api_key == "sk-test"
       assert opts[:max_tokens] == 1024
@@ -134,21 +134,21 @@ defmodule Omni.RequestTest do
     test "api_key: call-site wins" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, api_key: "from-call")
+      {:ok, opts} = Request.validate(model, :text, api_key: "from-call")
       assert opts.api_key == "from-call"
     end
 
     test "api_key: provider value otherwise" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, [])
+      {:ok, opts} = Request.validate(model, :text, [])
       assert opts.api_key == {:system, "TEST_PROVIDER_KEY"}
     end
 
     test "provider struct fields other than api_key and headers are not options" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, [])
+      {:ok, opts} = Request.validate(model, :text, [])
       refute Map.has_key?(opts, :dialects)
       refute Map.has_key?(opts, :auth)
       refute Map.has_key?(opts, :host)
@@ -156,28 +156,30 @@ defmodule Omni.RequestTest do
 
     test "base_url is no longer an option" do
       assert {:error, {:unknown_options, [:base_url]}} =
-               Request.validate(make_model(), base_url: "https://custom.api.com")
+               Request.validate(make_model(), :text, base_url: "https://custom.api.com")
     end
 
     test "plug extraction" do
       model = make_model()
       plug = {Plug.Test, []}
 
-      {:ok, opts} = Request.validate(model, plug: plug)
+      {:ok, opts} = Request.validate(model, :text, plug: plug)
       assert opts.plug == plug
     end
 
     test "timeout defaults to 300_000" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, [])
+      {:ok, opts} = Request.validate(model, :text, [])
       assert opts.timeout == 300_000
     end
 
     test "inference opts pass through" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, max_tokens: 2048, thinking: :high, cache: :short)
+      {:ok, opts} =
+        Request.validate(model, :text, max_tokens: 2048, thinking: :high, cache: :short)
+
       assert opts[:max_tokens] == 2048
       assert opts[:thinking] == :high
       assert opts[:cache] == :short
@@ -186,7 +188,7 @@ defmodule Omni.RequestTest do
     test "headers merge additively: provider then call-site" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, headers: %{"x-call" => "from-call"})
+      {:ok, opts} = Request.validate(model, :text, headers: %{"x-call" => "from-call"})
 
       assert opts.headers["x-custom"] == "from-config"
       assert opts.headers["x-call"] == "from-call"
@@ -196,67 +198,67 @@ defmodule Omni.RequestTest do
       model = make_model()
 
       assert {:error, {:unknown_options, [:temperture]}} =
-               Request.validate(model, temperture: 0.7)
+               Request.validate(model, :text, temperture: 0.7)
     end
 
     test "max_tokens optional (nil when not provided)" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, [])
+      {:ok, opts} = Request.validate(model, :text, [])
       assert opts[:max_tokens] == nil
     end
 
     test "temperature accepts integer" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, temperature: 0)
+      {:ok, opts} = Request.validate(model, :text, temperature: 0)
       assert opts[:temperature] == 0
     end
 
     test "temperature accepts float" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, temperature: 0.5)
+      {:ok, opts} = Request.validate(model, :text, temperature: 0.5)
       assert opts[:temperature] == 0.5
     end
 
     test "thinking accepts true" do
       model = make_model()
 
-      assert {:ok, %{thinking: true}} = Request.validate(model, thinking: true)
+      assert {:ok, %{thinking: true}} = Request.validate(model, :text, thinking: true)
     end
 
     test "thinking rejects :none" do
       model = make_model()
 
-      assert {:error, _} = Request.validate(model, thinking: :none)
+      assert {:error, _} = Request.validate(model, :text, thinking: :none)
     end
 
     test "thinking accepts boolean false" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, thinking: false)
+      {:ok, opts} = Request.validate(model, :text, thinking: false)
       assert opts[:thinking] == false
     end
 
     test "thinking accepts effort atom" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, thinking: :high)
+      {:ok, opts} = Request.validate(model, :text, thinking: :high)
       assert opts[:thinking] == :high
     end
 
     test "thinking accepts :xhigh effort" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, thinking: :xhigh)
+      {:ok, opts} = Request.validate(model, :text, thinking: :xhigh)
       assert opts[:thinking] == :xhigh
     end
 
     test "thinking accepts keyword list (converted to map by Peri)" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, thinking: [effort: :high, budget: 10000])
+      {:ok, opts} = Request.validate(model, :text, thinking: [effort: :high, budget: 10000])
       assert opts[:thinking].effort == :high
       assert opts[:thinking].budget == 10000
     end
@@ -264,54 +266,54 @@ defmodule Omni.RequestTest do
     test "thinking rejects invalid value" do
       model = make_model()
 
-      assert {:error, _} = Request.validate(model, thinking: "invalid")
+      assert {:error, _} = Request.validate(model, :text, thinking: "invalid")
     end
 
     test "cache accepts :short" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, cache: :short)
+      {:ok, opts} = Request.validate(model, :text, cache: :short)
       assert opts[:cache] == :short
     end
 
     test "cache accepts :long" do
       model = make_model()
 
-      {:ok, opts} = Request.validate(model, cache: :long)
+      {:ok, opts} = Request.validate(model, :text, cache: :long)
       assert opts[:cache] == :long
     end
 
     test "cache rejects invalid value" do
       model = make_model()
 
-      assert {:error, _} = Request.validate(model, cache: :invalid)
+      assert {:error, _} = Request.validate(model, :text, cache: :invalid)
     end
 
     test "max_tokens rejects non-integer" do
       model = make_model()
 
-      assert {:error, _} = Request.validate(model, max_tokens: "big")
+      assert {:error, _} = Request.validate(model, :text, max_tokens: "big")
     end
 
     test "output accepts map" do
       model = make_model()
       schema = %{type: :object, properties: %{name: %{type: :string}}}
 
-      {:ok, opts} = Request.validate(model, output: schema)
+      {:ok, opts} = Request.validate(model, :text, output: schema)
       assert opts[:output] == schema
     end
 
     test "output rejects non-map" do
       model = make_model()
 
-      assert {:error, _} = Request.validate(model, output: "not a map")
+      assert {:error, _} = Request.validate(model, :text, output: "not a map")
     end
 
     test "dialect option_schema merge overrides universal schema" do
       # Create a dialect that overrides max_tokens with a default
       defmodule OverrideDialect do
         @moduledoc false
-        @behaviour Omni.Dialect
+        use Omni.Dialect, :text
 
         @impl true
         def option_schema, do: %{max_tokens: {:integer, {:default, 4096}}}
@@ -334,7 +336,7 @@ defmodule Omni.RequestTest do
 
       model = make_model(@provider, OverrideDialect)
 
-      {:ok, opts} = Request.validate(model, [])
+      {:ok, opts} = Request.validate(model, :text, [])
       assert opts[:max_tokens] == 4096
     end
   end
@@ -897,6 +899,154 @@ defmodule Omni.RequestTest do
 
       assert [{:message, %{model: "test"}}] =
                Request.parse_event(model, %{"type" => "message_start"})
+    end
+  end
+
+  describe "decisions" do
+    alias Omni.{Answer, Decision, Usage}
+
+    @decision_provider %Omni.Provider{
+      id: :decision_test,
+      api_key: "sk-test",
+      auth: :dialect,
+      headers: %{},
+      dialects: %{
+        Omni.Dialects.SystemOne => %Endpoint{base_url: "https://api.typesafe.test/v1"},
+        Omni.Dialects.OpenAIDecisions => %Endpoint{base_url: "https://api.openai.test/v1"}
+      }
+    }
+
+    defp decision_model(dialect \\ Omni.Dialects.SystemOne, provider \\ @decision_provider) do
+      Omni.Model.new(
+        id: "jev-1.14",
+        name: "Jev",
+        provider: provider,
+        dialects: %{decision: dialect},
+        input_cost: 0.042
+      )
+    end
+
+    defp spam_decision,
+      do: Decision.new({"Buy cheap watches!", [spam: Omni.predicate("Is this spam?")]})
+
+    test "build/3 posts JSON to the decision endpoint, not streamed, with auth" do
+      assert {:ok, req} = Request.build(decision_model(), spam_decision(), [])
+
+      assert URI.to_string(req.url) == "https://api.typesafe.test/v1/systemone"
+      assert req.method == :post
+      assert req.into == nil
+      assert Req.Request.get_header(req, "authorization") == ["Bearer sk-test"]
+
+      assert req.options[:json]["questions"] == %{
+               "spam" => %{"type" => "noul", "instructions" => "Is this spam?"}
+             }
+    end
+
+    test "build/3 moves the origin with a call-site host:" do
+      assert {:ok, req} =
+               Request.build(decision_model(), spam_decision(), host: "http://localhost:4000")
+
+      assert URI.to_string(req.url) == "http://localhost:4000/v1/systemone"
+    end
+
+    test "build/3 takes the dialect's options and rejects text options" do
+      model = decision_model(Omni.Dialects.OpenAIDecisions)
+
+      assert {:ok, req} = Request.build(model, spam_decision(), safety_identifier: "user-1")
+      assert req.options[:json]["safety_identifier"] == "user-1"
+
+      assert {:error, {:unknown_options, [:max_tokens]}} =
+               Request.build(model, spam_decision(), max_tokens: 100)
+    end
+
+    test "build/3 validates the decision before any request" do
+      bad = Decision.new({"x", [team: Omni.choice("Which?", [:one])]})
+      assert {:error, [%Peri.Error{message: message}]} = Request.build(decision_model(), bad, [])
+      assert message =~ "at least two choices"
+    end
+
+    test "build/3 needs a decision dialect and an endpoint for it" do
+      text_model = make_model()
+
+      assert Request.build(text_model, spam_decision(), []) ==
+               {:error, {:unsupported_capability, :decision}}
+
+      assert Request.build(decision_model(), Omni.Context.new("Hi"), []) ==
+               {:error, {:unsupported_capability, :text}}
+
+      no_endpoint = decision_model(Omni.Dialects.SystemOne, %{@decision_provider | dialects: %{}})
+
+      assert Request.build(no_endpoint, spam_decision(), []) ==
+               {:error, {:no_endpoint, Omni.Dialects.SystemOne}}
+    end
+
+    test "build/3 passes the decision to the provider module's modify_body/4" do
+      defmodule DecisionHook do
+        @behaviour Omni.Provider
+
+        @impl true
+        def modify_body(body, _model, %Decision{questions: questions}, _opts),
+          do: Map.put(body, "count", length(questions))
+      end
+
+      model =
+        decision_model(Omni.Dialects.SystemOne, %{@decision_provider | module: DecisionHook})
+
+      assert {:ok, req} = Request.build(model, spam_decision(), [])
+      assert req.options[:json]["count"] == 1
+    end
+
+    defp send_decision(stub, opts \\ []) do
+      model = decision_model()
+      decision = spam_decision()
+      {:ok, req} = Request.build(model, decision, plug: {Req.Test, stub})
+      Request.send(req, model, decision, opts)
+    end
+
+    test "send/4 decodes the answer and prices the usage" do
+      Req.Test.stub(:decision_ok, fn conn ->
+        Req.Test.json(conn, %{
+          "answers" => %{"spam" => %{"type" => "noul", "noul" => 0.98}},
+          "usage" => %{"input_tokens" => 1_000_000, "output_tokens" => 1}
+        })
+      end)
+
+      assert {:ok, %Decision{} = decision} = send_decision(:decision_ok)
+      assert decision.answers == [spam: %Answer.Predicate{probability: 0.98}]
+
+      assert %Usage{input_tokens: 1_000_000, input_cost: 0.042, total_tokens: 1_000_001} =
+               decision.usage
+
+      assert decision.model.id == "jev-1.14"
+      assert decision.raw == nil
+    end
+
+    test "send/4 decodes a JSON body Req left as text, and attaches raw on request" do
+      Req.Test.stub(:decision_text, fn conn ->
+        body = JSON.encode!(%{"answers" => %{"spam" => %{"type" => "noul", "noul" => 0.5}}})
+        Plug.Conn.send_resp(conn, 200, body)
+      end)
+
+      assert {:ok, %Decision{raw: {%Req.Request{}, %Req.Response{}}} = decision} =
+               send_decision(:decision_text, raw: true)
+
+      assert decision.answers == [spam: %Answer.Predicate{probability: 0.5}]
+      assert decision.usage.total_tokens == 0
+    end
+
+    test "send/4 returns HTTP errors with the parsed body" do
+      Req.Test.stub(:decision_422, fn conn ->
+        conn
+        |> Plug.Conn.put_status(422)
+        |> Req.Test.json(%{"detail" => [%{"msg" => "Field required"}]})
+      end)
+
+      assert {:error, {:http_error, 422, %{"detail" => _}}} = send_decision(:decision_422)
+    end
+
+    test "send/4 rejects a body that isn't a JSON object" do
+      Req.Test.stub(:decision_html, fn conn -> Plug.Conn.send_resp(conn, 200, "<html>") end)
+      assert {:error, {:invalid_response, "<html>"}} = send_decision(:decision_html)
     end
   end
 end
