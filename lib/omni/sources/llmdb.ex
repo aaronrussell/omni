@@ -15,10 +15,13 @@ defmodule Omni.Sources.LLMDB do
 
       {:llm_db, "~> 2026.7"}
 
-  Models are read from llm_db's catalog store and transformed at load time:
-  retired models and those without tool use or text modalities are filtered
-  out (deprecated models are kept — they remain callable), as are those
-  llm_db marks `catalog_only` (described, but not callable), aliases are
+  Models are read from llm_db's catalog store and transformed at load time.
+  A model loads for text when llm_db says it chats, supports tool use and
+  takes and produces text, and for decisions when it has an
+  `execution.evaluate` entry; a model may qualify for both (OpenAI's
+  `gpt-6-luna`). Retired models are filtered out (deprecated models are
+  kept — they remain callable), as are those llm_db marks `catalog_only`
+  (described, but not callable). Aliases are
   expanded so friendly ids keep resolving (canonical records win on id
   collisions), and negative cost sentinels are clamped to zero. Models that
   still fail to build are skipped with a warning.
@@ -36,8 +39,12 @@ defmodule Omni.Sources.LLMDB do
 
   ## Dialect resolution
 
-  Catalog data is the source of truth, resolved per model: the wire
-  protocol, then npm package metadata. A model whose npm package maps to no
+  Catalog data is the source of truth, resolved per model and capability.
+  For text: the wire protocol, then npm package metadata. For decisions:
+  `execution.evaluate.family`, where `typesafe_systemone` and
+  `openrouter_decisions` (OpenRouter's alpha route for the same wire) are
+  System One and `openai_decisions` is OpenAI Decisions; other families are
+  skipped. A model whose npm package maps to no
   dialect is skipped with a warning, as is one with no signal at all, and
   one served from a different URL than the first model of its dialect.
   Known upstream data issue: `wire_protocol`
@@ -71,6 +78,16 @@ defmodule Omni.Sources.LLMDB do
     "@ai-sdk/xai" => "openai_responses",
     "@openrouter/ai-sdk-provider" => "openai_completions",
     "venice-ai-sdk-provider" => "openai_completions"
+  }
+
+  # execution.evaluate.family -> decision dialect. OpenRouter's family
+  # names its alpha Decisions route, which takes the System One wire; Omni
+  # sends to its stable /systemone route instead (the endpoint URL comes
+  # from Omni.Providers.OpenRouter). Other families are skipped.
+  @family_to_decision_dialect %{
+    "openai_decisions" => "openai_decisions",
+    "openrouter_decisions" => "systemone",
+    "typesafe_systemone" => "systemone"
   }
 
   @supported_dialects [
@@ -187,11 +204,16 @@ defmodule Omni.Sources.LLMDB do
   # Retired models are dropped; deprecated ones are kept — they remain
   # callable. (ModelsDev filters on deprecated instead; aligning the two is
   # a future decision.) Catalog-only models are ones llm_db describes but
-  # says can't be called.
+  # says can't be called. What's left loads for text, decisions, or both.
   defp eligible?(model) do
-    chat?(model) and tools?(model) and not LLMDB.Model.retired?(model) and
-      text_in_and_out?(model) and Map.get(model, :catalog_only) != true
+    not LLMDB.Model.retired?(model) and Map.get(model, :catalog_only) != true and
+      (text?(model) or decision?(model))
   end
+
+  defp text?(model), do: chat?(model) and tools?(model) and text_in_and_out?(model)
+
+  defp decision?(%{execution: %{evaluate: %{supported: true}}}), do: true
+  defp decision?(_model), do: false
 
   defp chat?(%{capabilities: %{chat: true}}), do: true
   defp chat?(_model), do: false
@@ -210,10 +232,10 @@ defmodule Omni.Sources.LLMDB do
   # across llm_db versions — the rescue keeps one bad model from failing the
   # whole provider.
   defp transform_model(model, provider_id) do
-    with {:ok, dialect} <- infer_dialect(model) do
+    with {:ok, dialects} <- model_dialects(model) do
       cost = model.cost || %{}
       limits = model.limits || %{}
-      %{input: input, output: output} = model.modalities
+      %{input: input, output: output} = modalities(model)
 
       {:ok,
        %{
@@ -222,7 +244,7 @@ defmodule Omni.Sources.LLMDB do
          "reasoning" => reasoning?(model),
          "reasoning_options" => reasoning_options(model),
          "release_date" => model.release_date,
-         "dialect" => dialect,
+         "dialects" => dialects,
          "url" => model.base_url,
          "input_modalities" => filter_modalities(input, @supported_input_modalities),
          "output_modalities" => filter_modalities(output, @supported_output_modalities),
@@ -243,6 +265,38 @@ defmodule Omni.Sources.LLMDB do
   defp skip(provider_id, model_id, reason) do
     Logger.warning("Omni.Sources.LLMDB: skipping #{provider_id}:#{model_id}: #{reason}")
     :skip
+  end
+
+  # A dialect per capability the model qualifies for. A model is skipped
+  # only when it ends up with none; a decision model that also has an
+  # unmappable text signal keeps its decision dialect, and vice versa.
+  defp model_dialects(model) do
+    results =
+      [
+        text?(model) && infer_dialect(model),
+        decision?(model) && decision_dialect(model)
+      ]
+      |> Enum.filter(& &1)
+
+    case for({:ok, dialect} <- results, do: dialect) do
+      [] -> Enum.find(results, &match?({:skip, _}, &1))
+      dialects -> {:ok, dialects}
+    end
+  end
+
+  # llm_db's decision models carry no modalities of their own (TypeSafe) or
+  # an output of [:decisions]; either way they take text in.
+  defp modalities(%{modalities: %{input: input, output: output}})
+       when is_list(input) and is_list(output),
+       do: %{input: input, output: output}
+
+  defp modalities(_model), do: %{input: [:text], output: [:text]}
+
+  defp decision_dialect(%{execution: %{evaluate: %{family: family}}}) do
+    case @family_to_decision_dialect[family] do
+      nil -> {:skip, "decision family #{inspect(family)} maps to no decision dialect"}
+      dialect -> {:ok, dialect}
+    end
   end
 
   # Catalog data is the source of truth: the wire protocol, then npm

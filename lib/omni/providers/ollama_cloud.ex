@@ -9,10 +9,11 @@ defmodule Omni.Providers.OllamaCloud do
   a local Ollama instance, use `Omni.Providers.Ollama`.
 
   The catalog describes Ollama's OpenAI-compatible endpoint. Omni uses the
-  native chat API at `https://ollama.com` instead, so every model is given
-  the Ollama Chat dialect when the provider loads, in the module's
-  `c:Omni.Provider.models/2`. That runs after config `models:` entries are
-  merged, so a `:dialects` set in config is replaced too.
+  native chat API at `https://ollama.com` instead, so every text model (and
+  every config model that names no dialect) is given the Ollama Chat dialect
+  when the provider loads, in the module's `c:Omni.Provider.models/2`. That
+  runs after config `models:` entries are merged, so a text dialect set in
+  config is replaced too. Decision-only models are left alone.
 
   ## Limitations
 
@@ -27,6 +28,8 @@ defmodule Omni.Providers.OllamaCloud do
 
   @behaviour Omni.Provider
 
+  alias Omni.Model
+
   @impl true
   def config do
     [
@@ -36,9 +39,14 @@ defmodule Omni.Providers.OllamaCloud do
   end
 
   # Catalog data describes Ollama's OpenAI-compatible endpoint; Omni uses the
-  # native chat API, so every model is re-stamped with its dialect.
+  # native chat API, so every text model is re-stamped with its dialect. A
+  # config model naming no dialect gets it too; decision-only models don't.
   @impl true
   def models(models, _provider) do
-    Enum.map(models, &%{&1 | dialects: Map.put(&1.dialects, :text, Omni.Dialects.OllamaChat)})
+    Enum.map(models, fn model ->
+      if Model.capability?(model, :text) or model.dialects == %{},
+        do: %{model | dialects: Map.put(model.dialects, :text, Omni.Dialects.OllamaChat)},
+        else: model
+    end)
   end
 end

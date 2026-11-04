@@ -10,7 +10,7 @@ Omni is an Elixir library for interacting with LLM APIs across multiple provider
 - **Providers** — data structs for the authenticated HTTP layer (an endpoint per dialect they serve, with its URL and compat flags; how to authenticate), assembled from catalog data, an optional provider module, and config
 - **Dialects** — wire format translation (how to build request bodies, parse streaming events)
 
-The relationship: ~4-5 dialects, hundreds of possible providers (16 built-ins; any models.dev catalog provider loads by id; most speak one dialect, though multi-model gateways like OpenCode Zen use several), thousands of models (each belonging to one provider). Each `%Model{}` embeds its `%Provider{}` and names its dialect per capability, so dispatch is always per-model. All requests are streaming-first; `generate_text` is built on top of `stream_text`.
+The relationship: ~4-5 dialects, hundreds of possible providers (17 built-ins; any models.dev catalog provider loads by id; most speak one dialect, though multi-model gateways like OpenCode Zen use several), thousands of models (each belonging to one provider). Each `%Model{}` embeds its `%Provider{}` and names its dialect per capability, so dispatch is always per-model. All requests are streaming-first; `generate_text` is built on top of `stream_text`.
 
 The agent system (`Omni.Agent`) lives in a separate package — [`omni_agent`](https://github.com/aaronrussell/omni_agent). This package is purely the stateless LLM API layer.
 
@@ -36,7 +36,7 @@ MIX_ENV=test mix run test/support/fixtures/<dir>/capture.exs   # Record missing 
 
 Run `mix precommit` before considering any change done. It fixes formatting and prunes unused lock entries in place; CI runs the non-mutating equivalents (`format --check-formatted`, `deps.unlock --check-unused`) and fails on any warning. Don't run it with `OMNI_SKIP_LLMDB` set — the unlock step would drop `llm_db` from `mix.lock`.
 
-`mix omni.snapshot` writes the full [models.dev](https://models.dev) catalog to `priv/models/models_dev.json` (checked into the repo) — content verbatim, encoding normalized (pretty-printed, sorted keys) for diffable git history. `Omni.Sources.ModelsDev` transforms the snapshot at load time — filtering out deprecated models and those without tool use support, and inferring each model's `dialect` from models.dev's npm package metadata. A live mode (`source: {Omni.Sources.ModelsDev, live: true}`) fetches fresh catalog data from models.dev at boot with a tmp-dir disk cache, degrading to stale cache and then the bundled snapshot when unreachable. Run the task manually when model data needs refreshing, and update the golden test expectations (`test/omni/sources/models_dev_golden_test.exs`) alongside.
+`mix omni.snapshot` writes the [models.dev](https://models.dev) catalog's chat and decision models (`api.json?type=chat,decision`) to `priv/models/models_dev.json` (checked into the repo) — content verbatim, encoding normalized (pretty-printed, sorted keys) for diffable git history. `Omni.Sources.ModelsDev` transforms the snapshot at load time — loading each model for one capability by its catalog `type` (untyped or `chat` → text, which must support tool use; `decision` → decision), filtering out deprecated models and every other type, and inferring each model's dialect from models.dev's npm package metadata (a separate table for decision models). A live mode (`source: {Omni.Sources.ModelsDev, live: true}`) fetches fresh catalog data from models.dev at boot with a tmp-dir disk cache, degrading to stale cache and then the bundled snapshot when unreachable. Run the task manually when model data needs refreshing, and update the golden test expectations (`test/omni/sources/models_dev_golden_test.exs`) alongside.
 
 ## Dependencies
 
@@ -119,7 +119,8 @@ lib/mix/tasks/omni.{snapshot,verify}.ex
 - `Tool.execute/2` validates and casts input via Peri before calling the handler — string-keyed LLM input maps back to schema key types.
 - `Model.thinking` is `false`, `true` (reasons, no detail), or `%{efforts, toggle, budget}` from catalog `reasoning_options`. Dialects translate the `:thinking` option through `Omni.Dialect.Thinking.resolve/2` (shared clamping and budgets); no dialect matches on model-name prefixes for thinking. `thinking: true` is dynamic thinking.
 - Compat flags are named by wire shape or Omni concept, never by provider; absent means the dialect's home-API behaviour. A flag ships only with a built-in provider that uses it.
-- Supported modalities defined on `Omni.Model`. Input: `:text`, `:image`, `:pdf`. Output: `:text`.
+- A **capability** is a kind of request (`:text`, `:decision`): the keys of `Model.dialects`, read with `Model.capabilities/1`, `capability?/2` and `dialect/2`. A **modality** is a kind of content (`:text`, `:image`, `:pdf`). Don't mix the terms; `:text` is both. Thinking and tool use are text features; every catalog text model supports tool use (sources filter out the rest).
+- Supported modalities defined on `Omni.Model`. Input: `:text`, `:image`, `:pdf`. Output: `:text` (a decision's answers count as text).
 - Structured output wire format is dialect-specific. Each dialect applies its own strictness mechanism.
 - `%Response{}` carries `messages`, `usage`, and `stop_reason` (includes `:cancelled`). `:message` is optional.
 - Filesystem path naming: `*_dir` for directories, `*_file` for files, `*_path` for generic or non-filesystem paths (e.g. URL paths). Applies to config keys, function params, variables, and module attributes.

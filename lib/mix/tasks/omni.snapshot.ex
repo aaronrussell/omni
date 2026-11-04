@@ -2,13 +2,15 @@ defmodule Mix.Tasks.Omni.Snapshot do
   @shortdoc "Captures a models.dev snapshot"
 
   @moduledoc """
-  Fetches the full models.dev catalog and writes it to
-  `priv/models/models_dev.json`.
+  Fetches the models.dev catalog's chat and decision models and writes them
+  to `priv/models/models_dev.json`.
 
       mix omni.snapshot
 
-  The snapshot content is the raw API response — all providers, no
-  transformation, no filtering. `Omni.Sources.ModelsDev` transforms it into
+  The snapshot content is the raw API response for
+  `api.json?type=chat,decision` — all providers, no transformation. The
+  query leaves out the catalog's other model types (image, embedding,
+  speech, realtime, ...), which Omni can't call. `Omni.Sources.ModelsDev` transforms it into
   `%Omni.Model{}` structs at load time; keeping the snapshot unpruned lets
   custom providers point at any models.dev catalog, not just Omni's built-ins.
 
@@ -22,7 +24,7 @@ defmodule Mix.Tasks.Omni.Snapshot do
 
   use Mix.Task
 
-  @api_url "https://models.dev/api.json"
+  @api_url "https://models.dev/api.json?type=chat,decision"
   @snapshot_file "priv/models/models_dev.json"
 
   @impl Mix.Task

@@ -33,4 +33,32 @@ defmodule Omni.Providers.OllamaCloudTest do
       end
     end
   end
+
+  describe "models/2" do
+    test "moves text models to OllamaChat and leaves decision models alone" do
+      text =
+        Omni.Model.new(id: "t", name: "t", dialects: %{text: Omni.Dialects.OpenAICompletions})
+
+      bare = Omni.Model.new(id: "b", name: "b")
+
+      decision =
+        Omni.Model.new(id: "d", name: "d", dialects: %{decision: Omni.Dialects.SystemOne})
+
+      both =
+        Omni.Model.new(
+          id: "both",
+          name: "both",
+          dialects: %{text: Omni.Dialects.OpenAICompletions, decision: Omni.Dialects.SystemOne}
+        )
+
+      assert [text, bare, ^decision, both] = OllamaCloud.models([text, bare, decision, both], nil)
+      assert text.dialects == %{text: Omni.Dialects.OllamaChat}
+      assert bare.dialects == %{text: Omni.Dialects.OllamaChat}
+
+      assert both.dialects == %{
+               text: Omni.Dialects.OllamaChat,
+               decision: Omni.Dialects.SystemOne
+             }
+    end
+  end
 end

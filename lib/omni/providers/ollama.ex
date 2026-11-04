@@ -1,10 +1,10 @@
 defmodule Omni.Providers.Ollama do
   @moduledoc """
   Provider for a local Ollama instance, using the `Omni.Dialects.OllamaChat`
-  dialect.
+  dialect for text and `Omni.Dialects.SystemOne` for decisions.
 
   Provider id `:ollama`. Talks to `http://localhost:11434` with no
-  authentication. For Ollama's hosted service, use `Omni.Providers.OllamaCloud`.
+  authentication: chat at `/api/chat`, decisions at `/v1/systemone`. For Ollama's hosted service, use `Omni.Providers.OllamaCloud`.
 
   ## Models
 
@@ -22,12 +22,25 @@ defmodule Omni.Providers.Ollama do
         ]
 
   Models listed this way speak `Omni.Dialects.OllamaChat`; an entry that
-  names its own `:dialects` keeps them. Without this config the provider
-  loads no models.
+  names its own `:dialects` keeps them. A decision model names its decision
+  dialect, and a model that serves both names both:
+
+      config :omni, :providers,
+        ollama: [
+          models: [
+            [id: "clef", dialects: %{decision: Omni.Dialects.SystemOne}],
+            [
+              id: "both",
+              dialects: %{text: Omni.Dialects.OllamaChat, decision: Omni.Dialects.SystemOne}
+            ]
+          ]
+        ]
+
+  Without this config the provider loads no models.
 
   ## Configuration
 
-  For another host or port, set `:host`:
+  For another host or port, set `:host`, which moves both endpoints:
 
       config :omni, :providers,
         ollama: [host: "http://192.168.1.10:11434"]
@@ -51,7 +64,10 @@ defmodule Omni.Providers.Ollama do
   def config do
     [
       auth: :none,
-      dialects: %{Omni.Dialects.OllamaChat => [base_url: "http://localhost:11434"]}
+      dialects: %{
+        Omni.Dialects.OllamaChat => [base_url: "http://localhost:11434"],
+        Omni.Dialects.SystemOne => [base_url: "http://localhost:11434/v1"]
+      }
     ]
   end
 

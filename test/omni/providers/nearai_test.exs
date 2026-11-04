@@ -20,19 +20,32 @@ defmodule Omni.Providers.NearAITest do
       {provider, models} = Loader.assemble(:nearai)
 
       assert provider.module == NearAI
-      assert Map.keys(provider.dialects) == [Omni.Dialects.OpenAICompletions]
+      assert Map.has_key?(provider.dialects, Omni.Dialects.OpenAICompletions)
       assert models != []
 
-      for model <- models do
+      for model <- models, Omni.Model.capability?(model, :text) do
         assert model.provider == provider
         assert model.dialects == %{text: Omni.Dialects.OpenAICompletions}
       end
     end
 
+    # Catalogued as System One at the provider URL; unverified, as NEAR AI
+    # doesn't document the endpoint and there is no key to try it with.
+    test "loads the catalog's decision models over System One" do
+      {provider, models} = Loader.assemble(:nearai)
+      decision = Enum.filter(models, &Omni.Model.capability?(&1, :decision))
+
+      assert Enum.map(decision, & &1.id) == ["levanto/sage-1.4", "typesafe/jev-1.13"]
+      assert Enum.all?(decision, &(&1.dialects == %{decision: Omni.Dialects.SystemOne}))
+
+      assert provider.dialects[Omni.Dialects.SystemOne].base_url ==
+               "https://cloud-api.near.ai/v1"
+    end
+
     test "includes TEE-backed NEAR AI models from the catalog" do
       {_provider, models} = Loader.assemble(:nearai)
 
-      assert Enum.any?(models, &(&1.id == "zai-org/GLM-5.1-FP8"))
+      assert Enum.any?(models, &(&1.id == "z-ai/glm-5.3"))
       assert Enum.any?(models, &(&1.id == "Qwen/Qwen3.6-35B-A3B-FP8"))
     end
   end

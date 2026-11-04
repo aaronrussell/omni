@@ -47,6 +47,7 @@ by default — if your keys are set, no configuration is needed:
 | OpenCode | `:opencode` | `OPENCODE_API_KEY` |
 | OpenRouter | `:openrouter` | `OPENROUTER_API_KEY` |
 | Together AI | `:togetherai` | `TOGETHER_API_KEY` |
+| TypeSafe (decisions only) | `:typesafe` | `TYPESAFE_API_KEY` |
 | Venice AI | `:venice` | `VENICE_API_KEY` |
 | xAI | `:xai` | `XAI_API_KEY` |
 | Z.ai | `:zai` | `ZAI_API_KEY` |

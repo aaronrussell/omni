@@ -270,7 +270,7 @@ defmodule Omni do
   Asks a decision model typed questions about a shared state.
 
   The model can be a `%Model{}` struct or a `{provider_id, model_id}` tuple,
-  and must serve decisions (see `Omni.Model.supports?/2`). The decision is a
+  and must serve decisions (see `Omni.Model.capability?/2`). The decision is a
   `%Omni.Decision{}` or the shorthand `{state, questions}`: the state is a
   string, a map, or a list, and the questions a keyword list built with
   `predicate/2`, `choice/2` and `score/2`.

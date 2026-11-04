@@ -70,6 +70,77 @@ if Code.ensure_loaded?(LLMDB) do
       end
     end
 
+    describe "transform_provider/2 decisions" do
+      defp evaluate(family),
+        do: %{supported: true, family: family, wire_protocol: family, path: "/v1/systemone"}
+
+      defp decision_model(id, family, overrides \\ %{}) do
+        llmdb_model(
+          id,
+          Map.merge(
+            %{
+              execution: %{evaluate: evaluate(family)},
+              capabilities: %{chat: false, tools: %{enabled: false}, evaluate: true},
+              modalities: nil,
+              cost: %{input: 0.042, output: 0.0}
+            },
+            overrides
+          )
+        )
+      end
+
+      test "loads models with an evaluate entry, mapped by family" do
+        models = [
+          decision_model("jev", "typesafe_systemone"),
+          decision_model("routed", "openrouter_decisions"),
+          decision_model("luna", "openai_decisions", %{
+            modalities: %{input: [:text], output: [:decisions]}
+          })
+        ]
+
+        by_id = models |> Source.transform_provider(:test) |> Map.new(&{&1.id, &1})
+
+        assert by_id["jev"].dialects == %{decision: Omni.Dialects.SystemOne}
+        assert by_id["routed"].dialects == %{decision: Omni.Dialects.SystemOne}
+        assert by_id["luna"].dialects == %{decision: Omni.Dialects.OpenAIDecisions}
+
+        # No modalities (TypeSafe), or an output of [:decisions], is text.
+        for model <- Map.values(by_id) do
+          assert model.input_modalities == [:text]
+          assert model.output_modalities == [:text]
+        end
+      end
+
+      test "a model with text and evaluate entries serves both" do
+        model =
+          llmdb_model("gpt-6-luna", %{
+            execution: Map.put(@chat, :evaluate, evaluate("openai_decisions"))
+          })
+
+        assert [loaded] = Source.transform_provider([model], :test)
+
+        assert loaded.dialects == %{
+                 text: Omni.Dialects.OpenAICompletions,
+                 decision: Omni.Dialects.OpenAIDecisions
+               }
+      end
+
+      test "skips with a warning a family no dialect speaks, and catalog-only models" do
+        models = [
+          decision_model("run", "cloudflare_ai_run"),
+          decision_model("described", "typesafe_systemone", %{catalog_only: true}),
+          decision_model("jev", "typesafe_systemone")
+        ]
+
+        {loaded, log} = with_log(fn -> Source.transform_provider(models, :test) end)
+
+        assert Enum.map(loaded, & &1.id) == ["jev"]
+
+        assert log =~
+                 ~s(skipping test:run: decision family "cloudflare_ai_run" maps to no decision dialect)
+      end
+    end
+
     describe "transform_provider/2 reasoning" do
       # capabilities.reasoning.enabled is unreliable upstream — the transform
       # ORs it with signals from the extra passthrough.

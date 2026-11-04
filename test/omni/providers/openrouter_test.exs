@@ -11,6 +11,9 @@ defmodule Omni.Providers.OpenRouterTest do
       assert config.dialects[Omni.Dialects.OpenAICompletions][:base_url] ==
                "https://openrouter.ai/api/v1"
 
+      assert config.dialects[Omni.Dialects.SystemOne][:base_url] ==
+               "https://openrouter.ai/api/v1"
+
       assert config.api_key == {:system, "OPENROUTER_API_KEY"}
     end
   end
@@ -20,13 +23,27 @@ defmodule Omni.Providers.OpenRouterTest do
       {provider, models} = Loader.assemble(:openrouter)
 
       assert provider.module == OpenRouter
-      assert Map.keys(provider.dialects) == [Omni.Dialects.OpenAICompletions]
+
+      assert Enum.sort(Map.keys(provider.dialects)) == [
+               Omni.Dialects.OpenAICompletions,
+               Omni.Dialects.SystemOne
+             ]
+
       assert models != []
 
-      for model <- models do
+      for model <- models, Omni.Model.capability?(model, :text) do
         assert model.provider == provider
         assert model.dialects == %{text: Omni.Dialects.OpenAICompletions}
       end
+    end
+
+    test "loads the catalog's decision models over System One" do
+      {_provider, models} = Loader.assemble(:openrouter)
+      decision = Enum.filter(models, &Omni.Model.capability?(&1, :decision))
+
+      assert length(decision) >= 20
+      assert Enum.all?(decision, &(&1.dialects == %{decision: Omni.Dialects.SystemOne}))
+      assert Enum.any?(decision, &(&1.id == "typesafe/jev-1.14"))
     end
   end
 

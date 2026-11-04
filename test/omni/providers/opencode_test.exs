@@ -26,16 +26,18 @@ defmodule Omni.Providers.OpenCodeTest do
                  Omni.Dialects.AnthropicMessages,
                  Omni.Dialects.GoogleGemini,
                  Omni.Dialects.OpenAICompletions,
-                 Omni.Dialects.OpenAIResponses
+                 Omni.Dialects.OpenAIResponses,
+                 Omni.Dialects.SystemOne
                ])
 
-      by_id = Map.new(models, &{&1.id, &1.dialects.text})
+      by_id = Map.new(models, &{&1.id, &1.dialects[:text] || &1.dialects[:decision]})
       assert by_id["claude-haiku-4-5"] == Omni.Dialects.AnthropicMessages
       assert by_id["gpt-5.2"] == Omni.Dialects.OpenAIResponses
       assert by_id["kimi-k2.5"] == Omni.Dialects.OpenAICompletions
       assert by_id["gemini-3-flash"] == Omni.Dialects.GoogleGemini
       # Zen serves Mistral models on Chat Completions
       assert by_id["mistral-large-4"] == Omni.Dialects.OpenAICompletions
+      assert by_id["jev-1.13"] == Omni.Dialects.SystemOne
     end
   end
 
@@ -47,9 +49,16 @@ defmodule Omni.Providers.OpenCodeTest do
                thinking_replay_format: :reasoning_content
              }
 
-      for {_dialect, endpoint} <- provider.dialects do
-        assert endpoint.base_url == "https://opencode.ai/zen/v1"
-      end
+      urls =
+        Map.new(provider.dialects, fn {dialect, endpoint} -> {dialect, endpoint.base_url} end)
+
+      assert urls == %{
+               Omni.Dialects.AnthropicMessages => "https://opencode.ai/inference/anthropic/v1",
+               Omni.Dialects.GoogleGemini => "https://opencode.ai/inference/google/v1beta",
+               Omni.Dialects.OpenAICompletions => "https://opencode.ai/inference/openai/v1",
+               Omni.Dialects.OpenAIResponses => "https://opencode.ai/inference/openai/v1",
+               Omni.Dialects.SystemOne => "https://opencode.ai/inference/systemone/v1"
+             }
     end
   end
 

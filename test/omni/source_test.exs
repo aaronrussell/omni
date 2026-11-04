@@ -207,7 +207,7 @@ defmodule Omni.SourceTest do
       assert month.release_date == ~D[2025-08-01]
     end
 
-    test "resolves the dialect string to the text dialect" do
+    test "resolves dialect strings under their capabilities" do
       models =
         @multi_dialect_fixture_file
         |> fixture_entries()
@@ -216,11 +216,31 @@ defmodule Omni.SourceTest do
       assert models["claude-test"].dialects == %{text: Omni.Dialects.AnthropicMessages}
       assert models["gpt-test"].dialects == %{text: Omni.Dialects.OpenAIResponses}
       assert models["gemini-test"].dialects == %{text: Omni.Dialects.GoogleGemini}
+
+      assert Source.build_model(%{"id" => "d", "dialects" => ["systemone"]}).dialects ==
+               %{decision: Omni.Dialects.SystemOne}
+
+      both =
+        Source.build_model(%{"id" => "b", "dialects" => ["openai_responses", "openai_decisions"]})
+
+      assert both.dialects == %{
+               text: Omni.Dialects.OpenAIResponses,
+               decision: Omni.Dialects.OpenAIDecisions
+             }
     end
 
     test "raises on unknown dialect string" do
       assert_raise ArgumentError, ~r/unknown_dialect/, fn ->
-        Source.build_model(%{"id" => "bad", "dialect" => "bogus_format"})
+        Source.build_model(%{"id" => "bad", "dialects" => ["bogus_format"]})
+      end
+    end
+
+    test "raises on two dialects for one capability" do
+      assert_raise ArgumentError, ~r/both serve :text/, fn ->
+        Source.build_model(%{
+          "id" => "bad",
+          "dialects" => ["openai_responses", "anthropic_messages"]
+        })
       end
     end
   end

@@ -1,11 +1,18 @@
 defmodule Omni.Providers.OpenRouter do
   @moduledoc """
   Provider for the OpenRouter API, using the `Omni.Dialects.OpenAICompletions`
-  dialect.
+  dialect for text and `Omni.Dialects.SystemOne` for decisions.
 
   Provider id `:openrouter`. Reads the API key from `OPENROUTER_API_KEY`, so
   no configuration is needed if it is set. Override any setting under
   `config :omni, :providers, openrouter: [...]` (see `Omni.Provider`).
+
+  ## Decisions
+
+  Decision models (`typesafe/jev-1.14`, `liquid/d1` and others) are sent to
+  `/api/v1/systemone`, OpenRouter's System One route. OpenRouter also
+  serves the same wire format at `/api/alpha/decisions`, which it marks as
+  subject to change.
 
   ## Reasoning
 
@@ -34,7 +41,10 @@ defmodule Omni.Providers.OpenRouter do
             thinking_effort_field: "reasoning.effort",
             thinking_replay_format: :reasoning_details
           ]
-        ]
+        ],
+        # Decision models, at /api/v1/systemone. Set here because llm_db
+        # describes them at OpenRouter's origin, for its alpha route.
+        Omni.Dialects.SystemOne => [base_url: "https://openrouter.ai/api/v1"]
       }
     ]
   end

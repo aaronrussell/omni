@@ -87,6 +87,12 @@ config :omni, :providers,
 
 **New built-in: xAI (`:xai`).** *(xAI)* Grok models over the Responses API, reading `XAI_API_KEY`. Reasoning carries across turns as encrypted content. `thinking: false` switches off only models that list a `"none"` effort (`grok-4.3`); models with no effort data (`grok-4.20-0309-reasoning`, `grok-build-0.1`) get no `reasoning` at all, since they reject any effort. Both sources map `@ai-sdk/xai` to Responses, and llm_db's models (described as Chat Completions) are moved to Responses on load.
 
+**New built-in: TypeSafe (`:typesafe`).** *(decisions)* TypeSafe's System One API at `https://api.typesafe.ai/v1`, reading `TYPESAFE_API_KEY`. Decision models only: `jev-1.14.0`, `jev-1.13.0`, `jev-latest` and `jev-preview`, listed by the module since models.dev has no TypeSafe entry.
+
+**Decision endpoints on built-ins.** *(decisions)* OpenAI gains an OpenAI Decisions endpoint and gives `gpt-6-luna` the decision dialect beside its text one. OpenRouter, OpenCode Zen and NearAI load their catalog decision models over System One (OpenRouter at `/api/v1/systemone`, Zen at `/inference/systemone/v1`). Local Ollama gains a System One endpoint at `http://localhost:11434/v1`, which `host:` moves with chat; a decision model there names `dialects: %{decision: Omni.Dialects.SystemOne}`. xAI and Ollama Cloud re-stamp only text models.
+
+**OpenCode Zen requests go to per-API mounts.** *(decisions, snapshot refresh)* The catalog now mounts each API under `https://opencode.ai/inference/` (`openai/v1`, `anthropic/v1`, `google/v1beta`, `systemone/v1`) instead of serving all from `zen/v1`, and Omni follows it.
+
 **Provider modules changed shape.** *(phase 1)*
 - `use Omni.Provider, id: ..., dialect: ...` is gone; modules declare `@behaviour Omni.Provider` and carry no id.
 - Attach a custom module with `module:` in the provider's config entry.
@@ -122,6 +128,10 @@ config :omni, :providers,
 **Dialect resolution.** *(phase 1)* Model data decides each model's dialect; the provider's dialect list is derived from its models. A configured `dialects:` value only fills models that have none — it never changes a model that already has one. To change catalog models' dialects, use a provider module's `models/2`.
 
 **Errors.** *(phase 1)* `{:error, {:unknown_provider, id}}` covers both a provider that doesn't exist and one not selected in `providers:`.
+
+**Models list every capability.** *(decisions)* `Omni.list_models/1` includes decision models (33 on OpenRouter). Filter with `Omni.Model.capability?(model, :text)`, or drop them in `filter:`. `Model.capabilities/1` lists a model's capabilities, the keys of `dialects`.
+
+**Fewer non-chat catalog models.** *(decisions)* The snapshot is models.dev's chat and decision models (`api.json?type=chat,decision`), and both built-in sources load a model by its catalog type. Realtime models (`openai:gpt-realtime-2.1`, `google:gemini-3.1-flash-live-preview`, which only work over websockets) and image-generation models that took tools (`google:gemini-3.1-flash-lite-image`, OpenRouter's `google/gemini-3-pro-image` and `google/gemini-nano-banana-2.1`) no longer load. Decision models load without tool use support.
 
 ## Requests
 
@@ -160,6 +170,8 @@ config :omni, :providers,
 **`Omni.Source.fetch/2` changed.** *(phase 1)* It takes a provider id (not a module) and returns `{:ok, provider, models}`: a partial `%Omni.Provider{}` from the catalog's provider record, and models without a provider. Sources must try their own dialect mapping; models with none are filled by Omni.
 
 **Skipped models.** *(phase 1)* Both built-in sources skip, with a warning, models whose own npm package maps to no dialect, and models served from a different base URL than their provider.
+
+**`Omni.Source.build_model/1` takes `"dialects"`.** *(decisions)* A list of dialect names, each placed under the capability its module serves (`["openai_responses", "openai_decisions"]` → `%{text: ..., decision: ...}`), replacing the single `"dialect"` string. Two dialects for one capability raise.
 
 ## Dialects
 

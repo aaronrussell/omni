@@ -50,7 +50,7 @@ matrix = [
   # through OpenCode Zen, which passes Mistral's wire through.
   {:mistral, "ministral-8b-2512", add: [:image], skip: [:thinking]},
   {:moonshotai, "kimi-k3", add: [:image, :kitchen_sink, :cache_usage]},
-  {:nearai, "zai-org/GLM-5.1-FP8", off},
+  {:nearai, "z-ai/glm-5.3", off},
   # Fails structured_output: Ollama Cloud doesn't enforce `format` (gemma4 and
   # gpt-oss:20b answer in prose; local Ollama passes). Kept as a known failure.
   {:ollama_cloud, "gemma4:31b", add: [:no_thinking, :image, :kitchen_sink]},

@@ -38,7 +38,9 @@ if Code.ensure_loaded?(LLMDB) do
       Omni.Dialects.OpenAICompletions,
       Omni.Dialects.OpenAIResponses,
       Omni.Dialects.GoogleGemini,
-      Omni.Dialects.OllamaChat
+      Omni.Dialects.OllamaChat,
+      Omni.Dialects.SystemOne,
+      Omni.Dialects.OpenAIDecisions
     ]
 
     # Wide bands (roughly 0.5x–2.5x of llm_db 2026.6.4's counts): they catch
@@ -59,6 +61,8 @@ if Code.ensure_loaded?(LLMDB) do
       opencode: 35..180,
       openrouter: 120..640,
       togetherai: 14..70,
+      # no models.dev entry — the module lists TypeSafe's documented models
+      typesafe: 2..10,
       venice: 35..180,
       xai: 18..90,
       zai: 7..35
@@ -87,7 +91,13 @@ if Code.ensure_loaded?(LLMDB) do
       for id <- Omni.Provider.builtins(), model <- models[id] do
         assert is_binary(model.id), "#{id}: model without a string id: #{inspect(model)}"
         assert model.provider.id == id, "#{id}:#{model.id}: provider not stamped"
-        assert model.dialects.text in @known_dialects, "#{id}:#{model.id}: bad dialect"
+        assert model.dialects != %{}, "#{id}:#{model.id}: no dialect"
+
+        for {capability, dialect} <- model.dialects do
+          assert dialect in @known_dialects, "#{id}:#{model.id}: bad dialect"
+          assert Omni.Dialect.capability(dialect) == capability
+        end
+
         assert Enum.all?(model.input_modalities, &(&1 in supported_input))
         assert Enum.all?(model.output_modalities, &(&1 in supported_output))
 
@@ -120,6 +130,41 @@ if Code.ensure_loaded?(LLMDB) do
 
     test "golden models match the catalog exactly", %{models: models} do
       goldens = %{
+        # a decision model with no modalities in llm_db
+        {:typesafe, "jev-1.13.0"} => %Omni.Model{
+          id: "jev-1.13.0",
+          name: "Jev 1.13",
+          dialects: %{decision: Omni.Dialects.SystemOne},
+          release_date: nil,
+          context_size: 0,
+          max_output_tokens: 0,
+          thinking: false,
+          input_modalities: [:text],
+          output_modalities: [:text],
+          input_cost: 0.042,
+          output_cost: 0.0,
+          cache_read_cost: 0,
+          cache_write_cost: 0
+        },
+        # text and evaluate entries in llm_db: both capabilities from the catalog
+        {:openai, "gpt-6-luna"} => %Omni.Model{
+          id: "gpt-6-luna",
+          name: "GPT-6 Luna",
+          dialects: %{
+            text: Omni.Dialects.OpenAIResponses,
+            decision: Omni.Dialects.OpenAIDecisions
+          },
+          release_date: ~D[2026-09-22],
+          context_size: 1_050_000,
+          max_output_tokens: 128_000,
+          thinking: %{efforts: ["none", "low", "medium", "high", "xhigh", "max"]},
+          input_modalities: [:text, :image, :pdf],
+          output_modalities: [:text],
+          input_cost: 0.1,
+          output_cost: 0.5,
+          cache_read_cost: 0.01,
+          cache_write_cost: 0.125
+        },
         # an alias-expanded entry: llm_db's canonical id is the dated snapshot
         {:anthropic, "claude-sonnet-4-5"} => %Omni.Model{
           id: "claude-sonnet-4-5",

@@ -9,10 +9,11 @@ defmodule Omni.Providers.XAI do
 
   xAI also serves Chat Completions, as a legacy endpoint. Omni uses
   Responses, xAI's preferred API and the only one that returns encrypted
-  reasoning, so every model is given the Responses dialect when the provider
-  loads, in the module's `c:Omni.Provider.models/2`. That runs after config
-  `models:` entries are merged, so a `:dialects` set in config is replaced
-  too.
+  reasoning, so every text model (and every config model that names no
+  dialect) is given the Responses dialect when the provider loads, in the
+  module's `c:Omni.Provider.models/2`. That runs after config `models:`
+  entries are merged, so a text dialect set in config is replaced too.
+  Decision-only models are left alone.
 
   ## Reasoning
 
@@ -43,13 +44,15 @@ defmodule Omni.Providers.XAI do
   end
 
   # Catalogs may describe xAI's Chat Completions endpoint (llm_db does); Omni
-  # uses Responses, so every model is re-stamped with its dialect.
+  # uses Responses, so every text model is re-stamped with its dialect. A
+  # config model naming no dialect gets it too; decision-only models don't.
   @impl true
   def models(models, _provider) do
-    Enum.map(
-      models,
-      &%{&1 | dialects: Map.put(&1.dialects, :text, Omni.Dialects.OpenAIResponses)}
-    )
+    Enum.map(models, fn model ->
+      if Model.capability?(model, :text) or model.dialects == %{},
+        do: %{model | dialects: Map.put(model.dialects, :text, Omni.Dialects.OpenAIResponses)},
+        else: model
+    end)
   end
 
   # Models with no effort data reject `reasoning.effort` outright ("does not

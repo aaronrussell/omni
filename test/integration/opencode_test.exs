@@ -29,9 +29,14 @@ defmodule Integration.OpenCodeTest do
     end
 
     test "target", %{model: model} do
-      assert_target(model, "#{@dir}/anthropic_text.sse", "https://opencode.ai/zen/v1/messages", [
-        {"x-api-key", "test-key"}
-      ])
+      assert_target(
+        model,
+        "#{@dir}/anthropic_text.sse",
+        "https://opencode.ai/inference/anthropic/v1/messages",
+        [
+          {"x-api-key", "test-key"}
+        ]
+      )
     end
   end
 
@@ -47,9 +52,14 @@ defmodule Integration.OpenCodeTest do
     end
 
     test "target", %{model: model} do
-      assert_target(model, "#{@dir}/oair_text.sse", "https://opencode.ai/zen/v1/responses", [
-        {"authorization", "Bearer test-key"}
-      ])
+      assert_target(
+        model,
+        "#{@dir}/oair_text.sse",
+        "https://opencode.ai/inference/openai/v1/responses",
+        [
+          {"authorization", "Bearer test-key"}
+        ]
+      )
     end
   end
 
@@ -74,7 +84,7 @@ defmodule Integration.OpenCodeTest do
       assert_target(
         model,
         "#{@dir}/oaic_text.sse",
-        "https://opencode.ai/zen/v1/chat/completions",
+        "https://opencode.ai/inference/openai/v1/chat/completions",
         [{"authorization", "Bearer test-key"}]
       )
     end
@@ -95,7 +105,7 @@ defmodule Integration.OpenCodeTest do
       assert_target(
         model,
         "#{@dir}/google_text.sse",
-        "https://opencode.ai/zen/v1/models/gemini-3.8-flash:streamGenerateContent",
+        "https://opencode.ai/inference/google/v1beta/models/gemini-3.8-flash:streamGenerateContent",
         [{"x-goog-api-key", "test-key"}]
       )
     end

@@ -28,8 +28,10 @@ defmodule Omni.Providers.OpenCode do
 
     * `thinking_replay_format: :reasoning_content`
 
-  Each dialect's URL comes from the catalog: the bundled snapshot serves
-  every dialect from `https://opencode.ai/zen/v1`.
+  Each dialect's URL comes from the catalog, which mounts each API under
+  `https://opencode.ai/inference/`: `openai/v1` (Completions and
+  Responses), `anthropic/v1`, `google/v1beta` and, for decision models
+  (`jev-1.13`), `systemone/v1`.
   """
 
   @behaviour Omni.Provider

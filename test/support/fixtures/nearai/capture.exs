@@ -10,7 +10,7 @@
 alias Omni.Test.{Baseline, Capture}
 
 dir = "test/support/fixtures/nearai"
-{:ok, model} = Omni.get_model(:nearai, "zai-org/GLM-5.1-FP8")
+{:ok, model} = Omni.get_model(:nearai, "z-ai/glm-5.3")
 
 # -- Baseline --
 

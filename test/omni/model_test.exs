@@ -280,15 +280,16 @@ defmodule Omni.ModelTest do
     end
   end
 
-  describe "dialect/2 and supports?/2" do
+  describe "dialect/2, capability?/2 and capabilities/1" do
     test "return the dialect a model names for a capability" do
       model =
         Fixtures.model(id: "d", capability: :decision, dialect: Omni.Dialects.SystemOne)
 
       assert Model.dialect(model, :decision) == {:ok, Omni.Dialects.SystemOne}
       assert Model.dialect(model, :text) == {:error, {:unsupported_capability, :text}}
-      assert Model.supports?(model, :decision)
-      refute Model.supports?(model, :text)
+      assert Model.capability?(model, :decision)
+      refute Model.capability?(model, :text)
+      assert Model.capabilities(model) == [:decision]
     end
 
     test "a model may serve both capabilities" do
@@ -302,8 +303,9 @@ defmodule Omni.ModelTest do
           }
         )
 
-      assert Model.supports?(model, :text)
-      assert Model.supports?(model, :decision)
+      assert Model.capability?(model, :text)
+      assert Model.capability?(model, :decision)
+      assert Model.capabilities(model) == [:decision, :text]
     end
   end
 

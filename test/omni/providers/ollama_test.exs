@@ -9,6 +9,7 @@ defmodule Omni.Providers.OllamaTest do
       config = Map.new(Ollama.config())
 
       assert config.dialects[Omni.Dialects.OllamaChat][:base_url] == "http://localhost:11434"
+      assert config.dialects[Omni.Dialects.SystemOne][:base_url] == "http://localhost:11434/v1"
       assert config.auth == :none
       refute Map.has_key?(config, :api_key)
     end
@@ -21,7 +22,11 @@ defmodule Omni.Providers.OllamaTest do
       assert {provider, []} = Loader.assemble(:ollama)
       assert provider.module == Ollama
       assert provider.auth == :none
-      assert Map.keys(provider.dialects) == [Omni.Dialects.OllamaChat]
+
+      assert Enum.sort(Map.keys(provider.dialects)) == [
+               Omni.Dialects.OllamaChat,
+               Omni.Dialects.SystemOne
+             ]
     end
 
     test "builds a model from a string id" do
@@ -78,10 +83,29 @@ defmodule Omni.Providers.OllamaTest do
       assert model.dialects == %{text: completions}
     end
 
-    test "host: moves the endpoint to another box" do
+    test "a decision model names its dialect, and a model may serve both" do
+      {_provider, [both, decision]} =
+        Loader.assemble(:ollama,
+          models: [
+            [id: "clef", dialects: %{decision: Omni.Dialects.SystemOne}],
+            [
+              id: "both",
+              dialects: %{text: Omni.Dialects.OllamaChat, decision: Omni.Dialects.SystemOne}
+            ]
+          ]
+        )
+
+      assert decision.id == "clef"
+      assert decision.dialects == %{decision: Omni.Dialects.SystemOne}
+      assert both.id == "both"
+      assert Omni.Model.capabilities(both) == [:decision, :text]
+    end
+
+    test "host: moves both endpoints to another box" do
       {provider, _} = Loader.assemble(:ollama, host: "http://gpu-box:11434")
 
       assert provider.dialects[Omni.Dialects.OllamaChat].base_url == "http://gpu-box:11434"
+      assert provider.dialects[Omni.Dialects.SystemOne].base_url == "http://gpu-box:11434/v1"
     end
   end
 end

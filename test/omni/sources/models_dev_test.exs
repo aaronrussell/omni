@@ -26,6 +26,22 @@ defmodule Omni.Sources.ModelsDevTest do
     )
   end
 
+  defp decision_entry(id, overrides \\ %{}) do
+    Map.merge(
+      %{
+        "id" => id,
+        "name" => id,
+        "type" => "decision",
+        "tool_call" => false,
+        "modalities" => %{"input" => ["text", "image"], "output" => ["text"]},
+        "provider" => %{"npm" => "@ai-sdk/typesafe-ai"},
+        "cost" => %{"input" => 0.042, "output" => 0},
+        "limit" => %{"context" => 64_000, "output" => 0}
+      },
+      overrides
+    )
+  end
+
   defp provider_data(models, overrides \\ %{}) do
     Map.merge(
       %{"npm" => "@ai-sdk/openai-compatible", "models" => models},
@@ -65,6 +81,73 @@ defmodule Omni.Sources.ModelsDevTest do
       models = ModelsDev.transform_provider(data, "test")
 
       assert Enum.map(models, & &1.id) == ["kept"]
+    end
+
+    test "loads untyped and chat-typed models for text, and leaves out other types" do
+      data =
+        provider_data([
+          model_entry("untyped"),
+          model_entry("chat", %{"type" => "chat"}),
+          model_entry("image", %{"type" => "image"}),
+          model_entry("realtime", %{"type" => "realtime"}),
+          model_entry("embedding", %{"type" => "embedding", "tool_call" => false})
+        ])
+
+      models = ModelsDev.transform_provider(data, "test")
+
+      assert Enum.map(models, & &1.id) == ["chat", "untyped"]
+      assert Enum.all?(models, &(&1.dialects == %{text: @completions}))
+    end
+
+    test "loads decision models without tool use, and drops deprecated ones" do
+      data =
+        provider_data([
+          decision_entry("jev"),
+          decision_entry("old", %{"status" => "deprecated"}),
+          decision_entry("no-text-in", %{
+            "modalities" => %{"input" => ["image"], "output" => ["text"]}
+          })
+        ])
+
+      assert [model] = ModelsDev.transform_provider(data, "test")
+      assert model.id == "jev"
+      assert model.dialects == %{decision: Omni.Dialects.SystemOne}
+      assert model.thinking == false
+      assert model.output_modalities == [:text]
+      assert model.output_cost == 0
+    end
+  end
+
+  describe "transform_provider/2 decision dialects" do
+    test "maps typesafe-ai to System One and openai to OpenAI Decisions" do
+      data =
+        provider_data([
+          decision_entry("jev"),
+          decision_entry("luna", %{"provider" => %{"npm" => "@ai-sdk/openai"}})
+        ])
+
+      by_id = data |> ModelsDev.transform_provider("test") |> Map.new(&{&1.id, &1.dialects})
+
+      assert by_id["jev"] == %{decision: Omni.Dialects.SystemOne}
+      assert by_id["luna"] == %{decision: Omni.Dialects.OpenAIDecisions}
+    end
+
+    test "never reads the text table for a decision model" do
+      data =
+        provider_data([
+          decision_entry("compat", %{"provider" => %{"npm" => "@ai-sdk/openai-compatible"}}),
+          decision_entry("by-provider") |> Map.delete("provider"),
+          decision_entry("jev")
+        ])
+
+      {models, log} = with_log(fn -> ModelsDev.transform_provider(data, "test") end)
+
+      assert Enum.map(models, & &1.id) == ["jev"]
+
+      assert log =~
+               "skipping test:compat: npm package @ai-sdk/openai-compatible maps to no decision dialect"
+
+      assert log =~ "loaded 1 models, skipped 2"
     end
   end
 
@@ -309,10 +392,11 @@ defmodule Omni.Sources.ModelsDevTest do
     test "resolves per-model dialects for a gateway" do
       assert {:ok, _provider, models} = ModelsDev.fetch(:opencode, [])
 
-      by_id = Map.new(models, &{&1.id, &1.dialects.text})
-      assert by_id["claude-haiku-4-5"] == Omni.Dialects.AnthropicMessages
-      assert by_id["gpt-5.2"] == Omni.Dialects.OpenAIResponses
-      assert by_id["mistral-large-4"] == Omni.Dialects.OpenAICompletions
+      by_id = Map.new(models, &{&1.id, &1.dialects})
+      assert by_id["claude-haiku-4-5"] == %{text: Omni.Dialects.AnthropicMessages}
+      assert by_id["gpt-5.2"] == %{text: Omni.Dialects.OpenAIResponses}
+      assert by_id["mistral-large-4"] == %{text: Omni.Dialects.OpenAICompletions}
+      assert by_id["jev-1.13"] == %{decision: Omni.Dialects.SystemOne}
     end
 
     test "returns :unknown_provider for an id not in the snapshot" do

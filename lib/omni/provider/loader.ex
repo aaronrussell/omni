@@ -329,7 +329,7 @@ defmodule Omni.Provider.Loader do
     for why <- [:no_dialect, :wrong_capability, :no_endpoint],
         model <- Map.get(skipped, why, []),
         model.id in config_ids do
-      raise ArgumentError, config_model_message(id, model, why)
+      raise ArgumentError, config_model_message(provider, model, why)
     end
 
     warn_skipped(id, Map.get(skipped, :no_dialect, []), "no dialect", fn _model -> "" end)
@@ -363,18 +363,25 @@ defmodule Omni.Provider.Loader do
     end)
   end
 
-  defp config_model_message(id, model, :no_dialect) do
+  # The hint names a dialect the provider serves, under its capability, so
+  # it reads right on a decision-only provider too.
+  defp config_model_message(%Provider{id: id} = provider, model, :no_dialect) do
+    example =
+      case provider.dialects |> Map.keys() |> Enum.sort() do
+        [dialect | _] -> "%{#{Omni.Dialect.capability(dialect)}: #{inspect(dialect)}}"
+        [] -> "%{text: Omni.Dialects.OpenAICompletions}"
+      end
+
     "provider #{inspect(id)}: model #{inspect(model.id)} in config :omni, :providers " <>
-      "has no dialect — name it: models: [[id: #{inspect(model.id)}, " <>
-      "dialects: %{text: Omni.Dialects.OpenAICompletions}]]"
+      "has no dialect — name it: models: [[id: #{inspect(model.id)}, dialects: #{example}]]"
   end
 
-  defp config_model_message(id, model, :wrong_capability) do
+  defp config_model_message(%Provider{id: id}, model, :wrong_capability) do
     "provider #{inspect(id)}: model #{inspect(model.id)} in config :omni, :providers " <>
       capability_mismatch(model)
   end
 
-  defp config_model_message(id, model, :no_endpoint) do
+  defp config_model_message(%Provider{id: id}, model, :no_endpoint) do
     "provider #{inspect(id)}: model #{inspect(model.id)} in config :omni, :providers " <>
       "speaks #{inspect(Map.values(model.dialects))}, which the provider has no " <>
       "endpoint for — add one: dialects: %{Module => [base_url: \"https://...\"]}"

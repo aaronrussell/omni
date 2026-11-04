@@ -40,8 +40,9 @@ defmodule Omni.Source do
       holding the catalog's whole URL for it. Leave the rest unset.
     * `models` — `%Omni.Model{}` structs **without** a provider. Each model's
       `dialects` comes from the catalog's own data (for example, an npm
-      package mapped to a dialect). Omni never fills in a missing dialect,
-      so skip a model the catalog gives no dialect for.
+      package mapped to a dialect), one per capability the catalog says the
+      model serves (see `Omni.Model`). Omni never fills in a missing
+      dialect, so skip a model the catalog gives no dialect for.
 
   Use `endpoints/3` to derive the endpoints from the models' URLs. Keep
   templated URLs (`https://${ACCOUNT}.example.com/v1`) as they are: a
@@ -138,8 +139,10 @@ defmodule Omni.Source do
   Builds a provider-less `%Omni.Model{}` from a string-keyed data map.
 
   The shared constructor for model sources. Recognized keys: `"id"`,
-  `"name"`, `"dialect"` (a dialect string id, see `Omni.Dialect.get/1`, or
-  `nil`), `"release_date"` (ISO 8601 `YYYY-MM-DD`, or `YYYY-MM` which parses
+  `"name"`, `"dialects"` (a list of dialect string ids, see
+  `Omni.Dialect.get/1`, each placed under the capability its module serves:
+  `["openai_responses", "openai_decisions"]` gives `%{text: ..., decision:
+  ...}`), `"release_date"` (ISO 8601 `YYYY-MM-DD`, or `YYYY-MM` which parses
   as the first of the month), `"reasoning"` (boolean), `"reasoning_options"`,
   `"input_modalities"`/`"output_modalities"` (lists of strings),
   `"input_cost"`, `"output_cost"`, `"cache_read_cost"`, `"cache_write_cost"`,
@@ -155,7 +158,8 @@ defmodule Omni.Source do
 
   Option maps may have string or atom keys. Unknown types are ignored.
 
-  Raises `ArgumentError` for an unknown dialect string. Modality strings are
+  Raises `ArgumentError` for an unknown dialect string, or for two dialects
+  serving the same capability. Modality strings are
   converted with `String.to_atom/1` — filter untrusted data to the modalities
   Omni supports (`:text`, `:image`, `:pdf`) first.
   """
@@ -164,7 +168,7 @@ defmodule Omni.Source do
     Model.new(
       id: data["id"],
       name: data["name"] || data["id"],
-      dialects: build_dialects(data["dialect"]),
+      dialects: build_dialects(data["dialects"] || []),
       release_date: parse_date(data["release_date"]),
       thinking: build_thinking(data["reasoning"], data["reasoning_options"]),
       input_modalities: Enum.map(data["input_modalities"] || ["text"], &String.to_atom/1),
@@ -178,8 +182,20 @@ defmodule Omni.Source do
     )
   end
 
-  defp build_dialects(nil), do: %{}
-  defp build_dialects(name), do: %{text: Omni.Dialect.get!(name)}
+  defp build_dialects(names) do
+    Enum.reduce(names, %{}, fn name, acc ->
+      dialect = Omni.Dialect.get!(name)
+      capability = Omni.Dialect.capability(dialect)
+
+      if Map.has_key?(acc, capability) do
+        raise ArgumentError,
+              "dialects #{inspect(acc[capability])} and #{inspect(dialect)} " <>
+                "both serve #{inspect(capability)}"
+      end
+
+      Map.put(acc, capability, dialect)
+    end)
+  end
 
   defp build_thinking(reasoning, _options) when reasoning in [nil, false], do: false
   defp build_thinking(_reasoning, options) when not is_list(options), do: true

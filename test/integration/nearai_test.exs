@@ -4,11 +4,13 @@ defmodule Integration.NearAITest do
   import Omni.Test.Baseline
 
   # Recorded before the capture script, with older prompts, and no structured
-  # output: there's no key to re-record with yet.
+  # output: there's no key to re-record with yet. Recorded on
+  # zai-org/GLM-5.1-FP8, since dropped from the catalog; replayed on its
+  # successor, which takes the same requests.
   @dir "test/support/fixtures/nearai"
 
   setup do
-    {:ok, model} = Omni.get_model(:nearai, "zai-org/GLM-5.1-FP8")
+    {:ok, model} = Omni.get_model(:nearai, "z-ai/glm-5.3")
     %{model: model}
   end
 

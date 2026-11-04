@@ -3,19 +3,30 @@ defmodule Omni.Sources.ModelsDev do
   The default model source, reading a bundled models.dev snapshot.
 
   The snapshot (`priv/models/models_dev.json`) is a verbatim capture of the
-  full [models.dev](https://models.dev) catalog, refreshed with
-  `mix omni.snapshot`. Every Omni release ships a fresh snapshot, with
-  data-only patch releases for notable catalog changes and at least one
-  release per month; use live mode (below) when you need fresher data than
-  the release cadence provides. The snapshot is transformed into
-  `%Omni.Model{}` structs at load time: deprecated models and those without
-  tool use or text modalities are filtered out, modalities are narrowed to
-  those Omni supports, and each model's dialect is inferred from models.dev's
-  npm package metadata — the model's own package if it has one, otherwise
-  its provider's. Models that can't be represented faithfully are skipped
-  with a warning: those whose npm package maps to no dialect Omni speaks,
-  and those served from a different URL than the first model of their
-  dialect.
+  [models.dev](https://models.dev) catalog's chat and decision models
+  (`api.json?type=chat,decision`), refreshed with `mix omni.snapshot`. Every
+  Omni release ships a fresh snapshot, with data-only patch releases for
+  notable catalog changes and at least one release per month; use live mode
+  (below) when you need fresher data than the release cadence provides.
+
+  The snapshot is transformed into `%Omni.Model{}` structs at load time.
+  Each model loads for one capability, by its catalog `type`:
+
+    * **text** — no type, or `"chat"`: the model must support tool use and
+      take and produce text.
+    * **decision** — `"decision"`: the model must take text; tool use
+      doesn't apply.
+
+  Deprecated models and every other type (image, embedding, speech,
+  realtime, ...) are left out. Modalities are narrowed to those Omni
+  supports, and each model's dialect is inferred from models.dev's npm
+  package metadata — the model's own package if it has one, otherwise its
+  provider's. Decision models read a separate table, since the same package
+  names another API for decisions: `@ai-sdk/typesafe-ai` is System One and
+  `@ai-sdk/openai` is OpenAI Decisions. Models that can't be represented
+  faithfully are skipped with a warning: those whose npm package maps to no
+  dialect Omni speaks for their capability, and those served from a
+  different URL than the first model of their dialect.
 
   Provider ids are translated mechanically to models.dev keys —
   `:fireworks_ai` becomes `"fireworks-ai"`. Any catalog id works, including
@@ -42,7 +53,7 @@ defmodule Omni.Sources.ModelsDev do
       config :omni, :models,
         source: {Omni.Sources.ModelsDev, live: true}
 
-  Live mode fetches the full models.dev catalog over HTTPS and caches the
+  Live mode fetches the same catalog data over HTTPS and caches the
   response on disk. Each load walks a resilience ladder, logging a warning
   at every degradation step:
 
@@ -72,7 +83,9 @@ defmodule Omni.Sources.ModelsDev do
 
   @snapshot_file "priv/models/models_dev.json"
 
-  @api_url "https://models.dev/api.json"
+  # Chat models (no type, or "chat") and decision models only — the
+  # catalog's image, embedding, speech and other types are left out.
+  @api_url "https://models.dev/api.json?type=chat,decision"
   @cache_file "models_dev.json"
   @default_cache_ttl to_timeout(hour: 24)
 
@@ -94,6 +107,14 @@ defmodule Omni.Sources.ModelsDev do
     "@ai-sdk/xai" => "openai_responses",
     "@openrouter/ai-sdk-provider" => "openai_completions",
     "venice-ai-sdk-provider" => "openai_completions"
+  }
+
+  # Decision models are matched separately: the same package names another
+  # API for decisions (`@ai-sdk/openai` is Responses for text, Decisions for
+  # decisions). A decision model whose package isn't here is skipped.
+  @decision_npm_to_dialect %{
+    "@ai-sdk/openai" => "openai_decisions",
+    "@ai-sdk/typesafe-ai" => "systemone"
   }
 
   @supported_input_modalities Enum.map(Model.supported_modalities(:input), &to_string/1)
@@ -309,9 +330,14 @@ defmodule Omni.Sources.ModelsDev do
     {pairs, skipped} =
       provider_data
       |> get_models()
-      |> Enum.filter(&eligible?/1)
-      |> Enum.reduce({[], 0}, fn model_data, {pairs, skipped} ->
-        case build(model_data, provider_data, catalog_id) do
+      |> Enum.flat_map(fn model_data ->
+        case capability(model_data) do
+          nil -> []
+          capability -> [{model_data, capability}]
+        end
+      end)
+      |> Enum.reduce({[], 0}, fn {model_data, capability}, {pairs, skipped} ->
+        case build(model_data, capability, provider_data, catalog_id) do
           {:ok, model} -> {[{model, get_in(model_data, ["provider", "api"])} | pairs], skipped}
           :skip -> {pairs, skipped + 1}
         end
@@ -348,12 +374,30 @@ defmodule Omni.Sources.ModelsDev do
   defp get_models(%{"models" => models}) when is_list(models), do: models
   defp get_models(_), do: []
 
-  defp eligible?(model) when is_map(model) do
-    model["status"] != "deprecated" and model["tool_call"] == true and
-      "text" in modality_list(model, "input") and "text" in modality_list(model, "output")
+  # The capability a catalog model is loaded for, or nil to leave it out.
+  # Text models (no type, or "chat") must take tools and text in and out;
+  # decision models need neither tools nor text output. Other types (image,
+  # embedding, realtime, ...) are left out. The URL already filters by type,
+  # but a live cache written from the unfiltered URL may still hold them.
+  defp capability(%{"status" => "deprecated"}), do: nil
+
+  defp capability(model) when is_map(model) do
+    text_in? = "text" in modality_list(model, "input")
+
+    case model["type"] do
+      type when type in [nil, "chat"] ->
+        if model["tool_call"] == true and text_in? and "text" in modality_list(model, "output"),
+          do: :text
+
+      "decision" ->
+        if text_in?, do: :decision
+
+      _other ->
+        nil
+    end
   end
 
-  defp eligible?(_), do: false
+  defp capability(_), do: nil
 
   defp modality_list(model, key) do
     case model["modalities"] do
@@ -362,8 +406,8 @@ defmodule Omni.Sources.ModelsDev do
     end
   end
 
-  defp build(model_data, provider_data, catalog_id) do
-    with {:ok, dialect} <- model_dialect(model_data, provider_data) do
+  defp build(model_data, capability, provider_data, catalog_id) do
+    with {:ok, dialect} <- model_dialect(model_data, capability, provider_data) do
       {:ok, Source.build_model(model_data(model_data, dialect))}
     else
       {:skip, reason} ->
@@ -394,25 +438,31 @@ defmodule Omni.Sources.ModelsDev do
   # When the provider's own package is the unmapped one, every model it
   # doesn't override is skipped, so those go to the debug log and the
   # warning summary counts them.
-  defp model_dialect(model_data, provider_data) do
+  defp model_dialect(model_data, capability, provider_data) do
+    table = if capability == :decision, do: @decision_npm_to_dialect, else: @npm_to_dialect
+
     case get_in(model_data, ["provider", "npm"]) do
       nil ->
-        case @npm_to_dialect[provider_data["npm"]] do
+        case table[provider_data["npm"]] do
           nil ->
             {:skip_quietly,
-             "provider npm package #{inspect(provider_data["npm"])} maps to no dialect"}
+             "provider npm package #{inspect(provider_data["npm"])} maps to no " <>
+               dialect_kind(capability)}
 
           dialect ->
             {:ok, dialect}
         end
 
       npm ->
-        case @npm_to_dialect[npm] do
-          nil -> {:skip, "npm package #{npm} maps to no dialect"}
+        case table[npm] do
+          nil -> {:skip, "npm package #{npm} maps to no #{dialect_kind(capability)}"}
           dialect -> {:ok, dialect}
         end
     end
   end
+
+  defp dialect_kind(:text), do: "dialect"
+  defp dialect_kind(:decision), do: "decision dialect"
 
   defp model_data(model_data, dialect) do
     cost = model_data["cost"] || %{}
@@ -424,7 +474,7 @@ defmodule Omni.Sources.ModelsDev do
       "reasoning" => model_data["reasoning"] || false,
       "reasoning_options" => model_data["reasoning_options"],
       "release_date" => model_data["release_date"],
-      "dialect" => dialect,
+      "dialects" => [dialect],
       "input_modalities" =>
         filter_modalities(modality_list(model_data, "input"), @supported_input_modalities),
       "output_modalities" =>

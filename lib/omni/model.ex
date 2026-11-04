@@ -28,6 +28,27 @@ defmodule Omni.Model do
     * `:cache_write_cost` — USD cost per million cached input tokens (write)
     * `:release_date` — date the model was released (from models.dev)
 
+  ## Capabilities and modalities
+
+  A **capability** is a kind of request the model serves: `:text`
+  (`Omni.generate_text/3`, `Omni.stream_text/3`) or `:decision`
+  (`Omni.decide/3`). The keys of `:dialects` are the model's capabilities,
+  each naming the dialect that speaks it; most models serve one, and a few
+  serve both (OpenAI's `gpt-6-luna`). Read them with `capabilities/1`,
+  `capability?/2` and `dialect/2`:
+
+      {:ok, models} = Omni.list_models(:openrouter)
+      Enum.filter(models, &Omni.Model.capability?(&1, :decision))
+
+  A **modality** is a kind of content going in or out: `:text`, `:image`,
+  `:pdf`. Text generation checks attachments against `:input_modalities`.
+  A decision's answers are structured text, so decision models report
+  `output_modalities: [:text]`.
+
+  `:thinking` and tool use are text features. Every catalog text model
+  supports tool use (sources leave out those that don't), and decision
+  models have `thinking: false`.
+
   ## Thinking
 
   `:thinking` tells dialects how to translate the `:thinking` request option
@@ -73,6 +94,11 @@ defmodule Omni.Model do
             [id: "ft:gpt-4o:acme::abc123", dialects: %{text: Omni.Dialects.OpenAIResponses}]
           ]
         ]
+
+  A decision model names its decision dialect the same way:
+
+      config :omni, :providers,
+        ollama: [models: [[id: "clef", dialects: %{decision: Omni.Dialects.SystemOne}]]]
 
   An entry whose id the catalog already has is merged over the catalog
   model instead, which corrects catalog data without restating it:
@@ -204,13 +230,23 @@ defmodule Omni.Model do
   end
 
   @doc """
+  Returns the capabilities the model serves, in sorted order.
+
+      {:ok, model} = Omni.get_model(:openai, "gpt-6-luna")
+      Model.capabilities(model)  #=> [:decision, :text]
+  """
+  @spec capabilities(t()) :: [capability()]
+  def capabilities(%__MODULE__{dialects: dialects}),
+    do: dialects |> Map.keys() |> Enum.sort()
+
+  @doc """
   Returns whether the model serves a capability.
 
       {:ok, models} = Omni.list_models(:openrouter)
-      Enum.filter(models, &Model.supports?(&1, :decision))
+      Enum.filter(models, &Model.capability?(&1, :decision))
   """
-  @spec supports?(t(), capability()) :: boolean()
-  def supports?(%__MODULE__{} = model, capability),
+  @spec capability?(t(), capability()) :: boolean()
+  def capability?(%__MODULE__{} = model, capability),
     do: match?({:ok, _}, dialect(model, capability))
 
   @doc """

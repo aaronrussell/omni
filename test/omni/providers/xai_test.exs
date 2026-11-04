@@ -25,6 +25,16 @@ defmodule Omni.Providers.XAITest do
 
       assert [%{dialects: %{text: Omni.Dialects.OpenAIResponses}}] = XAI.models([model], nil)
     end
+
+    test "gives a config model with no dialect Responses, and leaves decision models alone" do
+      bare = Omni.Model.new(id: "grok-new", name: "grok-new")
+
+      decision =
+        Omni.Model.new(id: "d", name: "d", dialects: %{decision: Omni.Dialects.SystemOne})
+
+      assert [bare, ^decision] = XAI.models([bare, decision], nil)
+      assert bare.dialects == %{text: Omni.Dialects.OpenAIResponses}
+    end
   end
 
   describe "modify_body/4" do
