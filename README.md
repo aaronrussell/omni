@@ -15,6 +15,7 @@ Streaming text generation, tool use, and structured output.
 - **Streaming-first** — all requests stream by default; `generate_text` is built on `stream_text`
 - **Tool use** — define tools with schemas and handlers; the loop auto-executes and feeds results back
 - **Structured output** — JSON Schema validation with constrained decoding and automatic retries
+- **Decisions** — ask decision models typed questions about an input and get calibrated probabilities back, over TypeSafe's System One or OpenAI's Decisions API
 - **Pluggable model catalog** — bundled [models.dev](https://models.dev) snapshot by default, with optional live fetching or the [`llm_db`](https://hex.pm/packages/llm_db) package as alternative sources
 - **Extensible** — load any provider in the models.dev catalog by id, or define your own in config
 
@@ -185,6 +186,24 @@ context = Omni.context(
 
 {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, context)
 ```
+
+### Decisions
+
+Decision models answer typed questions about a shared input with probabilities instead of prose. Pass the input and a keyword list of questions:
+
+```elixir
+{:ok, decision} =
+  Omni.decide({:openrouter, "typesafe/jev-1.14"}, {ticket_text, [
+    urgent: Omni.predicate("Does this need a reply within the hour?"),
+    team: Omni.choice("Which team owns this?", billing: "Payments and refunds", infra: "Outages", other: nil),
+    anger: Omni.score("How angry is the customer?", ["Calm", "Frustrated but civil", "Very angry"])
+  ]})
+
+decision.answers[:urgent]  #=> %Omni.Answer.Predicate{probability: 0.91}
+decision.answers[:team]    #=> %Omni.Answer.Choice{choice: :infra, probabilities: [billing: 0.02, infra: 0.95, other: 0.03], confidence: 0.93}
+```
+
+Decision models are listed alongside text models; `Omni.Model.capability?(model, :decision)` tells them apart. Built-in providers with decision models are TypeSafe, OpenAI (`gpt-6-luna`), OpenRouter, OpenCode Zen and NEAR AI, and local Ollama models can be configured as decision models.
 
 ## Model catalog
 

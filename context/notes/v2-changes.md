@@ -31,7 +31,7 @@ config :omni, :providers,
   gpu_box: [dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "http://gpu-box:8000/v1"]}]
 ```
 
-Provider-level `base_url:` raises at boot, suggesting `host:` when only the origin differs and the endpoint form otherwise; so does `base_url:` in a module's `config/0`. A missing endpoint URL is no longer a boot error: a request returns `{:error, {:no_base_url, dialect}}` (also for a URL still holding a catalog placeholder), and a model whose dialect has no endpoint `{:error, {:no_endpoint, dialect}}`.
+Provider-level `base_url:` raises at boot, suggesting `host:` when only the origin differs and the endpoint form otherwise; so does `base_url:` in a module's `config/0`. The `base_url:` request option is gone too: pass `host:` (an origin) to move one request. A missing endpoint URL is no longer a boot error: a request returns `{:error, {:no_base_url, dialect}}` (also for a URL still holding a catalog placeholder), and a model whose dialect has no endpoint `{:error, {:no_endpoint, dialect}}`.
 
 **`auth_header:` is replaced by `auth:`.** *(phase 1)* `auth_header: "x-api-key"` becomes `auth: {:header, "x-api-key"}`. Values: `:bearer`, `{:header, name}`, `:none`, `:dialect` (the default — the scheme of the dialect's home API). Using `auth_header:` raises with a hint.
 
@@ -57,9 +57,7 @@ config :omni, :providers,
 
 **Gateways serve each dialect from its own URL.** *(endpoints)* Sources give each dialect the URL of its models (a model's own catalog URL, else the provider's), on another path or another host, and keep templated URLs for `host:` to fill. Models the catalog mounts elsewhere now load instead of being skipped: zenmux and ofox gain their Anthropic and Gemini models, freemodel its Completions models (on `api.freemodel.dev`), cohere its one Completions model. When models of one dialect disagree on the URL, the first by id wins and the rest are skipped with a warning.
 
-**Dialects come from model data only.** *(endpoints)* Nothing fills in a missing dialect. A catalog model whose package maps to no dialect Omni speaks (including through its provider's package), or whose dialect has no endpoint, is skipped with a warning. A config model with no dialect, or a dialect with no endpoint, raises at load, unless the provider module's `models/2` stamps one (Ollama stamps `OllamaChat`). `Omni.Model.new/1` no longer fills dialects from the provider, and `Omni.put_model/1` raises for a model with none. On llm_db, models marked `catalog_only` and models with no wire protocol or package are skipped, and OpenCode's fallback to Completions is gone: OpenCode loads 76 fewer models and NearAI 25 fewer there (all catalog-only), and OpenRouter's `auto` routers drop out (llm_db gives them image execution only).
-
-**Config models merge over catalog models.** *(endpoints)* A `models:` entry whose id the catalog has is merged over it, field by field (`dialects` by capability), so `[id: "gpt-6", context_size: 1_000_000]` corrects one field. An entry with a new id adds a model and names its dialect.
+**Dialects come from model data only.** *(endpoints)* Nothing fills in a missing dialect. A catalog model whose package maps to no dialect Omni speaks (including through its provider's package), or whose dialect has no endpoint, is skipped with a warning. A config model with no dialect, or a dialect with no endpoint, raises at load, unless the provider module's `models/2` stamps one (Ollama stamps `OllamaChat`). `Omni.Model.new/1` no longer fills dialects from the provider, and `Omni.put_model/1` raises for a model with none. To change catalog models' dialects, use a provider module's `models/2`. On llm_db, models marked `catalog_only` and models with no wire protocol or package are skipped, and OpenCode's fallback to Completions is gone: OpenCode loads 76 fewer models and NearAI 25 fewer there (all catalog-only), and OpenRouter's `auto` routers drop out (llm_db gives them image execution only).
 
 **Custom providers need only config.** *(phase 1)*
 
@@ -115,21 +113,19 @@ config :omni, :providers,
 
 **`reasoning` is renamed `thinking`, and carries capability data.** *(phase 2)* `%Omni.Model{thinking: false | true | %{efforts: [...], toggle: true, budget: {min, max}}}`. `true` means the model reasons with no further detail; a map says which effort values (wire strings) it accepts, whether thinking switches on and off, and its budget range. Sources fill it from models.dev `reasoning_options`. `Model.new/1` (and config `models:` entries) take `thinking:`; `reasoning:` raises with a hint. Read `model.thinking != false` where you read `model.reasoning`.
 
-**`%Omni.Model{}` fields changed.** *(phase 1)* `provider` is the embedded `%Omni.Provider{}` (was a module). `dialect` becomes `dialects: %{text: Module}`.
+**`%Omni.Model{}` fields changed.** *(phase 1)* `provider` is the embedded `%Omni.Provider{}` (was a module). `dialect` becomes `dialects`, a map from capability to dialect module: `%{text: Module}`, `%{decision: Module}`, or both.
 
-**`Omni.Model.new/1`** accepts `provider:` as a struct or a loaded provider id; `dialects:` is optional and filled from the provider. *(phase 1)*
+**`Omni.Model.new/1`** accepts `provider:` as a struct or a loaded provider id. *(phase 1)* It never fills `dialects:` (see Providers, Dialects come from model data only).
 
 **`Omni.put_model/1`** registers under the model's own provider (was `put_model/2`). The provider must be loaded. *(phase 1)*
 
 **New: `filter:`** in `config :omni, :models` — `{Mod, :fun}` or a 1-arity function over every loaded model, including config-defined ones. *(phase 1)*
 
-**New: per-provider `models:`** — adds models alongside the catalog's (as ids or keyword lists of `Model.new/1` attributes); a matching id replaces the catalog model. *(phase 1)*
-
-**Dialect resolution.** *(phase 1)* Model data decides each model's dialect; the provider's dialect list is derived from its models. A configured `dialects:` value only fills models that have none — it never changes a model that already has one. To change catalog models' dialects, use a provider module's `models/2`.
+**New: per-provider `models:`** — corrects or adds models (as ids or keyword lists of `Model.new/1` attributes). *(phase 1, endpoints)* An entry whose id the catalog has is merged over it, field by field (`dialects` by capability), so `[id: "gpt-6", context_size: 1_000_000]` corrects one field. An entry with a new id adds a model and names its dialect.
 
 **Errors.** *(phase 1)* `{:error, {:unknown_provider, id}}` covers both a provider that doesn't exist and one not selected in `providers:`.
 
-**Models list every capability.** *(decisions)* `Omni.list_models/1` includes decision models (33 on OpenRouter). Filter with `Omni.Model.capability?(model, :text)`, or drop them in `filter:`. `Model.capabilities/1` lists a model's capabilities, the keys of `dialects`.
+**Models list every capability.** *(decisions)* `Omni.list_models/1` includes decision models (33 on OpenRouter). Filter with `Omni.Model.capability?(model, :text)`, or drop them in `filter:`. `Model.capabilities/1` lists a model's capabilities, the keys of `dialects`; `Model.dialect/2` returns `{:ok, module}` or `{:error, {:unsupported_capability, capability}}`.
 
 **Fewer non-chat catalog models.** *(decisions)* The snapshot is models.dev's chat and decision models (`api.json?type=chat,decision`), and both built-in sources load a model by its catalog type. Realtime models (`openai:gpt-realtime-2.1`, `google:gemini-3.1-flash-live-preview`, which only work over websockets) and image-generation models that took tools (`google:gemini-3.1-flash-lite-image`, OpenRouter's `google/gemini-3-pro-image` and `google/gemini-nano-banana-2.1`) no longer load. Decision models load without tool use support.
 
@@ -163,19 +159,45 @@ config :omni, :providers,
 
 **New: `Message.origin`.** *(thinking from other models)* `%{model: {provider_id, model_id}, dialect: module}` on assistant messages Omni produces, `nil` otherwise. `Message.new/1` builds it from a `%Model{}` passed as `:origin`. `Omni.Codec` encodes it as `%{"model" => "provider/model", "dialect" => "Omni.Dialects.…"}`; an unknown provider or dialect decodes as `nil`.
 
+## Decisions
+
+**New: `Omni.decide/3`.** *(decisions)* A second capability beside text: one shared input (the state: a string, map or list) and a keyword list of typed questions, answered with probabilities in one JSON request. Not streamed.
+
+```elixir
+{:ok, decision} =
+  Omni.decide({:openai, "gpt-6-luna"}, {ticket_text, [
+    urgent: Omni.predicate("Does this need a reply within the hour?"),
+    team: Omni.choice("Which team owns this?", billing: "Payments and refunds", infra: "Outages", other: nil),
+    anger: Omni.score("How angry is the customer?", ["Calm", "Frustrated but civil", "Very angry"])
+  ]})
+
+decision.answers[:team]  #=> %Omni.Answer.Choice{choice: :infra, probabilities: [billing: 0.02, infra: 0.95, other: 0.03], confidence: 0.93}
+```
+
+- `%Omni.Decision{state, questions, answers, usage, model, raw}` is both the request and the result; `decide/3` also takes the `{state, questions}` shorthand.
+- Questions: `Omni.Question.Predicate`, `Choice`, `Score`, built with `Omni.predicate/2`, `Omni.choice/2`, `Omni.score/2`. Choices and levels are a list of keys or `key: description` pairs; keys come back as given.
+- Answers: a keyword list aligned with the questions, of `Omni.Answer.Predicate{probability}`, `Choice{choice, probabilities, confidence}`, `Score{score, probabilities, confidence}` and `Refusal{}` (OpenAI only). Probabilities are `{key, float}` pairs in the question's order, passed through unrounded; confidence is the provider's own number, or `nil`.
+- Options: `api_key`, `host`, `headers`, `timeout`, `raw`, `plug`; OpenAI Decisions adds `safety_identifier` and `prompt_cache_key`.
+- Errors: invalid questions fail before any request (at least one question, non-empty instructions, two or more choices or levels); an answer missing, unasked for or of the wrong type is `{:error, {:invalid_answer, name}}`.
+- Two dialects: `Omni.Dialects.SystemOne` (TypeSafe's format, served by TypeSafe, OpenRouter, OpenCode Zen, Ollama, NearAI) and `Omni.Dialects.OpenAIDecisions`. Built-in endpoints are under Providers.
+
+**Capability errors.** *(decisions)* `generate_text/3` and `stream_text/3` on a model with no text dialect return `{:error, {:unsupported_capability, :text}}`; `decide/3` on one with no decision dialect `{:error, {:unsupported_capability, :decision}}`. Both before any HTTP.
+
+**New: `Omni.Usage.price/2`.** *(decisions)* Computes a usage's costs from a model's pricing; both text responses and decisions use it.
+
 ## Sources
 
 **`Omni.Source.build_model/1` reads `"reasoning_options"`** (models.dev's list form, string or atom keys) into `:thinking`. *(phase 2)* The llm_db source passes them through, falls back to OpenRouter's `supported_efforts`, and reads `extra` with string keys as well as atom keys (llm_db 2026.7.2+).
 
-**`Omni.Source.fetch/2` changed.** *(phase 1)* It takes a provider id (not a module) and returns `{:ok, provider, models}`: a partial `%Omni.Provider{}` from the catalog's provider record, and models without a provider. Sources must try their own dialect mapping; models with none are filled by Omni.
+**`Omni.Source.fetch/2` changed.** *(phase 1, endpoints)* It takes a provider id (not a module) and returns `{:ok, provider, models}`: a partial `%Omni.Provider{}` from the catalog's provider record, with an endpoint and whole URL per dialect its models speak (templated URLs kept for `host:`), and models without a provider, each with its dialects from catalog data. Nothing fills in a dialect the source can't map.
 
-**Skipped models.** *(phase 1)* Both built-in sources skip, with a warning, models whose own npm package maps to no dialect, and models served from a different base URL than their provider.
+**Skipped models.** *(phase 1, endpoints)* Both built-in sources skip, with a warning, models whose npm package (their own, else their provider's) maps to no dialect, and a model at another URL than the first model of its dialect (only google-vertex in the bundled catalog).
 
 **`Omni.Source.build_model/1` takes `"dialects"`.** *(decisions)* A list of dialect names, each placed under the capability its module serves (`["openai_responses", "openai_decisions"]` → `%{text: ..., decision: ...}`), replacing the single `"dialect"` string. Two dialects for one capability raise.
 
 ## Dialects
 
-**Dialects declare their capability with `use Omni.Dialect`.** *(decisions)* `Omni.Dialect` is now the base every dialect shares (`auth/0`, `compat_schema/0`, the registry, `compat/2`); the callbacks that build requests and read responses moved to one behaviour per capability. A custom text dialect replaces `@behaviour Omni.Dialect` with `use Omni.Dialect, :text`, which declares both `Omni.Dialect` and `Omni.Dialect.Text`; its callbacks are unchanged. `Omni.Dialect.capability/1` reads the declared behaviour, so a module without it is not a dialect and fails at load. A model's `dialects:` map must name each dialect under its own capability (`%{text: Omni.Dialects.SystemOne}` raises for a config model, is skipped for a catalog model).
+**Dialects declare their capability with `use Omni.Dialect`.** *(decisions)* `Omni.Dialect` is now the base every dialect shares (`auth/0`, `compat_schema/0`, the registry, `compat/2`); the callbacks that build requests and read responses moved to one behaviour per capability, `Omni.Dialect.Text` and `Omni.Dialect.Decision`. A custom text dialect replaces `@behaviour Omni.Dialect` with `use Omni.Dialect, :text`, which declares both `Omni.Dialect` and `Omni.Dialect.Text`; its callbacks are unchanged. A decision dialect uses `use Omni.Dialect, :decision` and implements `option_schema/0`, `handle_path/2`, `handle_body/3` (with a `%Omni.Decision{}`) and `handle_response/3` (the decoded JSON body to an answered decision). `Omni.Dialect.capability/1` reads the declared behaviour, so a module without it is not a dialect and fails at load. A model's `dialects:` map must name each dialect under its own capability (`%{text: Omni.Dialects.SystemOne}` raises for a config model, is skipped for a catalog model).
 
 **New required callback `compat_schema/0`.** *(phase 2)* A Peri schema of the compat flags the dialect understands; return `%{}` for none. Read a provider's flags with `Omni.Dialect.compat(model, __MODULE__)`. `Omni.Dialects.OpenAICompletions` documents its flags; the other built-in dialects have none yet.
 
@@ -191,4 +213,4 @@ config :omni, :providers,
 
 ## Tooling
 
-**New: `mix omni.verify <provider> <model>`.** *(verification)* Runs live scenarios against one model and reports pass or fail for each, with a short reason per failure and the full error for failures from an error: text, thinking, tool use and structured output by default; no thinking, image, PDF, a multi-turn tool loop with thinking (`kitchen_sink`) and cache usage on request (`--only`, `--add`, `--skip`, `--delay`). Works for built-in, catalog and custom providers; a catalog provider that isn't loaded is loaded for the run. Exits non-zero on any failure.
+**New: `mix omni.verify <provider> <model>`.** *(verification, decisions)* Runs live scenarios against one model and reports pass or fail for each, with a short reason per failure and the full error for failures from an error. The defaults follow the model's capabilities: text, thinking, tool use and structured output for a text model; `decision` (a string state with a predicate, a choice and a score) and `decision_json` (a map state and map instructions) for a decision model; all six for a model with both. On request: no thinking, image, PDF, a multi-turn tool loop with thinking (`kitchen_sink`) and cache usage (`--only`, `--add`, `--skip`, `--delay`). Works for built-in, catalog and custom providers; a catalog provider that isn't loaded is loaded for the run. Exits non-zero on any failure.

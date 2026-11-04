@@ -23,16 +23,21 @@ defmodule Omni.Provider do
   | `:groq` | `Omni.Providers.Groq` | `Omni.Dialects.OpenAICompletions` | `GROQ_API_KEY` |
   | `:mistral` | `Omni.Providers.Mistral` | `Omni.Dialects.OpenAICompletions` | `MISTRAL_API_KEY` |
   | `:moonshotai` | `Omni.Providers.Moonshot` | `Omni.Dialects.OpenAICompletions` | `MOONSHOT_API_KEY` |
-  | `:nearai` | `Omni.Providers.NearAI` | `Omni.Dialects.OpenAICompletions` | `NEARAI_API_KEY` |
-  | `:ollama` | `Omni.Providers.Ollama` | `Omni.Dialects.OllamaChat` | none (local) |
+  | `:nearai` | `Omni.Providers.NearAI` | `Omni.Dialects.OpenAICompletions`, `Omni.Dialects.SystemOne` | `NEARAI_API_KEY` |
+  | `:ollama` | `Omni.Providers.Ollama` | `Omni.Dialects.OllamaChat`, `Omni.Dialects.SystemOne` | none (local) |
   | `:ollama_cloud` | `Omni.Providers.OllamaCloud` | `Omni.Dialects.OllamaChat` | `OLLAMA_API_KEY` |
-  | `:openai` | `Omni.Providers.OpenAI` | `Omni.Dialects.OpenAIResponses` | `OPENAI_API_KEY` |
+  | `:openai` | `Omni.Providers.OpenAI` | `Omni.Dialects.OpenAIResponses`, `Omni.Dialects.OpenAIDecisions` | `OPENAI_API_KEY` |
   | `:opencode` | `Omni.Providers.OpenCode` | per model | `OPENCODE_API_KEY` |
-  | `:openrouter` | `Omni.Providers.OpenRouter` | `Omni.Dialects.OpenAICompletions` | `OPENROUTER_API_KEY` |
+  | `:openrouter` | `Omni.Providers.OpenRouter` | `Omni.Dialects.OpenAICompletions`, `Omni.Dialects.SystemOne` | `OPENROUTER_API_KEY` |
   | `:togetherai` | `Omni.Providers.Together` | `Omni.Dialects.OpenAICompletions` | `TOGETHER_API_KEY` |
+  | `:typesafe` | `Omni.Providers.TypeSafe` | `Omni.Dialects.SystemOne` | `TYPESAFE_API_KEY` |
   | `:venice` | `Omni.Providers.Venice` | `Omni.Dialects.OpenAICompletions` | `VENICE_API_KEY` |
   | `:xai` | `Omni.Providers.XAI` | `Omni.Dialects.OpenAIResponses` | `XAI_API_KEY` |
   | `:zai` | `Omni.Providers.Zai` | `Omni.Dialects.OpenAICompletions` | `ZAI_API_KEY` |
+
+  Text dialects serve `Omni.generate_text/3` and `Omni.stream_text/3`;
+  decision dialects (`Omni.Dialects.SystemOne`, `Omni.Dialects.OpenAIDecisions`)
+  serve `Omni.decide/3`.
 
   ## Built-in, catalog, and custom providers
 

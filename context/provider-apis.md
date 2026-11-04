@@ -40,6 +40,7 @@ https://developers.openai.com/api/reference/resources/chat/subresources/completi
 
 ## OpenAI Decisions
 https://developers.openai.com/api/reference/resources/decisions/methods/create/index.md
+https://developers.openai.com/api/docs/guides/decisions
 
 ## OpenAI Responses
 https://developers.openai.com/api/reference/resources/responses/methods/create/index.md
@@ -52,6 +53,12 @@ https://openrouter.ai/docs/api/api-reference/systemone/submit-a-system-one-reque
 
 ## Together AI
 https://docs.together.ai/reference/chat-completions.md
+
+## TypeSafe (systemone)
+https://docs.typesafe.ai/api.md
+https://docs.typesafe.ai/concepts/system-one.md
+https://docs.typesafe.ai/confidence.md
+https://api.typesafe.ai/openapi.json
 
 ## Venice AI (completions & responses - systemone)
 https://docs.venice.ai/api-reference/endpoint/chat/completions.md

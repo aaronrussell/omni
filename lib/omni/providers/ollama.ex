@@ -4,7 +4,8 @@ defmodule Omni.Providers.Ollama do
   dialect for text and `Omni.Dialects.SystemOne` for decisions.
 
   Provider id `:ollama`. Talks to `http://localhost:11434` with no
-  authentication: chat at `/api/chat`, decisions at `/v1/systemone`. For Ollama's hosted service, use `Omni.Providers.OllamaCloud`.
+  authentication: chat at `/api/chat`, decisions at `/v1/systemone`. For
+  Ollama's hosted service, use `Omni.Providers.OllamaCloud`.
 
   ## Models
 

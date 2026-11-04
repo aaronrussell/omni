@@ -7,8 +7,8 @@ defmodule Omni do
   Universal Elixir client for LLM APIs. Streaming text generation, tool use, and structured output.
 
   Omni provides a single API for text generation that works with many LLM
-  providers. All requests are streaming-first — `generate_text/3` is built on
-  top of `stream_text/3`. Decision models answer typed questions with
+  providers. Text requests are streaming-first — `generate_text/3` is built
+  on top of `stream_text/3`. Decision models answer typed questions with
   probabilities through `decide/3`.
 
   ## Setup
@@ -34,6 +34,7 @@ defmodule Omni do
   | OpenCode | `:opencode` | `OPENCODE_API_KEY` |
   | OpenRouter | `:openrouter` | `OPENROUTER_API_KEY` |
   | Together AI | `:togetherai` | `TOGETHER_API_KEY` |
+  | TypeSafe (decisions only) | `:typesafe` | `TYPESAFE_API_KEY` |
   | Venice AI | `:venice` | `VENICE_API_KEY` |
   | xAI | `:xai` | `XAI_API_KEY` |
   | Z.ai | `:zai` | `ZAI_API_KEY` |
@@ -49,7 +50,8 @@ defmodule Omni do
         anthropic: [api_key: {:system, "MY_ANTHROPIC_KEY"}],
         openai: [api_key: {MyApp.Secrets, :fetch, ["openai"]}]
 
-  You can also pass `:api_key` directly to `generate_text/3` or `stream_text/3`.
+  You can also pass `:api_key` directly to `generate_text/3`, `stream_text/3`
+  or `decide/3`.
 
   All built-in providers are loaded by default. To choose what loads at
   startup, list provider ids (`:builtins` names all built-ins and may appear
