@@ -1,0 +1,1 @@
+{"model":"jev-1.14.0","answers":{"outage":{"type":"noul","noul":0.97},"team":{"type":"choice","choice":"infra","confidence":0.98,"probabilities":{"billing":0.0,"infra":0.99,"other":0.01}}},"usage":{"input_tokens":369,"output_tokens":55}}

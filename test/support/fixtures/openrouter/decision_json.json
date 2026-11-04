@@ -1,0 +1,1 @@
+{"model":"typesafe/jev-1.14-20261014","answers":{"outage":{"type":"noul","noul":0.98},"team":{"type":"choice","choice":"infra","probabilities":{"billing":0,"infra":0.99,"other":0.01},"confidence":0.98}},"usage":{"input_tokens":369,"output_tokens":55,"cost":0.000015498},"id":"gen-dec-1793807601-pjZVg6v6eYL1YLl4SdOW","provider":"TypeSafe"}

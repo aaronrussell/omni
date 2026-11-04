@@ -2,7 +2,7 @@ defmodule Omni.Test.Baseline do
   @moduledoc false
 
   # Baseline integration tests: each provider records verify's text, thinking
-  # and tool use scenarios and replays them here. Assertions hold to what a
+  # and tool use scenarios, or its decision scenarios, and replays them here. Assertions hold to what a
   # provider should always give back, so they survive re-recording on a newer
   # model. Structured output has no fixture: whether the provider obeys the
   # schema is verify's job, and the response parses as plain text.
@@ -13,13 +13,13 @@ defmodule Omni.Test.Baseline do
 
   import ExUnit.Assertions
 
-  alias Omni.{Context, Message, Model, Request, Response, Tool}
+  alias Omni.{Context, Decision, Message, Model, Request, Response, Tool}
   alias Omni.Content.{Text, Thinking, ToolUse}
   alias Omni.Test.Capture
   alias Omni.Verify.Scenarios
 
-  @doc "The context and options a scenario sends, for capture scripts and tests."
-  @spec request(atom()) :: {Context.t(), keyword()}
+  @doc "The context (or decision) and options a scenario sends, for capture scripts and tests."
+  @spec request(atom()) :: {Context.t() | Decision.t(), keyword()}
   defdelegate request(scenario), to: Scenarios
 
   @doc "Turn 2 of a two-turn scenario."
@@ -81,13 +81,26 @@ defmodule Omni.Test.Baseline do
   end
 
   @doc """
+  Asserts a decision response by verify's rule: every answer well formed and
+  the clear-cut questions answered as expected. `scenario` is `:decision` or
+  `:decision_json`.
+  """
+  def assert_decision(%Model{} = model, scenario, file, opts \\ [])
+      when scenario in [:decision, :decision_json] do
+    {decision, request} = replay(scenario, model, file, opts)
+    assert Scenarios.check_decision(scenario, decision) == :ok
+    {decision, request}
+  end
+
+  @doc """
   The JSON body a scenario's request sends, built without sending it. For
-  request shape assertions that need no response, such as structured output.
+  request shape assertions that need no response, such as structured output,
+  or a decision's encoding.
   """
   @spec request_body(Model.t(), atom()) :: map()
   def request_body(%Model{} = model, scenario) do
-    {context, opts} = request(scenario)
-    assert {:ok, req} = Request.build(model, context, Keyword.put(opts, :api_key, "test-key"))
+    {input, opts} = request(scenario)
+    assert {:ok, req} = Request.build(model, input, Keyword.put(opts, :api_key, "test-key"))
     req.options.json |> JSON.encode!() |> JSON.decode!()
   end
 
@@ -138,11 +151,13 @@ defmodule Omni.Test.Baseline do
 
   @doc """
   Asserts where a request goes and how it authenticates: the host and path of
-  `url`, and each of `headers`. Replays the text fixture, sent with the API key
+  `url`, and each of `headers`. Replays `file` as the response to the
+  `:scenario` option's request (default `:text`), sent with the API key
   `"test-key"`.
   """
   def assert_target(%Model{} = model, file, url, headers, opts \\ []) do
-    {_resp, request} = replay(:text, model, file, opts)
+    {scenario, opts} = Keyword.pop(opts, :scenario, :text)
+    {_resp, request} = replay(scenario, model, file, opts)
     uri = URI.parse(url)
 
     assert request.host == uri.host
@@ -156,10 +171,9 @@ defmodule Omni.Test.Baseline do
   end
 
   defp replay(scenario, model, file, opts) do
-    {context, scenario_opts} = request(scenario)
+    {input, scenario_opts} = request(scenario)
 
-    assert {:ok, %Response{} = resp} =
-             Capture.replay(model, context, file, Keyword.merge(opts, scenario_opts))
+    assert {:ok, resp} = Capture.replay(model, input, file, Keyword.merge(opts, scenario_opts))
 
     assert_received {:replay_request, request}
     {resp, request}

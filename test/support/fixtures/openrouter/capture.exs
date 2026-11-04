@@ -20,6 +20,14 @@ Capture.record(model, context, "#{dir}/thinking.sse", opts)
 {context, opts} = Baseline.request(:tool_use)
 Capture.record(model, context, "#{dir}/tool_use.sse", opts)
 
+{:ok, jev} = Omni.get_model(:openrouter, "typesafe/jev-1.14")
+
+{decision, opts} = Baseline.request(:decision)
+Capture.record(jev, decision, "#{dir}/decision.json", opts)
+
+{decision, opts} = Baseline.request(:decision_json)
+Capture.record(jev, decision, "#{dir}/decision_json.json", opts)
+
 # -- Cases --
 
 # Each upstream's reasoning comes back in its own `reasoning_details` shape,

@@ -6,7 +6,7 @@ defmodule Omni.Verify.Scenarios do
   # the reason. Reasons are generic (`HTTP 429`, `no thinking`) and never carry
   # provider text, so they are safe to save; the detail goes to the terminal.
 
-  alias Omni.{Context, Message, Response, Schema}
+  alias Omni.{Answer, Context, Decision, Message, Response, Schema}
   alias Omni.Content.{Attachment, Text, Thinking, ToolResult, ToolUse}
 
   @thinking_prompt "How many times does the letter 'r' appear in the phrase " <>
@@ -25,12 +25,12 @@ defmodule Omni.Verify.Scenarios do
   end
 
   @doc """
-  The request a scenario sends: its context and the options it adds. Capture
-  scripts record these, so fixtures are recordings of what verify checks.
-  `:kitchen_sink` and `:cache_usage` give turn 1; `follow_up/3` builds the
-  cache scenario's turn 2.
+  The request a scenario sends: its context (a decision for the decision
+  scenarios) and the options it adds. Capture scripts record these, so
+  fixtures are recordings of what verify checks. `:kitchen_sink` and
+  `:cache_usage` give turn 1; `follow_up/3` builds the cache scenario's turn 2.
   """
-  @spec request(atom()) :: {Context.t(), keyword()}
+  @spec request(atom()) :: {Context.t() | Decision.t(), keyword()}
   def request(:text), do: {Context.new("Write a haiku about the sky."), [thinking: false]}
 
   def request(:thinking), do: {Context.new(@thinking_prompt), [thinking: :low]}
@@ -65,6 +65,56 @@ defmodule Omni.Verify.Scenarios do
   def request(:cache_usage) do
     question = Message.new("Which station has the code #{station_code(42)}? Reply with its name.")
     {Context.new(system: cache_filler(), messages: [question]), [cache: :short]}
+  end
+
+  # Questions with one clear answer, so a pass can check the answers mean
+  # something: a crossed key or an off-by-one level fails, a weak model doesn't.
+  def request(:decision) do
+    decision =
+      Decision.new(
+        {"I was charged twice for my subscription this month. Please refund the extra charge.",
+         [
+           refund:
+             Omni.predicate("Is the customer asking for a refund?",
+               true: "Asks for money back",
+               false: "Asks for anything else"
+             ),
+           team:
+             Omni.choice("Which team should handle this?",
+               billing: "Charges, invoices and refunds",
+               infra: "Outages and downtime",
+               other: nil
+             ),
+           urgency: Omni.score("How urgent is this?", [:low, :medium, :high])
+         ]}
+      )
+
+    {decision, []}
+  end
+
+  def request(:decision_json) do
+    state = %{
+      "ticket" => %{
+        "subject" => "Site down",
+        "body" => "Nobody on our team can log in, the dashboard returns a 502.",
+        "plan" => "enterprise"
+      }
+    }
+
+    decision =
+      Decision.new(
+        {state,
+         [
+           outage:
+             Omni.predicate(%{
+               "question" => "Does the ticket report an outage?",
+               "field" => "ticket.body"
+             }),
+           team: Omni.choice("Which team should handle this?", [:billing, :infra, :other])
+         ]}
+      )
+
+    {decision, []}
   end
 
   @doc "Turn 2 of a two-turn scenario, built from turn 1's context and response."
@@ -194,6 +244,117 @@ defmodule Omni.Verify.Scenarios do
     end
   end
 
+  @doc false
+  def decision(model, opts), do: run_decision(:decision, model, opts)
+
+  @doc false
+  def decision_json(model, opts), do: run_decision(:decision_json, model, opts)
+
+  @doc """
+  Checks an answered decision scenario: every answer present and well formed
+  (no refusal, probabilities and confidences floats from 0 to 1, keyed by the
+  question's options in order, input tokens counted), and the clear-cut
+  questions answered as expected. The score is checked for shape only. Public
+  for the integration tests' baseline, which holds fixtures to the same rule.
+  """
+  @spec check_decision(atom(), Decision.t()) :: :ok | {:fail, String.t()}
+  def check_decision(scenario, %Decision{} = decision) do
+    with :ok <- check(decision.usage.input_tokens > 0, "no input tokens"),
+         :ok <- check_answers(decision) do
+      check_meaning(scenario, Map.new(decision.answers))
+    end
+  end
+
+  defp check_answers(%Decision{questions: questions, answers: answers}) do
+    Enum.zip(questions, answers)
+    |> Enum.reduce_while(:ok, fn {{name, question}, {name, answer}}, :ok ->
+      case check_answer(question, answer) do
+        :ok -> {:cont, :ok}
+        {:fail, reason} -> {:halt, {:fail, "#{name}: #{reason}"}}
+      end
+    end)
+  end
+
+  defp check_answer(_question, %Answer.Refusal{}), do: {:fail, "refused"}
+
+  defp check_answer(_question, %Answer.Predicate{probability: p}),
+    do: check(probability?(p), "probability #{inspect(p)}")
+
+  defp check_answer(%{choices: options}, %Answer.Choice{} = answer) do
+    with :ok <- check(Enum.any?(options, &(elem(&1, 0) == answer.choice)), "unknown choice"),
+         :ok <- check_probabilities(options, answer.probabilities) do
+      check_confidence(answer.confidence)
+    end
+  end
+
+  defp check_answer(%{levels: options}, %Answer.Score{} = answer) do
+    with :ok <-
+           check(
+             is_float(answer.score) and answer.score >= 0 and answer.score <= length(options) - 1,
+             "score #{inspect(answer.score)}"
+           ),
+         :ok <- check_probabilities(options, answer.probabilities) do
+      check_confidence(answer.confidence)
+    end
+  end
+
+  defp check_probabilities(options, probabilities) do
+    with :ok <-
+           check(
+             Enum.map(probabilities, &elem(&1, 0)) == Enum.map(options, &elem(&1, 0)),
+             "probabilities don't match the options"
+           ) do
+      check(Enum.all?(probabilities, &probability?(elem(&1, 1))), "probability out of range")
+    end
+  end
+
+  defp check_confidence(nil), do: :ok
+  defp check_confidence(c), do: check(probability?(c), "confidence #{inspect(c)}")
+
+  defp probability?(p), do: is_float(p) and p >= 0 and p <= 1
+
+  defp check_meaning(:decision, answers) do
+    with :ok <- expect_yes(answers.refund, :refund) do
+      expect_choice(answers.team, :team, :billing)
+    end
+  end
+
+  defp check_meaning(:decision_json, answers) do
+    with :ok <- expect_yes(answers.outage, :outage) do
+      expect_choice(answers.team, :team, :infra)
+    end
+  end
+
+  defp expect_yes(%Answer.Predicate{probability: p}, name),
+    do: check(p > 0.5, "#{name} is #{Float.round(p, 2)}, expected over 0.5")
+
+  defp expect_choice(%Answer.Choice{choice: choice}, name, expected),
+    do: check(choice == expected, "#{name} is #{inspect(choice)}, expected #{inspect(expected)}")
+
+  defp run_decision(scenario, model, opts) do
+    {decision, opts} = request(scenario, opts)
+
+    with {:ok, decision} <- decide(model, decision, opts),
+         :ok <- check_decision(scenario, decision) do
+      {:pass, decision_summary(decision)}
+    end
+  end
+
+  defp decide(model, decision, opts) do
+    case Omni.decide(model, decision, opts) do
+      {:ok, %Decision{} = decision} -> {:ok, decision}
+      {:error, reason} -> {:fail, error_reason(reason), inspect(reason, pretty: true)}
+    end
+  end
+
+  defp decision_summary(%Decision{answers: answers}) do
+    Enum.map_join(answers, " · ", fn
+      {name, %Answer.Predicate{probability: p}} -> "#{name} #{Float.round(p, 2)}"
+      {name, %Answer.Choice{choice: choice}} -> "#{name} #{choice}"
+      {name, %Answer.Score{score: score}} -> "#{name} #{Float.round(score, 2)}"
+    end)
+  end
+
   # -- Shared --
 
   # The scenario's options win over the caller's.
@@ -234,6 +395,9 @@ defmodule Omni.Verify.Scenarios do
   defp error_reason({:stream_error, _}), do: "stream error"
   defp error_reason(:incomplete_stream), do: "incomplete stream"
   defp error_reason(%Req.TransportError{reason: reason}), do: "transport error (#{reason})"
+  defp error_reason({:unsupported_capability, cap}), do: "no #{cap} capability"
+  defp error_reason({:invalid_answer, _name}), do: "invalid answer"
+  defp error_reason({:invalid_response, _body}), do: "invalid response"
   defp error_reason(_reason), do: "request failed"
 
   defp check(true, _reason), do: :ok

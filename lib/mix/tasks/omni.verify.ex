@@ -23,7 +23,11 @@ defmodule Mix.Tasks.Omni.Verify do
 
   ## Scenarios
 
-  Run by default:
+  A model runs the default scenarios of each capability it has: a text
+  model the four text defaults, a decision model the two decision
+  scenarios, a model with both all six.
+
+  Text, run by default:
 
     * `text` — a short prompt; passes on a `:stop` response with text
     * `thinking` — a reasoning question with `thinking: :low`; passes when
@@ -33,7 +37,7 @@ defmodule Mix.Tasks.Omni.Verify do
     * `structured_output` — an object schema via `:output`; passes when the
       output matches it
 
-  Run on request:
+  Text, run on request:
 
     * `no_thinking` — the reasoning question with `thinking: false`; passes
       when no thinking comes back. Only meaningful on a model whose data says
@@ -47,6 +51,14 @@ defmodule Mix.Tasks.Omni.Verify do
     * `cache_usage` — a long system prompt with `cache: :short`, then a
       second turn on top of the first; passes when the second turn reports
       cache-read tokens
+
+  Decision, run by default:
+
+    * `decision` — a string state with a predicate, a choice and a score;
+      passes when every answer is well formed and the clear-cut predicate
+      and choice come back as expected (the score is checked for shape only)
+    * `decision_json` — a map state and a question with map instructions;
+      passes on the same rule
 
   A scenario a model doesn't support fails; select the ones that apply.
 
@@ -74,8 +86,6 @@ defmodule Mix.Tasks.Omni.Verify do
         _ -> Mix.raise("Usage: mix omni.verify <provider> <model> [options]")
       end
 
-    scenarios = select!(opts)
-
     # Catalog loading logs a debug line per provider; keep the report readable.
     Logger.configure(level: :info)
     Mix.Task.run("app.start")
@@ -95,8 +105,12 @@ defmodule Mix.Tasks.Omni.Verify do
           )
       end
 
+    scenarios = select!(model, opts)
+
+    dialects = Enum.map_join(model.dialects, ", ", fn {cap, mod} -> "#{cap}: #{inspect(mod)}" end)
+
     shell = Mix.shell()
-    shell.info("Verifying #{provider_id}/#{model_id} (#{inspect(model.dialects[:text])})\n")
+    shell.info("Verifying #{provider_id}/#{model_id} (#{dialects})\n")
 
     results =
       Verify.run(model, scenarios,
@@ -124,11 +138,11 @@ defmodule Mix.Tasks.Omni.Verify do
     end
   end
 
-  defp select!(opts) do
+  defp select!(model, opts) do
     selection =
       for key <- [:only, :add, :skip], value = opts[key], do: {key, split(value)}
 
-    case Verify.select(selection) do
+    case Verify.select(model, selection) do
       {:ok, []} ->
         Mix.raise("No scenarios selected")
 

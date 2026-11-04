@@ -41,5 +41,37 @@ defmodule Integration.OpenAITest do
         {"authorization", "Bearer test-key"}
       ])
     end
+
+    test "decision", %{model: model} do
+      {_decision, request} = assert_decision(model, :decision, "#{@dir}/decision.json")
+
+      assert request.body["input"] =~ "charged twice"
+      assert [%{"name" => "refund", "type" => "predicate"} | _] = request.body["questions"]
+    end
+
+    # A map state is one `input_json` part; map instructions are JSON text.
+    test "decision json", %{model: model} do
+      {_decision, request} = assert_decision(model, :decision_json, "#{@dir}/decision_json.json")
+
+      assert [%{"role" => "user", "content" => [%{"type" => "input_json", "data" => state}]}] =
+               request.body["input"]
+
+      assert %{"ticket" => %{"subject" => "Site down"}} = state
+
+      assert [%{"name" => "outage", "instructions" => instructions} | _] =
+               request.body["questions"]
+
+      assert %{"field" => "ticket.body"} = JSON.decode!(instructions)
+    end
+
+    test "decision target", %{model: model} do
+      assert_target(
+        model,
+        "#{@dir}/decision.json",
+        "https://api.openai.com/v1/decisions",
+        [{"authorization", "Bearer test-key"}],
+        scenario: :decision
+      )
+    end
   end
 end

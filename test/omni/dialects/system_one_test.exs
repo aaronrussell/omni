@@ -132,6 +132,43 @@ defmodule Omni.Dialects.SystemOneTest do
              ]
     end
 
+    # Ollama sends certain answers as JSON integers.
+    test "whole-number probabilities, scores and confidences come back as floats" do
+      body = %{
+        @response
+        | "answers" => %{
+            "urgent" => %{"type" => "noul", "noul" => 1},
+            "team" => %{
+              "type" => "choice",
+              "choice" => "infra",
+              "confidence" => 1,
+              "probabilities" => %{"billing" => 0, "infra" => 1, "other" => 0}
+            },
+            "anger" => %{
+              "type" => "score",
+              "score" => 2,
+              "confidence" => 1,
+              "probabilities" => %{"0" => 0, "1" => 0, "2" => 1}
+            }
+          }
+      }
+
+      assert {:ok, %Decision{answers: answers}} = respond(body)
+
+      assert [
+               urgent: %Answer.Predicate{probability: 1.0},
+               team: %Answer.Choice{
+                 probabilities: [{:billing, +0.0}, {"infra", 1.0}, {:other, +0.0}],
+                 confidence: 1.0
+               },
+               anger: %Answer.Score{
+                 score: 2.0,
+                 probabilities: [calm: +0.0, cross: +0.0, furious: 1.0],
+                 confidence: 1.0
+               }
+             ] = answers
+    end
+
     test "reads usage as token counts, input only when output is missing" do
       assert {:ok, %Decision{usage: %Usage{input_tokens: 174, output_tokens: 12}}} =
                respond(@response)

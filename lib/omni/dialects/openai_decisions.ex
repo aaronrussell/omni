@@ -114,7 +114,7 @@ defmodule Omni.Dialects.OpenAIDecisions do
 
   defp decode_answer(%Predicate{}, %{"type" => "predicate", "probability" => probability})
        when is_number(probability),
-       do: {:ok, %Answer.Predicate{probability: probability}}
+       do: {:ok, %Answer.Predicate{probability: Answers.float(probability)}}
 
   defp decode_answer(%Choice{choices: choices}, %{"type" => "choice"} = answer) do
     wire = by_field(answer["probabilities"], "value")
@@ -125,7 +125,7 @@ defmodule Omni.Dialects.OpenAIDecisions do
        %Answer.Choice{
          choice: choice,
          probabilities: probabilities,
-         confidence: answer["confidence"]
+         confidence: Answers.float(answer["confidence"])
        }}
     end
   end
@@ -136,7 +136,11 @@ defmodule Omni.Dialects.OpenAIDecisions do
 
     with {:ok, probabilities} <- Answers.probabilities(levels, wire, :index) do
       {:ok,
-       %Answer.Score{score: score, probabilities: probabilities, confidence: answer["confidence"]}}
+       %Answer.Score{
+         score: Answers.float(score),
+         probabilities: probabilities,
+         confidence: Answers.float(answer["confidence"])
+       }}
     end
   end
 

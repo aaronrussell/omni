@@ -5,7 +5,8 @@ defmodule Omni.Dialect.Decision.Answers do
   # time; this module applies the one strict rule: every question has
   # exactly one answer of its type, and no answer is for a question that
   # wasn't asked. Probabilities map back to the caller's keys, in the
-  # caller's order.
+  # caller's order. Numbers come back as floats: hosts send `1` and `0` as
+  # JSON integers.
 
   alias Omni.Question
 
@@ -57,7 +58,7 @@ defmodule Omni.Dialect.Decision.Answers do
   # the option's key as a string (`:key`) or by its index as a string
   # (`:index`). Every option must have a number.
   @spec probabilities([Question.option()], term(), :key | :index) ::
-          {:ok, [{Question.key(), number()}]} | :error
+          {:ok, [{Question.key(), float()}]} | :error
   def probabilities(options, wire, by) when is_map(wire) do
     options
     |> Enum.with_index()
@@ -65,7 +66,7 @@ defmodule Omni.Dialect.Decision.Answers do
       wire_key = if by == :key, do: to_string(key), else: Integer.to_string(index)
 
       case Map.get(wire, wire_key) do
-        p when is_number(p) -> {:cont, [{key, p} | acc]}
+        p when is_number(p) -> {:cont, [{key, float(p)} | acc]}
         _ -> {:halt, :error}
       end
     end)
@@ -76,4 +77,10 @@ defmodule Omni.Dialect.Decision.Answers do
   end
 
   def probabilities(_options, _wire, _by), do: :error
+
+  @doc false
+  # A wire number as a float; anything else (an absent confidence) is `nil`.
+  @spec float(term()) :: float() | nil
+  def float(number) when is_number(number), do: number * 1.0
+  def float(_other), do: nil
 end

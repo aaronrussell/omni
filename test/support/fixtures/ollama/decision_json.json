@@ -1,0 +1,1 @@
+{"model":"pplx-decider-flash:4b-nvfp4","answers":{"outage":{"type":"noul","noul":0.9861215327602364},"team":{"type":"choice","choice":"infra","probabilities":{"billing":0.007596048618343553,"infra":0.9478206775994527,"other":0.04458327378220391},"confidence":0.921731016399179}},"usage":{"input_tokens":161,"output_tokens":0},"prompt_eval_cached_count":0}

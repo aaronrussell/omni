@@ -34,6 +34,14 @@ Capture.record(model, context, "#{dir}/oaic_text.sse", opts)
 {context, opts} = Baseline.request(:text)
 Capture.record(model, context, "#{dir}/google_text.sse", opts)
 
+{:ok, model} = Omni.get_model(:opencode, "jev-1.13-free")
+
+{decision, opts} = Baseline.request(:decision)
+Capture.record(model, decision, "#{dir}/systemone_decision.json", opts)
+
+{decision, opts} = Baseline.request(:decision_json)
+Capture.record(model, decision, "#{dir}/systemone_decision_json.json", opts)
+
 # -- Cases --
 
 # Kimi K2.5 repeats the tool call id on every argument chunk. Recorded before

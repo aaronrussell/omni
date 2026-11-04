@@ -1,0 +1,1 @@
+{"model":"jev-1.14.0","answers":{"refund":{"type":"noul","noul":0.99},"team":{"type":"choice","choice":"billing","confidence":1.0,"probabilities":{"billing":1.0,"infra":0.0,"other":0.0}},"urgency":{"type":"score","score":1.04,"confidence":0.7,"legend":{"0":"low","1":"medium","2":"high"},"probabilities":{"0":0.08,"1":0.8,"2":0.12}}},"usage":{"input_tokens":413,"output_tokens":69}}

@@ -168,6 +168,49 @@ defmodule Omni.Dialects.OpenAIDecisionsTest do
              ]
     end
 
+    test "whole-number probabilities, scores and confidences come back as floats" do
+      body =
+        put_in(@response["answers"], [
+          %{"type" => "predicate", "name" => "refund", "probability" => 0},
+          %{
+            "type" => "choice",
+            "name" => "priority",
+            "choice" => "high",
+            "confidence" => 1,
+            "probabilities" => [
+              %{"value" => "low", "probability" => 0},
+              %{"value" => "high", "probability" => 1},
+              %{"value" => "true", "probability" => 0}
+            ]
+          },
+          %{
+            "type" => "score",
+            "name" => "clarity",
+            "score" => 1,
+            "confidence" => 1,
+            "probabilities" => [
+              %{"label" => "vague", "value" => 0, "probability" => 0},
+              %{"label" => "clear", "value" => 1, "probability" => 1}
+            ]
+          }
+        ])
+
+      assert {:ok, %Decision{answers: answers}} = respond(body)
+
+      assert [
+               refund: %Answer.Predicate{probability: +0.0},
+               priority: %Answer.Choice{
+                 probabilities: [{:low, +0.0}, {"high", 1.0}, {true, +0.0}],
+                 confidence: 1.0
+               },
+               clarity: %Answer.Score{
+                 score: 1.0,
+                 probabilities: [{"vague", +0.0}, {"clear", 1.0}],
+                 confidence: 1.0
+               }
+             ] = answers
+    end
+
     test "answers matched by name, whatever their order" do
       body = update_in(@response["answers"], &Enum.reverse/1)
       assert {:ok, %Decision{answers: [refund: _, priority: _, clarity: _]}} = respond(body)

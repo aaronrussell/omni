@@ -44,6 +44,31 @@ defmodule Integration.OpenRouterTest do
     end
   end
 
+  describe "baseline: decisions" do
+    setup do
+      {:ok, model} = Omni.get_model(:openrouter, "typesafe/jev-1.14")
+      %{model: model}
+    end
+
+    test "decision", %{model: model} do
+      assert_decision(model, :decision, "#{@dir}/decision.json")
+    end
+
+    test "decision json", %{model: model} do
+      assert_decision(model, :decision_json, "#{@dir}/decision_json.json")
+    end
+
+    test "target", %{model: model} do
+      assert_target(
+        model,
+        "#{@dir}/decision.json",
+        "https://openrouter.ai/api/v1/systemone",
+        [{"authorization", "Bearer test-key"}],
+        scenario: :decision
+      )
+    end
+  end
+
   # Each upstream's reasoning comes back in its own `reasoning_details` shape,
   # kept in `Message.private` and sent back verbatim on the next turn.
   describe "cases" do

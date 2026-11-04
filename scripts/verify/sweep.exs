@@ -62,6 +62,12 @@ matrix = [
      input_modalities: [:text, :image]
    ],
    add: [:no_thinking, :image, :kitchen_sink]},
+  {:ollama,
+   [
+     id: "pplx-decider-flash:4b-nvfp4",
+     dialects: %{decision: Omni.Dialects.SystemOne}
+   ], []},
+  # Text and decisions: its capabilities give it both sets of defaults.
   {:openai, "gpt-6-luna", all},
   {:openai, "gpt-6-astra", loop},
   {:opencode, "claude-haiku-5-5", off},
@@ -69,10 +75,14 @@ matrix = [
   {:opencode, "deepseek-v4.1-flash", []},
   {:opencode, "mistral-large-4", add: [:no_thinking, :image, :kitchen_sink]},
   {:opencode, "gemini-3.5-flash-lite", []},
+  {:opencode, "jev-1.13-free", []},
   {:openrouter, "anthropic/claude-haiku-5.5", loop_off},
   {:openrouter, "openai/gpt-6-luna", loop_off},
   {:openrouter, "google/gemini-3.8-flash", loop},
   {:openrouter, "deepseek/deepseek-v4.1-flash", loop_off},
+  {:openrouter, "typesafe/jev-1.14", []},
+  # OpenRouter's System One in front of OpenAI's Decisions API.
+  {:openrouter, "openai/gpt-6-luna-decisions", []},
   {:togetherai, "Qwen/Qwen3.5-9B", add: [:no_thinking, :image, :kitchen_sink]},
   {:togetherai, "openai/gpt-oss-120b", loop},
   # Fails no_thinking: it reasons through `reasoning: {enabled: false}`. Kept
@@ -80,6 +90,7 @@ matrix = [
   {:togetherai, "deepseek-ai/DeepSeek-V4-Pro-0813", loop_off},
   {:togetherai, "zai-org/GLM-5.3-Flash", add: [:image, :kitchen_sink, :cache_usage]},
   {:togetherai, "moonshotai/Kimi-K3", add: [:image, :kitchen_sink, :cache_usage]},
+  {:typesafe, "jev-1.14.0", []},
   {:venice, "qwen-3-8-flash", add: [:no_thinking, :image, :pdf, :kitchen_sink]},
   {:venice, "claude-haiku-5-5", off},
   {:xai, "grok-4.3", all},
@@ -291,8 +302,8 @@ runs =
     label = Sweep.label(provider, model_ref)
     IO.puts("\n#{label}")
 
-    with {:ok, scenarios} <- Verify.select(selection),
-         {:ok, model} <- Sweep.model(provider, model_ref) do
+    with {:ok, model} <- Sweep.model(provider, model_ref),
+         {:ok, scenarios} <- Verify.select(model, selection) do
       results =
         Verify.run(model, scenarios, delay: delay, on_result: &IO.puts(Verify.format_line(&1)))
 

@@ -103,7 +103,7 @@ defmodule Omni.Dialects.SystemOne do
 
   defp decode_answer(%Predicate{}, %{"type" => "noul", "noul" => probability})
        when is_number(probability),
-       do: {:ok, %Answer.Predicate{probability: probability}}
+       do: {:ok, %Answer.Predicate{probability: Answers.float(probability)}}
 
   defp decode_answer(%Choice{choices: choices}, %{"type" => "choice"} = answer) do
     with {:ok, choice} <- Answers.key(choices, answer["choice"]),
@@ -112,7 +112,7 @@ defmodule Omni.Dialects.SystemOne do
        %Answer.Choice{
          choice: choice,
          probabilities: probabilities,
-         confidence: answer["confidence"]
+         confidence: Answers.float(answer["confidence"])
        }}
     end
   end
@@ -121,7 +121,11 @@ defmodule Omni.Dialects.SystemOne do
        when is_number(score) do
     with {:ok, probabilities} <- Answers.probabilities(levels, answer["probabilities"], :index) do
       {:ok,
-       %Answer.Score{score: score, probabilities: probabilities, confidence: answer["confidence"]}}
+       %Answer.Score{
+         score: Answers.float(score),
+         probabilities: probabilities,
+         confidence: Answers.float(answer["confidence"])
+       }}
     end
   end
 

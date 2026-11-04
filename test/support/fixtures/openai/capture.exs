@@ -19,3 +19,9 @@ Capture.record(model, context, "#{dir}/thinking.sse", opts)
 
 {context, opts} = Baseline.request(:tool_use)
 Capture.record(model, context, "#{dir}/tool_use.sse", opts)
+
+{decision, opts} = Baseline.request(:decision)
+Capture.record(model, decision, "#{dir}/decision.json", opts)
+
+{decision, opts} = Baseline.request(:decision_json)
+Capture.record(model, decision, "#{dir}/decision_json.json", opts)

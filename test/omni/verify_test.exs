@@ -29,18 +29,29 @@ defmodule Omni.VerifyTest do
     result
   end
 
-  describe "select/1" do
-    test "defaults without options" do
-      assert {:ok, scenarios} = Verify.select()
-      assert scenarios == Verify.defaults()
+  defp decision_model do
+    {:ok, model} = Omni.get_model(:typesafe, "jev-1.14.0")
+    model
+  end
+
+  describe "select/2" do
+    test "defaults follow the model's capabilities" do
+      assert {:ok, [:text, :thinking, :tool_use, :structured_output]} = Verify.select(model())
+      assert {:ok, [:decision, :decision_json]} = Verify.select(decision_model())
+
+      {:ok, luna} = Omni.get_model(:openai, "gpt-6-luna")
+
+      assert {:ok, [:text, :thinking, :tool_use, :structured_output, :decision, :decision_json]} =
+               Verify.select(luna)
     end
 
     test "only gives exactly the listed scenarios, in run order" do
-      assert {:ok, [:text, :pdf]} = Verify.select(only: [:pdf, :text])
+      assert {:ok, [:text, :pdf]} = Verify.select(model(), only: [:pdf, :text])
     end
 
     test "add and skip adjust the defaults" do
-      assert {:ok, scenarios} = Verify.select(add: [:cache_usage, :image], skip: [:thinking])
+      assert {:ok, scenarios} =
+               Verify.select(model(), add: [:cache_usage, :image], skip: [:thinking])
 
       assert scenarios == [
                :text,
@@ -49,11 +60,13 @@ defmodule Omni.VerifyTest do
                :image,
                :cache_usage
              ]
+
+      assert {:ok, [:decision]} = Verify.select(decision_model(), skip: [:decision_json])
     end
 
     test "unknown names are an error" do
       assert {:error, {:unknown_scenarios, ["bogus", :nope]}} =
-               Verify.select(only: ["bogus"], skip: [:nope])
+               Verify.select(model(), only: ["bogus"], skip: [:nope])
     end
   end
 
@@ -100,6 +113,39 @@ defmodule Omni.VerifyTest do
                run_one(:tool_use, @tool_use_fixture)
     end
 
+    test "decision passes on well-formed answers to its clear-cut questions" do
+      assert [%{status: :pass, summary: "refund 0.99 · team billing · urgency 1.1"}] =
+               run_decision(:decision, decision_answers("billing"))
+    end
+
+    test "decision fails on a wrong answer to a clear-cut question" do
+      assert [%{status: :fail, summary: "team is :infra, expected :billing", error: nil}] =
+               run_decision(:decision, decision_answers("infra"))
+    end
+
+    test "decision fails on an answer for a question it didn't ask" do
+      body = put_in(decision_answers("billing"), ["answers", "extra"], %{"type" => "noul"})
+      assert [%{status: :fail, summary: "invalid answer"}] = run_decision(:decision, body)
+    end
+
+    test "decision runs without the text-only max_tokens default" do
+      test_pid = self()
+
+      Req.Test.stub(:verify_decision_opts, fn conn ->
+        {:ok, body, conn} = Plug.Conn.read_body(conn)
+        send(test_pid, {:body, JSON.decode!(body)})
+        Req.Test.json(conn, decision_answers("billing"))
+      end)
+
+      assert [%{status: :pass}] =
+               Verify.run(decision_model(), [:decision],
+                 api_key: "test-key",
+                 plug: {Req.Test, :verify_decision_opts}
+               )
+
+      assert_received {:body, %{"model" => "jev-1.14.0", "questions" => %{"refund" => _}}}
+    end
+
     test "a crashing scenario fails and the run continues" do
       broken = %Omni.Model{id: "broken", name: "broken"}
       stub_fixture(:verify_crash, @text_fixture)
@@ -117,5 +163,34 @@ defmodule Omni.VerifyTest do
       assert_received {:result, :text}
       assert_received {:result, :thinking}
     end
+  end
+
+  defp run_decision(scenario, body) do
+    stub = :"verify_#{scenario}_#{System.unique_integer([:positive])}"
+    Req.Test.stub(stub, &Req.Test.json(&1, body))
+    Verify.run(decision_model(), [scenario], api_key: "test-key", plug: {Req.Test, stub})
+  end
+
+  # A System One body for the `decision` scenario, choosing `team`.
+  defp decision_answers(team) do
+    %{
+      "model" => "jev-1.14.0",
+      "answers" => %{
+        "refund" => %{"type" => "noul", "noul" => 0.99},
+        "team" => %{
+          "type" => "choice",
+          "choice" => team,
+          "confidence" => 0.9,
+          "probabilities" => %{"billing" => 0.5, "infra" => 0.5, "other" => 0}
+        },
+        "urgency" => %{
+          "type" => "score",
+          "score" => 1.1,
+          "confidence" => 0.5,
+          "probabilities" => %{"0" => 0.2, "1" => 0.5, "2" => 0.3}
+        }
+      },
+      "usage" => %{"input_tokens" => 400, "output_tokens" => 60}
+    }
   end
 end

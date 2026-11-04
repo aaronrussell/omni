@@ -5,7 +5,7 @@ defmodule Omni.Test.Cases do
   # record them and tests replay them with the same request, as
   # `Omni.Test.Baseline.request/1` does for verify's scenarios.
 
-  alias Omni.{Context, Message, Model, Provider}
+  alias Omni.{Context, Decision, Message, Model, Provider}
   alias Omni.Dialects.OpenAICompletions
 
   @doc """
@@ -17,6 +17,7 @@ defmodule Omni.Test.Cases do
   def reference(:anthropic_messages), do: get_model!(:anthropic, "claude-haiku-5-5")
   def reference(:openai_responses), do: get_model!(:openai, "gpt-6-luna")
   def reference(:google_gemini), do: get_model!(:google, "gemini-3.8-flash")
+  def reference(:openai_decisions), do: get_model!(:openai, "gpt-6-luna")
 
   def reference(:openai_completions) do
     model = get_model!(:openai, "gpt-6-luna")
@@ -47,8 +48,19 @@ defmodule Omni.Test.Cases do
 
   @story "a 300-word story about a lighthouse keeper"
 
-  @doc "The context and options a case sends."
-  @spec request(atom()) :: {Context.t(), keyword()}
+  @doc "The context (or decision) and options a case sends."
+  @spec request(atom()) :: {Context.t() | Decision.t(), keyword()}
+
+  # The cache scenario's 7k-token station table as the state, sent twice:
+  # long enough for OpenAI's automatic prompt cache.
+  def request(:decision_cache) do
+    {%Context{system: table}, _opts} = Omni.Verify.Scenarios.request(:cache_usage)
+
+    decision =
+      Decision.new({table, [elevated: Omni.predicate("Is any station's elevation above 900 m?")]})
+
+    {decision, [prompt_cache_key: "omni-decision-cache"]}
+  end
 
   # Stops partway through a tool call: the note runs far past `max_tokens`.
   # Responses takes no fewer than 16 output tokens.

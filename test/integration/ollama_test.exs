@@ -44,4 +44,39 @@ defmodule Integration.OllamaTest do
       refute List.keymember?(request.headers, "authorization", 0)
     end
   end
+
+  describe "baseline: decisions" do
+    setup do
+      model =
+        Omni.Model.new(
+          id: "pplx-decider-flash:4b-nvfp4",
+          name: "pplx-decider-flash:4b-nvfp4",
+          provider: :ollama,
+          dialects: %{decision: Omni.Dialects.SystemOne}
+        )
+
+      %{model: model}
+    end
+
+    test "decision", %{model: model} do
+      assert_decision(model, :decision, "#{@dir}/decision.json")
+    end
+
+    test "decision json", %{model: model} do
+      assert_decision(model, :decision_json, "#{@dir}/decision_json.json")
+    end
+
+    test "target", %{model: model} do
+      request =
+        assert_target(
+          model,
+          "#{@dir}/decision.json",
+          "http://localhost:11434/v1/systemone",
+          [],
+          scenario: :decision
+        )
+
+      refute List.keymember?(request.headers, "authorization", 0)
+    end
+  end
 end

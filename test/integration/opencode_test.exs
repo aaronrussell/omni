@@ -4,7 +4,15 @@ defmodule Integration.OpenCodeTest do
   import Omni.Test.Baseline
 
   alias Omni.Content.{Text, Thinking, ToolUse}
-  alias Omni.Dialects.{AnthropicMessages, GoogleGemini, OpenAICompletions, OpenAIResponses}
+
+  alias Omni.Dialects.{
+    AnthropicMessages,
+    GoogleGemini,
+    OpenAICompletions,
+    OpenAIResponses,
+    SystemOne
+  }
+
   alias Omni.Test.Capture
 
   # Zen serves each model over its upstream's dialect. Its claim is the
@@ -107,6 +115,32 @@ defmodule Integration.OpenCodeTest do
         "#{@dir}/google_text.sse",
         "https://opencode.ai/inference/google/v1beta/models/gemini-3.8-flash:streamGenerateContent",
         [{"x-goog-api-key", "test-key"}]
+      )
+    end
+  end
+
+  describe "baseline: System One" do
+    setup do: %{model: model("jev-1.13-free")}
+
+    test "dialect", %{model: model} do
+      assert model.dialects.decision == SystemOne
+    end
+
+    test "decision", %{model: model} do
+      assert_decision(model, :decision, "#{@dir}/systemone_decision.json")
+    end
+
+    test "decision json", %{model: model} do
+      assert_decision(model, :decision_json, "#{@dir}/systemone_decision_json.json")
+    end
+
+    test "target", %{model: model} do
+      assert_target(
+        model,
+        "#{@dir}/systemone_decision.json",
+        "https://opencode.ai/inference/systemone/v1/systemone",
+        [{"authorization", "Bearer test-key"}],
+        scenario: :decision
       )
     end
   end

@@ -1,0 +1,123 @@
+{
+  "date": "2026-11-04",
+  "omni": "1.6.5",
+  "models": {
+    "ollama/pplx-decider-flash:4b-nvfp4": {
+      "decision": {
+        "status": "pass",
+        "result": "refund 1.0 · team billing · urgency 1.13",
+        "time_ms": 790
+      },
+      "decision_json": {
+        "status": "pass",
+        "result": "outage 0.99 · team infra",
+        "time_ms": 74
+      }
+    },
+    "openai/gpt-6-luna": {
+      "text": {
+        "status": "pass",
+        "result": "Clouds drift through blue light The horizon holds its breath Stars wake one by o…",
+        "time_ms": 5094
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 388 chars → “strawberry” has 3 r’s, “rhubarb” has 2,…",
+        "time_ms": 4900
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "“Strawberry” has 3, “rhubarb” has 2, and “raspberry” has 3 — **8 in total**.",
+        "time_ms": 5482
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 2272
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 6092
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 733
+      },
+      "pdf": {
+        "status": "pass",
+        "result": "Satoshi Nakamoto",
+        "time_ms": 1579
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → London is warmer: about **8°C**, compared with **2…",
+        "time_ms": 3652
+      },
+      "cache_usage": {
+        "status": "pass",
+        "result": "turn 1 wrote 0, turn 2 read 5115 of 44",
+        "time_ms": 6344
+      },
+      "decision": {
+        "status": "pass",
+        "result": "refund 1.0 · team billing · urgency 0.69",
+        "time_ms": 255
+      },
+      "decision_json": {
+        "status": "pass",
+        "result": "outage 1.0 · team infra",
+        "time_ms": 271
+      }
+    },
+    "opencode/jev-1.13-free": {
+      "decision": {
+        "status": "pass",
+        "result": "refund 0.99 · team billing · urgency 1.0",
+        "time_ms": 599
+      },
+      "decision_json": {
+        "status": "pass",
+        "result": "outage 0.98 · team infra",
+        "time_ms": 242
+      }
+    },
+    "openrouter/typesafe/jev-1.14": {
+      "decision": {
+        "status": "pass",
+        "result": "refund 0.99 · team billing · urgency 1.06",
+        "time_ms": 509
+      },
+      "decision_json": {
+        "status": "pass",
+        "result": "outage 0.98 · team infra",
+        "time_ms": 208
+      }
+    },
+    "openrouter/openai/gpt-6-luna-decisions": {
+      "decision": {
+        "status": "pass",
+        "result": "refund 1.0 · team billing · urgency 0.69",
+        "time_ms": 688
+      },
+      "decision_json": {
+        "status": "pass",
+        "result": "outage 1.0 · team infra",
+        "time_ms": 373
+      }
+    },
+    "typesafe/jev-1.14.0": {
+      "decision": {
+        "status": "pass",
+        "result": "refund 0.99 · team billing · urgency 1.09",
+        "time_ms": 341
+      },
+      "decision_json": {
+        "status": "pass",
+        "result": "outage 0.98 · team infra",
+        "time_ms": 178
+      }
+    }
+  }
+}
