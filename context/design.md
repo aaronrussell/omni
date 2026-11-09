@@ -371,7 +371,8 @@ Two keys, with separate jobs: **`:models` selects** what loads, **`:providers` c
 config :omni, :models,
   providers: [:builtins, :fireworks_ai, :gpu_box],   # default [:builtins]
   source: Omni.Sources.ModelsDev,
-  filter: {MyApp.Models, :keep?}
+  filter: {MyApp.Models, :keep?},
+  transform: {MyApp.Models, :transform}
 
 config :omni, :providers,
   anthropic: [api_key: {:system, "MY_ANTHROPIC_KEY"}],
@@ -393,11 +394,12 @@ config :omni, :providers,
   ]
 ```
 
-- **`:models` keys:** `providers` (ids; `:builtins` expands to every built-in and may sit in the list), `source`, `filter`.
+- **`:models` keys:** `providers` (ids; `:builtins` expands to every built-in and may sit in the list), `source`, `filter`, `transform`.
 - **`:providers` keys:** `name`, `host`, `api_key`, `auth`, `headers`, `dialects`, `module`, `models`, `source`. A module's `config/0` takes `name`, `api_key`, `auth`, `headers`, `dialects`; an endpoint under `dialects:` takes `base_url` and `compat`. Unknown keys are boot errors, including in entries for providers that aren't loaded.
 - **Dialects are module names** in config. A user's own dialect works with no registration. String ids (`"openai_completions"`) are an internal detail for reading catalog data (`Omni.Dialect.get/1`).
 - **`models:`** corrects or adds models (ids or `Model.new/1` keyword lists). An entry whose id the catalog has merges over the catalog model field by field (`dialects` by capability), so one field can be corrected without restating the rest; an entry with a new id adds a model, which names its dialect (or has the module's `models/2` stamp one). Entries in app config and in `load/1` opts for the same id merge too. A custom provider and local Ollama have nothing else. Removal is the filter's job.
 - **`filter:`** is a predicate over each finished `%Model{}` (provider embedded), run at load, including config-defined models. It is `{Mod, :fun}` or a named capture, because anonymous functions don't survive compile-time config.
+- **`transform:`** has the same form and runs just before `filter:` (which sees its results), over the same models: it returns each model changed or as is, matching on what it wants to change (`provider.id`, a dialect, an id prefix). Where `models:` corrects one id and a module's `models/2` is built-in code, it changes models by pattern, across providers. It may change any field but `id` (the store key, refs, config entries) and `provider` (configured under `:providers`); changing either, or returning anything but a model, raises. It can't drop a model; that is the filter's. Neither runs on `Omni.put_model/1`, whose model the caller built.
 - **v1 config raises** at boot with a migration message: per-module keys (`config :omni, Omni.Providers.X`), the old `:providers` list, modules in `providers:`, `auth_header:`, provider-level `base_url:` (suggesting `host:` when the path matches the endpoint's, else the `dialects:` form naming the module; raised in `assemble/2`, where the endpoint is known), top-level `compat:`, and `dialects: %{text: Module}`.
 
 **One merge rule.** A provider is built from three layers, later winning: source data ← module `config/0` ← app config (← call-site opts, at request time). Values without identity replace. Collections with identity merge shallowly by key: `headers` by header name, `dialects` by dialect module and then by field (`base_url` replaces, `compat` merges by flag), `models` by model id and then by field. Keyword lists in config are maps in disguise and are normalised before merging. Within compat, `omit` and `extra_body` values replace rather than merge.
@@ -432,7 +434,7 @@ For each provider id the Loader:
 4. Fills defaults (`auth: :dialect`, name from id) and validates: every endpoint's key is a dialect module, its compat flags pass the dialect's `compat_schema/0`, and `auth` is valid.
 5. Merges config `models:` over source models by id (field by field; new ids are added), then passes them through the module's `models/2`.
 6. Checks models. **Model data decides each model's dialect, and nothing fills one in.** A model with no dialect, or with a dialect the provider has no endpoint for, is skipped with a warning if it came from the catalog, and raises if config named it.
-7. Stamps the provider onto every model, applies the filter, and stores.
+7. Stamps the provider onto every model, applies the transform and checks its results again, applies the filter, and stores. Every model reaches the transform valid, so a problem after it is the transform's: it raises.
 
 `Loader.assemble/2` runs steps 1-7 without touching the store, which is what tests use. A load pass runs inside `Omni.Source.with_cache/1`, a pass-scoped cache (process dictionary): sources memoize shared expensive work (the ~9 MB decoded snapshot) with `Omni.Source.memo/2`, computed once per pass and garbage collected when it ends.
 
@@ -443,6 +445,9 @@ For each provider id the Loader:
 | No endpoint URL (catalog has none, or provider is custom) | Not an error at load; a request returns `{:error, {:no_base_url, dialect}}` |
 | Catalog model with no dialect, or one with no endpoint | Skipped with a warning |
 | Config model with no dialect, or one with no endpoint | Raise |
+| Transformed model with no dialect, or one with no endpoint | Raise |
+
+**Switching dialects.** Many providers serve every model over more than one API (OpenRouter over Completions, Responses and Messages; Alibaba, Groq, Mistral, NearAI, Moonshot and Venice also offer Responses), but a catalog gives each model one dialect, and providers may come to prefer another before the data does. Switching takes two steps, on purpose: declare the endpoint under the provider (`dialects: %{OpenAIResponses => [base_url: ...]}`) and move models to it in a `transform:`. Matching on the current dialect leaves a gateway's other models alone: a gateway carries an endpoint for each dialect its models speak, but a model isn't necessarily served on all of them. It is unverified territory: the endpoint starts with no compat flags (home-API behaviour), and finding the ones it needs is the user's job. The switch lives on the stored model, so `get_model/2`, model refs and persisted sessions resolve to it. A built-in moves its models only once verified, as xAI's `models/2` does. Not built: `Model.put_dialect` (a per-call switch is `put_in(model.dialects.text, Mod)`, and a request to a dialect with no endpoint already returns `{:error, {:no_endpoint, d}}`), and a provider-level dialect-to-dialect map (a new concept for one use).
 | Unknown or invalid compat flag; `host:` with a path | Raise |
 | v1-style config | Raise with migration message |
 | No endpoints and no models | Warning |
@@ -598,7 +603,7 @@ Per-model compat was ruled out because what looked like per-model variation reso
 | Variation | Resolved by |
 |---|---|
 | Effort levels differ per model (Groq); effort vs toggle models on one provider (Moonshot, Z.ai, Alibaba) | Model capability data (`Model.thinking`) |
-| One model needs another dialect's wire shape (OpenRouter's `anthropic/*` cache control) | Routing that model over a different dialect (not yet built) |
+| One model needs another dialect's wire shape (OpenRouter's `anthropic/*` cache control) | The provider module stamping that model with another dialect, as Ollama Cloud's `models/2` does (not yet built) |
 | Anything genuinely per-model that remains | Module code, which sees the model (Groq `modify_body/4`) |
 
 The cost: `extra_body` is provider-wide and unconditional. A field only some models accept is module code.

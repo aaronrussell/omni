@@ -658,6 +658,130 @@ defmodule Omni.Provider.LoaderTest do
 
   def reasoning?(model), do: model.thinking != false
 
+  describe "transform" do
+    @with_responses [dialects: %{@responses => [base_url: "https://cat.test/v1"]}]
+
+    test "switches a model's dialect to an endpoint declared in config" do
+      Application.put_env(:omni, :models, transform: &to_responses/1)
+
+      {provider, [model]} =
+        assemble([source: catalog([], [model("m", @completions)])] ++ @with_responses)
+
+      assert model.dialects == %{text: @responses}
+      assert model.provider == provider
+      assert model.name == "m"
+    end
+
+    test "models it doesn't match are left as they are" do
+      Application.put_env(:omni, :models, transform: {__MODULE__, :switch_a})
+
+      {_provider, models} =
+        assemble(
+          [source: catalog([], [model("a", @completions), model("b", @completions)])] ++
+            @with_responses
+        )
+
+      assert Enum.map(models, &{&1.id, &1.dialects.text}) == [
+               {"a", @responses},
+               {"b", @completions}
+             ]
+    end
+
+    test "applies to config models" do
+      Application.put_env(:omni, :models, transform: &to_responses/1)
+
+      {_provider, [model]} =
+        assemble(
+          [source: catalog([], []), models: [[id: "c", dialects: %{text: @completions}]]] ++
+            @with_responses
+        )
+
+      assert model.dialects == %{text: @responses}
+    end
+
+    test "the filter sees transformed models" do
+      Application.put_env(:omni, :models,
+        transform: &to_responses/1,
+        filter: &(&1.dialects.text == @responses)
+      )
+
+      {_provider, [model]} =
+        assemble([source: catalog([], [model("m", @completions)])] ++ @with_responses)
+
+      assert model.id == "m"
+    end
+
+    test "a dialect the provider has no endpoint for raises" do
+      Application.put_env(:omni, :models, transform: &to_responses/1)
+
+      assert_raise ArgumentError, ~r/transform gave model "m".*no endpoint for/, fn ->
+        assemble(source: catalog([], [model("m", @completions)]))
+      end
+    end
+
+    test "a dialect under the wrong capability raises" do
+      Application.put_env(:omni, :models,
+        transform: &%{&1 | dialects: %{text: Omni.Dialects.SystemOne}}
+      )
+
+      assert_raise ArgumentError, ~r/left model "m" invalid.*decision dialect/, fn ->
+        assemble(source: catalog([], [model("m", @completions)]))
+      end
+    end
+
+    test "changing the id raises" do
+      Application.put_env(:omni, :models, transform: &%{&1 | id: "renamed"})
+
+      assert_raise ArgumentError, ~r/changed the id of model "m" to "renamed"/, fn ->
+        assemble(source: catalog([], [model("m", @completions)]))
+      end
+    end
+
+    test "changing the provider raises" do
+      Application.put_env(:omni, :models,
+        transform: &%{&1 | provider: %{&1.provider | name: "Other"}}
+      )
+
+      assert_raise ArgumentError, ~r/changed the provider of model "m"/, fn ->
+        assemble(source: catalog([], [model("m", @completions)]))
+      end
+    end
+
+    test "returning anything but a model raises" do
+      Application.put_env(:omni, :models, transform: fn _model -> nil end)
+
+      assert_raise ArgumentError, ~r/returned nil for model "m".*use filter:/, fn ->
+        assemble(source: catalog([], [model("m", @completions)]))
+      end
+    end
+
+    test "applies to providers loaded at runtime" do
+      id = :"transform_#{System.unique_integer([:positive])}"
+      on_exit(fn -> Fixtures.unload(id) end)
+
+      Application.put_env(:omni, :models, transform: &to_responses/1)
+
+      Loader.load([
+        {id,
+         dialects: %{
+           @completions => [base_url: "https://x.test/v1"],
+           @responses => [base_url: "https://x.test/v1"]
+         },
+         models: [[id: "m", dialects: %{text: @completions}]]}
+      ])
+
+      assert {:ok, %Model{dialects: %{text: @responses}}} = Omni.get_model(id, "m")
+    end
+  end
+
+  def switch_a(%Model{id: "a"} = model), do: to_responses(model)
+  def switch_a(model), do: model
+
+  defp to_responses(%Model{dialects: %{text: @completions}} = model),
+    do: put_in(model.dialects.text, @responses)
+
+  defp to_responses(model), do: model
+
   describe "sources" do
     test "defaults to the ModelsDev source" do
       {provider, models} = Loader.assemble(:anthropic)
@@ -766,6 +890,12 @@ defmodule Omni.Provider.LoaderTest do
       Application.put_env(:omni, :models, providers: [], filter: "nope")
 
       assert_raise ArgumentError, ~r/invalid filter/, fn -> Loader.boot() end
+    end
+
+    test "an invalid transform raises" do
+      Application.put_env(:omni, :models, providers: [], transform: {:not, :a, :capture})
+
+      assert_raise ArgumentError, ~r/invalid transform/, fn -> Loader.boot() end
     end
 
     test "provider config is validated even for providers that aren't loaded" do

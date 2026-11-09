@@ -15,7 +15,9 @@ defmodule Omni.Provider.Loader do
   #   5. Validate the provider (raise), then check each model has a dialect
   #      the provider has an endpoint for: catalog models without are skipped
   #      with a warning, config models without raise. Nothing is filled in.
-  #   6. Stamp the provider onto every model, apply the global filter.
+  #   6. Stamp the provider onto every model, apply the global transform and
+  #      check its results again (raise: every model was valid before it),
+  #      then apply the global filter.
   #
   # assemble/2 does all of that without touching the store; load/1 stores.
   @moduledoc false
@@ -38,7 +40,7 @@ defmodule Omni.Provider.Loader do
   ]
   @module_config_keys [:name, :api_key, :auth, :headers, :dialects]
   @endpoint_keys [:base_url, :compat]
-  @models_keys [:providers, :source, :filter]
+  @models_keys [:providers, :source, :filter, :transform]
 
   @default_source Omni.Sources.ModelsDev
 
@@ -114,6 +116,7 @@ defmodule Omni.Provider.Loader do
       provider
       |> check_models!(models, config_ids)
       |> Enum.map(&%{&1 | provider: provider})
+      |> apply_transform(provider)
       |> apply_filter()
       |> Enum.sort_by(& &1.id)
 
@@ -469,6 +472,57 @@ defmodule Omni.Provider.Loader do
             "{:header, name}, :none, or :dialect"
   end
 
+  # The transform may change any field but the model's identity: its id
+  # (the store key, refs, config entries) and its provider (validated
+  # above). Models reach it valid, so any problem after it is its doing.
+  defp apply_transform(models, provider) do
+    case models_config()[:transform] do
+      nil -> models
+      {mod, fun} -> Enum.map(models, &transform!(provider, &1, fn m -> apply(mod, fun, [m]) end))
+      fun when is_function(fun, 1) -> Enum.map(models, &transform!(provider, &1, fun))
+    end
+  end
+
+  defp transform!(%Provider{id: id} = provider, %Model{id: model_id} = model, fun) do
+    where = "provider #{inspect(id)}: config :omni, :models transform"
+
+    case fun.(model) do
+      %Model{id: ^model_id, provider: ^provider} = result ->
+        case model_problem(provider, result) do
+          nil -> result
+          why -> raise ArgumentError, transform_message(where, result, why)
+        end
+
+      %Model{id: ^model_id} ->
+        raise ArgumentError,
+              "#{where} changed the provider of model #{inspect(model_id)} — it may " <>
+                "change any field but :id and :provider; configure the provider under " <>
+                "config :omni, :providers"
+
+      %Model{id: other} ->
+        raise ArgumentError,
+              "#{where} changed the id of model #{inspect(model_id)} to #{inspect(other)} — " <>
+                "it may change any field but :id and :provider"
+
+      other ->
+        raise ArgumentError,
+              "#{where} returned #{inspect(other)} for model #{inspect(model_id)} — " <>
+                "it must return a %Omni.Model{} (use filter: to drop models)"
+    end
+  end
+
+  defp transform_message(where, model, :no_dialect),
+    do: "#{where} left model #{inspect(model.id)} with no dialect"
+
+  defp transform_message(where, model, :wrong_capability),
+    do: "#{where} left model #{inspect(model.id)} invalid: it " <> capability_mismatch(model)
+
+  defp transform_message(where, model, :no_endpoint) do
+    "#{where} gave model #{inspect(model.id)} #{inspect(Map.values(model.dialects))}, " <>
+      "which the provider has no endpoint for — add one under config :omni, :providers: " <>
+      "dialects: %{Module => [base_url: \"https://...\"]}"
+  end
+
   defp apply_filter(models) do
     case models_config()[:filter] do
       nil -> models
@@ -812,6 +866,20 @@ defmodule Omni.Provider.Loader do
       {mod, fun} when is_atom(mod) and is_atom(fun) -> :ok
       fun when is_function(fun, 1) -> :ok
       other -> raise ArgumentError, "config :omni, :models: invalid filter #{inspect(other)}"
+    end
+
+    case Map.new(config)[:transform] do
+      nil ->
+        :ok
+
+      {mod, fun} when is_atom(mod) and is_atom(fun) ->
+        :ok
+
+      fun when is_function(fun, 1) ->
+        :ok
+
+      other ->
+        raise ArgumentError, "config :omni, :models: invalid transform #{inspect(other)}"
     end
   end
 

@@ -45,7 +45,7 @@ config :omni, :providers,
   opencode: [dialects: %{Omni.Dialects.OpenAICompletions => [compat: [max_tokens_field: "max_tokens"]]}]
 ```
 
-**Unknown keys are errors.** *(phase 1)* Per-provider keys: `name, host, api_key, auth, headers, dialects, module, models, source`; a module's `config/0` takes `name, api_key, auth, headers, dialects`; an endpoint takes `base_url, compat`. `:models` keys: `providers, source, filter`. Entries for providers that aren't loaded are still validated.
+**Unknown keys are errors.** *(phase 1)* Per-provider keys: `name, host, api_key, auth, headers, dialects, module, models, source`; a module's `config/0` takes `name, api_key, auth, headers, dialects`; an endpoint takes `base_url, compat`. `:models` keys: `providers, source, filter, transform`. Entries for providers that aren't loaded are still validated.
 
 **The legacy v1.x `:providers` list** (`config :omni, :providers, [:anthropic, :openai]`) still raises, with an updated message.
 
@@ -120,6 +120,8 @@ config :omni, :providers,
 **`Omni.put_model/1`** registers under the model's own provider (was `put_model/2`). The provider must be loaded. *(phase 1)*
 
 **New: `filter:`** in `config :omni, :models` — `{Mod, :fun}` or a 1-arity function over every loaded model, including config-defined ones. *(phase 1)*
+
+**New: `transform:`** in `config :omni, :models` — `{Mod, :fun}` or a 1-arity function that returns each loaded model changed or as is, run before `filter:`. It may change any field but `id` and `provider`; a model it leaves invalid (a dialect with no endpoint, say) raises at load. Its main use is moving a provider's models to another dialect the provider serves, an unverified, on-your-own feature: declare the endpoint under `config :omni, :providers` (`dialects: %{Omni.Dialects.OpenAIResponses => [base_url: ...]}`), then match the models in the transform. *(transform)*
 
 **New: per-provider `models:`** — corrects or adds models (as ids or keyword lists of `Model.new/1` attributes). *(phase 1, endpoints)* An entry whose id the catalog has is merged over it, field by field (`dialects` by capability), so `[id: "gpt-6", context_size: 1_000_000]` corrects one field. An entry with a new id adds a model and names its dialect.
 
