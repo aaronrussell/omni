@@ -4,9 +4,12 @@ defmodule Mix.Tasks.Omni.Verify do
   @moduledoc """
   Runs a set of live scenarios against one model and reports which pass.
 
-      mix omni.verify anthropic claude-haiku-5-5
-      mix omni.verify openai gpt-6-luna --add image,pdf
-      mix omni.verify fireworks_ai accounts/fireworks/models/kimi-k3 --only text,tool_use
+      mix omni.verify anthropic:claude-haiku-5-5
+      mix omni.verify openai:gpt-6-luna --add image,pdf
+      mix omni.verify fireworks_ai:accounts/fireworks/models/kimi-k3 --only text,tool_use
+
+  The model is a `provider:model` reference (a slash works too), or the
+  provider id and model id as two arguments.
 
   Use it to check a provider before relying on it: a catalog provider Omni
   doesn't verify, a custom provider from your config, or a new model on a
@@ -80,11 +83,7 @@ defmodule Mix.Tasks.Omni.Verify do
   def run(args) do
     {opts, positional} = parse!(args)
 
-    [provider_arg, model_id] =
-      case positional do
-        [_provider, _model] = pair -> pair
-        _ -> Mix.raise("Usage: mix omni.verify <provider> <model> [options]")
-      end
+    [provider_arg, model_id] = model_args!(positional)
 
     # Catalog loading logs a debug line per provider; keep the report readable.
     Logger.configure(level: :info)
@@ -92,6 +91,7 @@ defmodule Mix.Tasks.Omni.Verify do
 
     provider_id = String.to_atom(provider_arg)
     ensure_provider!(provider_id)
+    label = Omni.Model.to_ref({provider_id, model_id}, :colon)
 
     model =
       case Omni.get_model(provider_id, model_id) do
@@ -100,7 +100,7 @@ defmodule Mix.Tasks.Omni.Verify do
 
         {:error, _} ->
           Mix.raise(
-            "Unknown model #{provider_id}/#{model_id}. Models the catalog doesn't list " <>
+            "Unknown model #{label}. Models the catalog doesn't list " <>
               "can be added with `models:` in `config :omni, :providers`."
           )
       end
@@ -110,7 +110,7 @@ defmodule Mix.Tasks.Omni.Verify do
     dialects = Enum.map_join(model.dialects, ", ", fn {cap, mod} -> "#{cap}: #{inspect(mod)}" end)
 
     shell = Mix.shell()
-    shell.info("Verifying #{provider_id}/#{model_id} (#{dialects})\n")
+    shell.info("Verifying #{label} (#{dialects})\n")
 
     results =
       Verify.run(model, scenarios,
@@ -135,6 +135,19 @@ defmodule Mix.Tasks.Omni.Verify do
     case OptionParser.parse(args, strict: @switches) do
       {opts, positional, []} -> {opts, positional}
       {_, _, invalid} -> Mix.raise("Unknown options: #{inspect(invalid)}")
+    end
+  end
+
+  # Splits a reference the way `Omni.Model.parse_ref/1` does, without needing
+  # the provider loaded: the task loads it after.
+  defp model_args!(positional) do
+    case positional do
+      [ref] -> String.split(ref, [":", "/"], parts: 2)
+      args -> args
+    end
+    |> case do
+      [provider, model] = pair when provider != "" and model != "" -> pair
+      _ -> Mix.raise("Usage: mix omni.verify <provider>:<model> [options]")
     end
   end
 

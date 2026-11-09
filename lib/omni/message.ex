@@ -24,7 +24,7 @@ defmodule Omni.Message do
   @type content :: Text.t() | Thinking.t() | Attachment.t() | ToolUse.t() | ToolResult.t()
 
   @typedoc "The model that wrote an assistant message, and the dialect it spoke."
-  @type origin :: %{model: Model.ref(), dialect: module()}
+  @type origin :: %{model: {atom(), String.t()}, dialect: module()}
 
   @typedoc "A conversation message."
   @type t :: %__MODULE__{

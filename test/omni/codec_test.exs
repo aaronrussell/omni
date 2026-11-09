@@ -252,11 +252,14 @@ defmodule Omni.CodecTest do
       encoded = Codec.encode(msg)
 
       assert encoded["origin"] == %{
-               "model" => "openrouter/anthropic/claude-haiku-5.5",
+               "model" => "openrouter:anthropic/claude-haiku-5.5",
                "dialect" => "Omni.Dialects.OpenAICompletions"
              }
 
       assert {:ok, ^msg} = Codec.decode(encoded)
+
+      slash = put_in(encoded, ["origin", "model"], "openrouter/anthropic/claude-haiku-5.5")
+      assert {:ok, ^msg} = Codec.decode(slash)
     end
 
     test "omits a nil origin from encoded output" do

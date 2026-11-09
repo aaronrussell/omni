@@ -2,18 +2,19 @@
 #
 #     mix run scripts/verify/sweep.exs                          # the whole matrix
 #     mix run scripts/verify/sweep.exs zai openai               # these providers' entries
-#     mix run scripts/verify/sweep.exs zai/glm-4.7-flash        # one model
-#     mix run scripts/verify/sweep.exs zai/glm-4.7-flash --only text,tool_use
+#     mix run scripts/verify/sweep.exs zai:glm-4.7-flash        # one model
+#     mix run scripts/verify/sweep.exs zai:glm-4.7-flash --only text,tool_use
 #     mix run scripts/verify/sweep.exs moonshotai --delay 20000
 #
 # Runs `Omni.Verify` on each model in turn, printing results as they land, with
 # full errors after each model. Requests are real and billed. Providers without
 # an API key are skipped.
 #
-# A target is a provider or provider/model. A model the matrix doesn't list is
-# looked up in the catalog and runs the default scenarios. `--only` replaces
-# the selection of every target, so it can run scenarios the matrix leaves out.
-# `--delay ms` sets the pause between scenarios (default 1000), for rate limits.
+# A target is a provider or a provider:model reference (a slash works too).
+# A model the matrix doesn't list is looked up in the catalog and runs the
+# default scenarios. `--only` replaces the selection of every target, so it can
+# run scenarios the matrix leaves out. `--delay ms` sets the pause between
+# scenarios (default 1000), for rate limits.
 #
 # Results accumulate by day in scripts/verify/results/YYYY-MM-DD.json: each run
 # overwrites the cells it ran and keeps the rest, and the markdown view beside
@@ -144,21 +145,24 @@ defmodule Sweep do
 
   def model(provider_id, model_id), do: Omni.get_model(provider_id, model_id)
 
-  def label(provider_id, attrs) when is_list(attrs), do: "#{provider_id}/#{attrs[:id]}"
-  def label(provider_id, model_id), do: "#{provider_id}/#{model_id}"
+  def label(provider_id, attrs) when is_list(attrs), do: label(provider_id, attrs[:id])
+  def label(provider_id, model_id), do: Omni.Model.to_ref({provider_id, model_id}, :colon)
 
-  # Matrix entries for each target, in target order. Model ids can hold
-  # slashes, so only the first one splits a target.
+  # Matrix entries for each target, in target order. A target splits like
+  # `Omni.Model.parse_ref/1`, at its first colon or slash, but its provider
+  # needn't be loaded yet.
   def entries(matrix, []), do: matrix
 
   def entries(matrix, targets) do
     targets
     |> Enum.flat_map(fn target ->
-      case String.split(target, "/", parts: 2) do
+      case String.split(target, [":", "/"], parts: 2) do
         [provider] ->
           Enum.filter(matrix, fn {p, _, _} -> Atom.to_string(p) == provider end)
 
         [provider, model_id] ->
+          target = "#{provider}:#{model_id}"
+
           case Enum.filter(matrix, fn {p, ref, _} -> label(p, ref) == target end) do
             [] -> [{String.to_atom(provider), model_id, []}]
             found -> found

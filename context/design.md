@@ -54,13 +54,18 @@ This means one code path through the dialect, one set of tests for the wire form
 The `model` parameter accepts:
 
 - **Model struct** -- if the caller has already looked up (or built) the model
-- **Provider/model tuple** -- `{:anthropic, "claude-sonnet-5-5"}`
+- **Reference** (`Model.ref`) -- a tuple `{:anthropic, "claude-sonnet-5-5"}`, or a string `"anthropic:claude-sonnet-5-5"` or `"anthropic/claude-sonnet-5-5"`, resolved by `Model.get/1`
 
-Bare string model IDs are not supported to avoid ambiguity when the same model ID appears on multiple providers.
+A string's provider id ends at its first `:` or `/`. Provider ids hold neither, so model ids keep any they have (`"openrouter:typesafe/jev-1.14"`, `"ollama/qwen3:8b"`, Bedrock's `…-v1:0`, Cloudflare's `@cf/…`). The colon and slash forms are the two in common use (colon: AI SDK's registry, req_llm, llm_db; slash: Pi, OpenCode, the Vercel gateway); llm_db's `model@provider` isn't taken. The provider may be spelled as its catalog key (`fireworks-ai`): the snake_cased id and the key convert losslessly, since no catalog key has an underscore. `Model.parse_ref/1` turns the provider into an atom only if it is a loaded provider (`String.to_existing_atom` then `Provider.get/1`), so input never creates atoms and the result doesn't depend on which atoms exist. Errors: `{:invalid_model_ref, ref}` for syntax only (no delimiter, an empty side), then the tuple's errors, `{:unknown_provider, name}` carrying the provider as written.
+
+Output is colon: `Model.to_ref/2` writes `:tuple` (default), `:colon` or `:slash`, `String.Chars` gives colon, and `Omni.Codec` encodes origins with it. `to_ref/2` takes a model or tuple, never a string, so it can't fail; reformatting a string goes through `parse_ref/1`. Tooling (`mix omni.verify`, the sweep) splits targets by the same rule but loads the provider first, so it doesn't use `parse_ref/1`.
+
+Bare model ids are not supported, to avoid ambiguity when the same model id appears on multiple providers. A prefixed string isn't bare: `"openai/gpt-5"` is OpenAI's `gpt-5`, as in Pi and the gateways; OpenRouter's is `"openrouter/openai/gpt-5"`.
 
 ```elixir
-# With a tuple (most common)
+# With a reference (most common)
 Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, context)
+Omni.generate_text("anthropic:claude-sonnet-5-5", context)
 
 # With a pre-fetched struct
 {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-5-5")

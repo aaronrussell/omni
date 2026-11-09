@@ -106,6 +106,39 @@ defmodule Integration.ErrorTest do
       assert {:error, {:unknown_model, :anthropic, "no-such-model"}} =
                Omni.generate_text({:anthropic, "no-such-model"}, "Hello")
     end
+
+    test "a string reference resolves to its model" do
+      Req.Test.stub(:err_string_ref, fn conn ->
+        conn
+        |> Plug.Conn.put_resp_content_type("text/event-stream")
+        |> Plug.Conn.send_resp(200, File.read!("test/support/fixtures/anthropic/text.sse"))
+      end)
+
+      for ref <- ["anthropic:claude-haiku-5-5", "anthropic/claude-haiku-5-5"] do
+        assert {:ok, %Response{}} =
+                 Omni.generate_text(ref, "Hello",
+                   api_key: "test-key",
+                   plug: {Req.Test, :err_string_ref}
+                 )
+      end
+    end
+
+    test "string reference errors" do
+      assert {:error, {:invalid_model_ref, "claude-haiku-5-5"}} =
+               Omni.generate_text("claude-haiku-5-5", "Hello")
+
+      assert {:error, {:invalid_model_ref, "claude-haiku-5-5"}} =
+               Omni.stream_text("claude-haiku-5-5", "Hello")
+
+      assert {:error, {:unknown_provider, "error_test_nope"}} =
+               Omni.generate_text("error_test_nope:any", "Hello")
+
+      assert {:error, {:unknown_model, :anthropic, "no-such-model"}} =
+               Omni.generate_text("anthropic:no-such-model", "Hello")
+
+      assert {:error, {:invalid_model_ref, "jev-latest"}} =
+               Omni.decide("jev-latest", {"state", [q: Omni.predicate("Yes?")]})
+    end
   end
 
   # -- Context coercion --

@@ -14,6 +14,12 @@ defmodule OmniTest do
       assert {:error, {:unknown_provider, :nonexistent}} = Omni.get_model(:nonexistent, "any")
     end
 
+    test "get_model/1 delegates to Model.get/1" do
+      {:ok, [%Model{id: model_id} | _]} = Model.list(:anthropic)
+      assert {:ok, %Model{id: ^model_id}} = Omni.get_model("anthropic:#{model_id}")
+      assert {:ok, %Model{id: ^model_id}} = Omni.get_model({:anthropic, model_id})
+    end
+
     test "get_provider/1 delegates to Provider.get/1" do
       assert {:ok, %Omni.Provider{id: :anthropic}} = Omni.get_provider(:anthropic)
       assert {:error, {:unknown_provider, :nonexistent}} = Omni.get_provider(:nonexistent)

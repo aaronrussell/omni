@@ -69,10 +69,11 @@ defmodule Omni.Model do
 
   ## Looking up models
 
-  Most users access models through the top-level API with `{provider_id,
-  model_id}` tuples — Omni resolves them automatically:
+  Most users access models through the top-level API with a model reference
+  — Omni resolves it automatically:
 
       {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
+      {:ok, response} = Omni.generate_text("anthropic:claude-sonnet-5-5", "Hello!")
 
   To inspect a model's capabilities or browse what's available:
 
@@ -81,6 +82,30 @@ defmodule Omni.Model do
 
       {:ok, models} = Omni.list_models(:openai)
       Enum.map(models, & &1.id)
+
+  ## Model references
+
+  A reference names a model by provider id and model id, as a tuple or a
+  string. Strings take a colon or a slash; the provider id ends at the first
+  of either, so model ids keep any they hold:
+
+      {:openrouter, "typesafe/jev-1.14"}
+      "openrouter:typesafe/jev-1.14"
+      "openrouter/typesafe/jev-1.14"
+
+  The provider may be spelled as its catalog key (`"fireworks-ai:…"` for
+  `:fireworks_ai`). A bare model id is not a reference: the same id can be
+  served by many providers.
+
+  `to_ref/2` writes a model or tuple in any form, `parse_ref/1` reads a string
+  back into a tuple, and interpolation gives the colon form:
+
+      Model.to_ref(model)          #=> {:anthropic, "claude-sonnet-5-5"}
+      Model.to_ref(model, :slash)  #=> "anthropic/claude-sonnet-5-5"
+      "\#{model}"                   #=> "anthropic:claude-sonnet-5-5"
+
+      Model.parse_ref("anthropic:claude-sonnet-5-5")
+      #=> {:ok, {:anthropic, "claude-sonnet-5-5"}}
 
   ## Custom models
 
@@ -151,13 +176,19 @@ defmodule Omni.Model do
   ]
 
   @typedoc """
-  A model reference as `{provider_id, model_id}`.
+  A model reference: `{provider_id, model_id}`, `"provider_id:model_id"` or
+  `"provider_id/model_id"`.
 
-  The provider ID is an atom identifying a loaded provider (e.g. `:anthropic`,
-  `:openai`, `:google`). The model ID is the provider's string identifier
-  for the model (e.g. `"claude-sonnet-5-5"`).
+  The provider id is a loaded provider's atom id (e.g. `:anthropic`), or in a
+  string that id or its catalog key (`"fireworks-ai"`). The model id is the
+  provider's string identifier for the model (e.g. `"claude-sonnet-5-5"`). A
+  string's provider id ends at its first `:` or `/`. See "Model references"
+  in the moduledoc.
   """
-  @type ref :: {atom(), String.t()}
+  @type ref :: {atom(), String.t()} | String.t()
+
+  @typedoc "A form `to_ref/2` writes a reference in."
+  @type ref_format :: :tuple | :colon | :slash
 
   @typedoc "What thinking a model supports: none, unknown detail, or what it accepts."
   @type thinking ::
@@ -202,15 +233,71 @@ defmodule Omni.Model do
   end
 
   @doc """
-  Converts a model back to its `{provider_id, model_id}` lookup reference.
+  Writes a model, or a `{provider_id, model_id}` tuple, as a reference.
+
+  The format is `:tuple` (the default), `:colon` or `:slash`. To reformat a
+  string reference, read it with `parse_ref/1` first.
 
       {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-5-5")
-      Model.to_ref(model)
-      #=> {:anthropic, "claude-sonnet-5-5"}
+      Model.to_ref(model)          #=> {:anthropic, "claude-sonnet-5-5"}
+      Model.to_ref(model, :colon)  #=> "anthropic:claude-sonnet-5-5"
+      Model.to_ref(model, :slash)  #=> "anthropic/claude-sonnet-5-5"
   """
-  @spec to_ref(t()) :: ref()
-  def to_ref(%__MODULE__{provider: %Provider{id: provider_id}} = model) do
-    {provider_id, model.id}
+  @spec to_ref(t() | {atom(), String.t()}, ref_format()) :: ref()
+  def to_ref(model, format \\ :tuple)
+
+  def to_ref(%__MODULE__{provider: %Provider{id: provider_id}, id: model_id}, format),
+    do: to_ref({provider_id, model_id}, format)
+
+  def to_ref({provider_id, model_id} = ref, :tuple)
+      when is_atom(provider_id) and is_binary(model_id),
+      do: ref
+
+  def to_ref({provider_id, model_id}, :colon) when is_atom(provider_id) and is_binary(model_id),
+    do: "#{provider_id}:#{model_id}"
+
+  def to_ref({provider_id, model_id}, :slash) when is_atom(provider_id) and is_binary(model_id),
+    do: "#{provider_id}/#{model_id}"
+
+  @doc """
+  Reads a string reference into a `{provider_id, model_id}` tuple.
+
+  The provider id is everything before the first `:` or `/`, and may be
+  spelled as its catalog key. The provider must be loaded; the model is not
+  looked up (see `get/1`).
+
+      Model.parse_ref("openrouter:typesafe/jev-1.14")  #=> {:ok, {:openrouter, "typesafe/jev-1.14"}}
+      Model.parse_ref("fireworks-ai/accounts/fireworks/models/kimi-k3")
+      #=> {:ok, {:fireworks_ai, "accounts/fireworks/models/kimi-k3"}}
+
+  Returns `{:error, {:invalid_model_ref, ref}}` when the string has no
+  provider and model id to split, and `{:error, {:unknown_provider, name}}`,
+  with the provider as written, when that provider isn't loaded.
+  """
+  @spec parse_ref(String.t()) ::
+          {:ok, {atom(), String.t()}}
+          | {:error, {:invalid_model_ref, String.t()} | {:unknown_provider, String.t()}}
+  def parse_ref(ref) when is_binary(ref) do
+    case String.split(ref, [":", "/"], parts: 2) do
+      [name, model_id] when name != "" and model_id != "" ->
+        with {:ok, provider_id} <- loaded_provider(name), do: {:ok, {provider_id, model_id}}
+
+      _ ->
+        {:error, {:invalid_model_ref, ref}}
+    end
+  end
+
+  # Matches a loaded provider without creating atoms from the input: an id
+  # with no atom can't be loaded.
+  defp loaded_provider(name) do
+    id = name |> String.replace("-", "_") |> String.to_existing_atom()
+
+    case Provider.get(id) do
+      {:ok, _provider} -> {:ok, id}
+      {:error, _} -> {:error, {:unknown_provider, name}}
+    end
+  rescue
+    ArgumentError -> {:error, {:unknown_provider, name}}
   end
 
   @doc """
@@ -248,6 +335,21 @@ defmodule Omni.Model do
   @spec capability?(t(), capability()) :: boolean()
   def capability?(%__MODULE__{} = model, capability),
     do: match?({:ok, _}, dialect(model, capability))
+
+  @doc """
+  Looks up a model by reference: a tuple or a string (see `t:ref/0`).
+
+      Model.get("anthropic:claude-sonnet-5-5")
+      Model.get({:anthropic, "claude-sonnet-5-5"})
+
+  Returns the errors of `parse_ref/1` for a string, then those of `get/2`.
+  """
+  @spec get(ref()) :: {:ok, t()} | {:error, term()}
+  def get(ref) when is_binary(ref) do
+    with {:ok, {provider_id, model_id}} <- parse_ref(ref), do: get(provider_id, model_id)
+  end
+
+  def get({provider_id, model_id}), do: get(provider_id, model_id)
 
   @doc """
   Looks up a model by provider ID and model ID.
@@ -384,4 +486,8 @@ defmodule Omni.Model do
       filtered -> filtered
     end
   end
+end
+
+defimpl String.Chars, for: Omni.Model do
+  def to_string(model), do: Omni.Model.to_ref(model, :colon)
 end

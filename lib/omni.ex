@@ -176,8 +176,9 @@ defmodule Omni do
 
   ## Providers
 
-  Models are referenced as `{provider_id, model_id}` tuples. To list a
-  provider's models:
+  Models are referenced as `{provider_id, model_id}` tuples or as
+  `"provider_id:model_id"` strings (a slash works too; see
+  `Omni.Model`). To list a provider's models:
 
       {:ok, models} = Omni.list_models(:anthropic)
 
@@ -199,7 +200,8 @@ defmodule Omni do
   @doc """
   Streams a text generation request, returning a `%StreamingResponse{}`.
 
-  The model can be a `%Model{}` struct or a `{provider_id, model_id}` tuple.
+  The model can be a `%Model{}` struct or a reference: a `{provider_id,
+  model_id}` tuple or a `"provider_id:model_id"` string (see `Omni.Model`).
   The context can be a string, list of messages, or `%Context{}` struct.
 
   When tools with handlers are present in the context, automatically executes
@@ -239,14 +241,14 @@ defmodule Omni do
           {:ok, StreamingResponse.t()} | {:error, term()}
   def stream_text(model, context, opts \\ [])
 
-  def stream_text({provider_id, model_id}, context, opts) do
-    with {:ok, model} <- Model.get(provider_id, model_id) do
-      stream_text(model, context, opts)
-    end
-  end
-
   def stream_text(%Model{} = model, context, opts) do
     Loop.stream(model, Context.new(context), opts)
+  end
+
+  def stream_text(ref, context, opts) when is_binary(ref) or is_tuple(ref) do
+    with {:ok, model} <- Model.get(ref) do
+      stream_text(model, context, opts)
+    end
   end
 
   @doc group: :generation
@@ -271,14 +273,14 @@ defmodule Omni do
   @doc """
   Asks a decision model typed questions about a shared state.
 
-  The model can be a `%Model{}` struct or a `{provider_id, model_id}` tuple,
+  The model can be a `%Model{}` struct or a reference (see `stream_text/3`),
   and must serve decisions (see `Omni.Model.capability?/2`). The decision is a
   `%Omni.Decision{}` or the shorthand `{state, questions}`: the state is a
   string, a map, or a list, and the questions a keyword list built with
   `predicate/2`, `choice/2` and `score/2`.
 
       {:ok, decision} =
-        Omni.decide({:openrouter, "typesafe/jev-1.14"}, {"I was charged twice", [
+        Omni.decide("openrouter:typesafe/jev-1.14", {"I was charged twice", [
           refund: Omni.predicate("Is the customer asking for a refund?"),
           tone: Omni.choice("What is the tone?", [:calm, :frustrated, :angry])
         ]})
@@ -310,18 +312,18 @@ defmodule Omni do
           {:ok, Decision.t()} | {:error, term()}
   def decide(model, decision, opts \\ [])
 
-  def decide({provider_id, model_id}, decision, opts) do
-    with {:ok, model} <- Model.get(provider_id, model_id) do
-      decide(model, decision, opts)
-    end
-  end
-
   def decide(%Model{} = model, decision, opts) do
     decision = Decision.new(decision)
     {raw?, opts} = Keyword.pop(opts, :raw, false)
 
     with {:ok, req} <- Request.build(model, decision, opts) do
       Request.send(req, model, decision, raw: raw?)
+    end
+  end
+
+  def decide(ref, decision, opts) when is_binary(ref) or is_tuple(ref) do
+    with {:ok, model} <- Model.get(ref) do
+      decide(model, decision, opts)
     end
   end
 
@@ -342,6 +344,20 @@ defmodule Omni do
   """
   @spec get_model(atom(), String.t()) :: {:ok, Model.t()} | {:error, term()}
   defdelegate get_model(provider_id, model_id), to: Omni.Model, as: :get
+
+  @doc group: :models
+  @doc """
+  Looks up a model by reference: a `{provider_id, model_id}` tuple or a
+  `"provider_id:model_id"` string (a slash works too).
+
+      {:ok, model} = Omni.get_model("anthropic:claude-sonnet-5-5")
+      {:ok, model} = Omni.get_model("openrouter/typesafe/jev-1.14")
+
+  A malformed string is `{:error, {:invalid_model_ref, ref}}`; otherwise the
+  errors are those of `get_model/2`. See `Omni.Model` for the reference forms.
+  """
+  @spec get_model(Model.ref()) :: {:ok, Model.t()} | {:error, term()}
+  defdelegate get_model(ref), to: Omni.Model, as: :get
 
   @doc group: :models
   @doc """

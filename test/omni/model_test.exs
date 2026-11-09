@@ -203,6 +203,77 @@ defmodule Omni.ModelTest do
     end
   end
 
+  describe "get/1" do
+    setup do
+      %{provider: Fixtures.load_provider(models: ["org/model:tag"])}
+    end
+
+    test "looks up a string or tuple reference", %{provider: id} do
+      hyphenated = id |> Atom.to_string() |> String.replace("_", "-")
+
+      for ref <- [
+            {id, "org/model:tag"},
+            "#{id}:org/model:tag",
+            "#{id}/org/model:tag",
+            "#{hyphenated}:org/model:tag"
+          ] do
+        assert {:ok, %Model{id: "org/model:tag", provider: %Provider{id: ^id}}} = Model.get(ref)
+      end
+    end
+
+    test "returns the errors of parse_ref/1, then get/2", %{provider: id} do
+      assert {:error, {:invalid_model_ref, "model"}} = Model.get("model")
+      assert {:error, {:unknown_provider, "model_test_nope"}} = Model.get("model_test_nope:m")
+      assert {:error, {:unknown_model, ^id, "other"}} = Model.get("#{id}:other")
+      assert {:error, {:unknown_provider, :nonexistent}} = Model.get({:nonexistent, "m"})
+    end
+  end
+
+  describe "parse_ref/1" do
+    test "splits at the first colon or slash" do
+      assert Model.parse_ref("anthropic:claude-haiku-5-5") ==
+               {:ok, {:anthropic, "claude-haiku-5-5"}}
+
+      assert Model.parse_ref("anthropic/claude-haiku-5-5") ==
+               {:ok, {:anthropic, "claude-haiku-5-5"}}
+
+      assert Model.parse_ref("openrouter:typesafe/jev-1.14") ==
+               {:ok, {:openrouter, "typesafe/jev-1.14"}}
+
+      assert Model.parse_ref("openrouter/typesafe/jev-1.14") ==
+               {:ok, {:openrouter, "typesafe/jev-1.14"}}
+
+      assert Model.parse_ref("ollama/qwen3:8b") == {:ok, {:ollama, "qwen3:8b"}}
+      assert Model.parse_ref("ollama:qwen3:8b") == {:ok, {:ollama, "qwen3:8b"}}
+      assert Model.parse_ref("openai:@cf/meta/llama@x") == {:ok, {:openai, "@cf/meta/llama@x"}}
+    end
+
+    test "reads the provider's catalog spelling" do
+      assert Model.parse_ref("ollama-cloud:gemma4:31b") == {:ok, {:ollama_cloud, "gemma4:31b"}}
+    end
+
+    test "doesn't look the model up" do
+      assert Model.parse_ref("anthropic:no-such-model") == {:ok, {:anthropic, "no-such-model"}}
+    end
+
+    test "a string without a provider and model id is invalid" do
+      for ref <- ["claude-haiku-5-5", "anthropic:", ":claude-haiku-5-5", "/x", ""] do
+        assert Model.parse_ref(ref) == {:error, {:invalid_model_ref, ref}}
+      end
+    end
+
+    test "a provider that isn't loaded is unknown, as written" do
+      assert Model.parse_ref("model-test-never-an-atom:m") ==
+               {:error, {:unknown_provider, "model-test-never-an-atom"}}
+
+      # The atom exists, but no provider with that id is loaded.
+      _ = :model_test_unloaded
+
+      assert Model.parse_ref("model_test_unloaded:m") ==
+               {:error, {:unknown_provider, "model_test_unloaded"}}
+    end
+  end
+
   describe "put/1" do
     @text %{text: Omni.Dialects.OpenAICompletions}
 
@@ -321,6 +392,33 @@ defmodule Omni.ModelTest do
       model = Model.new(id: "test", name: "Test", provider: Fixtures.provider(id: :venice))
 
       assert Model.to_ref(model) == {:venice, "test"}
+    end
+  end
+
+  describe "to_ref/2" do
+    test "writes a model or tuple in each form" do
+      model = Model.new(id: "org/m:tag", name: "M", provider: Fixtures.provider(id: :venice))
+
+      for input <- [model, {:venice, "org/m:tag"}] do
+        assert Model.to_ref(input, :tuple) == {:venice, "org/m:tag"}
+        assert Model.to_ref(input, :colon) == "venice:org/m:tag"
+        assert Model.to_ref(input, :slash) == "venice/org/m:tag"
+      end
+    end
+
+    test "round-trips through parse_ref/1" do
+      ref = {:openrouter, "@cf/org/m:tag@x"}
+
+      for format <- [:colon, :slash] do
+        assert ref |> Model.to_ref(format) |> Model.parse_ref() == {:ok, ref}
+      end
+    end
+  end
+
+  describe "String.Chars" do
+    test "interpolates as a colon reference" do
+      model = Model.new(id: "org/m", name: "M", provider: Fixtures.provider(id: :venice))
+      assert "#{model}" == "venice:org/m"
     end
   end
 

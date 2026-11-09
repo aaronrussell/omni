@@ -23,9 +23,10 @@ defmodule Omni.Codec do
 
   ## Message origin
 
-  `Message.origin` is encoded readably, as `%{"model" => "provider/model",
-  "dialect" => "Omni.Dialects.AnthropicMessages"}`. A provider or dialect
-  unknown to the decoding node decodes as `nil`, so that message's thinking
+  `Message.origin` is encoded readably, as `%{"model" => "provider:model",
+  "dialect" => "Omni.Dialects.AnthropicMessages"}`, the model a string
+  reference (see `Omni.Model`). A provider that isn't loaded, or a dialect
+  unknown to the decoding node, decodes as `nil`, so that message's thinking
   is not sent back.
 
   ## Opaque fields
@@ -50,7 +51,7 @@ defmodule Omni.Codec do
       iex> {:ok, ^message} = Omni.Codec.decode(encoded)
   """
 
-  alias Omni.{Message, Usage, Util}
+  alias Omni.{Message, Model, Usage, Util}
   alias Omni.Content.{Attachment, Text, Thinking, ToolResult, ToolUse}
 
   import Util, only: [maybe_put: 3]
@@ -151,8 +152,8 @@ defmodule Omni.Codec do
 
   defp encode_origin(nil), do: nil
 
-  defp encode_origin(%{model: {provider_id, model_id}, dialect: dialect}) do
-    %{"model" => "#{provider_id}/#{model_id}", "dialect" => inspect(dialect)}
+  defp encode_origin(%{model: ref, dialect: dialect}) do
+    %{"model" => Model.to_ref(ref, :colon), "dialect" => inspect(dialect)}
   end
 
   defp encode_text(%Text{} = t) do
@@ -257,20 +258,13 @@ defmodule Omni.Codec do
     end
   end
 
-  # Model ids can hold slashes; provider ids can't, so the first one splits.
-  # A provider or dialect this node doesn't know decodes as no origin, which
-  # only means the message's thinking isn't sent back.
+  # A provider that isn't loaded, or a dialect this node doesn't know, decodes
+  # as no origin, which only means the message's thinking isn't sent back.
   defp decode_origin(%{"model" => ref, "dialect" => dialect})
        when is_binary(ref) and is_binary(dialect) do
-    case String.split(ref, "/", parts: 2) do
-      [provider_id, model_id] ->
-        %{
-          model: {String.to_existing_atom(provider_id), model_id},
-          dialect: String.to_existing_atom("Elixir." <> dialect)
-        }
-
-      _ ->
-        nil
+    case Model.parse_ref(ref) do
+      {:ok, ref} -> %{model: ref, dialect: String.to_existing_atom("Elixir." <> dialect)}
+      {:error, _} -> nil
     end
   rescue
     ArgumentError -> nil
