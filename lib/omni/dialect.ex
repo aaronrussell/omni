@@ -29,7 +29,7 @@ defmodule Omni.Dialect do
       by most third-party providers (Groq, Together, Fireworks, DeepSeek, etc.)
     * `Omni.Dialects.OpenAIResponses` — OpenAI's newer Responses API format
     * `Omni.Dialects.AnthropicMessages` — Anthropic Messages format
-    * `Omni.Dialects.GoogleGemini` — Google Gemini format
+    * `Omni.Dialects.GoogleGenerateContent` — Gemini API `generateContent` format
     * `Omni.Dialects.OllamaChat` — Ollama native chat format (NDJSON streaming)
 
   Decision:
@@ -84,7 +84,7 @@ defmodule Omni.Dialect do
     "anthropic_messages" => Omni.Dialects.AnthropicMessages,
     "openai_completions" => Omni.Dialects.OpenAICompletions,
     "openai_responses" => Omni.Dialects.OpenAIResponses,
-    "google_gemini" => Omni.Dialects.GoogleGemini,
+    "google_generate_content" => Omni.Dialects.GoogleGenerateContent,
     "ollama_chat" => Omni.Dialects.OllamaChat,
     "systemone" => Omni.Dialects.SystemOne,
     "openai_decisions" => Omni.Dialects.OpenAIDecisions
@@ -111,7 +111,7 @@ defmodule Omni.Dialect do
   Resolves a dialect string identifier to its module.
 
   Built-in dialect identifiers: `"anthropic_messages"`, `"openai_completions"`,
-  `"openai_responses"`, `"google_gemini"`, `"ollama_chat"`, `"systemone"`,
+  `"openai_responses"`, `"google_generate_content"`, `"ollama_chat"`, `"systemone"`,
   `"openai_decisions"`.
   """
   @spec get(String.t()) :: {:ok, module()} | {:error, {:unknown_dialect, String.t()}}

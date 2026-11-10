@@ -31,7 +31,7 @@
     "id": "gemini-test",
     "name": "Gemini Test",
     "reasoning": false,
-    "dialects": ["google_gemini"],
+    "dialects": ["google_generate_content"],
     "input_modalities": ["text"],
     "output_modalities": ["text"],
     "input_cost": 1.0,

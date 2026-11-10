@@ -329,7 +329,7 @@ Built-ins keep modules. `Omni.Provider.Builtins` (internal) maps the seventeen b
 |---|---|---|---|---|
 | `:alibaba` | `Alibaba` | Completions | -- | -- |
 | `:anthropic` | `Anthropic` | Anthropic Messages | -- | -- (`anthropic-version` header in `config/0`) |
-| `:google` | `Google` | Gemini | -- | -- |
+| `:google` | `Google` | Gemini generateContent | -- | -- |
 | `:groq` | `Groq` | Completions | -- | `modify_body/4`: `reasoning_format: "parsed"` |
 | `:mistral` | `Mistral` | Completions | -- | -- |
 | `:moonshotai` | `Moonshot` | Completions | -- | -- |
@@ -508,12 +508,12 @@ A dialect is a module translating between Omni's types and the wire format of a 
 | `OpenAICompletions` | `"openai_completions"` | text | OpenAI Chat Completions; spoken by most third-party providers | bearer |
 | `OpenAIResponses` | `"openai_responses"` | text | OpenAI Responses | bearer |
 | `AnthropicMessages` | `"anthropic_messages"` | text | Anthropic Messages | `x-api-key` |
-| `GoogleGemini` | `"google_gemini"` | text | Gemini `streamGenerateContent` (model id in the path) | `x-goog-api-key` |
+| `GoogleGenerateContent` | `"google_generate_content"` | text | Gemini API `generateContent`, streamed from `streamGenerateContent` (model id in the path) | `x-goog-api-key` |
 | `OllamaChat` | `"ollama_chat"` | text | Ollama native `/api/chat` (NDJSON) | bearer |
 | `SystemOne` | `"systemone"` | decision | TypeSafe System One, `/systemone` | bearer |
 | `OpenAIDecisions` | `"openai_decisions"` | decision | OpenAI Decisions, `/decisions` | bearer |
 
-String ids exist for catalog data; `Omni.Dialect.get/1` resolves them. Config uses modules.
+String ids exist for catalog data; `Omni.Dialect.get/1` resolves them. Config uses modules. A dialect is named for the API's originator, then the API itself (its resource or method, snake_cased): `google_generate_content` names `generateContent`, which leaves room for Google's Interactions API on the same host.
 
 ### Text callback details
 
@@ -526,7 +526,7 @@ def handle_path(_model, _opts), do: "/messages"
 # OpenAI Completions
 def handle_path(_model, _opts), do: "/chat/completions"
 
-# Google Gemini
+# Google generateContent
 def handle_path(%Model{id: id}, _opts), do: "/models/#{id}:streamGenerateContent?alt=sse"
 ```
 
@@ -1769,7 +1769,7 @@ lib/omni/
 │   └── thinking.ex            # Shared :thinking resolution (clamping, budgets)
 └── dialects/
     ├── anthropic_messages.ex  # text
-    ├── google_gemini.ex
+    ├── google_generate_content.ex
     ├── ollama_chat.ex
     ├── openai_completions.ex
     ├── openai_responses.ex

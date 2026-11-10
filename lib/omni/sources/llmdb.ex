@@ -69,7 +69,7 @@ defmodule Omni.Sources.LLMDB do
   @npm_to_dialect %{
     "@ai-sdk/alibaba" => "openai_completions",
     "@ai-sdk/anthropic" => "anthropic_messages",
-    "@ai-sdk/google" => "google_gemini",
+    "@ai-sdk/google" => "google_generate_content",
     "@ai-sdk/groq" => "openai_completions",
     "@ai-sdk/mistral" => "openai_completions",
     "@ai-sdk/openai" => "openai_responses",
@@ -92,7 +92,7 @@ defmodule Omni.Sources.LLMDB do
 
   @supported_dialects [
     "anthropic_messages",
-    "google_gemini",
+    "google_generate_content",
     "ollama_chat",
     "openai_completions",
     "openai_responses"
@@ -312,7 +312,6 @@ defmodule Omni.Sources.LLMDB do
   defp wire_dialect(%{execution: %{text: %{supported: true, wire_protocol: wire}}}) do
     case wire do
       "openai_chat" -> "openai_completions"
-      "google_generate_content" -> "google_gemini"
       wire when wire in @supported_dialects -> wire
       _ -> nil
     end

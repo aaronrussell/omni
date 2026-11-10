@@ -1,6 +1,9 @@
-defmodule Omni.Dialects.GoogleGemini do
+defmodule Omni.Dialects.GoogleGenerateContent do
   @moduledoc """
-  Dialect implementation for the Google Gemini wire format.
+  Dialect implementation for the Gemini API's `generateContent` wire format.
+
+  Streams from `streamGenerateContent`. Google's newer Interactions API is a
+  different wire format, not spoken by this dialect.
 
   See `Omni.Dialect.Text` for the behaviour specification and delta types.
 

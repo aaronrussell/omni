@@ -215,7 +215,7 @@ defmodule Omni.SourceTest do
 
       assert models["claude-test"].dialects == %{text: Omni.Dialects.AnthropicMessages}
       assert models["gpt-test"].dialects == %{text: Omni.Dialects.OpenAIResponses}
-      assert models["gemini-test"].dialects == %{text: Omni.Dialects.GoogleGemini}
+      assert models["gemini-test"].dialects == %{text: Omni.Dialects.GoogleGenerateContent}
 
       assert Source.build_model(%{"id" => "d", "dialects" => ["systemone"]}).dialects ==
                %{decision: Omni.Dialects.SystemOne}

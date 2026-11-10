@@ -30,7 +30,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
     Omni.Dialects.AnthropicMessages,
     Omni.Dialects.OpenAICompletions,
     Omni.Dialects.OpenAIResponses,
-    Omni.Dialects.GoogleGemini,
+    Omni.Dialects.GoogleGenerateContent,
     Omni.Dialects.OllamaChat,
     Omni.Dialects.SystemOne,
     Omni.Dialects.OpenAIDecisions
@@ -177,7 +177,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
       {:google, "gemini-2.5-pro"} => %Omni.Model{
         id: "gemini-2.5-pro",
         name: "Gemini 2.5 Pro",
-        dialects: %{text: Omni.Dialects.GoogleGemini},
+        dialects: %{text: Omni.Dialects.GoogleGenerateContent},
         release_date: ~D[2025-06-17],
         context_size: 1_048_576,
         max_output_tokens: 65_536,

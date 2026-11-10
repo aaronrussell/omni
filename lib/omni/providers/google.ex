@@ -1,6 +1,6 @@
 defmodule Omni.Providers.Google do
   @moduledoc """
-  Provider for the Google Gemini API, using the `Omni.Dialects.GoogleGemini`
+  Provider for the Google Gemini API, using the `Omni.Dialects.GoogleGenerateContent`
   dialect.
 
   Provider id `:google`. Reads the API key from `GEMINI_API_KEY`, so no
@@ -15,7 +15,7 @@ defmodule Omni.Providers.Google do
     [
       api_key: {:system, "GEMINI_API_KEY"},
       dialects: %{
-        Omni.Dialects.GoogleGemini => [
+        Omni.Dialects.GoogleGenerateContent => [
           base_url: "https://generativelanguage.googleapis.com/v1beta"
         ]
       }

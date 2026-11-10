@@ -7,7 +7,7 @@ defmodule Integration.OpenCodeTest do
 
   alias Omni.Dialects.{
     AnthropicMessages,
-    GoogleGemini,
+    GoogleGenerateContent,
     OpenAICompletions,
     OpenAIResponses,
     SystemOne
@@ -102,7 +102,7 @@ defmodule Integration.OpenCodeTest do
     setup do: %{model: model("gemini-3.8-flash")}
 
     test "dialect", %{model: model} do
-      assert model.dialects.text == GoogleGemini
+      assert model.dialects.text == GoogleGenerateContent
     end
 
     test "text", %{model: model} do

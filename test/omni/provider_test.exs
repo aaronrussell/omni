@@ -26,8 +26,8 @@ defmodule Omni.ProviderTest do
 
   describe "endpoint/2" do
     test "returns an error for a dialect the provider has no endpoint for" do
-      assert {:error, {:no_endpoint, Omni.Dialects.GoogleGemini}} =
-               Provider.endpoint(Fixtures.provider(), Omni.Dialects.GoogleGemini)
+      assert {:error, {:no_endpoint, Omni.Dialects.GoogleGenerateContent}} =
+               Provider.endpoint(Fixtures.provider(), Omni.Dialects.GoogleGenerateContent)
     end
   end
 

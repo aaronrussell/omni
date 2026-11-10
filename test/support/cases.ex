@@ -16,7 +16,7 @@ defmodule Omni.Test.Cases do
   @spec reference(atom()) :: Model.t()
   def reference(:anthropic_messages), do: get_model!(:anthropic, "claude-haiku-5-5")
   def reference(:openai_responses), do: get_model!(:openai, "gpt-6-luna")
-  def reference(:google_gemini), do: get_model!(:google, "gemini-3.8-flash")
+  def reference(:google_generate_content), do: get_model!(:google, "gemini-3.8-flash")
   def reference(:openai_decisions), do: get_model!(:openai, "gpt-6-luna")
 
   def reference(:openai_completions) do

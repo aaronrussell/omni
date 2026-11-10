@@ -272,7 +272,7 @@ if Code.ensure_loaded?(LLMDB) do
         by_id = Map.new(loaded, &{&1.id, &1.dialects[:text]})
 
         assert by_id["chat"] == Omni.Dialects.OpenAICompletions
-        assert by_id["gemini"] == Omni.Dialects.GoogleGemini
+        assert by_id["gemini"] == Omni.Dialects.GoogleGenerateContent
         assert by_id["responses"] == Omni.Dialects.OpenAIResponses
       end
 

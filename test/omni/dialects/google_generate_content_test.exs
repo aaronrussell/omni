@@ -1,7 +1,7 @@
-defmodule Omni.Dialects.GoogleGeminiTest do
+defmodule Omni.Dialects.GoogleGenerateContentTest do
   use ExUnit.Case, async: true
 
-  alias Omni.Dialects.GoogleGemini
+  alias Omni.Dialects.GoogleGenerateContent
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
   alias Omni.{Context, Message, Tool}
   alias Omni.Test.Fixtures
@@ -9,18 +9,18 @@ defmodule Omni.Dialects.GoogleGeminiTest do
   @model Fixtures.model(
            id: "gemini-2.0-flash-lite",
            name: "Gemini 2.0 Flash Lite",
-           dialect: GoogleGemini,
+           dialect: GoogleGenerateContent,
            max_output_tokens: 8192
          )
 
   describe "handle_path/2" do
     test "embeds model ID in path" do
-      path = GoogleGemini.handle_path(@model, %{})
+      path = GoogleGenerateContent.handle_path(@model, %{})
       assert path =~ "gemini-2.0-flash-lite"
     end
 
     test "uses v1beta path" do
-      path = GoogleGemini.handle_path(@model, %{})
+      path = GoogleGenerateContent.handle_path(@model, %{})
       assert path == "/models/gemini-2.0-flash-lite:streamGenerateContent?alt=sse"
     end
   end
@@ -28,7 +28,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
   describe "handle_body/3" do
     test "simple text message" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       assert [msg] = body["contents"]
       assert msg["role"] == "user"
@@ -37,14 +37,14 @@ defmodule Omni.Dialects.GoogleGeminiTest do
 
     test "no model key in body" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       refute Map.has_key?(body, "model")
     end
 
     test "no stream key in body" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       refute Map.has_key?(body, "stream")
     end
@@ -52,7 +52,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
     test "assistant role maps to model" do
       msg = Message.new(role: :assistant, content: "Hi there!")
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       assert encoded["role"] == "model"
@@ -66,7 +66,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       ]
 
       context = Context.new(messages)
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       assert length(body["contents"]) == 3
       roles = Enum.map(body["contents"], & &1["role"])
@@ -75,51 +75,51 @@ defmodule Omni.Dialects.GoogleGeminiTest do
 
     test "system prompt encodes as systemInstruction" do
       context = Context.new(system: "You are helpful.", messages: [Message.new("Hi")])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       assert %{"parts" => [%{"text" => "You are helpful."}]} = body["systemInstruction"]
     end
 
     test "no system prompt omits systemInstruction" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       refute Map.has_key?(body, "systemInstruction")
     end
 
     test "no max_tokens omits maxOutputTokens from generationConfig" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       refute Map.has_key?(body["generationConfig"], "maxOutputTokens")
     end
 
     test "max_tokens in opts sets maxOutputTokens" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@model, context, %{max_tokens: 1024})
+      body = GoogleGenerateContent.handle_body(@model, context, %{max_tokens: 1024})
 
       assert body["generationConfig"]["maxOutputTokens"] == 1024
     end
 
     test "temperature in generationConfig" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@model, context, %{temperature: 0.7})
+      body = GoogleGenerateContent.handle_body(@model, context, %{temperature: 0.7})
 
       assert body["generationConfig"]["temperature"] == 0.7
     end
 
     test "no temperature omits key from generationConfig" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       refute Map.has_key?(body["generationConfig"], "temperature")
     end
 
     test "cache option is no-op" do
       context = Context.new("Hello")
-      body_short = GoogleGemini.handle_body(@model, context, %{cache: :short})
-      body_long = GoogleGemini.handle_body(@model, context, %{cache: :long})
-      body_nil = GoogleGemini.handle_body(@model, context, %{})
+      body_short = GoogleGenerateContent.handle_body(@model, context, %{cache: :short})
+      body_long = GoogleGenerateContent.handle_body(@model, context, %{cache: :long})
+      body_nil = GoogleGenerateContent.handle_body(@model, context, %{})
 
       assert body_short == body_nil
       assert body_long == body_nil
@@ -134,7 +134,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         )
 
       context = Context.new(messages: [Message.new("What's the weather?")], tools: [tool])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       assert [%{"functionDeclarations" => [decl]}] = body["tools"]
       assert decl["name"] == "get_weather"
@@ -144,14 +144,14 @@ defmodule Omni.Dialects.GoogleGeminiTest do
 
     test "empty tools omits key" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       refute Map.has_key?(body, "tools")
     end
 
     test "nil tools omits key" do
       context = Context.new(messages: [Message.new("Hello")], tools: nil)
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       refute Map.has_key?(body, "tools")
     end
@@ -159,7 +159,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
     test "Text content encodes as text part" do
       msg = Message.new(role: :user, content: [Text.new("Hello")])
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       assert [%{"text" => "Hello"}] = encoded["parts"]
@@ -173,7 +173,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         )
 
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       [part] = encoded["parts"]
@@ -194,7 +194,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         )
 
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       [part] = encoded["parts"]
@@ -212,7 +212,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         )
 
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       [part] = encoded["parts"]
@@ -233,7 +233,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         )
 
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       [part] = encoded["parts"]
@@ -251,7 +251,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         )
 
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       [part] = encoded["parts"]
@@ -269,7 +269,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         )
 
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       [part] = encoded["parts"]
@@ -287,7 +287,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         )
 
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       [part] = encoded["parts"]
@@ -310,7 +310,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         )
 
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       [part] = encoded["parts"]
@@ -329,7 +329,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         )
 
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
 
@@ -348,7 +348,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         )
 
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       [part] = encoded["parts"]
@@ -363,7 +363,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         )
 
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       assert [%{"thoughtSignature" => "sig_hidden"}] = encoded["parts"]
@@ -377,7 +377,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         )
 
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       assert [%{"text" => "answer"}] = encoded["parts"]
@@ -391,7 +391,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         )
 
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       [part] = encoded["parts"]
@@ -402,7 +402,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
     test "Text block without signature omits thoughtSignature" do
       msg = Message.new(role: :user, content: [Text.new("hello")])
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       [part] = encoded["parts"]
@@ -424,7 +424,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         )
 
       context = Context.new([msg])
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       [encoded] = body["contents"]
       [part] = encoded["parts"]
@@ -440,7 +440,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
     defp result(id), do: ToolResult.new(tool_use_id: id, name: "get_weather", content: "4°C")
 
     defp signatures(context) do
-      for content <- GoogleGemini.handle_body(@model, context, %{})["contents"],
+      for content <- GoogleGenerateContent.handle_body(@model, context, %{})["contents"],
           content["role"] == "model",
           do: Enum.map(content["parts"], & &1["thoughtSignature"])
     end
@@ -489,14 +489,14 @@ defmodule Omni.Dialects.GoogleGeminiTest do
     @reasoning_model Fixtures.model(
                        id: "gemini-2.5-flash",
                        name: "Gemini 2.5 Flash",
-                       dialect: GoogleGemini,
+                       dialect: GoogleGenerateContent,
                        max_output_tokens: 8192,
                        thinking: %{toggle: true, budget: {0, 24_576}}
                      )
 
     test "thinking: :high sets thinkingBudget" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: :high})
+      body = GoogleGenerateContent.handle_body(@reasoning_model, context, %{thinking: :high})
 
       assert body["generationConfig"]["thinkingConfig"] == %{
                "thinkingBudget" => 16_384,
@@ -506,7 +506,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
 
     test "thinkingConfig is nested inside generationConfig" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: :high})
+      body = GoogleGenerateContent.handle_body(@reasoning_model, context, %{thinking: :high})
 
       assert Map.has_key?(body["generationConfig"], "thinkingConfig")
       refute Map.has_key?(body, "thinkingConfig")
@@ -522,7 +522,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
             xhigh: 24_576,
             max: 24_576
           ] do
-        body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: level})
+        body = GoogleGenerateContent.handle_body(@reasoning_model, context, %{thinking: level})
 
         assert body["generationConfig"]["thinkingConfig"]["thinkingBudget"] == expected,
                "expected budget #{expected} for level #{level}"
@@ -534,7 +534,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
 
     test "thinking: true uses the medium budget" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: true})
+      body = GoogleGenerateContent.handle_body(@reasoning_model, context, %{thinking: true})
 
       assert body["generationConfig"]["thinkingConfig"] == %{
                "thinkingBudget" => 4096,
@@ -546,7 +546,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       context = Context.new("Hello")
 
       body =
-        GoogleGemini.handle_body(@reasoning_model, context, %{
+        GoogleGenerateContent.handle_body(@reasoning_model, context, %{
           thinking: %{effort: :high, budget: 8192}
         })
 
@@ -557,35 +557,35 @@ defmodule Omni.Dialects.GoogleGeminiTest do
 
     test "thinking: false sets thinkingBudget to 0" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@reasoning_model, context, %{thinking: false})
+      body = GoogleGenerateContent.handle_body(@reasoning_model, context, %{thinking: false})
 
       assert body["generationConfig"]["thinkingConfig"] == %{"thinkingBudget" => 0}
     end
 
     test "thinking: false sends nothing to a model that can't switch off" do
       model = %{@reasoning_model | thinking: %{budget: {128, 32_768}}}
-      body = GoogleGemini.handle_body(model, Context.new("Hello"), %{thinking: false})
+      body = GoogleGenerateContent.handle_body(model, Context.new("Hello"), %{thinking: false})
 
       refute Map.has_key?(body["generationConfig"], "thinkingConfig")
     end
 
     test "a model with no thinking data uses the budget path" do
       model = %{@reasoning_model | thinking: true}
-      body = GoogleGemini.handle_body(model, Context.new("Hello"), %{thinking: :medium})
+      body = GoogleGenerateContent.handle_body(model, Context.new("Hello"), %{thinking: :medium})
 
       assert body["generationConfig"]["thinkingConfig"]["thinkingBudget"] == 4096
     end
 
     test "non-reasoning model ignores thinking option" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@model, context, %{thinking: :high})
+      body = GoogleGenerateContent.handle_body(@model, context, %{thinking: :high})
 
       refute Map.has_key?(body, "thinkingConfig")
     end
 
     test "nil thinking is no-op" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@reasoning_model, context, %{})
+      body = GoogleGenerateContent.handle_body(@reasoning_model, context, %{})
 
       refute Map.has_key?(body, "thinkingConfig")
     end
@@ -595,7 +595,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
     @gemini3_model Fixtures.model(
                      id: "gemini-3-flash-preview",
                      name: "Gemini 3 Flash Preview",
-                     dialect: GoogleGemini,
+                     dialect: GoogleGenerateContent,
                      max_output_tokens: 8192,
                      thinking: %{efforts: ["minimal", "low", "medium", "high"]}
                    )
@@ -610,7 +610,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
             xhigh: "high",
             max: "high"
           ] do
-        body = GoogleGemini.handle_body(@gemini3_model, context, %{thinking: level})
+        body = GoogleGenerateContent.handle_body(@gemini3_model, context, %{thinking: level})
 
         assert body["generationConfig"]["thinkingConfig"]["thinkingLevel"] == expected,
                "expected #{expected} for level #{level}"
@@ -622,7 +622,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
 
     test "levels round up to the nearest the model supports" do
       model = %{@gemini3_model | thinking: %{efforts: ["minimal", "high"]}}
-      body = GoogleGemini.handle_body(model, Context.new("Hello"), %{thinking: :low})
+      body = GoogleGenerateContent.handle_body(model, Context.new("Hello"), %{thinking: :low})
 
       assert body["generationConfig"]["thinkingConfig"]["thinkingLevel"] == "high"
     end
@@ -631,7 +631,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       context = Context.new("Hello")
 
       body =
-        GoogleGemini.handle_body(@gemini3_model, context, %{
+        GoogleGenerateContent.handle_body(@gemini3_model, context, %{
           thinking: %{effort: :medium, budget: 4096}
         })
 
@@ -640,7 +640,8 @@ defmodule Omni.Dialects.GoogleGeminiTest do
     end
 
     test "thinking: true sends the medium level" do
-      body = GoogleGemini.handle_body(@gemini3_model, Context.new("Hello"), %{thinking: true})
+      body =
+        GoogleGenerateContent.handle_body(@gemini3_model, Context.new("Hello"), %{thinking: true})
 
       assert body["generationConfig"]["thinkingConfig"] == %{
                "thinkingLevel" => "medium",
@@ -650,7 +651,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
 
     test "thinking: false sends nothing — Gemini 3 can't switch thinking off" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@gemini3_model, context, %{thinking: false})
+      body = GoogleGenerateContent.handle_body(@gemini3_model, context, %{thinking: false})
 
       refute Map.has_key?(body["generationConfig"], "thinkingConfig")
     end
@@ -676,7 +677,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert [
                {:message, %{usage: usage}},
                {:block_delta, %{type: :text, index: 0, delta: "Hello"}}
-             ] = GoogleGemini.handle_event(event, @model)
+             ] = GoogleGenerateContent.handle_event(event, @model)
 
       assert usage["input_tokens"] == 5
       assert usage["output_tokens"] == 1
@@ -707,7 +708,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert [
                {:message, %{stop_reason: :stop}},
                {:block_start, result}
-             ] = GoogleGemini.handle_event(event, @model)
+             ] = GoogleGenerateContent.handle_event(event, @model)
 
       assert result.type == :tool_use
       assert result.name == "get_weather"
@@ -724,7 +725,8 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert [{:message, %{stop_reason: :stop}}] = GoogleGemini.handle_event(event, @model)
+      assert [{:message, %{stop_reason: :stop}}] =
+               GoogleGenerateContent.handle_event(event, @model)
     end
 
     test "MAX_TOKENS maps to :length" do
@@ -734,7 +736,8 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert [{:message, %{stop_reason: :length}}] = GoogleGemini.handle_event(event, @model)
+      assert [{:message, %{stop_reason: :length}}] =
+               GoogleGenerateContent.handle_event(event, @model)
     end
 
     for reason <- ~w(SAFETY RECITATION LANGUAGE BLOCKLIST PROHIBITED_CONTENT SPII) do
@@ -745,7 +748,8 @@ defmodule Omni.Dialects.GoogleGeminiTest do
           ]
         }
 
-        assert [{:message, %{stop_reason: :refusal}}] = GoogleGemini.handle_event(event, @model)
+        assert [{:message, %{stop_reason: :refusal}}] =
+                 GoogleGenerateContent.handle_event(event, @model)
       end
     end
 
@@ -756,7 +760,8 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert [{:message, %{stop_reason: :stop}}] = GoogleGemini.handle_event(event, @model)
+      assert [{:message, %{stop_reason: :stop}}] =
+               GoogleGenerateContent.handle_event(event, @model)
     end
 
     test "usage emits message with normalized usage" do
@@ -768,7 +773,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         }
       }
 
-      assert [{:message, %{usage: usage}}] = GoogleGemini.handle_event(event, @model)
+      assert [{:message, %{usage: usage}}] = GoogleGenerateContent.handle_event(event, @model)
       assert usage["input_tokens"] == 10
       assert usage["output_tokens"] == 5
     end
@@ -786,7 +791,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       }
 
       assert [{:message, %{stop_reason: :stop, usage: usage}}] =
-               GoogleGemini.handle_event(event, @model)
+               GoogleGenerateContent.handle_event(event, @model)
 
       assert usage["input_tokens"] == 10
       assert usage["output_tokens"] == 5
@@ -804,7 +809,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         }
       }
 
-      assert [{:message, %{usage: usage}}] = GoogleGemini.handle_event(event, @model)
+      assert [{:message, %{usage: usage}}] = GoogleGenerateContent.handle_event(event, @model)
       assert usage["input_tokens"] == 20
       assert usage["output_tokens"] == 50
       assert usage["cache_read_tokens"] == 80
@@ -821,7 +826,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         }
       }
 
-      assert [{:message, %{usage: usage}}] = GoogleGemini.handle_event(event, @model)
+      assert [{:message, %{usage: usage}}] = GoogleGenerateContent.handle_event(event, @model)
       assert usage["input_tokens"] == 26
       assert usage["output_tokens"] == 373
     end
@@ -835,7 +840,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         }
       }
 
-      assert [{:message, %{usage: usage}}] = GoogleGemini.handle_event(event, @model)
+      assert [{:message, %{usage: usage}}] = GoogleGenerateContent.handle_event(event, @model)
       refute Map.has_key?(usage, "cache_read_tokens")
     end
 
@@ -853,7 +858,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert [
                {:message, %{stop_reason: :stop}},
                {:block_delta, %{type: :text, delta: "Final words"}}
-             ] = GoogleGemini.handle_event(event, @model)
+             ] = GoogleGenerateContent.handle_event(event, @model)
     end
 
     test "functionCall and empty text emits only block_start" do
@@ -873,11 +878,11 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       }
 
       assert [{:block_start, %{type: :tool_use, name: "search"}}] =
-               GoogleGemini.handle_event(event, @model)
+               GoogleGenerateContent.handle_event(event, @model)
     end
 
     test "unknown event returns empty list" do
-      assert [] == GoogleGemini.handle_event(%{"type" => "something_else"}, @model)
+      assert [] == GoogleGenerateContent.handle_event(%{"type" => "something_else"}, @model)
     end
 
     test "error event returns error delta" do
@@ -890,7 +895,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       }
 
       assert [{:error, "You've exceeded the rate limit."}] =
-               GoogleGemini.handle_event(event, @model)
+               GoogleGenerateContent.handle_event(event, @model)
     end
 
     test "empty text with finishReason emits only message" do
@@ -904,7 +909,8 @@ defmodule Omni.Dialects.GoogleGeminiTest do
         ]
       }
 
-      assert [{:message, %{stop_reason: :stop}}] = GoogleGemini.handle_event(event, @model)
+      assert [{:message, %{stop_reason: :stop}}] =
+               GoogleGenerateContent.handle_event(event, @model)
     end
 
     test "thought part emits thinking block_delta" do
@@ -921,7 +927,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       }
 
       assert [{:block_delta, %{type: :thinking, index: 0, delta: "Let me reason..."}}] =
-               GoogleGemini.handle_event(event, @model)
+               GoogleGenerateContent.handle_event(event, @model)
     end
 
     test "thought part with thoughtSignature emits signature" do
@@ -943,7 +949,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
                {:block_delta,
                 %{type: :thinking, index: 0, delta: "Let me reason...", signature: "sig_t1"}}
              ] =
-               GoogleGemini.handle_event(event, @model)
+               GoogleGenerateContent.handle_event(event, @model)
     end
 
     test "text part with thoughtSignature emits signature" do
@@ -960,7 +966,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       }
 
       assert [{:block_delta, %{type: :text, index: 0, delta: "Answer text", signature: "sig_x1"}}] =
-               GoogleGemini.handle_event(event, @model)
+               GoogleGenerateContent.handle_event(event, @model)
     end
 
     test "functionCall with thoughtSignature emits signature" do
@@ -982,7 +988,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       }
 
       assert [{:block_start, %{type: :tool_use, name: "search", signature: "sig_fc1"}}] =
-               GoogleGemini.handle_event(event, @model)
+               GoogleGenerateContent.handle_event(event, @model)
     end
 
     test "multiple function calls in one event emit unique indices" do
@@ -1012,7 +1018,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
                {:message, %{stop_reason: :stop}},
                {:block_start, first},
                {:block_start, second}
-             ] = GoogleGemini.handle_event(event, @model)
+             ] = GoogleGenerateContent.handle_event(event, @model)
 
       assert first.type == :tool_use
       assert is_integer(first.index)
@@ -1049,7 +1055,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert [
                {:block_delta, %{type: :thinking, delta: "Thinking..."}},
                {:block_delta, %{type: :text, delta: "Answer here"}}
-             ] = GoogleGemini.handle_event(event, @model)
+             ] = GoogleGenerateContent.handle_event(event, @model)
     end
 
     test "modelVersion is extracted into message" do
@@ -1071,7 +1077,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
       assert [
                {:message, %{model: "gemini-2.0-flash-lite", usage: _}},
                {:block_delta, %{type: :text, delta: "Hi"}}
-             ] = GoogleGemini.handle_event(event, @model)
+             ] = GoogleGenerateContent.handle_event(event, @model)
     end
   end
 
@@ -1079,7 +1085,7 @@ defmodule Omni.Dialects.GoogleGeminiTest do
     test "output schema sets responseMimeType and responseSchema in generationConfig" do
       context = Context.new("Hello")
       schema = %{type: "object", properties: %{city: %{type: "string"}}}
-      body = GoogleGemini.handle_body(@model, context, %{output: schema})
+      body = GoogleGenerateContent.handle_body(@model, context, %{output: schema})
 
       assert body["generationConfig"]["responseMimeType"] == "application/json"
       assert body["generationConfig"]["responseSchema"] == schema
@@ -1088,14 +1094,14 @@ defmodule Omni.Dialects.GoogleGeminiTest do
     test "output schema does not inject additionalProperties" do
       context = Context.new("Hello")
       schema = %{type: "object", properties: %{city: %{type: "string"}}}
-      body = GoogleGemini.handle_body(@model, context, %{output: schema})
+      body = GoogleGenerateContent.handle_body(@model, context, %{output: schema})
 
       refute Map.has_key?(body["generationConfig"]["responseSchema"], :additionalProperties)
     end
 
     test "no output omits responseMimeType and responseSchema" do
       context = Context.new("Hello")
-      body = GoogleGemini.handle_body(@model, context, %{})
+      body = GoogleGenerateContent.handle_body(@model, context, %{})
 
       refute Map.has_key?(body["generationConfig"], "responseMimeType")
       refute Map.has_key?(body["generationConfig"], "responseSchema")

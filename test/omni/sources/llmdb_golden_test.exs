@@ -37,7 +37,7 @@ if Code.ensure_loaded?(LLMDB) do
       Omni.Dialects.AnthropicMessages,
       Omni.Dialects.OpenAICompletions,
       Omni.Dialects.OpenAIResponses,
-      Omni.Dialects.GoogleGemini,
+      Omni.Dialects.GoogleGenerateContent,
       Omni.Dialects.OllamaChat,
       Omni.Dialects.SystemOne,
       Omni.Dialects.OpenAIDecisions

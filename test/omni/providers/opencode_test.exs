@@ -24,7 +24,7 @@ defmodule Omni.Providers.OpenCodeTest do
       assert Enum.sort(Map.keys(provider.dialects)) ==
                Enum.sort([
                  Omni.Dialects.AnthropicMessages,
-                 Omni.Dialects.GoogleGemini,
+                 Omni.Dialects.GoogleGenerateContent,
                  Omni.Dialects.OpenAICompletions,
                  Omni.Dialects.OpenAIResponses,
                  Omni.Dialects.SystemOne
@@ -34,7 +34,7 @@ defmodule Omni.Providers.OpenCodeTest do
       assert by_id["claude-haiku-4-5"] == Omni.Dialects.AnthropicMessages
       assert by_id["gpt-5.2"] == Omni.Dialects.OpenAIResponses
       assert by_id["kimi-k2.5"] == Omni.Dialects.OpenAICompletions
-      assert by_id["gemini-3-flash"] == Omni.Dialects.GoogleGemini
+      assert by_id["gemini-3-flash"] == Omni.Dialects.GoogleGenerateContent
       # Zen serves Mistral models on Chat Completions
       assert by_id["mistral-large-4"] == Omni.Dialects.OpenAICompletions
       assert by_id["jev-1.13"] == Omni.Dialects.SystemOne
@@ -54,7 +54,8 @@ defmodule Omni.Providers.OpenCodeTest do
 
       assert urls == %{
                Omni.Dialects.AnthropicMessages => "https://opencode.ai/inference/anthropic/v1",
-               Omni.Dialects.GoogleGemini => "https://opencode.ai/inference/google/v1beta",
+               Omni.Dialects.GoogleGenerateContent =>
+                 "https://opencode.ai/inference/google/v1beta",
                Omni.Dialects.OpenAICompletions => "https://opencode.ai/inference/openai/v1",
                Omni.Dialects.OpenAIResponses => "https://opencode.ai/inference/openai/v1",
                Omni.Dialects.SystemOne => "https://opencode.ai/inference/systemone/v1"

@@ -16,8 +16,8 @@ defmodule Omni.DialectTest do
       assert {:ok, Omni.Dialects.OpenAIResponses} = Dialect.get("openai_responses")
     end
 
-    test "resolves google_gemini" do
-      assert {:ok, Omni.Dialects.GoogleGemini} = Dialect.get("google_gemini")
+    test "resolves google_generate_content" do
+      assert {:ok, Omni.Dialects.GoogleGenerateContent} = Dialect.get("google_generate_content")
     end
 
     test "resolves ollama_chat" do

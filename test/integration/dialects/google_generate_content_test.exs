@@ -1,4 +1,4 @@
-defmodule Integration.Dialects.GoogleGeminiTest do
+defmodule Integration.Dialects.GoogleGenerateContentTest do
   use ExUnit.Case, async: true
 
   import Omni.Test.Baseline
@@ -9,10 +9,10 @@ defmodule Integration.Dialects.GoogleGeminiTest do
 
   # Parser paths every provider on the dialect takes, recorded from its home
   # API. Provider quirks live in the provider tests.
-  @dir "test/support/fixtures/dialects/google_gemini"
+  @dir "test/support/fixtures/dialects/google_generate_content"
 
   setup do
-    %{model: Cases.reference(:google_gemini)}
+    %{model: Cases.reference(:google_generate_content)}
   end
 
   describe "cases" do
