@@ -88,7 +88,7 @@ defmodule OmniTest do
                  plug: stub(:decide)
                )
 
-      assert decision.state == "The site is down"
+      assert decision.state == [%Omni.Content.Text{text: "The site is down"}]
       assert decision.questions == @questions
       assert decision.answers[:urgent] == %Answer.Predicate{probability: 0.91}
 

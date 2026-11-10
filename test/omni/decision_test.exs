@@ -1,26 +1,60 @@
 defmodule Omni.DecisionTest do
   use ExUnit.Case, async: true
 
+  alias Omni.Content.{Data, Text}
   alias Omni.Decision
+  alias Omni.Question.Predicate
 
   @questions [refund: Omni.predicate("Is this a refund request?")]
 
   describe "new/1" do
     test "builds from a {state, questions} tuple" do
-      assert %Decision{state: "ticket", questions: @questions, answers: nil} =
+      assert %Decision{state: [%Text{text: "ticket"}], questions: @questions, answers: nil} =
                Decision.new({"ticket", @questions})
     end
 
     test "builds from a keyword list or map" do
-      assert %Decision{state: %{a: 1}, questions: @questions} =
+      assert %Decision{state: [%Data{data: %{"a" => 1}}], questions: @questions} =
                Decision.new(state: %{a: 1}, questions: @questions)
 
-      assert %Decision{state: ["a"]} = Decision.new(%{state: ["a"], questions: @questions})
+      assert %Decision{state: [%Text{text: "a"}]} =
+               Decision.new(%{state: ["a"], questions: @questions})
     end
 
-    test "returns a decision as is" do
-      decision = Decision.new({"ticket", @questions})
+    test "builds the state into parts: a string text, a map data, a list one per item" do
+      assert %Decision{state: [%Text{text: "ticket"}, %Data{data: %{"plan" => "pro"}}]} =
+               Decision.new({["ticket", %{plan: :pro}], @questions})
+
+      parts = [Text.new("ticket"), Data.new(%{a: 1})]
+      assert %Decision{state: ^parts} = Decision.new({parts, @questions})
+      assert %Decision{state: [%Text{text: "one"}]} = Decision.new({Text.new("one"), @questions})
+    end
+
+    test "leaves anything else in the state for validation" do
+      assert %Decision{state: nil} = Decision.new({nil, @questions})
+      assert %Decision{state: 42} = Decision.new({42, @questions})
+
+      assert %Decision{state: [%Text{text: "a"}, 1, ["b"]]} =
+               Decision.new({["a", 1, ["b"]], @questions})
+    end
+
+    test "builds instructions into parts, including on struct literals" do
+      questions = [urgent: %Predicate{instructions: "Urgent?"}]
+
+      assert %Decision{questions: [urgent: %Predicate{instructions: [%Text{text: "Urgent?"}]}]} =
+               Decision.new({"ticket", questions})
+    end
+
+    test "builds an existing decision's parts, and is safe to repeat" do
+      literal = %Decision{state: "ticket", questions: @questions}
+      decision = Decision.new(literal)
+
+      assert decision.state == [%Text{text: "ticket"}]
       assert Decision.new(decision) == decision
+    end
+
+    test "raises on a map JSON can't encode" do
+      assert_raise Protocol.UndefinedError, fn -> Decision.new({%{at: {1, 2}}, @questions}) end
     end
   end
 
@@ -29,7 +63,7 @@ defmodule Omni.DecisionTest do
 
     defp message({:error, [%Peri.Error{message: message}]}), do: message
 
-    test "accepts every question type, and string, map and list states" do
+    test "accepts every question type, and states built from strings, maps and lists" do
       questions = [
         urgent: Omni.predicate("Urgent?", true: "Within the hour", false: "Can wait"),
         team: Omni.choice("Which team?", billing: "Payments", infra: nil),
@@ -40,13 +74,25 @@ defmodule Omni.DecisionTest do
       assert :ok = validate("ticket", questions)
       assert :ok = validate(%{subject: "Refund"}, questions)
       assert :ok = validate(["ticket", %{order: 1}], questions)
+      assert :ok = validate([Text.new("ticket"), %{order: 1}], questions)
     end
 
     test "rejects an empty or missing state" do
-      assert message(validate("  ", @questions)) =~ "must not be empty"
-      assert message(validate(%{}, @questions)) =~ "must not be empty"
+      assert message(validate([], @questions)) =~ "must not be empty"
+      assert message(validate("  ", @questions)) =~ "must not have an empty text part"
+      assert message(validate(%{}, @questions)) =~ "must not have an empty data part"
       assert message(validate(nil, @questions)) =~ "required"
-      assert message(validate(42, @questions)) =~ "a string, a map or a list"
+    end
+
+    test "rejects a state that isn't parts" do
+      assert message(validate(42, @questions)) =~
+               "a string, a map, or a list of text and data parts"
+
+      assert message(validate(["ticket", 42], @questions)) =~ "only text and data parts, got: 42"
+      assert message(validate([["a"]], @questions)) =~ "only text and data parts"
+
+      attachment = Omni.Content.Attachment.new(source: {:base64, "AA=="}, media_type: "image/png")
+      assert message(validate([attachment], @questions)) =~ "only text and data parts"
     end
 
     test "rejects no questions, or questions not keyed by name" do
@@ -62,10 +108,18 @@ defmodule Omni.DecisionTest do
                "names must be unique"
     end
 
-    test "rejects empty instructions" do
-      assert message(validate("x", a: Omni.predicate(""))) =~ "question :a has empty instructions"
-      assert message(validate("x", a: Omni.choice([], [:x, :y]))) =~ "empty instructions"
-      assert message(validate("x", a: Omni.predicate(nil))) =~ "needs instructions"
+    test "rejects empty or missing instructions" do
+      assert message(validate("x", a: Omni.predicate(""))) =~
+               "question :a instructions must not have an empty text part"
+
+      assert message(validate("x", a: Omni.choice([], [:x, :y]))) =~
+               "instructions must not be empty"
+
+      assert message(validate("x", a: Omni.predicate(nil))) =~
+               "instructions must be a string, a map, or a list of text and data parts"
+
+      assert message(validate("x", a: Omni.predicate(["Spam?", true]))) =~
+               "instructions must hold only text and data parts, got: true"
     end
 
     test "rejects fewer than two choices or levels" do

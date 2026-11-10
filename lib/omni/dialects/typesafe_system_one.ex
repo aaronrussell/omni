@@ -8,7 +8,9 @@ defmodule Omni.Dialects.TypeSafeSystemOne do
 
   ## Encoding
 
-    * The state is sent as given (a string, a map, or a list).
+    * The state and each question's instructions are parts: one part is sent
+      on its own (a text part as a string, a data part as an object), several
+      as an array of them.
     * Questions go in a map keyed by name. A predicate is a `noul` question,
       and its criteria become `{"true": ..., "false": ...}`.
     * Choices are sent as `{key: description}`, a `nil` description meaning
@@ -33,6 +35,7 @@ defmodule Omni.Dialects.TypeSafeSystemOne do
   use Omni.Dialect, :decision
 
   alias Omni.{Answer, Decision, Model, Usage}
+  alias Omni.Content.{Data, Text}
   alias Omni.Dialect.Decision.Answers
   alias Omni.Question.{Choice, Predicate, Score}
 
@@ -52,7 +55,7 @@ defmodule Omni.Dialects.TypeSafeSystemOne do
   def handle_body(%Model{} = model, %Decision{} = decision, _opts) do
     %{
       "model" => model.id,
-      "state" => decision.state,
+      "state" => encode_parts(decision.state),
       "questions" =>
         Map.new(decision.questions, fn {name, question} ->
           {Atom.to_string(name), encode_question(question)}
@@ -72,15 +75,21 @@ defmodule Omni.Dialects.TypeSafeSystemOne do
 
   # -- Encoding --
 
+  defp encode_parts([part]), do: encode_part(part)
+  defp encode_parts(parts), do: Enum.map(parts, &encode_part/1)
+
+  defp encode_part(%Text{text: text}), do: text
+  defp encode_part(%Data{data: data}), do: data
+
   defp encode_question(%Predicate{} = question) do
-    %{"type" => "noul", "instructions" => question.instructions}
+    %{"type" => "noul", "instructions" => encode_parts(question.instructions)}
     |> put_criteria(question.criteria)
   end
 
   defp encode_question(%Choice{} = question) do
     %{
       "type" => "choice",
-      "instructions" => question.instructions,
+      "instructions" => encode_parts(question.instructions),
       "criteria" => Map.new(question.choices, fn {key, desc} -> {to_string(key), desc} end)
     }
   end
@@ -88,7 +97,7 @@ defmodule Omni.Dialects.TypeSafeSystemOne do
   defp encode_question(%Score{} = question) do
     %{
       "type" => "score",
-      "instructions" => question.instructions,
+      "instructions" => encode_parts(question.instructions),
       "criteria" => Enum.map(question.levels, fn {key, desc} -> desc || to_string(key) end)
     }
   end

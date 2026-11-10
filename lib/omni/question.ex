@@ -23,15 +23,29 @@ defmodule Omni.Question do
   Choices and levels take a list of keys, or of `key: description` pairs, or
   a mix of both. Keys may be atoms or strings, and the answer uses them as
   given. Questions are validated when the decision is sent, not here.
+
+  ## Instructions
+
+  Instructions are parts, like the state (see `Omni.Decision`): a string is
+  one text part, a map one data part sent as JSON, and a list gives a part
+  for each item. The constructors build them, so the struct holds
+  `[%Omni.Content.Text{}]` for a string.
+
+      Omni.Question.predicate(%{question: "Does the ticket report an outage?", field: "ticket.body"})
   """
 
+  alias Omni.Decision
   alias Omni.Question.{Choice, Predicate, Score}
 
   @typedoc "A decision question."
   @type t :: Predicate.t() | Choice.t() | Score.t()
 
-  @typedoc "Question instructions: a string, or a map or list sent as JSON."
-  @type instructions :: String.t() | map() | list()
+  @typedoc "Question instructions, as parts (see [Instructions](#module-instructions))."
+  @type instructions :: [Decision.part()]
+
+  @typedoc "Instructions as given to a constructor: a string, a map, a part, or a list of them."
+  @type instructions_input ::
+          String.t() | map() | Decision.part() | [String.t() | map() | Decision.part()]
 
   @typedoc "A choice or level key, as given by the caller."
   @type key :: atom() | String.t()
@@ -52,9 +66,9 @@ defmodule Omni.Question do
         false: "A legitimate conversation"
       )
   """
-  @spec predicate(instructions(), [{boolean(), String.t()}] | nil) :: Predicate.t()
+  @spec predicate(instructions_input(), [{boolean(), String.t()}] | nil) :: Predicate.t()
   def predicate(instructions, criteria \\ nil) do
-    %Predicate{instructions: instructions, criteria: criteria}
+    %Predicate{instructions: Decision.parts(instructions), criteria: criteria}
   end
 
   @doc """
@@ -71,9 +85,9 @@ defmodule Omni.Question do
         other: nil
       )
   """
-  @spec choice(instructions(), [key() | option()]) :: Choice.t()
+  @spec choice(instructions_input(), [key() | option()]) :: Choice.t()
   def choice(instructions, choices) do
-    %Choice{instructions: instructions, choices: options(choices)}
+    %Choice{instructions: Decision.parts(instructions), choices: options(choices)}
   end
 
   @doc """
@@ -91,9 +105,9 @@ defmodule Omni.Question do
         high: "Needs attention today"
       )
   """
-  @spec score(instructions(), [key() | option()]) :: Score.t()
+  @spec score(instructions_input(), [key() | option()]) :: Score.t()
   def score(instructions, levels) do
-    %Score{instructions: instructions, levels: options(levels)}
+    %Score{instructions: Decision.parts(instructions), levels: options(levels)}
   end
 
   # A bare key becomes {key, nil}; pairs are kept. Anything else is left for

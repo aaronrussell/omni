@@ -7,10 +7,13 @@ defmodule Omni.Dialects.OpenAIDecisions do
 
   ## Encoding
 
-    * A string state is sent as `input`. Anything else (a map or a list) is
-      sent as one `input_json` part of a user message.
-    * Questions are sent in order, each named by its key. Instructions that
-      are a map or list are JSON-encoded, since the API takes text there.
+    * A state of one text part is sent as the `input` string. Any other state
+      is one user message with a content part per state part: text as
+      `input_text`, data as `input_json`.
+    * Questions are sent in order, each named by its key. Instructions of one
+      text part are sent as a string, and one data part as its JSON text;
+      several parts are an array of `input_text` parts, data JSON-encoded,
+      since instructions take no `input_json`.
     * Choices are sent as `{value, description}` and levels as
       `{label, description}`, keys as strings.
     * Predicate criteria have no field in this API and are dropped.
@@ -35,6 +38,7 @@ defmodule Omni.Dialects.OpenAIDecisions do
   use Omni.Dialect, :decision
 
   alias Omni.{Answer, Decision, Model, Usage}
+  alias Omni.Content.{Data, Text}
   alias Omni.Dialect.Decision.Answers
   alias Omni.Question.{Choice, Predicate, Score}
 
@@ -77,11 +81,14 @@ defmodule Omni.Dialects.OpenAIDecisions do
 
   # -- Encoding --
 
-  defp encode_input(state) when is_binary(state), do: state
+  defp encode_input([%Text{text: text}]), do: text
 
-  defp encode_input(state) do
-    [%{"role" => "user", "content" => [%{"type" => "input_json", "data" => state}]}]
+  defp encode_input(parts) do
+    [%{"role" => "user", "content" => Enum.map(parts, &encode_input_part/1)}]
   end
+
+  defp encode_input_part(%Text{text: text}), do: %{"type" => "input_text", "text" => text}
+  defp encode_input_part(%Data{data: data}), do: %{"type" => "input_json", "data" => data}
 
   defp encode_question({name, question}) do
     %{
@@ -105,8 +112,14 @@ defmodule Omni.Dialects.OpenAIDecisions do
     maybe_put(%{field => to_string(key)}, "description", description)
   end
 
-  defp encode_instructions(instructions) when is_binary(instructions), do: instructions
-  defp encode_instructions(instructions), do: JSON.encode!(instructions)
+  defp encode_instructions([part]), do: instruction_text(part)
+
+  defp encode_instructions(parts) do
+    Enum.map(parts, &%{"type" => "input_text", "text" => instruction_text(&1)})
+  end
+
+  defp instruction_text(%Text{text: text}), do: text
+  defp instruction_text(%Data{data: data}), do: JSON.encode!(data)
 
   # -- Decoding --
 

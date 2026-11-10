@@ -165,7 +165,7 @@ config :omni, :providers,
 
 ## Decisions
 
-**New: `Omni.decide/3`.** *(decisions)* A second capability beside text: one shared input (the state: a string, map or list) and a keyword list of typed questions, answered with probabilities in one JSON request. Not streamed.
+**New: `Omni.decide/3`.** *(decisions)* A second capability beside text: one shared input (the state) and a keyword list of typed questions, answered with probabilities in one JSON request. Not streamed.
 
 ```elixir
 {:ok, decision} =
@@ -179,6 +179,7 @@ decision.answers[:team]  #=> %Omni.Answer.Choice{choice: :infra, probabilities: 
 ```
 
 - `%Omni.Decision{state, questions, answers, usage, model, raw}` is both the request and the result; `decide/3` also takes the `{state, questions}` shorthand.
+- The state and each question's instructions are lists of parts, `Omni.Content.Text` and the new `Omni.Content.Data` (structured data sent as JSON). Give a string, a map, or a list of strings, maps and parts; `Decision.new/1` and the question constructors build the parts. `Data.new/1` normalises its map through JSON (string keys). A list means one part per item, so an array of data goes inside a map.
 - Questions: `Omni.Question.Predicate`, `Choice`, `Score`, built with `Omni.predicate/2`, `Omni.choice/2`, `Omni.score/2`. Choices and levels are a list of keys or `key: description` pairs; keys come back as given.
 - Answers: a keyword list aligned with the questions, of `Omni.Answer.Predicate{probability}`, `Choice{choice, probabilities, confidence}`, `Score{score, probabilities, confidence}` and `Refusal{}` (OpenAI only). Probabilities are `{key, float}` pairs in the question's order, passed through unrounded; confidence is the provider's own number, or `nil`.
 - Options: `api_key`, `host`, `headers`, `timeout`, `raw`, `plug`; OpenAI Decisions adds `safety_identifier` and `prompt_cache_key`.

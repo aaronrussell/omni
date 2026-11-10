@@ -16,7 +16,7 @@ defmodule Omni.Codec do
 
     * `Omni.Message`
     * `Omni.Content.Text`, `Omni.Content.Thinking`, `Omni.Content.Attachment`,
-      `Omni.Content.ToolUse`, `Omni.Content.ToolResult`
+      `Omni.Content.ToolUse`, `Omni.Content.ToolResult`, `Omni.Content.Data`
     * `Omni.Usage`
 
   Lists of any combination of the above are also supported.
@@ -52,7 +52,7 @@ defmodule Omni.Codec do
   """
 
   alias Omni.{Message, Model, Usage, Util}
-  alias Omni.Content.{Attachment, Text, Thinking, ToolResult, ToolUse}
+  alias Omni.Content.{Attachment, Data, Text, Thinking, ToolResult, ToolUse}
 
   import Util, only: [maybe_put: 3]
 
@@ -64,6 +64,7 @@ defmodule Omni.Codec do
           | Attachment.t()
           | ToolUse.t()
           | ToolResult.t()
+          | Data.t()
           | Usage.t()
 
   @typedoc "Decode error reasons."
@@ -90,6 +91,7 @@ defmodule Omni.Codec do
   def encode(%Attachment{} = a), do: encode_attachment(a)
   def encode(%ToolUse{} = t), do: encode_tool_use(t)
   def encode(%ToolResult{} = t), do: encode_tool_result(t)
+  def encode(%Data{} = d), do: %{"__type" => "Data", "data" => d.data}
   def encode(%Usage{} = u), do: encode_usage(u)
 
   @doc """
@@ -237,6 +239,7 @@ defmodule Omni.Codec do
   defp decode_by_type("Attachment", map), do: decode_attachment(map)
   defp decode_by_type("ToolUse", map), do: decode_tool_use(map)
   defp decode_by_type("ToolResult", map), do: decode_tool_result(map)
+  defp decode_by_type("Data", map), do: decode_data(map)
   defp decode_by_type("Usage", map), do: decode_usage(map)
   defp decode_by_type(other, _map), do: {:error, {:unknown_type, other}}
 
@@ -276,6 +279,11 @@ defmodule Omni.Codec do
     with {:ok, text} <- require_field(map, "text") do
       {:ok, %Text{text: text, signature: Map.get(map, "signature")}}
     end
+  end
+
+  # `data` was normalised through JSON by `Data.new/1`, so it is stored as is.
+  defp decode_data(map) do
+    with {:ok, data} <- require_field(map, "data"), do: {:ok, %Data{data: data}}
   end
 
   defp decode_thinking(map) do

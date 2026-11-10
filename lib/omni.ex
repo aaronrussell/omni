@@ -276,8 +276,8 @@ defmodule Omni do
   The model can be a `%Model{}` struct or a reference (see `stream_text/3`),
   and must serve decisions (see `Omni.Model.capability?/2`). The decision is a
   `%Omni.Decision{}` or the shorthand `{state, questions}`: the state is a
-  string, a map, or a list, and the questions a keyword list built with
-  `predicate/2`, `choice/2` and `score/2`.
+  string, a map, or a list of them (see `Omni.Decision`), and the questions
+  a keyword list built with `predicate/2`, `choice/2` and `score/2`.
 
       {:ok, decision} =
         Omni.decide("openrouter:typesafe/jev-1.14", {"I was charged twice", [
@@ -421,7 +421,7 @@ defmodule Omni do
 
       Omni.predicate("Is this spam?", true: "Unsolicited advertising", false: "A real conversation")
   """
-  @spec predicate(Omni.Question.instructions(), [{boolean(), String.t()}] | nil) ::
+  @spec predicate(Omni.Question.instructions_input(), [{boolean(), String.t()}] | nil) ::
           Omni.Question.Predicate.t()
   defdelegate predicate(instructions, criteria \\ nil), to: Omni.Question
 
@@ -433,7 +433,7 @@ defmodule Omni do
 
       Omni.choice("Which team owns this?", billing: "Payments and refunds", infra: "Outages", other: nil)
   """
-  @spec choice(Omni.Question.instructions(), list()) :: Omni.Question.Choice.t()
+  @spec choice(Omni.Question.instructions_input(), list()) :: Omni.Question.Choice.t()
   defdelegate choice(instructions, choices), to: Omni.Question
 
   @doc group: :decisions
@@ -444,7 +444,7 @@ defmodule Omni do
 
       Omni.score("How angry is the customer?", ["Calm", "Frustrated but civil", "Very angry"])
   """
-  @spec score(Omni.Question.instructions(), list()) :: Omni.Question.Score.t()
+  @spec score(Omni.Question.instructions_input(), list()) :: Omni.Question.Score.t()
   defdelegate score(instructions, levels), to: Omni.Question
 
   @doc group: :context

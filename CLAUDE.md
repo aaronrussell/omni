@@ -61,7 +61,7 @@ Run `mix precommit` before considering any change done. It fixes formatting and 
 
 - **Dialect behaviours**: `Omni.Dialect` is the base (`auth/0`, `compat_schema/0`, registry, `compat/2`, `capability/1`); `Omni.Dialect.Text` and `Omni.Dialect.Decision` hold the capability callbacks. `use Omni.Dialect, :text | :decision` declares both. A dialect serves exactly one capability.
 
-- **Decisions**: `%Omni.Decision{state, questions, answers, usage, model, raw}` is both request and result. Questions and answers are keyword lists of structs (`Omni.Question.{Predicate,Choice,Score}`, `Omni.Answer.{Predicate,Choice,Score,Refusal}`), answers aligned with questions; probabilities are `[{key, float}]` in the caller's keys and order, passed through unrounded. Validated once by `Decision.validate/1` (the floor every host accepts; caps are left to the provider). A missing, extra or mistyped answer is `{:error, {:invalid_answer, name}}`.
+- **Decisions**: `%Omni.Decision{state, questions, answers, usage, model, raw}` is both request and result. The state and each question's instructions are lists of parts (`Content.Text`, `Content.Data`), cast from strings, maps and lists by `Decision.new/1` and the question constructors. Questions and answers are keyword lists of structs (`Omni.Question.{Predicate,Choice,Score}`, `Omni.Answer.{Predicate,Choice,Score,Refusal}`), answers aligned with questions; probabilities are `[{key, float}]` in the caller's keys and order, passed through unrounded. Validated once by `Decision.validate/1` (the floor every host accepts; caps are left to the provider). A missing, extra or mistyped answer is `{:error, {:invalid_answer, name}}`.
 
 - **Single validation pass**: `Request.validate/3` merges the shared config schema (+ the text schema for text) + dialect option schemas, merges the provider's `api_key`/`headers` (which already absorbed app config) with call-site opts, and validates via Peri in one pass.
 
@@ -86,7 +86,7 @@ lib/omni/
 ├── schema/adapter.ex               # Behaviour for alternative schema validators
 ├── codec.ex                        # Lossless struct ↔ JSON-safe map serialisation
 ├── util.ex                         # Shared helpers (maybe_put, maybe_merge)
-├── content/{text,thinking,attachment,tool_use,tool_result}.ex
+├── content/{text,thinking,attachment,tool_use,tool_result,data}.ex
 ├── parsers/sse.ex                  # SSE stream parser
 ├── parsers/ndjson.ex               # NDJSON stream parser (Ollama)
 ├── request.ex                      # Request orchestration (build, stream, send, validate, parse_event)

@@ -48,22 +48,38 @@ defmodule Omni.Dialects.OpenAIDecisionsTest do
              ] = body["questions"]
     end
 
-    test "sends any other state as one input_json part" do
+    test "sends any other state as a user message, a content part per state part" do
       questions = [login: Omni.predicate("Login?")]
-
-      json_input = fn data ->
-        [%{"role" => "user", "content" => [%{"type" => "input_json", "data" => data}]}]
-      end
+      user = fn content -> [%{"role" => "user", "content" => content}] end
 
       assert body(decision(%{subject: "Login"}, questions))["input"] ==
-               json_input.(%{subject: "Login"})
+               user.([%{"type" => "input_json", "data" => %{"subject" => "Login"}}])
 
-      assert body(decision(["a", %{b: 1}], questions))["input"] == json_input.(["a", %{b: 1}])
+      assert body(decision(["a", "b"], questions))["input"] ==
+               user.([
+                 %{"type" => "input_text", "text" => "a"},
+                 %{"type" => "input_text", "text" => "b"}
+               ])
+
+      assert body(decision(["a", %{b: 1}, %{c: 2}], questions))["input"] ==
+               user.([
+                 %{"type" => "input_text", "text" => "a"},
+                 %{"type" => "input_json", "data" => %{"b" => 1}},
+                 %{"type" => "input_json", "data" => %{"c" => 2}}
+               ])
     end
 
-    test "JSON-encodes map and list instructions" do
+    test "sends one data part of instructions as JSON text, several parts as input_text" do
       [question] = body(decision(login: Omni.predicate(%{question: "Login?"})))["questions"]
       assert question["instructions"] == ~s({"question":"Login?"})
+
+      [question] =
+        body(decision(login: Omni.predicate(["Login?", %{field: "body"}])))["questions"]
+
+      assert question["instructions"] == [
+               %{"type" => "input_text", "text" => "Login?"},
+               %{"type" => "input_text", "text" => ~s({"field":"body"})}
+             ]
     end
 
     test "drops a predicate's criteria" do

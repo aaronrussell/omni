@@ -2,7 +2,7 @@ defmodule Omni.CodecTest do
   use ExUnit.Case, async: true
 
   alias Omni.{Codec, Message, Usage}
-  alias Omni.Content.{Attachment, Text, Thinking, ToolResult, ToolUse}
+  alias Omni.Content.{Attachment, Data, Text, Thinking, ToolResult, ToolUse}
 
   describe "encode/1 and decode/1 — Text" do
     test "round-trips a basic text block" do
@@ -107,6 +107,24 @@ defmodule Omni.CodecTest do
       assert %{"__etf" => blob} = encoded["meta"]
       assert is_binary(blob)
       assert {:ok, ^attachment} = Codec.decode(encoded)
+    end
+  end
+
+  describe "encode/1 and decode/1 — Data" do
+    test "round-trips a data block, its map stored as plain JSON" do
+      data = Data.new(%{ticket: %{plan: :pro, seats: 3}})
+      encoded = Codec.encode(data)
+
+      assert encoded == %{
+               "__type" => "Data",
+               "data" => %{"ticket" => %{"plan" => "pro", "seats" => 3}}
+             }
+
+      assert {:ok, ^data} = Codec.decode(encoded)
+    end
+
+    test "requires data on decode" do
+      assert {:error, {:missing_field, :data}} = Codec.decode(%{"__type" => "Data"})
     end
   end
 

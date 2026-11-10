@@ -17,10 +17,27 @@ defmodule Omni.Decision do
   `Omni.decide/3` also takes the shorthand `{state, questions}` tuple, as
   above.
 
+  ## State
+
+  The state is the shared input every question is asked about: a list of
+  parts, each a `%Omni.Content.Text{}` or `%Omni.Content.Data{}`. `new/1`
+  builds them from plain values, so the state can be given as
+
+    * a string — one text part
+    * a map — one data part, sent as JSON
+    * a list of strings, maps and parts — a part for each, in order
+
+  Anything else (a number, a nested list) is an error when the decision is
+  sent. To send an array as data, put it in a map:
+  `%{readings: [3, 5, 8]}`. Question instructions are parts in the same way
+  (see `Omni.Question`).
+
+      Decision.new({["Ticket from an enterprise customer:", %{subject: "Refund"}], questions})
+      #=> %Decision{state: [%Text{text: "Ticket from ..."}, %Data{data: %{"subject" => "Refund"}}], ...}
+
   ## Struct fields
 
-    * `:state` — the shared input every question is asked about: a string,
-      a map, or a list (anything JSON-encodable)
+    * `:state` — the parts every question is asked about (see above)
     * `:questions` — a keyword list of `Omni.Question` structs. The key names
       the question, and the list's order is kept
     * `:answers` — a keyword list aligned with `:questions`, one
@@ -32,14 +49,18 @@ defmodule Omni.Decision do
   """
 
   alias Omni.{Answer, Model, Question, Usage}
+  alias Omni.Content.{Data, Text}
   alias Omni.Question.{Choice, Predicate, Score}
 
   defstruct [:model, :state, :answers, :usage, :raw, questions: []]
 
+  @typedoc "A part of the state or of a question's instructions."
+  @type part :: Text.t() | Data.t()
+
   @typedoc "A decision request, and once answered its result."
   @type t :: %__MODULE__{
           model: Model.t() | nil,
-          state: String.t() | map() | list() | nil,
+          state: [part()] | nil,
           questions: [{atom(), Question.t()}],
           answers: [{atom(), Answer.t()}] | nil,
           usage: Usage.t() | nil,
@@ -53,17 +74,49 @@ defmodule Omni.Decision do
 
   @doc """
   Creates a decision from a `{state, questions}` tuple, a keyword list or
-  map of fields, or an existing decision (returned as is).
+  map of fields, or an existing decision.
 
       Omni.Decision.new({"I was charged twice", [refund: Omni.predicate("Is this a refund request?")]})
       Omni.Decision.new(state: %{subject: "Refund"}, questions: [...])
 
-  Does not validate; `Omni.decide/3` does.
+  The state and every question's instructions are built into parts (see
+  [State](#module-state)), which is safe to repeat on an existing decision.
+  Raises if a map holds a value JSON can't encode (see
+  `Omni.Content.Data.new/1`). Does not validate; `Omni.decide/3` does.
   """
   @spec new(t() | {term(), list()} | Enumerable.t()) :: t()
-  def new(%__MODULE__{} = decision), do: decision
-  def new({state, questions}), do: %__MODULE__{state: state, questions: questions}
-  def new(attrs) when is_list(attrs) or is_map(attrs), do: struct!(__MODULE__, attrs)
+  def new(%__MODULE__{} = decision) do
+    %{decision | state: parts(decision.state), questions: cast_questions(decision.questions)}
+  end
+
+  def new({state, questions}), do: new(%__MODULE__{state: state, questions: questions})
+  def new(attrs) when is_list(attrs) or is_map(attrs), do: new(struct!(__MODULE__, attrs))
+
+  @doc false
+  # Builds parts from a string, a map, a part or a list of them. Values that
+  # aren't one are left as they are for validate/1 to reject. Safe to repeat.
+  @spec parts(term()) :: term()
+  def parts(list) when is_list(list), do: Enum.map(list, &part/1)
+  def parts(struct) when is_struct(struct), do: [struct]
+
+  def parts(value) when is_binary(value) or is_map(value), do: [part(value)]
+  def parts(other), do: other
+
+  defp part(text) when is_binary(text), do: Text.new(text)
+  defp part(map) when is_map(map) and not is_struct(map), do: Data.new(map)
+  defp part(other), do: other
+
+  defp cast_questions(questions) when is_list(questions) do
+    Enum.map(questions, fn
+      {name, %{instructions: _} = question} when is_struct(question) ->
+        {name, %{question | instructions: parts(question.instructions)}}
+
+      other ->
+        other
+    end)
+  end
+
+  defp cast_questions(questions), do: questions
 
   @doc false
   # Checks the shared floor every host accepts: at least one question, each
@@ -78,15 +131,12 @@ defmodule Omni.Decision do
   end
 
   @doc false
-  def validate_state(state) when is_binary(state) do
-    if String.trim(state) == "", do: {:error, "must not be empty", []}, else: :ok
+  def validate_state(state) do
+    case parts_error(state) do
+      nil -> :ok
+      message -> {:error, message, []}
+    end
   end
-
-  def validate_state(state) when is_map(state) or is_list(state) do
-    if Enum.empty?(state), do: {:error, "must not be empty", []}, else: :ok
-  end
-
-  def validate_state(_state), do: {:error, "must be a string, a map or a list", []}
 
   @doc false
   def validate_questions([_ | _] = questions) do
@@ -125,18 +175,28 @@ defmodule Omni.Decision do
   defp validate_question(_other),
     do: {:error, "is not a question — build it with Omni.predicate/2, choice/2 or score/2"}
 
-  defp validate_instructions(instructions) when is_binary(instructions) do
-    if String.trim(instructions) == "",
-      do: {:error, "has empty instructions"},
-      else: :ok
+  defp validate_instructions(instructions) do
+    case parts_error(instructions) do
+      nil -> :ok
+      message -> {:error, "instructions " <> message}
+    end
   end
 
-  defp validate_instructions(instructions) when is_map(instructions) or is_list(instructions) do
-    if Enum.empty?(instructions), do: {:error, "has empty instructions"}, else: :ok
+  # What is wrong with a list of parts, or nil when nothing is.
+  defp parts_error([_ | _] = parts), do: Enum.find_value(parts, &part_error/1)
+  defp parts_error([]), do: "must not be empty"
+  defp parts_error(_parts), do: "must be a string, a map, or a list of text and data parts"
+
+  defp part_error(%Text{text: text}) when is_binary(text) do
+    if String.trim(text) == "", do: "must not have an empty text part"
   end
 
-  defp validate_instructions(_instructions),
-    do: {:error, "needs instructions: a string, a map or a list"}
+  defp part_error(%Data{data: data}) when is_map(data) and map_size(data) > 0, do: nil
+  defp part_error(%Data{}), do: "must not have an empty data part"
+
+  defp part_error(other),
+    do:
+      "must hold only text and data parts, got: #{inspect(other, limit: 5, printable_limit: 40)}"
 
   defp validate_criteria(nil), do: :ok
 

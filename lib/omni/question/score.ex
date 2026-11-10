@@ -8,8 +8,7 @@ defmodule Omni.Question.Score do
 
   ## Struct fields
 
-    * `:instructions` — the question, as a string (or a map or list, sent as
-      JSON)
+    * `:instructions` — the question, as parts (see `Omni.Question`)
     * `:levels` — the levels from lowest to highest, as `{key, description}`
       pairs. Keys are atoms or strings and come back as given in the answer;
       a `nil` description means the key itself describes the level

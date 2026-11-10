@@ -18,6 +18,7 @@ defmodule Omni.Dialect.Decision do
         use Omni.Dialect, :decision
 
         alias Omni.{Answer, Decision, Question, Usage}
+        alias Omni.Content.{Data, Text}
 
         @impl true
         def option_schema, do: %{}
@@ -35,10 +36,13 @@ defmodule Omni.Dialect.Decision do
         def handle_body(model, %Decision{} = decision, _opts) do
           %{
             "model" => model.id,
-            "input" => decision.state,
+            "input" => Enum.map(decision.state, &encode_part/1),
             "questions" => Enum.map(decision.questions, &encode_question/1)
           }
         end
+
+        defp encode_part(%Text{text: text}), do: text
+        defp encode_part(%Data{data: data}), do: data
 
         @impl true
         def handle_response(%{"answers" => answers} = body, %Decision{} = decision, _model) do
@@ -77,9 +81,10 @@ defmodule Omni.Dialect.Decision do
   @doc """
   Builds the request body from a model, a decision, and validated options.
 
-  The decision has been validated: it has at least one question, each with
-  non-empty instructions, and every choice or score question has at least
-  two options. Encode each question under a name the response can be matched
+  The decision has been validated: its state and every question's
+  instructions are non-empty lists of `Omni.Content.Text` and
+  `Omni.Content.Data` parts, it has at least one question, and every choice
+  or score question has at least two options. Encode each question under a name the response can be matched
   back by. The returned map may be further adjusted by the provider module's
   `c:Omni.Provider.modify_body/4` before being sent as JSON.
   """

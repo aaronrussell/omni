@@ -7,8 +7,8 @@ defmodule Omni.Question.Predicate do
 
   ## Struct fields
 
-    * `:instructions` — the statement or question, as a string (or a map or
-      list, sent as JSON)
+    * `:instructions` — the statement or question, as parts (see
+      `Omni.Question`)
     * `:criteria` — optional descriptions of what counts as true and false,
       `[true: "...", false: "..."]` (either key may be left out). Sent to
       System One hosts; OpenAI has no field for them and drops them

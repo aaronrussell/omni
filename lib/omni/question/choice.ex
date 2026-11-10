@@ -6,8 +6,7 @@ defmodule Omni.Question.Choice do
 
   ## Struct fields
 
-    * `:instructions` — the question, as a string (or a map or list, sent as
-      JSON)
+    * `:instructions` — the question, as parts (see `Omni.Question`)
     * `:choices` — the options in order, as `{key, description}` pairs. Keys
       are atoms or strings and come back as given in the answer; a `nil`
       description means the model judges the option by its key alone

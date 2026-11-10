@@ -1,12 +1,32 @@
 defmodule Omni.QuestionTest do
   use ExUnit.Case, async: true
 
+  alias Omni.Content.{Data, Text}
   alias Omni.Question
   alias Omni.Question.{Choice, Predicate, Score}
 
+  describe "instructions" do
+    test "are built into parts by every constructor" do
+      assert %Predicate{instructions: [%Text{text: "Spam?"}]} = Question.predicate("Spam?")
+
+      assert %Choice{instructions: [%Data{data: %{"q" => "Team?"}}]} =
+               Question.choice(%{q: "Team?"}, [:a, :b])
+
+      assert %Score{instructions: [%Text{text: "Rate"}, %Data{data: %{"scale" => "anger"}}]} =
+               Question.score(["Rate", %{scale: :anger}], [:low, :high])
+    end
+
+    test "keep parts as given, and leave anything else for validation" do
+      parts = [Text.new("Spam?")]
+      assert %Predicate{instructions: ^parts} = Question.predicate(parts)
+      assert %Predicate{instructions: nil} = Question.predicate(nil)
+      assert %Predicate{instructions: [42]} = Question.predicate([42])
+    end
+  end
+
   describe "predicate/2" do
     test "takes instructions and optional criteria" do
-      assert %Predicate{instructions: "Is this spam?", criteria: nil} =
+      assert %Predicate{instructions: [%Text{text: "Is this spam?"}], criteria: nil} =
                Question.predicate("Is this spam?")
 
       assert %Predicate{criteria: [true: "Ads", false: "A conversation"]} =

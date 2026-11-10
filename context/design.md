@@ -1231,6 +1231,9 @@ ToolResult.new(
 | `Content.Attachment` | source, media_type, meta | User messages (and tool results) |
 | `Content.ToolUse` | id, name, input, signature | Assistant messages |
 | `Content.ToolResult` | tool_use_id, name, content, is_error | User messages |
+| `Content.Data` | data | Decision state and question instructions (not messages) |
+
+`Content.Data` holds structured data sent as JSON. `Data.new/1` takes the map itself or `data: map` (a map is always the data, never attributes, unlike `Text.new/1`) and passes it through JSON, so the struct holds what the model sees (string keys, atoms as strings) and an unencodable value raises at construction; Codec stores `data` as plain JSON. It is named `Data` (OpenAI's field) because `JSON` and `Map` would shadow Elixir modules.
 
 ---
 
@@ -1474,15 +1477,15 @@ decision.answers[:anger]   #=> %Omni.Answer.Score{score: 1.4, probabilities: [{"
 ### Data
 
 - **`%Omni.Decision{state, questions, answers, usage, model, raw}` is both request and result.** Built from state and questions (`Decision.new/1` also takes the `{state, questions}` shorthand), it passes through the dialect and `modify_body/4` with `answers` and `usage` nil, and comes back filled. One struct means the hook, the dialect and the caller see one shape, and the result keeps the questions beside the answers.
-- **State** is a non-empty string, map or list: anything JSON-encodable. Content blocks, `%Context{}` and images are deferred, with System One's `box` question type.
-- **Questions** are a keyword list: the atom key names the question, and the order is OpenAI's answer order. Structs follow the Content convention (match on struct, no type field): `Question.Predicate{instructions, criteria}`, `Question.Choice{instructions, choices}`, `Question.Score{instructions, levels}`, built with `Question.predicate/2`, `choice/2`, `score/2` (delegated from `Omni`). Constructors normalise choices and levels (a bare list, `key: description` pairs, or a mix) to `{key, description | nil}`; keys are atoms or strings and come back as given. Instructions are a string, map or list. The yes/no primitive is `predicate` (OpenAI's name); System One's `noul` is an encoding detail.
+- **State is a list of parts**, `[Content.Text | Content.Data]`, and so are each question's instructions. `Decision.new/1` (on the state and every question, in every form it takes, safe to repeat) and the `Question` constructors cast: a string is one Text, a plain map one Data, a list a part per item; anything else (numbers, nested lists) is left for validation to reject. A list therefore always means parts, never a JSON array; an array goes inside a map. Parts reuse the `Omni.Content` structs so an app's message blocks pass straight into a decision. Images (Attachment parts), System One's `box` question and `%Context{}` as state are planned in `context/notes/decision-images.md`; until then an Attachment fails validation.
+- **Questions** are a keyword list: the atom key names the question, and the order is OpenAI's answer order. Structs follow the Content convention (match on struct, no type field): `Question.Predicate{instructions, criteria}`, `Question.Choice{instructions, choices}`, `Question.Score{instructions, levels}`, built with `Question.predicate/2`, `choice/2`, `score/2` (delegated from `Omni`). Constructors normalise choices and levels (a bare list, `key: description` pairs, or a mix) to `{key, description | nil}`; keys are atoms or strings and come back as given. Instructions are parts (above); choice descriptions, levels and criteria stay strings. The yes/no primitive is `predicate` (OpenAI's name); System One's `noul` is an encoding detail.
 - **Answers** are a keyword list aligned with the questions: `Answer.Predicate{probability}`, `Answer.Choice{choice, probabilities, confidence}`, `Answer.Score{score, probabilities, confidence}`, `Answer.Refusal{}` (OpenAI only). `probabilities` is `[{key, float}]` with the caller's keys in the caller's order. Score levels start at 0 on both APIs, so `score` (the probability-weighted level) is one scale everywhere.
 - **Probabilities pass through as sent.** TypeSafe rounds to two decimals, Ollama sends full floats; Omni rounds neither (rounding loses ranking at the tails and stops probabilities summing to 1), and only makes JSON integers (`1`, `0`) floats.
 - **Confidence is the provider's number**, `nil` where the API gives none. Formulas differ (TypeSafe `(p_max − 1/n) / (1 − 1/n)`; Ollama and others entropy `1 − H/ln N`; OpenAI unspecified), so probabilities are the portable contract.
 
 ### Validation and errors
 
-- **One Peri pass at the boundary** (`Decision.validate/1`, in `Request.build/3`): non-empty state; a non-empty keyword list of question structs with unique names; non-empty instructions; at least two choices or levels. That is the floor every host accepts. Host caps (26 choices on some hosts, 255 on most; 16 questions on Alibaba; required `instructions` on some) are left to the provider's HTTP error.
+- **One Peri pass at the boundary** (`Decision.validate/1`, in `Request.build/3`): state and instructions non-empty lists of Text and Data parts, no blank Text or empty Data; a non-empty keyword list of question structs with unique names; non-empty instructions; at least two choices or levels. That is the floor every host accepts. Host caps (26 choices on some hosts, 255 on most; 16 questions on Alibaba; required `instructions` on some) are left to the provider's HTTP error.
 - **Strict answers.** A missing answer, one for a question not asked, or one of the wrong shape is `{:error, {:invalid_answer, name}}`; a body with no answers `{:error, {:invalid_response, body}}`. Extra top-level fields are ignored (OpenRouter's `id`, `provider`, `usage.cost`; Alibaba's `request_id`). The matching rule is shared by both dialects in `Omni.Dialect.Decision.Answers` (internal).
 
 ### Encoding
@@ -1490,12 +1493,12 @@ decision.answers[:anger]   #=> %Omni.Answer.Score{score: 1.4, probabilities: [{"
 | | System One | OpenAI Decisions |
 |---|---|---|
 | Path | `/systemone` | `/decisions` |
-| State | `state`, as given | a string as `input`; a map or list as one `input_json` part of a user message |
+| State | one part on its own (Text a string, Data an object), several an array | one Text as the `input` string; otherwise one user message, a part per state part (Text `input_text`, Data `input_json`) |
 | Questions | a map keyed by name: `{type, instructions, criteria}` | an array in order, each with `name` |
 | Predicate | `noul`; criteria as `{"true": ..., "false": ...}` | `predicate`; criteria dropped (no field) |
 | Choice | `criteria: {key: description \| null}` (null: judged by the key) | `choices: [{value, description?}]`, values always strings |
 | Score | `criteria`: a list of descriptions, the key standing in for a missing one | `levels: [{label, description?}]` |
-| Instructions | as given | a map or list JSON-encoded (instruction parts take text only) |
+| Instructions | as the state | one Text a string, one Data its JSON text; several an array of `input_text`, Data JSON-encoded (instructions take no `input_json`) |
 | Answers | a map by name; choice probabilities keyed by option, score by level index; `legend` dropped | an array; `{type: "refusal"}` is `Answer.Refusal` |
 | Usage | `input_tokens`, `output_tokens` (Alibaba: input only) | `input_tokens` less `cached_tokens`, which become `cache_read_tokens` |
 | Options | none | `safety_identifier`, `prompt_cache_key` |
@@ -1513,7 +1516,7 @@ Choice and level keys must differ as strings, since both formats key by string. 
 | `:ollama` | System One | `http://localhost:11434/v1` | config, naming `dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}` |
 | `:nearai` | System One | `https://cloud-api.near.ai/v1` (catalog) | catalog; endpoint undocumented, unverified (no key) |
 
-Not adopted yet: images and `box` (each host encodes images differently: TypeSafe `assets` behind a header, Ollama and Venice `images`, OpenRouter `image_url` parts, OpenAI `input_image`), confidence normalised from probabilities, warnings for silently dropped fields (predicate criteria on OpenAI). Hosts awaiting catalog data are in the roadmap.
+Not adopted yet: images, `box` and `%Context{}` as state (each host encodes images differently: TypeSafe and OpenRouter an `assets` map referenced from the state, TypeSafe behind a header; Ollama and Venice an `images` list; OpenAI `input_image` parts; see `context/notes/decision-images.md`), confidence normalised from probabilities, warnings for silently dropped fields (predicate criteria on OpenAI). Hosts awaiting catalog data are in the roadmap.
 
 ---
 

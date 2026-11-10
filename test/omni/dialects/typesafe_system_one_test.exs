@@ -21,7 +21,7 @@ defmodule Omni.Dialects.TypeSafeSystemOneTest do
   end
 
   describe "handle_body/3" do
-    test "sends the model, the state as given, and questions keyed by name" do
+    test "sends the model, a one-part state on its own, and questions keyed by name" do
       body = body(decision(urgent: Omni.predicate("Urgent?")))
 
       assert body == %{
@@ -31,11 +31,12 @@ defmodule Omni.Dialects.TypeSafeSystemOneTest do
              }
     end
 
-    test "sends map and list states natively" do
+    test "sends a data part as an object, and several parts as an array" do
       questions = [urgent: Omni.predicate("Urgent?")]
 
-      assert body(decision(%{subject: "Refund"}, questions))["state"] == %{subject: "Refund"}
-      assert body(decision(["a", %{b: 1}], questions))["state"] == ["a", %{b: 1}]
+      assert body(decision(%{subject: "Refund"}, questions))["state"] == %{"subject" => "Refund"}
+      assert body(decision(["a", %{b: 1}], questions))["state"] == ["a", %{"b" => 1}]
+      assert body(decision([%{a: 1}, %{b: 2}], questions))["state"] == [%{"a" => 1}, %{"b" => 2}]
     end
 
     test "a predicate's criteria become true and false descriptions" do
@@ -73,12 +74,15 @@ defmodule Omni.Dialects.TypeSafeSystemOneTest do
              }
     end
 
-    test "instructions are sent as given, JSON included" do
+    test "instructions are parts like the state: a data part an object, several an array" do
+      body = body(decision(urgent: Omni.predicate(["Urgent?", %{context: "support"}])))
+      assert body["questions"]["urgent"]["instructions"] == ["Urgent?", %{"context" => "support"}]
+
       body = body(decision(urgent: Omni.predicate(%{question: "Urgent?", context: "support"})))
 
       assert body["questions"]["urgent"]["instructions"] == %{
-               question: "Urgent?",
-               context: "support"
+               "question" => "Urgent?",
+               "context" => "support"
              }
     end
   end
