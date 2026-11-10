@@ -1,7 +1,7 @@
 defmodule Omni.CodecTest do
   use ExUnit.Case, async: true
 
-  alias Omni.{Codec, Message, Usage}
+  alias Omni.{Answer, Codec, Decision, Message, Question, Usage}
   alias Omni.Content.{Attachment, Data, Text, Thinking, ToolResult, ToolUse}
 
   describe "encode/1 and decode/1 — Text" do
@@ -320,6 +320,235 @@ defmodule Omni.CodecTest do
       encoded = Codec.encode(msg)
       assert %{"__etf" => _} = encoded["private"]
       assert {:ok, ^msg} = Codec.decode(encoded)
+    end
+  end
+
+  describe "encode/1 and decode/1 — questions" do
+    test "round-trips a predicate, with and without criteria" do
+      plain = Question.predicate("Is this spam?")
+      encoded = Codec.encode(plain)
+
+      assert encoded == %{
+               "__type" => "Question.Predicate",
+               "instructions" => [%{"__type" => "Text", "text" => "Is this spam?"}]
+             }
+
+      assert {:ok, ^plain} = Codec.decode(encoded)
+
+      criteria = Question.predicate("Is this spam?", true: "Advertising", false: "A conversation")
+      encoded = Codec.encode(criteria)
+      assert encoded["criteria"] == [[true, "Advertising"], [false, "A conversation"]]
+      assert {:ok, ^criteria} = Codec.decode(encoded)
+    end
+
+    test "round-trips a choice, keeping atom and string keys and their order" do
+      question =
+        Question.choice(%{question: "Which team?"}, [
+          {:billing, "Payments"},
+          {"infra", nil},
+          :other
+        ])
+
+      encoded = Codec.encode(question)
+
+      assert encoded["instructions"] == [
+               %{"__type" => "Data", "data" => %{"question" => "Which team?"}}
+             ]
+
+      assert encoded["choices"] == [
+               [%{"atom" => "billing"}, "Payments"],
+               ["infra", nil],
+               [%{"atom" => "other"}, nil]
+             ]
+
+      assert {:ok, ^question} = Codec.decode(encoded)
+    end
+
+    test "round-trips a score" do
+      question = Question.score(["Rate it", %{scale: "anger"}], ["Calm", "Angry"])
+      encoded = Codec.encode(question)
+
+      assert encoded["levels"] == [["Calm", nil], ["Angry", nil]]
+      assert {:ok, ^question} = Codec.decode(encoded)
+    end
+  end
+
+  describe "encode/1 and decode/1 — answers" do
+    test "round-trips each answer type" do
+      for answer <- [
+            %Answer.Predicate{probability: 0.91},
+            %Answer.Choice{
+              choice: :infra,
+              probabilities: [billing: 0.02, infra: 0.95, other: 0.03],
+              confidence: 0.93
+            },
+            %Answer.Score{
+              score: 1.4,
+              probabilities: [{"Calm", 0.1}, {"Frustrated", 0.4}, {"Angry", 0.5}],
+              confidence: 0.4
+            },
+            %Answer.Refusal{}
+          ] do
+        assert {:ok, ^answer} = answer |> Codec.encode() |> Codec.decode()
+      end
+    end
+
+    test "encodes keys tagged and omits a nil confidence" do
+      answer = %Answer.Choice{choice: "b", probabilities: [{:a, 0.25}, {"b", 0.75}]}
+      encoded = Codec.encode(answer)
+
+      assert encoded == %{
+               "__type" => "Answer.Choice",
+               "choice" => "b",
+               "probabilities" => [[%{"atom" => "a"}, 0.25], ["b", 0.75]]
+             }
+
+      assert {:ok, ^answer} = Codec.decode(encoded)
+    end
+  end
+
+  describe "encode/1 and decode/1 — Decision" do
+    defp decision do
+      Decision.new(
+        {["Ticket:", %{subject: "Refund"}],
+         [
+           urgent: Question.predicate("Urgent?"),
+           team: Question.choice("Which team?", [:billing, :infra]),
+           anger: Question.score("How angry?", ["Calm", "Angry"])
+         ]}
+      )
+    end
+
+    defp answered(decision) do
+      {:ok, model} = Omni.get_model(:openai, "gpt-6-luna")
+
+      %{
+        decision
+        | answers: [
+            urgent: %Answer.Predicate{probability: 0.91},
+            team: %Answer.Choice{choice: :infra, probabilities: [billing: 0.1, infra: 0.9]},
+            anger: %Answer.Refusal{}
+          ],
+          usage: %Usage{input_tokens: 120, total_tokens: 120, input_cost: 0.0001},
+          model: model
+      }
+    end
+
+    test "round-trips an unanswered decision" do
+      decision = decision()
+      encoded = Codec.encode(decision)
+
+      assert encoded["__type"] == "Decision"
+      assert Enum.map(encoded["questions"], & &1["name"]) == ["urgent", "team", "anger"]
+      refute Enum.any?(["answers", "usage", "model", "raw"], &Map.has_key?(encoded, &1))
+      assert {:ok, ^decision} = Codec.decode(encoded)
+    end
+
+    test "round-trips an answered decision through JSON, the model as a reference" do
+      decision = answered(decision())
+      encoded = Codec.encode(decision)
+
+      assert encoded["model"] == "openai:gpt-6-luna"
+
+      assert %{"name" => "team", "answer" => %{"__type" => "Answer.Choice"}} =
+               Enum.at(encoded["answers"], 1)
+
+      assert {:ok, ^decision} = encoded |> JSON.encode!() |> JSON.decode!() |> Codec.decode()
+    end
+
+    test "drops raw" do
+      decision = %{answered(decision()) | raw: {%Req.Request{}, %Req.Response{}}}
+      encoded = Codec.encode(decision)
+
+      refute Map.has_key?(encoded, "raw")
+      assert {:ok, %Decision{raw: nil}} = Codec.decode(encoded)
+    end
+
+    test "decodes a model that isn't loaded as nil" do
+      encoded = decision() |> answered() |> Codec.encode()
+
+      for ref <- ["codec_test_no_such_provider:m", "openai:codec-test-no-such-model", 42] do
+        assert {:ok, %Decision{model: nil, answers: [_ | _]}} =
+                 Codec.decode(Map.put(encoded, "model", ref))
+      end
+    end
+
+    test "rejects malformed questions, answers and keys" do
+      encoded = Codec.encode(decision())
+      [_, team, _] = encoded["questions"]
+
+      assert {:error, {:missing_field, :questions}} =
+               Codec.decode(Map.delete(encoded, "questions"))
+
+      assert {:error, {:invalid_field, :questions}} =
+               Codec.decode(Map.put(encoded, "questions", %{"urgent" => team}))
+
+      assert {:error, {:invalid_field, :answers}} =
+               Codec.decode(Map.put(encoded, "answers", [%{"answer" => %{}}]))
+
+      assert {:error, {:invalid_field, :choices}} =
+               Codec.decode(put_in(team, ["question", "choices"], [["a", nil, "x"]])["question"])
+
+      assert {:error, {:invalid_key, 1}} =
+               Codec.decode(put_in(team, ["question", "choices"], [[1, nil]])["question"])
+
+      assert {:error, {:invalid_field, :criteria}} =
+               Codec.decode(%{
+                 "__type" => "Question.Predicate",
+                 "instructions" => [],
+                 "criteria" => [["true", "x"]]
+               })
+    end
+  end
+
+  describe "decode/2 — atoms" do
+    # A name never turned into an atom on this node.
+    defp fresh_name, do: "codec_test_atom_#{System.unique_integer([:positive])}"
+
+    # An ETF blob of `%{<name> => 1}`, built by hand so the atom isn't created.
+    defp fresh_blob(name) do
+      bin = <<131, 116, 1::32, 119, byte_size(name), name::binary, 97, 1>>
+      %{"__etf" => Base.encode64(bin)}
+    end
+
+    test "refuses unknown question names and keys by default, creates them with atoms: :create" do
+      encoded = Codec.encode(Decision.new({"s", [team: Question.choice("Team?", [:a, :b])]}))
+
+      name = fresh_name()
+      by_name = put_in(encoded, ["questions", Access.at(0), "name"], name)
+      assert Codec.decode(by_name) == {:error, {:unknown_atom, name}}
+      assert {:ok, %Decision{questions: [{atom, _}]}} = Codec.decode(by_name, atoms: :create)
+      assert Atom.to_string(atom) == name
+
+      key = fresh_name()
+
+      by_key =
+        put_in(encoded, ["questions", Access.at(0), "question", "choices", Access.at(0)], [
+          %{"atom" => key},
+          nil
+        ])
+
+      assert Codec.decode(by_key) == {:error, {:unknown_atom, key}}
+      assert {:ok, _} = Codec.decode(by_key, atoms: :create)
+    end
+
+    test "refuses unknown atoms in opaque blobs by default, creates them with atoms: :create" do
+      name = fresh_name()
+
+      encoded =
+        "hi" |> Message.new() |> Codec.encode() |> Map.put("private", fresh_blob(name))
+
+      assert {:error, {:invalid_etf, _}} = Codec.decode(encoded)
+      assert {:ok, %Message{private: private}} = Codec.decode(encoded, atoms: :create)
+      assert private == %{String.to_existing_atom(name) => 1}
+
+      other = fresh_name()
+      assert {:error, {:invalid_etf, _}} = Codec.decode_term(fresh_blob(other))
+      assert {:ok, %{}} = Codec.decode_term(fresh_blob(other), atoms: :create)
+    end
+
+    test "raises on an unknown atoms option" do
+      assert_raise ArgumentError, fn -> Codec.decode(%{}, atoms: :maybe) end
     end
   end
 

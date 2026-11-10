@@ -46,6 +46,8 @@ defmodule Omni.Decision do
     * `:model` — the `%Omni.Model{}` that answered; `nil` until answered
     * `:raw` — the `{%Req.Request{}, %Req.Response{}}` pair when `decide/3`
       is called with `raw: true`, else `nil`
+
+  Persist a decision with `Omni.Codec`, which stores everything but `:raw`.
   """
 
   alias Omni.{Answer, Model, Question, Usage}

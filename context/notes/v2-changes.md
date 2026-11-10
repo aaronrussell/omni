@@ -190,6 +190,10 @@ decision.answers[:team]  #=> %Omni.Answer.Choice{choice: :infra, probabilities: 
 
 **New: `Omni.Usage.price/2`.** *(decisions)* Computes a usage's costs from a model's pricing; both text responses and decisions use it.
 
+**`Omni.Codec` encodes decisions.** *(decisions)* `%Omni.Decision{}`, the `Omni.Question` structs and the `Omni.Answer` structs round-trip through `encode/1` and `decode/2`. The model is stored as a string reference and looked up on decode (`nil` if not loaded); `raw` is not stored. Atom choice and level keys encode as `%{"atom" => "key"}`, string keys as plain strings, so each comes back as given.
+
+**`Omni.Codec.decode/2` and `decode_term/2` take `atoms:`.** *(decisions)* By default decoding creates no atoms: an unknown question name or atom key is `{:error, {:unknown_atom, name}}`, and an opaque blob (`Message.private`, `Attachment.meta`) holding an unknown atom fails with `{:error, {:invalid_etf, _}}`, as before. `atoms: :create` creates them, for data the app wrote itself (atoms built at runtime, or modules not yet loaded in development); never for untrusted input. A non-list `content` or state now decodes to `{:error, :invalid_input}` instead of raising.
+
 ## Sources
 
 **`Omni.Source.build_model/1` reads `"reasoning_options"`** (models.dev's list form, string or atom keys) into `:thinking`. *(phase 2)* The llm_db source passes them through, falls back to OpenRouter's `supported_efforts`, and reads `extra` with string keys as well as atom keys (llm_db 2026.7.2+).
