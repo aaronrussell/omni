@@ -455,12 +455,14 @@ defmodule Omni.Provider.LoaderTest do
 
     test "a config model naming a dialect under the wrong capability raises" do
       assert_raise ArgumentError,
-                   ~r/names .*SystemOne for :text, but it is a :decision dialect/,
+                   ~r/names .*TypeSafeSystemOne for :text, but it is a :decision dialect/,
                    fn ->
                      assemble(
                        source: catalog([], []),
-                       dialects: %{Omni.Dialects.SystemOne => [base_url: "https://x.test/v1"]},
-                       models: [[id: "c", dialects: %{text: Omni.Dialects.SystemOne}]]
+                       dialects: %{
+                         Omni.Dialects.TypeSafeSystemOne => [base_url: "https://x.test/v1"]
+                       },
+                       models: [[id: "c", dialects: %{text: Omni.Dialects.TypeSafeSystemOne}]]
                      )
                    end
     end
@@ -489,13 +491,17 @@ defmodule Omni.Provider.LoaderTest do
           source:
             catalog([], [
               model("a", @completions),
-              Model.new(id: "d", name: "d", dialects: %{decision: Omni.Dialects.SystemOne})
+              Model.new(
+                id: "d",
+                name: "d",
+                dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}
+              )
             ]),
-          dialects: %{Omni.Dialects.SystemOne => [base_url: "https://x.test/v1"]}
+          dialects: %{Omni.Dialects.TypeSafeSystemOne => [base_url: "https://x.test/v1"]}
         )
 
       assert Enum.map(models, & &1.id) == ["a", "d"]
-      assert Provider.dialects(provider, :decision) == [Omni.Dialects.SystemOne]
+      assert Provider.dialects(provider, :decision) == [Omni.Dialects.TypeSafeSystemOne]
     end
 
     test "put_model/1 raises for a dialect under the wrong capability" do
@@ -721,7 +727,7 @@ defmodule Omni.Provider.LoaderTest do
 
     test "a dialect under the wrong capability raises" do
       Application.put_env(:omni, :models,
-        transform: &%{&1 | dialects: %{text: Omni.Dialects.SystemOne}}
+        transform: &%{&1 | dialects: %{text: Omni.Dialects.TypeSafeSystemOne}}
       )
 
       assert_raise ArgumentError, ~r/left model "m" invalid.*decision dialect/, fn ->

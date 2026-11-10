@@ -72,7 +72,7 @@ defmodule OmniTest do
       Fixtures.model(
         id: "jev-1.14",
         capability: :decision,
-        dialect: Omni.Dialects.SystemOne,
+        dialect: Omni.Dialects.TypeSafeSystemOne,
         input_cost: 0.042
       )
     end

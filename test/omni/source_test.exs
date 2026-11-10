@@ -217,8 +217,8 @@ defmodule Omni.SourceTest do
       assert models["gpt-test"].dialects == %{text: Omni.Dialects.OpenAIResponses}
       assert models["gemini-test"].dialects == %{text: Omni.Dialects.GoogleGenerateContent}
 
-      assert Source.build_model(%{"id" => "d", "dialects" => ["systemone"]}).dialects ==
-               %{decision: Omni.Dialects.SystemOne}
+      assert Source.build_model(%{"id" => "d", "dialects" => ["typesafe_system_one"]}).dialects ==
+               %{decision: Omni.Dialects.TypeSafeSystemOne}
 
       both =
         Source.build_model(%{"id" => "b", "dialects" => ["openai_responses", "openai_decisions"]})

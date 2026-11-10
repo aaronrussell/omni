@@ -1,4 +1,4 @@
-defmodule Omni.Dialects.SystemOne do
+defmodule Omni.Dialects.TypeSafeSystemOne do
   @moduledoc """
   Dialect implementation for the System One decision format.
 

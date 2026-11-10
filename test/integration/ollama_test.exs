@@ -52,7 +52,7 @@ defmodule Integration.OllamaTest do
           id: "pplx-decider-flash:4b-nvfp4",
           name: "pplx-decider-flash:4b-nvfp4",
           provider: :ollama,
-          dialects: %{decision: Omni.Dialects.SystemOne}
+          dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}
         )
 
       %{model: model}

@@ -39,7 +39,7 @@ if Code.ensure_loaded?(LLMDB) do
       Omni.Dialects.OpenAIResponses,
       Omni.Dialects.GoogleGenerateContent,
       Omni.Dialects.OllamaChat,
-      Omni.Dialects.SystemOne,
+      Omni.Dialects.TypeSafeSystemOne,
       Omni.Dialects.OpenAIDecisions
     ]
 
@@ -134,7 +134,7 @@ if Code.ensure_loaded?(LLMDB) do
         {:typesafe, "jev-1.13.0"} => %Omni.Model{
           id: "jev-1.13.0",
           name: "Jev 1.13",
-          dialects: %{decision: Omni.Dialects.SystemOne},
+          dialects: %{decision: Omni.Dialects.TypeSafeSystemOne},
           release_date: nil,
           context_size: 0,
           max_output_tokens: 0,

@@ -111,7 +111,7 @@ defmodule Omni.Sources.ModelsDevTest do
 
       assert [model] = ModelsDev.transform_provider(data, "test")
       assert model.id == "jev"
-      assert model.dialects == %{decision: Omni.Dialects.SystemOne}
+      assert model.dialects == %{decision: Omni.Dialects.TypeSafeSystemOne}
       assert model.thinking == false
       assert model.output_modalities == [:text]
       assert model.output_cost == 0
@@ -128,7 +128,7 @@ defmodule Omni.Sources.ModelsDevTest do
 
       by_id = data |> ModelsDev.transform_provider("test") |> Map.new(&{&1.id, &1.dialects})
 
-      assert by_id["jev"] == %{decision: Omni.Dialects.SystemOne}
+      assert by_id["jev"] == %{decision: Omni.Dialects.TypeSafeSystemOne}
       assert by_id["luna"] == %{decision: Omni.Dialects.OpenAIDecisions}
     end
 
@@ -396,7 +396,7 @@ defmodule Omni.Sources.ModelsDevTest do
       assert by_id["claude-haiku-4-5"] == %{text: Omni.Dialects.AnthropicMessages}
       assert by_id["gpt-5.2"] == %{text: Omni.Dialects.OpenAIResponses}
       assert by_id["mistral-large-4"] == %{text: Omni.Dialects.OpenAICompletions}
-      assert by_id["jev-1.13"] == %{decision: Omni.Dialects.SystemOne}
+      assert by_id["jev-1.13"] == %{decision: Omni.Dialects.TypeSafeSystemOne}
     end
 
     test "returns :unknown_provider for an id not in the snapshot" do

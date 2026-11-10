@@ -114,7 +114,7 @@ defmodule Omni.Sources.ModelsDev do
   # decisions). A decision model whose package isn't here is skipped.
   @decision_npm_to_dialect %{
     "@ai-sdk/openai" => "openai_decisions",
-    "@ai-sdk/typesafe-ai" => "systemone"
+    "@ai-sdk/typesafe-ai" => "typesafe_system_one"
   }
 
   @supported_input_modalities Enum.map(Model.supported_modalities(:input), &to_string/1)

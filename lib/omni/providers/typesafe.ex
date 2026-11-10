@@ -1,6 +1,6 @@
 defmodule Omni.Providers.TypeSafe do
   @moduledoc """
-  Provider for TypeSafe's System One API, using the `Omni.Dialects.SystemOne`
+  Provider for TypeSafe's System One API, using the `Omni.Dialects.TypeSafeSystemOne`
   dialect.
 
   Provider id `:typesafe`. Reads the API key from `TYPESAFE_API_KEY`, so no
@@ -25,7 +25,7 @@ defmodule Omni.Providers.TypeSafe do
       config :omni, :providers,
         typesafe: [
           models: [
-            [id: "jev-1.15.0", dialects: %{decision: Omni.Dialects.SystemOne}, input_cost: 0.042]
+            [id: "jev-1.15.0", dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}, input_cost: 0.042]
           ]
         ]
 
@@ -52,7 +52,7 @@ defmodule Omni.Providers.TypeSafe do
   def config do
     [
       api_key: {:system, "TYPESAFE_API_KEY"},
-      dialects: %{Omni.Dialects.SystemOne => [base_url: "https://api.typesafe.ai/v1"]}
+      dialects: %{Omni.Dialects.TypeSafeSystemOne => [base_url: "https://api.typesafe.ai/v1"]}
     ]
   end
 
@@ -69,7 +69,7 @@ defmodule Omni.Providers.TypeSafe do
           id: id,
           name: name,
           release_date: release_date,
-          dialects: %{decision: Omni.Dialects.SystemOne},
+          dialects: %{decision: Omni.Dialects.TypeSafeSystemOne},
           context_size: 64_000,
           input_cost: 0.042
         )

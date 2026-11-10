@@ -15,7 +15,7 @@ defmodule Omni.Providers.NearAI do
   ## Decisions
 
   The catalog's decision models (`typesafe/jev-1.13`, `levanto/sage-1.4`)
-  load over `Omni.Dialects.SystemOne`, at the provider's catalog URL. NEAR AI
+  load over `Omni.Dialects.TypeSafeSystemOne`, at the provider's catalog URL. NEAR AI
   doesn't document this endpoint, and it hasn't been verified against the
   live API.
 

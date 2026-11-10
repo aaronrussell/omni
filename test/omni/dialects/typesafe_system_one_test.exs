@@ -1,22 +1,22 @@
-defmodule Omni.Dialects.SystemOneTest do
+defmodule Omni.Dialects.TypeSafeSystemOneTest do
   use ExUnit.Case, async: true
 
-  alias Omni.Dialects.SystemOne
+  alias Omni.Dialects.TypeSafeSystemOne
   alias Omni.{Answer, Decision, Usage}
   alias Omni.Test.Fixtures
 
-  @model Fixtures.model(id: "jev-1.14", capability: :decision, dialect: SystemOne)
+  @model Fixtures.model(id: "jev-1.14", capability: :decision, dialect: TypeSafeSystemOne)
 
   defp decision(state \\ "I was charged twice", questions) do
     Decision.new({state, questions})
   end
 
-  defp body(decision), do: SystemOne.handle_body(@model, decision, %{})
+  defp body(decision), do: TypeSafeSystemOne.handle_body(@model, decision, %{})
 
   describe "handle_path/2 and auth/0" do
     test "posts to /systemone with a bearer key" do
-      assert SystemOne.handle_path(@model, %{}) == "/systemone"
-      assert SystemOne.auth() == :bearer
+      assert TypeSafeSystemOne.handle_path(@model, %{}) == "/systemone"
+      assert TypeSafeSystemOne.auth() == :bearer
     end
   end
 
@@ -112,7 +112,7 @@ defmodule Omni.Dialects.SystemOneTest do
     }
 
     defp respond(body, questions \\ @questions),
-      do: SystemOne.handle_response(body, decision(questions), @model)
+      do: TypeSafeSystemOne.handle_response(body, decision(questions), @model)
 
     test "maps every answer back to the caller's keys, in the caller's order" do
       assert {:ok, %Decision{answers: answers}} = respond(@response)

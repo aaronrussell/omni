@@ -104,7 +104,7 @@ lib/omni/
 ├── dialect/{text,decision}.ex      # Capability behaviours
 ├── dialect/decision/answers.ex     # Shared answer matching for decision dialects
 ├── dialect/thinking.ex             # Shared :thinking resolution (effort clamping, budgets)
-└── dialects/{anthropic_messages,openai_completions,openai_responses,google_generate_content,ollama_chat,system_one,openai_decisions}.ex
+└── dialects/{anthropic_messages,openai_completions,openai_responses,google_generate_content,ollama_chat,typesafe_system_one,openai_decisions}.ex
 lib/mix/tasks/omni.{snapshot,verify}.ex
 ```
 

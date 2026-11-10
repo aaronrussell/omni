@@ -34,14 +34,14 @@ defmodule Omni.Dialect do
 
   Decision:
 
-    * `Omni.Dialects.SystemOne` — TypeSafe's System One format, served by
+    * `Omni.Dialects.TypeSafeSystemOne` — TypeSafe's System One format, served by
       TypeSafe, OpenRouter, OpenCode Zen, Ollama and others
     * `Omni.Dialects.OpenAIDecisions` — OpenAI's Decisions API
 
   ## Dialect registry
 
   Built-in dialects are registered with string identifiers for use in model
-  catalog data (e.g. `"anthropic_messages"`, `"systemone"`). Use `get/1`
+  catalog data (e.g. `"anthropic_messages"`, `"typesafe_system_one"`). Use `get/1`
   or `get!/1` to resolve a string to its module. This is primarily used by
   model sources (see `Omni.Source.build_model/1`) when mapping catalog data
   to dialects.
@@ -86,7 +86,7 @@ defmodule Omni.Dialect do
     "openai_responses" => Omni.Dialects.OpenAIResponses,
     "google_generate_content" => Omni.Dialects.GoogleGenerateContent,
     "ollama_chat" => Omni.Dialects.OllamaChat,
-    "systemone" => Omni.Dialects.SystemOne,
+    "typesafe_system_one" => Omni.Dialects.TypeSafeSystemOne,
     "openai_decisions" => Omni.Dialects.OpenAIDecisions
   }
 
@@ -111,8 +111,8 @@ defmodule Omni.Dialect do
   Resolves a dialect string identifier to its module.
 
   Built-in dialect identifiers: `"anthropic_messages"`, `"openai_completions"`,
-  `"openai_responses"`, `"google_generate_content"`, `"ollama_chat"`, `"systemone"`,
-  `"openai_decisions"`.
+  `"openai_responses"`, `"google_generate_content"`, `"ollama_chat"`,
+  `"typesafe_system_one"`, `"openai_decisions"`.
   """
   @spec get(String.t()) :: {:ok, module()} | {:error, {:unknown_dialect, String.t()}}
   def get(name) when is_binary(name) do
@@ -160,7 +160,7 @@ defmodule Omni.Dialect do
   `use Omni.Dialect`):
 
       Omni.Dialect.capability(Omni.Dialects.AnthropicMessages)  #=> :text
-      Omni.Dialect.capability(Omni.Dialects.SystemOne)          #=> :decision
+      Omni.Dialect.capability(Omni.Dialects.TypeSafeSystemOne)  #=> :decision
   """
   @spec capability(module()) :: :text | :decision | nil
   def capability(module) when is_atom(module) do

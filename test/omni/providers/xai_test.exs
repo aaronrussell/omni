@@ -30,7 +30,7 @@ defmodule Omni.Providers.XAITest do
       bare = Omni.Model.new(id: "grok-new", name: "grok-new")
 
       decision =
-        Omni.Model.new(id: "d", name: "d", dialects: %{decision: Omni.Dialects.SystemOne})
+        Omni.Model.new(id: "d", name: "d", dialects: %{decision: Omni.Dialects.TypeSafeSystemOne})
 
       assert [bare, ^decision] = XAI.models([bare, decision], nil)
       assert bare.dialects == %{text: Omni.Dialects.OpenAIResponses}

@@ -32,7 +32,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
     Omni.Dialects.OpenAIResponses,
     Omni.Dialects.GoogleGenerateContent,
     Omni.Dialects.OllamaChat,
-    Omni.Dialects.SystemOne,
+    Omni.Dialects.TypeSafeSystemOne,
     Omni.Dialects.OpenAIDecisions
   ]
 
@@ -113,7 +113,7 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
       {:opencode, "jev-1.13"} => %Omni.Model{
         id: "jev-1.13",
         name: "Jev 1.13",
-        dialects: %{decision: Omni.Dialects.SystemOne},
+        dialects: %{decision: Omni.Dialects.TypeSafeSystemOne},
         release_date: ~D[2026-09-15],
         context_size: 64_000,
         max_output_tokens: 0,

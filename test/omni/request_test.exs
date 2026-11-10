@@ -911,12 +911,15 @@ defmodule Omni.RequestTest do
       auth: :dialect,
       headers: %{},
       dialects: %{
-        Omni.Dialects.SystemOne => %Endpoint{base_url: "https://api.typesafe.test/v1"},
+        Omni.Dialects.TypeSafeSystemOne => %Endpoint{base_url: "https://api.typesafe.test/v1"},
         Omni.Dialects.OpenAIDecisions => %Endpoint{base_url: "https://api.openai.test/v1"}
       }
     }
 
-    defp decision_model(dialect \\ Omni.Dialects.SystemOne, provider \\ @decision_provider) do
+    defp decision_model(
+           dialect \\ Omni.Dialects.TypeSafeSystemOne,
+           provider \\ @decision_provider
+         ) do
       Omni.Model.new(
         id: "jev-1.14",
         name: "Jev",
@@ -974,10 +977,11 @@ defmodule Omni.RequestTest do
       assert Request.build(decision_model(), Omni.Context.new("Hi"), []) ==
                {:error, {:unsupported_capability, :text}}
 
-      no_endpoint = decision_model(Omni.Dialects.SystemOne, %{@decision_provider | dialects: %{}})
+      no_endpoint =
+        decision_model(Omni.Dialects.TypeSafeSystemOne, %{@decision_provider | dialects: %{}})
 
       assert Request.build(no_endpoint, spam_decision(), []) ==
-               {:error, {:no_endpoint, Omni.Dialects.SystemOne}}
+               {:error, {:no_endpoint, Omni.Dialects.TypeSafeSystemOne}}
     end
 
     test "build/3 passes the decision to the provider module's modify_body/4" do
@@ -990,7 +994,10 @@ defmodule Omni.RequestTest do
       end
 
       model =
-        decision_model(Omni.Dialects.SystemOne, %{@decision_provider | module: DecisionHook})
+        decision_model(Omni.Dialects.TypeSafeSystemOne, %{
+          @decision_provider
+          | module: DecisionHook
+        })
 
       assert {:ok, req} = Request.build(model, spam_decision(), [])
       assert req.options[:json]["count"] == 1

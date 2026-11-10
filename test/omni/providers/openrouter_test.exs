@@ -11,7 +11,7 @@ defmodule Omni.Providers.OpenRouterTest do
       assert config.dialects[Omni.Dialects.OpenAICompletions][:base_url] ==
                "https://openrouter.ai/api/v1"
 
-      assert config.dialects[Omni.Dialects.SystemOne][:base_url] ==
+      assert config.dialects[Omni.Dialects.TypeSafeSystemOne][:base_url] ==
                "https://openrouter.ai/api/v1"
 
       assert config.api_key == {:system, "OPENROUTER_API_KEY"}
@@ -26,7 +26,7 @@ defmodule Omni.Providers.OpenRouterTest do
 
       assert Enum.sort(Map.keys(provider.dialects)) == [
                Omni.Dialects.OpenAICompletions,
-               Omni.Dialects.SystemOne
+               Omni.Dialects.TypeSafeSystemOne
              ]
 
       assert models != []
@@ -42,7 +42,7 @@ defmodule Omni.Providers.OpenRouterTest do
       decision = Enum.filter(models, &Omni.Model.capability?(&1, :decision))
 
       assert length(decision) >= 20
-      assert Enum.all?(decision, &(&1.dialects == %{decision: Omni.Dialects.SystemOne}))
+      assert Enum.all?(decision, &(&1.dialects == %{decision: Omni.Dialects.TypeSafeSystemOne}))
       assert Enum.any?(decision, &(&1.id == "typesafe/jev-1.14"))
     end
   end

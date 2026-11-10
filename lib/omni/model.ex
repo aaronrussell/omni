@@ -123,7 +123,7 @@ defmodule Omni.Model do
   A decision model names its decision dialect the same way:
 
       config :omni, :providers,
-        ollama: [models: [[id: "clef", dialects: %{decision: Omni.Dialects.SystemOne}]]]
+        ollama: [models: [[id: "clef", dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}]]]
 
   An entry whose id the catalog already has is merged over the catalog
   model instead, which corrects catalog data without restating it:

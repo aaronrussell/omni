@@ -25,7 +25,7 @@ defmodule Omni.DialectTest do
     end
 
     test "resolves the decision dialects" do
-      assert {:ok, Omni.Dialects.SystemOne} = Dialect.get("systemone")
+      assert {:ok, Omni.Dialects.TypeSafeSystemOne} = Dialect.get("typesafe_system_one")
       assert {:ok, Omni.Dialects.OpenAIDecisions} = Dialect.get("openai_decisions")
     end
 
@@ -50,7 +50,7 @@ defmodule Omni.DialectTest do
     end
 
     test "decision dialects serve decisions" do
-      assert Omni.Dialect.capability(Omni.Dialects.SystemOne) == :decision
+      assert Omni.Dialect.capability(Omni.Dialects.TypeSafeSystemOne) == :decision
       assert Omni.Dialect.capability(Omni.Dialects.OpenAIDecisions) == :decision
     end
 
@@ -68,7 +68,7 @@ defmodule Omni.DialectTest do
   describe "use Omni.Dialect" do
     test "declares the base and the capability behaviour" do
       behaviours =
-        Omni.Dialects.SystemOne.module_info(:attributes)
+        Omni.Dialects.TypeSafeSystemOne.module_info(:attributes)
         |> Keyword.get_values(:behaviour)
         |> List.flatten()
 

@@ -10,7 +10,7 @@ defmodule Integration.OpenCodeTest do
     GoogleGenerateContent,
     OpenAICompletions,
     OpenAIResponses,
-    SystemOne
+    TypeSafeSystemOne
   }
 
   alias Omni.Test.Capture
@@ -123,7 +123,7 @@ defmodule Integration.OpenCodeTest do
     setup do: %{model: model("jev-1.13-free")}
 
     test "dialect", %{model: model} do
-      assert model.dialects.decision == SystemOne
+      assert model.dialects.decision == TypeSafeSystemOne
     end
 
     test "decision", %{model: model} do

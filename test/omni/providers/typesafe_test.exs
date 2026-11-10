@@ -4,7 +4,7 @@ defmodule Omni.Providers.TypeSafeTest do
   alias Omni.Providers.TypeSafe
   alias Omni.Provider.Loader
 
-  @system_one Omni.Dialects.SystemOne
+  @system_one Omni.Dialects.TypeSafeSystemOne
 
   describe "config/0" do
     test "returns expected configuration" do
@@ -56,9 +56,11 @@ defmodule Omni.Providers.TypeSafeTest do
     end
 
     test "a config model without a dialect raises with a decision hint" do
-      assert_raise ArgumentError, ~r/dialects: %\{decision: Omni.Dialects.SystemOne\}/, fn ->
-        Loader.assemble(:typesafe, models: ["jev-1.15.0"])
-      end
+      assert_raise ArgumentError,
+                   ~r/dialects: %\{decision: Omni.Dialects.TypeSafeSystemOne\}/,
+                   fn ->
+                     Loader.assemble(:typesafe, models: ["jev-1.15.0"])
+                   end
     end
   end
 

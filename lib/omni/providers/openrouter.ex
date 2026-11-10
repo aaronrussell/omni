@@ -1,7 +1,7 @@
 defmodule Omni.Providers.OpenRouter do
   @moduledoc """
   Provider for the OpenRouter API, using the `Omni.Dialects.OpenAICompletions`
-  dialect for text and `Omni.Dialects.SystemOne` for decisions.
+  dialect for text and `Omni.Dialects.TypeSafeSystemOne` for decisions.
 
   Provider id `:openrouter`. Reads the API key from `OPENROUTER_API_KEY`, so
   no configuration is needed if it is set. Override any setting under
@@ -44,7 +44,7 @@ defmodule Omni.Providers.OpenRouter do
         ],
         # Decision models, at /api/v1/systemone. Set here because llm_db
         # describes them at OpenRouter's origin, for its alpha route.
-        Omni.Dialects.SystemOne => [base_url: "https://openrouter.ai/api/v1"]
+        Omni.Dialects.TypeSafeSystemOne => [base_url: "https://openrouter.ai/api/v1"]
       }
     ]
   end

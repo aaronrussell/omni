@@ -40,7 +40,7 @@ decision_model =
     id: "pplx-decider-flash:4b-nvfp4",
     name: "pplx-decider-flash:4b-nvfp4",
     provider: :ollama,
-    dialects: %{decision: Omni.Dialects.SystemOne}
+    dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}
   )
 
 :ok = Omni.put_model(decision_model)

@@ -86,8 +86,8 @@ defmodule Omni.Sources.LLMDB do
   # from Omni.Providers.OpenRouter). Other families are skipped.
   @family_to_decision_dialect %{
     "openai_decisions" => "openai_decisions",
-    "openrouter_decisions" => "systemone",
-    "typesafe_systemone" => "systemone"
+    "openrouter_decisions" => "typesafe_system_one",
+    "typesafe_systemone" => "typesafe_system_one"
   }
 
   @supported_dialects [

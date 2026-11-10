@@ -9,7 +9,10 @@ defmodule Omni.Providers.OllamaTest do
       config = Map.new(Ollama.config())
 
       assert config.dialects[Omni.Dialects.OllamaChat][:base_url] == "http://localhost:11434"
-      assert config.dialects[Omni.Dialects.SystemOne][:base_url] == "http://localhost:11434/v1"
+
+      assert config.dialects[Omni.Dialects.TypeSafeSystemOne][:base_url] ==
+               "http://localhost:11434/v1"
+
       assert config.auth == :none
       refute Map.has_key?(config, :api_key)
     end
@@ -25,7 +28,7 @@ defmodule Omni.Providers.OllamaTest do
 
       assert Enum.sort(Map.keys(provider.dialects)) == [
                Omni.Dialects.OllamaChat,
-               Omni.Dialects.SystemOne
+               Omni.Dialects.TypeSafeSystemOne
              ]
     end
 
@@ -87,16 +90,19 @@ defmodule Omni.Providers.OllamaTest do
       {_provider, [both, decision]} =
         Loader.assemble(:ollama,
           models: [
-            [id: "clef", dialects: %{decision: Omni.Dialects.SystemOne}],
+            [id: "clef", dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}],
             [
               id: "both",
-              dialects: %{text: Omni.Dialects.OllamaChat, decision: Omni.Dialects.SystemOne}
+              dialects: %{
+                text: Omni.Dialects.OllamaChat,
+                decision: Omni.Dialects.TypeSafeSystemOne
+              }
             ]
           ]
         )
 
       assert decision.id == "clef"
-      assert decision.dialects == %{decision: Omni.Dialects.SystemOne}
+      assert decision.dialects == %{decision: Omni.Dialects.TypeSafeSystemOne}
       assert both.id == "both"
       assert Omni.Model.capabilities(both) == [:decision, :text]
     end
@@ -105,7 +111,9 @@ defmodule Omni.Providers.OllamaTest do
       {provider, _} = Loader.assemble(:ollama, host: "http://gpu-box:11434")
 
       assert provider.dialects[Omni.Dialects.OllamaChat].base_url == "http://gpu-box:11434"
-      assert provider.dialects[Omni.Dialects.SystemOne].base_url == "http://gpu-box:11434/v1"
+
+      assert provider.dialects[Omni.Dialects.TypeSafeSystemOne].base_url ==
+               "http://gpu-box:11434/v1"
     end
   end
 end

@@ -219,7 +219,7 @@ It receives the provider's id and returns **raw catalog data only**:
 
 Translating the id to the catalog's key is the source's job (`Omni.Sources.ModelsDev` hyphenates; `Omni.Sources.LLMDB` uses it verbatim). `Omni.Source.build_model/1` builds a model from a string-keyed map (dates, defaults, `"reasoning"` and `"reasoning_options"` into `:thinking`, and `"dialects"`, a list of dialect names each placed under the capability its module serves; two for one capability raise).
 
-**Eligibility by type.** A catalog model loads for one capability by its catalog type: untyped or `chat` → text, which needs tool use and text in and out; `decision` → decision, which needs text in. Every other type (image, embedding, realtime, ...) and deprecated models are left out. Decision models read their own dialect table, with no provider-level fallback: models.dev `@ai-sdk/typesafe-ai` → SystemOne, `@ai-sdk/openai` → OpenAIDecisions; llm_db `execution.evaluate.family` `typesafe_systemone`/`openrouter_decisions` → SystemOne, `openai_decisions` → OpenAIDecisions (`cloudflare_ai_run` skipped). llm_db's `gpt-6-luna` arrives with both capabilities; models.dev's `type` is one exclusive string, so OpenAI's module stamps it. `Omni.Source.endpoints/3` derives the endpoints from the models' URLs: each dialect takes the URL of its first model by id (the model's own catalog URL, else the provider's), on whatever path or host that is; the provider-level dialect gets the provider URL when no model claimed it; a provider URL with no dialect is dropped. Templated URLs (`${VAR}`, `{var}`) are kept for `host:` to fill. Sources skip, with a warning, models they can't represent faithfully: a model whose npm package -- its own, or its provider's when it has none -- maps to no dialect Omni speaks (the catalog says it speaks another API; a provider-level miss is logged at debug and counted in the summary), and a model at another URL than the first model of its dialect (only google-vertex has one in the bundled catalog). The llm_db source also skips models llm_db marks `catalog_only` and models with no wire protocol or npm package. `{:error, :unknown_provider}` means the catalog doesn't know the id, so the provider is custom; any other error is logged and treated the same way. There is no cross-source fallback.
+**Eligibility by type.** A catalog model loads for one capability by its catalog type: untyped or `chat` → text, which needs tool use and text in and out; `decision` → decision, which needs text in. Every other type (image, embedding, realtime, ...) and deprecated models are left out. Decision models read their own dialect table, with no provider-level fallback: models.dev `@ai-sdk/typesafe-ai` → TypeSafeSystemOne, `@ai-sdk/openai` → OpenAIDecisions; llm_db `execution.evaluate.family` `typesafe_systemone`/`openrouter_decisions` → TypeSafeSystemOne, `openai_decisions` → OpenAIDecisions (`cloudflare_ai_run` skipped). llm_db's `gpt-6-luna` arrives with both capabilities; models.dev's `type` is one exclusive string, so OpenAI's module stamps it. `Omni.Source.endpoints/3` derives the endpoints from the models' URLs: each dialect takes the URL of its first model by id (the model's own catalog URL, else the provider's), on whatever path or host that is; the provider-level dialect gets the provider URL when no model claimed it; a provider URL with no dialect is dropped. Templated URLs (`${VAR}`, `{var}`) are kept for `host:` to fill. Sources skip, with a warning, models they can't represent faithfully: a model whose npm package -- its own, or its provider's when it has none -- maps to no dialect Omni speaks (the catalog says it speaks another API; a provider-level miss is logged at debug and counted in the summary), and a model at another URL than the first model of its dialect (only google-vertex has one in the bundled catalog). The llm_db source also skips models llm_db marks `catalog_only` and models with no wire protocol or npm package. `{:error, :unknown_provider}` means the catalog doesn't know the id, so the provider is custom; any other error is logged and treated the same way. There is no cross-source fallback.
 
 The npm-package-to-dialect table lives in each source. A bespoke package that is OpenAI-compatible in practice (`@ai-sdk/xai`, `@ai-sdk/togetherai`, ...) is mapped there when its provider becomes a built-in, not before: these providers have no catalog URL, so a mapping without the module adds little.
 
@@ -510,7 +510,7 @@ A dialect is a module translating between Omni's types and the wire format of a 
 | `AnthropicMessages` | `"anthropic_messages"` | text | Anthropic Messages | `x-api-key` |
 | `GoogleGenerateContent` | `"google_generate_content"` | text | Gemini API `generateContent`, streamed from `streamGenerateContent` (model id in the path) | `x-goog-api-key` |
 | `OllamaChat` | `"ollama_chat"` | text | Ollama native `/api/chat` (NDJSON) | bearer |
-| `SystemOne` | `"systemone"` | decision | TypeSafe System One, `/systemone` | bearer |
+| `TypeSafeSystemOne` | `"typesafe_system_one"` | decision | TypeSafe System One, `/systemone` | bearer |
 | `OpenAIDecisions` | `"openai_decisions"` | decision | OpenAI Decisions, `/decisions` | bearer |
 
 String ids exist for catalog data; `Omni.Dialect.get/1` resolves them. Config uses modules. A dialect is named for the API's originator, then the API itself (its resource or method, snake_cased): `google_generate_content` names `generateContent`, which leaves room for Google's Interactions API on the same host.
@@ -1510,7 +1510,7 @@ Choice and level keys must differ as strings, since both formats key by string. 
 | `:openai` | OpenAI Decisions | `https://api.openai.com/v1` | `gpt-6-luna`, stamped by the module |
 | `:openrouter` | System One | `https://openrouter.ai/api/v1` | catalog, including `openai/gpt-6-luna-decisions` (System One in front of OpenAI). The URL is set in the module: llm_db places these models at the origin, for OpenRouter's alpha route `/api/alpha/decisions` (same wire, "shape may change") |
 | `:opencode` | System One | `https://opencode.ai/inference/systemone/v1` (catalog) | `jev-1.13`, `jev-1.13-free` |
-| `:ollama` | System One | `http://localhost:11434/v1` | config, naming `dialects: %{decision: Omni.Dialects.SystemOne}` |
+| `:ollama` | System One | `http://localhost:11434/v1` | config, naming `dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}` |
 | `:nearai` | System One | `https://cloud-api.near.ai/v1` (catalog) | catalog; endpoint undocumented, unverified (no key) |
 
 Not adopted yet: images and `box` (each host encodes images differently: TypeSafe `assets` behind a header, Ollama and Venice `images`, OpenRouter `image_url` parts, OpenAI `input_image`), confidence normalised from probabilities, warnings for silently dropped fields (predicate criteria on OpenAI). Hosts awaiting catalog data are in the roadmap.
@@ -1774,7 +1774,7 @@ lib/omni/
     ├── openai_completions.ex
     ├── openai_responses.ex
     ├── openai_decisions.ex    # decision
-    └── system_one.ex
+    └── typesafe_system_one.ex
 
 lib/mix/tasks/
 ├── omni.snapshot.ex           # Writes the models.dev snapshot to priv/models/

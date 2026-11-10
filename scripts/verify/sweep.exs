@@ -66,7 +66,7 @@ matrix = [
   {:ollama,
    [
      id: "pplx-decider-flash:4b-nvfp4",
-     dialects: %{decision: Omni.Dialects.SystemOne}
+     dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}
    ], []},
   # Text and decisions: its capabilities give it both sets of defaults.
   {:openai, "gpt-6-luna", all},

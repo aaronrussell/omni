@@ -27,7 +27,7 @@ defmodule Omni.Providers.OpenCodeTest do
                  Omni.Dialects.GoogleGenerateContent,
                  Omni.Dialects.OpenAICompletions,
                  Omni.Dialects.OpenAIResponses,
-                 Omni.Dialects.SystemOne
+                 Omni.Dialects.TypeSafeSystemOne
                ])
 
       by_id = Map.new(models, &{&1.id, &1.dialects[:text] || &1.dialects[:decision]})
@@ -37,7 +37,7 @@ defmodule Omni.Providers.OpenCodeTest do
       assert by_id["gemini-3-flash"] == Omni.Dialects.GoogleGenerateContent
       # Zen serves Mistral models on Chat Completions
       assert by_id["mistral-large-4"] == Omni.Dialects.OpenAICompletions
-      assert by_id["jev-1.13"] == Omni.Dialects.SystemOne
+      assert by_id["jev-1.13"] == Omni.Dialects.TypeSafeSystemOne
     end
   end
 
@@ -58,7 +58,7 @@ defmodule Omni.Providers.OpenCodeTest do
                  "https://opencode.ai/inference/google/v1beta",
                Omni.Dialects.OpenAICompletions => "https://opencode.ai/inference/openai/v1",
                Omni.Dialects.OpenAIResponses => "https://opencode.ai/inference/openai/v1",
-               Omni.Dialects.SystemOne => "https://opencode.ai/inference/systemone/v1"
+               Omni.Dialects.TypeSafeSystemOne => "https://opencode.ai/inference/systemone/v1"
              }
     end
   end

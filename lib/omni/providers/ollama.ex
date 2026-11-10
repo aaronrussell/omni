@@ -1,7 +1,7 @@
 defmodule Omni.Providers.Ollama do
   @moduledoc """
   Provider for a local Ollama instance, using the `Omni.Dialects.OllamaChat`
-  dialect for text and `Omni.Dialects.SystemOne` for decisions.
+  dialect for text and `Omni.Dialects.TypeSafeSystemOne` for decisions.
 
   Provider id `:ollama`. Talks to `http://localhost:11434` with no
   authentication: chat at `/api/chat`, decisions at `/v1/systemone`. For
@@ -29,10 +29,10 @@ defmodule Omni.Providers.Ollama do
       config :omni, :providers,
         ollama: [
           models: [
-            [id: "clef", dialects: %{decision: Omni.Dialects.SystemOne}],
+            [id: "clef", dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}],
             [
               id: "both",
-              dialects: %{text: Omni.Dialects.OllamaChat, decision: Omni.Dialects.SystemOne}
+              dialects: %{text: Omni.Dialects.OllamaChat, decision: Omni.Dialects.TypeSafeSystemOne}
             ]
           ]
         ]
@@ -67,7 +67,7 @@ defmodule Omni.Providers.Ollama do
       auth: :none,
       dialects: %{
         Omni.Dialects.OllamaChat => [base_url: "http://localhost:11434"],
-        Omni.Dialects.SystemOne => [base_url: "http://localhost:11434/v1"]
+        Omni.Dialects.TypeSafeSystemOne => [base_url: "http://localhost:11434/v1"]
       }
     ]
   end

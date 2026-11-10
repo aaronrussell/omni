@@ -42,13 +42,16 @@ defmodule Omni.Providers.OllamaCloudTest do
       bare = Omni.Model.new(id: "b", name: "b")
 
       decision =
-        Omni.Model.new(id: "d", name: "d", dialects: %{decision: Omni.Dialects.SystemOne})
+        Omni.Model.new(id: "d", name: "d", dialects: %{decision: Omni.Dialects.TypeSafeSystemOne})
 
       both =
         Omni.Model.new(
           id: "both",
           name: "both",
-          dialects: %{text: Omni.Dialects.OpenAICompletions, decision: Omni.Dialects.SystemOne}
+          dialects: %{
+            text: Omni.Dialects.OpenAICompletions,
+            decision: Omni.Dialects.TypeSafeSystemOne
+          }
         )
 
       assert [text, bare, ^decision, both] = OllamaCloud.models([text, bare, decision, both], nil)
@@ -57,7 +60,7 @@ defmodule Omni.Providers.OllamaCloudTest do
 
       assert both.dialects == %{
                text: Omni.Dialects.OllamaChat,
-               decision: Omni.Dialects.SystemOne
+               decision: Omni.Dialects.TypeSafeSystemOne
              }
     end
   end

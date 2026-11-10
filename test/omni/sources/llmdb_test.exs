@@ -100,8 +100,8 @@ if Code.ensure_loaded?(LLMDB) do
 
         by_id = models |> Source.transform_provider(:test) |> Map.new(&{&1.id, &1})
 
-        assert by_id["jev"].dialects == %{decision: Omni.Dialects.SystemOne}
-        assert by_id["routed"].dialects == %{decision: Omni.Dialects.SystemOne}
+        assert by_id["jev"].dialects == %{decision: Omni.Dialects.TypeSafeSystemOne}
+        assert by_id["routed"].dialects == %{decision: Omni.Dialects.TypeSafeSystemOne}
         assert by_id["luna"].dialects == %{decision: Omni.Dialects.OpenAIDecisions}
 
         # No modalities (TypeSafe), or an output of [:decisions], is text.
