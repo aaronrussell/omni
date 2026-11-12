@@ -32,4 +32,22 @@ defmodule Omni.Content.AttachmentTest do
       end
     end
   end
+
+  describe "new/2" do
+    test "takes a source and media type" do
+      assert Attachment.new({:base64, "abc123"}, "image/jpeg") ==
+               Attachment.new(source: {:base64, "abc123"}, media_type: "image/jpeg")
+    end
+  end
+
+  test "the Omni delegates build the same structs" do
+    assert Omni.attachment({:url, "https://example.com"}, "image/png") ==
+             Attachment.new({:url, "https://example.com"}, "image/png")
+
+    assert Omni.attachment(source: {:url, "https://example.com"}, media_type: "image/png") ==
+             Attachment.new({:url, "https://example.com"}, "image/png")
+
+    assert Omni.tool_result(tool_use_id: "tu_1", name: "x", content: "ok") ==
+             Omni.Content.ToolResult.new(tool_use_id: "tu_1", name: "x", content: "ok")
+  end
 end

@@ -39,8 +39,13 @@ defmodule Omni.Message do
   Creates a new message from a string, keyword list, or map.
 
   A string is treated as a user message with that text as content. String
-  content is wrapped in a `Text` block. A timestamp is auto-assigned via
-  `DateTime.utc_now/0` unless explicitly set.
+  content is wrapped in a `Text` block, and so is each string in a content
+  list:
+
+      Message.new(role: :user, content: ["What's in this image?", Attachment.new({:base64, png}, "image/png")])
+
+  A timestamp is auto-assigned via `DateTime.utc_now/0` unless explicitly
+  set.
 
   `:origin` takes the `%Model{}` that wrote the message, recorded as its
   reference and dialect, or an origin map as is:
@@ -56,10 +61,7 @@ defmodule Omni.Message do
     attrs
     |> Map.new()
     |> Map.put_new_lazy(:timestamp, &DateTime.utc_now/0)
-    |> Map.update(:content, [], fn
-      content when is_binary(content) -> [Text.new(content)]
-      content -> content
-    end)
+    |> Map.update(:content, [], &content/1)
     |> Map.update(:origin, nil, fn
       %Model{dialects: %{text: dialect}} = model ->
         %{model: Model.to_ref(model), dialect: dialect}
@@ -69,4 +71,11 @@ defmodule Omni.Message do
     end)
     |> then(&struct!(__MODULE__, &1))
   end
+
+  defp content(text) when is_binary(text), do: [Text.new(text)]
+  defp content(blocks) when is_list(blocks), do: Enum.map(blocks, &block/1)
+  defp content(other), do: other
+
+  defp block(text) when is_binary(text), do: Text.new(text)
+  defp block(block), do: block
 end

@@ -23,6 +23,12 @@ defmodule Omni.MessageTest do
       assert msg.content == blocks
     end
 
+    test "wraps strings in a content list in Text blocks" do
+      attachment = Omni.Content.Attachment.new({:url, "https://example.com/a.png"}, "image/png")
+      msg = Message.new(role: :user, content: ["What's this?", attachment])
+      assert [%Text{text: "What's this?"}, ^attachment] = msg.content
+    end
+
     test "content defaults to empty list when omitted" do
       msg = Message.new(role: :user)
       assert msg.content == []

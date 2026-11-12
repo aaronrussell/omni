@@ -10,4 +10,8 @@ defmodule Omni.Answer.Refusal do
 
   @typedoc "A refused question."
   @type t :: %__MODULE__{}
+
+  @doc "Creates a refusal."
+  @spec new(Enumerable.t()) :: t()
+  def new(attrs \\ []), do: struct!(__MODULE__, attrs)
 end

@@ -2,7 +2,7 @@ defmodule Omni.Question.Choice do
   @moduledoc """
   A question with one answer from a fixed set of choices.
 
-  Answered by `%Omni.Answer.Choice{}`. Build one with `Omni.Question.choice/2`.
+  Answered by `%Omni.Answer.Choice{}`. Build one with `new/2`, or `Omni.choice/2`.
 
   ## Struct fields
 
@@ -12,6 +12,8 @@ defmodule Omni.Question.Choice do
       description means the model judges the option by its key alone
   """
 
+  alias Omni.{Decision, Question}
+
   defstruct [:instructions, choices: []]
 
   @typedoc "A question with one answer from a set of choices."
@@ -19,4 +21,40 @@ defmodule Omni.Question.Choice do
           instructions: Omni.Question.instructions(),
           choices: [Omni.Question.option()]
         }
+
+  @doc """
+  Creates a choice question from a keyword list or map of fields.
+
+  Instructions are built into parts (see `Omni.Question`) and choices into
+  `{key, description}` pairs, as in `new/2`.
+
+      Omni.Question.Choice.new(instructions: "...", choices: [:a, :b])
+  """
+  @spec new(Enumerable.t()) :: t()
+  def new(attrs) do
+    question = struct!(__MODULE__, attrs)
+
+    %{
+      question
+      | instructions: Decision.parts(question.instructions),
+        choices: Question.options(question.choices)
+    }
+  end
+
+  @doc """
+  Creates a question with one answer from a set of choices.
+
+  Each choice is a key, or a `{key, description}` pair; a choice without a
+  description is judged by its key alone.
+
+      Omni.Question.Choice.new("Which team owns this?", [:billing, :infra, :other])
+
+      Omni.Question.Choice.new("Which team owns this?",
+        billing: "Payments and refunds",
+        infra: "Outages",
+        other: nil
+      )
+  """
+  @spec new(Question.instructions_input(), [Question.key() | Question.option()]) :: t()
+  def new(instructions, choices), do: new(instructions: instructions, choices: choices)
 end

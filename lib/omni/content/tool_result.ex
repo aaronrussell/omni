@@ -27,16 +27,23 @@ defmodule Omni.Content.ToolResult do
   @doc """
   Creates a new tool result content block from a keyword list or map.
 
-  String content is wrapped in a `Text` block. `nil` content becomes `[]`.
+  String content is wrapped in a `Text` block, and so is each string in a
+  content list. Missing content becomes `[]`.
+
+      ToolResult.new(tool_use_id: tool_use.id, name: tool_use.name, content: "72°F and sunny")
   """
   @spec new(Enumerable.t()) :: t()
   def new(attrs) do
     attrs
     |> Map.new()
-    |> Map.update(:content, [], fn
-      content when is_binary(content) -> [Text.new(content)]
-      content -> content
-    end)
+    |> Map.update(:content, [], &content/1)
     |> then(&struct!(__MODULE__, &1))
   end
+
+  defp content(text) when is_binary(text), do: [Text.new(text)]
+  defp content(blocks) when is_list(blocks), do: Enum.map(blocks, &block/1)
+  defp content(other), do: other
+
+  defp block(text) when is_binary(text), do: Text.new(text)
+  defp block(block), do: block
 end

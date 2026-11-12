@@ -325,7 +325,7 @@ defmodule Omni.CodecTest do
 
   describe "encode/1 and decode/1 — questions" do
     test "round-trips a predicate, with and without criteria" do
-      plain = Question.predicate("Is this spam?")
+      plain = Question.Predicate.new("Is this spam?")
       encoded = Codec.encode(plain)
 
       assert encoded == %{
@@ -335,7 +335,9 @@ defmodule Omni.CodecTest do
 
       assert {:ok, ^plain} = Codec.decode(encoded)
 
-      criteria = Question.predicate("Is this spam?", true: "Advertising", false: "A conversation")
+      criteria =
+        Question.Predicate.new("Is this spam?", true: "Advertising", false: "A conversation")
+
       encoded = Codec.encode(criteria)
       assert encoded["criteria"] == [[true, "Advertising"], [false, "A conversation"]]
       assert {:ok, ^criteria} = Codec.decode(encoded)
@@ -343,7 +345,7 @@ defmodule Omni.CodecTest do
 
     test "round-trips a choice, keeping atom and string keys and their order" do
       question =
-        Question.choice(%{question: "Which team?"}, [
+        Question.Choice.new(%{question: "Which team?"}, [
           {:billing, "Payments"},
           {"infra", nil},
           :other
@@ -365,7 +367,7 @@ defmodule Omni.CodecTest do
     end
 
     test "round-trips a score" do
-      question = Question.score(["Rate it", %{scale: "anger"}], ["Calm", "Angry"])
+      question = Question.Score.new(["Rate it", %{scale: "anger"}], ["Calm", "Angry"])
       encoded = Codec.encode(question)
 
       assert encoded["levels"] == [["Calm", nil], ["Angry", nil]]
@@ -412,9 +414,9 @@ defmodule Omni.CodecTest do
       Decision.new(
         {["Ticket:", %{subject: "Refund"}],
          [
-           urgent: Question.predicate("Urgent?"),
-           team: Question.choice("Which team?", [:billing, :infra]),
-           anger: Question.score("How angry?", ["Calm", "Angry"])
+           urgent: Question.Predicate.new("Urgent?"),
+           team: Question.Choice.new("Which team?", [:billing, :infra]),
+           anger: Question.Score.new("How angry?", ["Calm", "Angry"])
          ]}
       )
     end
@@ -512,7 +514,7 @@ defmodule Omni.CodecTest do
     end
 
     test "refuses unknown question names and keys by default, creates them with atoms: :create" do
-      encoded = Codec.encode(Decision.new({"s", [team: Question.choice("Team?", [:a, :b])]}))
+      encoded = Codec.encode(Decision.new({"s", [team: Question.Choice.new("Team?", [:a, :b])]}))
 
       name = fresh_name()
       by_name = put_in(encoded, ["questions", Access.at(0), "name"], name)

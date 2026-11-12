@@ -54,13 +54,13 @@ defmodule Omni.Dialect.Decision do
         end
 
         defp decode_answer(%Question.Predicate{}, %{"probability" => p}) when is_number(p),
-          do: {:ok, %Answer.Predicate{probability: p * 1.0}}
+          do: {:ok, Answer.Predicate.new(probability: p * 1.0)}
 
         defp decode_answer(%Question.Choice{choices: choices}, answer) do
           with {:ok, choice} <- Omni.Dialect.Decision.choice_key(choices, answer["choice"]),
                {:ok, probabilities} <-
                  Omni.Dialect.Decision.probabilities(choices, answer["probabilities"], :key) do
-            {:ok, %Answer.Choice{choice: choice, probabilities: probabilities}}
+            {:ok, Answer.Choice.new(choice: choice, probabilities: probabilities)}
           end
         end
 
@@ -137,7 +137,7 @@ defmodule Omni.Dialect.Decision do
       Omni.Dialect.Decision.decode_answers(
         [ok?: %Omni.Question.Predicate{instructions: []}],
         %{"ok?" => %{"probability" => 1}},
-        fn _question, %{"probability" => p} -> {:ok, %Omni.Answer.Predicate{probability: p * 1.0}} end
+        fn _question, %{"probability" => p} -> {:ok, Omni.Answer.Predicate.new(probability: p * 1.0)} end
       )
       #=> {:ok, [ok?: %Omni.Answer.Predicate{probability: 1.0}]}
   """

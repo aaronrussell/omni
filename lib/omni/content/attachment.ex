@@ -24,7 +24,20 @@ defmodule Omni.Content.Attachment do
           meta: map()
         }
 
-  @doc "Creates a new attachment content block from a keyword list or map."
+  @doc """
+  Creates a new attachment content block from a keyword list or map.
+
+      Attachment.new(source: {:url, "https://example.com/cat.png"}, media_type: "image/png", meta: %{name: "cat.png"})
+  """
   @spec new(Enumerable.t()) :: t()
   def new(attrs), do: struct!(__MODULE__, attrs)
+
+  @doc """
+  Creates a new attachment content block from a source and media type.
+
+      Attachment.new({:base64, Base.encode64(File.read!("photo.png"))}, "image/png")
+      Attachment.new({:url, "https://example.com/report.pdf"}, "application/pdf")
+  """
+  @spec new(source(), String.t()) :: t()
+  def new(source, media_type), do: new(source: source, media_type: media_type)
 end

@@ -11,8 +11,8 @@ defmodule Omni.Question do
     * `Omni.Question.Score` — a rating on an ordered scale, answered with a
       probability for each level and their weighted average
 
-  Build them with the constructors here, also available as
-  `Omni.predicate/2`, `Omni.choice/2` and `Omni.score/2`:
+  Build them with `Omni.predicate/2`, `Omni.choice/2` and `Omni.score/2`,
+  which delegate to each struct's `new/2`:
 
       [
         urgent: Omni.predicate("Does this need a reply within the hour?"),
@@ -31,7 +31,7 @@ defmodule Omni.Question do
   for each item. The constructors build them, so the struct holds
   `[%Omni.Content.Text{}]` for a string.
 
-      Omni.Question.predicate(%{question: "Does the ticket report an outage?", field: "ticket.body"})
+      Omni.predicate(%{question: "Does the ticket report an outage?", field: "ticket.body"})
   """
 
   alias Omni.Decision
@@ -53,66 +53,11 @@ defmodule Omni.Question do
   @typedoc "A choice or level: its key and an optional description."
   @type option :: {key(), String.t() | nil}
 
-  @doc """
-  Creates a yes/no question.
-
-  `criteria`, when given, describes what counts as true and what as false.
-  System One hosts use it; OpenAI has no field for it, so it is dropped there.
-
-      Omni.Question.predicate("Is this spam?")
-
-      Omni.Question.predicate("Is this spam?",
-        true: "Unsolicited advertising",
-        false: "A legitimate conversation"
-      )
-  """
-  @spec predicate(instructions_input(), [{boolean(), String.t()}] | nil) :: Predicate.t()
-  def predicate(instructions, criteria \\ nil) do
-    %Predicate{instructions: Decision.parts(instructions), criteria: criteria}
-  end
-
-  @doc """
-  Creates a question with one answer from a set of choices.
-
-  Each choice is a key, or a `{key, description}` pair; a choice without a
-  description is judged by its key alone.
-
-      Omni.Question.choice("Which team owns this?", [:billing, :infra, :other])
-
-      Omni.Question.choice("Which team owns this?",
-        billing: "Payments and refunds",
-        infra: "Outages",
-        other: nil
-      )
-  """
-  @spec choice(instructions_input(), [key() | option()]) :: Choice.t()
-  def choice(instructions, choices) do
-    %Choice{instructions: Decision.parts(instructions), choices: options(choices)}
-  end
-
-  @doc """
-  Creates a question rating the state on an ordered scale.
-
-  Levels run from lowest to highest. Each is a key, or a `{key, description}`
-  pair; the answer's score is the probability-weighted average of the level
-  indices, starting at 0.
-
-      Omni.Question.score("How angry is the customer?", ["Calm", "Frustrated", "Very angry"])
-
-      Omni.Question.score("How urgent is this?",
-        low: "Can wait",
-        medium: "Needs attention this week",
-        high: "Needs attention today"
-      )
-  """
-  @spec score(instructions_input(), [key() | option()]) :: Score.t()
-  def score(instructions, levels) do
-    %Score{instructions: Decision.parts(instructions), levels: options(levels)}
-  end
-
-  # A bare key becomes {key, nil}; pairs are kept. Anything else is left for
-  # validation to reject.
-  defp options(list) when is_list(list) do
+  @doc false
+  # Normalises choices or levels: a bare key becomes {key, nil}; pairs are
+  # kept. Anything else is left for validation to reject. Safe to repeat.
+  @spec options(term()) :: term()
+  def options(list) when is_list(list) do
     Enum.map(list, fn
       {_key, _description} = pair -> pair
       key when is_atom(key) or is_binary(key) -> {key, nil}
@@ -120,5 +65,5 @@ defmodule Omni.Question do
     end)
   end
 
-  defp options(other), do: other
+  def options(other), do: other
 end

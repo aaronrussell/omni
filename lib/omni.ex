@@ -85,6 +85,15 @@ defmodule Omni do
 
       {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, context)
 
+  Messages can carry images and PDFs as attachments, mixed with text:
+
+      message = Omni.message(role: :user, content: [
+        "What's in this image?",
+        Omni.attachment({:base64, Base.encode64(File.read!("photo.png"))}, "image/png")
+      ])
+
+      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, [message])
+
   ## Streaming
 
   `stream_text/3` returns a `StreamingResponse` that you can consume with
@@ -413,39 +422,80 @@ defmodule Omni do
   @spec tool(Enumerable.t()) :: Omni.Tool.t()
   defdelegate tool(attrs), to: Omni.Tool, as: :new
 
+  @doc group: :context
+  @doc """
+  Creates an attachment content block from a keyword list or map.
+
+  See `Omni.Content.Attachment.new/1`.
+
+      Omni.attachment(source: {:url, "https://example.com/cat.png"}, media_type: "image/png", meta: %{name: "cat.png"})
+  """
+  @spec attachment(Enumerable.t()) :: Omni.Content.Attachment.t()
+  defdelegate attachment(attrs), to: Omni.Content.Attachment, as: :new
+
+  @doc group: :context
+  @doc """
+  Creates an attachment content block from a source and media type.
+
+  The source is `{:base64, data}` (base64-encoded) or `{:url, url}`. See
+  `Omni.Content.Attachment`.
+
+      Omni.message(role: :user, content: [
+        "What's in this image?",
+        Omni.attachment({:base64, Base.encode64(File.read!("photo.png"))}, "image/png")
+      ])
+  """
+  @spec attachment(Omni.Content.Attachment.source(), String.t()) :: Omni.Content.Attachment.t()
+  defdelegate attachment(source, media_type), to: Omni.Content.Attachment, as: :new
+
+  @doc group: :context
+  @doc """
+  Creates a tool result content block from a keyword list or map.
+
+  For running tools yourself instead of through the loop: answer each
+  `Omni.Content.ToolUse` with a result in the next user message. String
+  content is wrapped in a text block. See `Omni.Content.ToolResult`.
+
+      Omni.message(role: :user, content: [
+        Omni.tool_result(tool_use_id: tool_use.id, name: tool_use.name, content: "72°F and sunny")
+      ])
+  """
+  @spec tool_result(Enumerable.t()) :: Omni.Content.ToolResult.t()
+  defdelegate tool_result(attrs), to: Omni.Content.ToolResult, as: :new
+
   @doc group: :decisions
   @doc """
   Creates a yes/no question for `decide/3`.
 
-  See `Omni.Question.predicate/2`.
+  See `Omni.Question.Predicate.new/2`.
 
       Omni.predicate("Is this spam?", true: "Unsolicited advertising", false: "A real conversation")
   """
   @spec predicate(Omni.Question.instructions_input(), [{boolean(), String.t()}] | nil) ::
           Omni.Question.Predicate.t()
-  defdelegate predicate(instructions, criteria \\ nil), to: Omni.Question
+  defdelegate predicate(instructions, criteria \\ nil), to: Omni.Question.Predicate, as: :new
 
   @doc group: :decisions
   @doc """
   Creates a question with one answer from a set of choices, for `decide/3`.
 
-  See `Omni.Question.choice/2`.
+  See `Omni.Question.Choice.new/2`.
 
       Omni.choice("Which team owns this?", billing: "Payments and refunds", infra: "Outages", other: nil)
   """
   @spec choice(Omni.Question.instructions_input(), list()) :: Omni.Question.Choice.t()
-  defdelegate choice(instructions, choices), to: Omni.Question
+  defdelegate choice(instructions, choices), to: Omni.Question.Choice, as: :new
 
   @doc group: :decisions
   @doc """
   Creates a question rating the state on an ordered scale, for `decide/3`.
 
-  See `Omni.Question.score/2`.
+  See `Omni.Question.Score.new/2`.
 
       Omni.score("How angry is the customer?", ["Calm", "Frustrated but civil", "Very angry"])
   """
   @spec score(Omni.Question.instructions_input(), list()) :: Omni.Question.Score.t()
-  defdelegate score(instructions, levels), to: Omni.Question
+  defdelegate score(instructions, levels), to: Omni.Question.Score, as: :new
 
   @doc group: :context
   @doc """

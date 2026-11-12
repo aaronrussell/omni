@@ -78,7 +78,7 @@ lib/omni/
 ├── streaming_response.ex           # StreamingResponse + Enumerable impl
 ├── usage.ex                        # Usage struct (tokens + computed costs, price/2)
 ├── decision.ex                     # Decision struct (request and result) + validation
-├── question.ex, question/*.ex      # Question constructors + Predicate/Choice/Score structs
+├── question.ex, question/*.ex      # Question overview + types; Predicate/Choice/Score structs
 ├── answer.ex, answer/*.ex          # Answer structs (Predicate/Choice/Score/Refusal)
 ├── tool.ex                         # Tool struct, behaviour, use macro
 ├── tool/runner.ex                  # Parallel tool execution (ToolUse → ToolResult)
@@ -122,7 +122,8 @@ lib/mix/tasks/omni.{snapshot,verify}.ex
 - `Message.private` is a `%{}` map for provider-specific opaque round-trip data. Dialects/providers write during parsing, read during encoding. Flat atom keys.
 - `Message.origin` is `%{model: {provider_id, model_id}, dialect: module}` on assistant messages Omni produced (stamped by `StreamingResponse`), else `nil`. `Request.build/3` strips thinking, signatures and `private` from assistant messages whose origin differs from the target's provider or dialect, or is `nil`, before the dialect encodes; dialects never see foreign replay data.
 - Content blocks may carry a `signature` field (round-trip integrity tokens). `Thinking.redacted_data` holds Anthropic's encrypted redacted thinking — when present, `text` is `nil`. Provider-specific data goes in `Message.private`, not on content blocks.
-- Struct constructors (`new/1`) return bare structs without validation. Validation happens once at the API boundary via Peri schemas.
+- Constructors are a pattern we follow, not a rule; depart from it where another shape is clearly simpler (`Provider` and `Endpoint` have none: only the Loader builds them, from config). A data struct has `new/1` taking a keyword list or map, plus extra clauses or arities where they make the natural call short (`Text.new("hi")`, `Context.new([%Message{}])`, `Choice.new(instructions, choices)`). Constructors cast input (strings to parts, bare keys to pairs) and are safe to repeat; they never validate — validation happens once at the API boundary via Peri schemas. Codec rebuilds structs as literals, restoring stored data as is.
+- `Omni` delegates a constructor when callers build that thing by hand to pass to a top-level call: `context/1`, `message/1`, `tool/1`, `attachment/1,2`, `tool_result/1`, `predicate/2`, `choice/2`, `score/2`. Not outputs (`Response`, `Usage`, answers), not what a bare value already builds (a string is a `Text`, in message and tool result content lists too; a map is `Data`), and not what only a model produces (`Thinking`, `ToolUse`), and not `Decision` (`decide/3` takes `{state, questions}`).
 - `Omni.Schema` preserves property key types as-is. Snake_case option keywords normalize to camelCase JSON Schema keywords.
 - `Tool.execute/2` validates and casts input via Peri before calling the handler — string-keyed LLM input maps back to schema key types.
 - `Model.thinking` is `false`, `true` (reasons, no detail), or `%{efforts, toggle, budget}` from catalog `reasoning_options`. Dialects translate the `:thinking` option through `Omni.Dialect.Text.resolve_thinking/2` (shared clamping and budgets); no dialect matches on model-name prefixes for thinking. `thinking: true` is `:medium` everywhere (no dynamic mode).

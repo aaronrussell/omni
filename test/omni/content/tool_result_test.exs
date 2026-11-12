@@ -15,6 +15,12 @@ defmodule Omni.Content.ToolResultTest do
       assert result.content == blocks
     end
 
+    test "wraps strings in a content list in Text blocks" do
+      image = Omni.Content.Attachment.new({:base64, "abc"}, "image/png")
+      result = ToolResult.new(tool_use_id: "tu_1", name: "chart", content: ["A chart", image])
+      assert [%Text{text: "A chart"}, ^image] = result.content
+    end
+
     test "content defaults to empty list when omitted" do
       result = ToolResult.new(tool_use_id: "tu_1", name: "get_weather")
       assert result.content == []

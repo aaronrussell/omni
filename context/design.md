@@ -33,7 +33,7 @@ Omni.decide(model, decision, opts \\ [])         # -> {:ok, %Decision{}} | {:err
 
 All return `{:ok, result} | {:error, reason}` because errors can occur before the request starts (model not found, invalid context/options, auth failures, bad status codes). These surface immediately at the call site rather than falling out mid-stream. Calling one on a model without the capability is `{:error, {:unsupported_capability, :text | :decision}}`, before any HTTP.
 
-Alongside them: `get_model/2`, `list_models/1`, `put_model/1`, `get_provider/1`, and constructors (`context/1`, `message/1`, `tool/1`; `predicate/2`, `choice/2`, `score/2` for decisions).
+Alongside them: `get_model/2`, `list_models/1`, `put_model/1`, `get_provider/1`, and constructors (`context/1`, `message/1`, `tool/1`, `attachment/1,2`, `tool_result/1`; `predicate/2`, `choice/2`, `score/2` for decisions).
 
 ### Streaming-first design
 
@@ -1481,7 +1481,7 @@ decision.answers[:anger]   #=> %Omni.Answer.Score{score: 1.4, probabilities: [{"
 
 - **`%Omni.Decision{state, questions, answers, usage, model, raw}` is both request and result.** Built from state and questions (`Decision.new/1` also takes the `{state, questions}` shorthand), it passes through the dialect and `modify_body/4` with `answers` and `usage` nil, and comes back filled. One struct means the hook, the dialect and the caller see one shape, and the result keeps the questions beside the answers.
 - **State is a list of parts**, `[Content.Text | Content.Data]`, and so are each question's instructions. `Decision.new/1` (on the state and every question, in every form it takes, safe to repeat) and the `Question` constructors cast: a string is one Text, a plain map one Data, a list a part per item; anything else (numbers, nested lists) is left for validation to reject. A list therefore always means parts, never a JSON array; an array goes inside a map. Parts reuse the `Omni.Content` structs so an app's message blocks pass straight into a decision. Images (Attachment parts), System One's `box` question and `%Context{}` as state are planned in `context/notes/decision-images.md`; until then an Attachment fails validation.
-- **Questions** are a keyword list: the atom key names the question, and the order is OpenAI's answer order. Structs follow the Content convention (match on struct, no type field): `Question.Predicate{instructions, criteria}`, `Question.Choice{instructions, choices}`, `Question.Score{instructions, levels}`, built with `Question.predicate/2`, `choice/2`, `score/2` (delegated from `Omni`). Constructors normalise choices and levels (a bare list, `key: description` pairs, or a mix) to `{key, description | nil}`; keys are atoms or strings and come back as given. Instructions are parts (above); choice descriptions, levels and criteria stay strings. The yes/no primitive is `predicate` (OpenAI's name); System One's `noul` is an encoding detail.
+- **Questions** are a keyword list: the atom key names the question, and the order is OpenAI's answer order. Structs follow the Content convention (match on struct, no type field): `Question.Predicate{instructions, criteria}`, `Question.Choice{instructions, choices}`, `Question.Score{instructions, levels}`, built with each struct's `new/2` (`Predicate.new(instructions, criteria)`, `Choice.new(instructions, choices)`, `Score.new(instructions, levels)`), delegated from `Omni` as `predicate/2`, `choice/2`, `score/2`, or `new/1` with fields. `Decision.new/1` runs every question through its constructor, so a struct literal is cast the same way. Constructors normalise choices and levels (a bare list, `key: description` pairs, or a mix) to `{key, description | nil}`; keys are atoms or strings and come back as given. Instructions are parts (above); choice descriptions, levels and criteria stay strings. The yes/no primitive is `predicate` (OpenAI's name); System One's `noul` is an encoding detail.
 - **Answers** are a keyword list aligned with the questions: `Answer.Predicate{probability}`, `Answer.Choice{choice, probabilities, confidence}`, `Answer.Score{score, probabilities, confidence}`, `Answer.Refusal{}` (OpenAI, and OpenRouter over System One). `probabilities` is `[{key, float}]` with the caller's keys in the caller's order. Score levels start at 0 on both APIs, so `score` (the probability-weighted level) is one scale everywhere.
 - **Probabilities pass through as sent.** TypeSafe rounds to two decimals, Ollama sends full floats; Omni rounds neither (rounding loses ranking at the tails and stops probabilities summing to 1), and only makes JSON integers (`1`, `0`) floats.
 - **Confidence is the provider's number**, `nil` where the API gives none. Formulas differ (TypeSafe `(p_max − 1/n) / (1 − 1/n)`; Ollama and others entropy `1 − H/ln N`; OpenAI unspecified), so probabilities are the portable contract.
@@ -1724,10 +1724,10 @@ lib/omni/
 │                              #   on/3, text_stream/1, complete/1, cancel/1
 ├── usage.ex                   # Usage struct, price/2, add/2, sum/1
 ├── decision.ex                # Decision struct (request and result), new/1, validate/1
-├── question.ex                # predicate/2, choice/2, score/2
-├── question/                  # Predicate, Choice, Score structs
+├── question.ex                # Question.t() union, types and moduledoc
+├── question/                  # Predicate, Choice, Score structs, new/1 and new/2
 ├── answer.ex                  # Answer.t() union and moduledoc
-├── answer/                    # Predicate, Choice, Score, Refusal structs
+├── answer/                    # Predicate, Choice, Score, Refusal structs, new/1
 ├── codec.ex                   # Lossless struct ↔ JSON-safe map serialisation
 ├── util.ex                    # Shared helpers (maybe_put, maybe_merge, put_path)
 ├── tool.ex                    # Tool struct, behaviour, use macro, execute/2

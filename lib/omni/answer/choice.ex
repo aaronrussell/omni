@@ -26,4 +26,8 @@ defmodule Omni.Answer.Choice do
           probabilities: [{Omni.Question.key(), float()}],
           confidence: float() | nil
         }
+
+  @doc "Creates a choice answer from a keyword list or map of fields."
+  @spec new(Enumerable.t()) :: t()
+  def new(attrs), do: struct!(__MODULE__, attrs)
 end

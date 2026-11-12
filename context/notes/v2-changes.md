@@ -163,6 +163,8 @@ config :omni, :providers,
 - Anthropic never sends thinking without a signature.
 - Gemini sends `skip_thought_signature_validator` on the first unsigned tool use of each step in the current turn, so a tool loop from another model continues on Gemini 3.
 
+**Strings in content lists become text blocks; new `Omni.attachment/1,2` and `Omni.tool_result/1`.** `Message.new/1` and `ToolResult.new/1` wrap each string in a content list in a `Text` block, as they already did for string content. `Attachment.new/2` takes `(source, media_type)`; `Omni.attachment/1,2` and `Omni.tool_result/1` delegate to the content constructors, so an image message is `Omni.message(role: :user, content: ["What's this?", Omni.attachment({:base64, data}, "image/png")])`.
+
 **New: `Message.origin`.** *(thinking from other models)* `%{model: {provider_id, model_id}, dialect: module}` on assistant messages Omni produces, `nil` otherwise. `Message.new/1` builds it from a `%Model{}` passed as `:origin`. `Omni.Codec` encodes it as `%{"model" => "provider:model", "dialect" => "Omni.Dialects.…"}` (a string model reference; `"provider/model"` also decodes); a provider that isn't loaded or an unknown dialect decodes as `nil`.
 
 ## Decisions
@@ -182,7 +184,7 @@ decision.answers[:team]  #=> %Omni.Answer.Choice{choice: :infra, probabilities: 
 
 - `%Omni.Decision{state, questions, answers, usage, model, raw}` is both the request and the result; `decide/3` also takes the `{state, questions}` shorthand.
 - The state and each question's instructions are lists of parts, `Omni.Content.Text` and the new `Omni.Content.Data` (structured data sent as JSON). Give a string, a map, or a list of strings, maps and parts; `Decision.new/1` and the question constructors build the parts. `Data.new/1` normalises its map through JSON (string keys). A list means one part per item, so an array of data goes inside a map.
-- Questions: `Omni.Question.Predicate`, `Choice`, `Score`, built with `Omni.predicate/2`, `Omni.choice/2`, `Omni.score/2`. Choices and levels are a list of keys or `key: description` pairs; keys come back as given.
+- Questions: `Omni.Question.Predicate`, `Choice`, `Score`, built with `Omni.predicate/2`, `Omni.choice/2`, `Omni.score/2` (delegating to each struct's `new/2`; `new/1` takes fields). Answer structs have `new/1`. Choices and levels are a list of keys or `key: description` pairs; keys come back as given.
 - Answers: a keyword list aligned with the questions, of `Omni.Answer.Predicate{probability}`, `Choice{choice, probabilities, confidence}`, `Score{score, probabilities, confidence}` and `Refusal{}` (OpenAI, and OpenRouter over System One). Probabilities are `{key, float}` pairs in the question's order, passed through unrounded; confidence is the provider's own number, or `nil`.
 - Options: `api_key`, `host`, `headers`, `timeout`, `raw`, `plug`; OpenAI Decisions adds `safety_identifier` and `prompt_cache_key`.
 - Errors: invalid questions fail before any request (at least one question, non-empty instructions, two or more choices or levels); an answer missing, unasked for or of the wrong type is `{:error, {:invalid_answer, name}}`.

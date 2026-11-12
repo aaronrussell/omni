@@ -10,4 +10,8 @@ defmodule Omni.Answer.Predicate do
 
   @typedoc "The answer to a yes/no question."
   @type t :: %__MODULE__{probability: float()}
+
+  @doc "Creates a predicate answer from a keyword list or map of fields."
+  @spec new(Enumerable.t()) :: t()
+  def new(attrs), do: struct!(__MODULE__, attrs)
 end

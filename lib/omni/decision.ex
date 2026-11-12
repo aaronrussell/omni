@@ -110,8 +110,8 @@ defmodule Omni.Decision do
 
   defp cast_questions(questions) when is_list(questions) do
     Enum.map(questions, fn
-      {name, %{instructions: _} = question} when is_struct(question) ->
-        {name, %{question | instructions: parts(question.instructions)}}
+      {name, %module{} = question} when module in [Predicate, Choice, Score] ->
+        {name, module.new(Map.from_struct(question))}
 
       other ->
         other

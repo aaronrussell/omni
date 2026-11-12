@@ -115,18 +115,18 @@ defmodule Omni.Dialects.TypeSafeSystemOne do
 
   defp decode_answer(%Predicate{}, %{"type" => "noul", "noul" => probability})
        when is_number(probability),
-       do: {:ok, %Answer.Predicate{probability: float(probability)}}
+       do: {:ok, Answer.Predicate.new(probability: float(probability))}
 
   defp decode_answer(%Choice{choices: choices}, %{"type" => "choice"} = answer) do
     with {:ok, choice} <- Dialect.Decision.choice_key(choices, answer["choice"]),
          {:ok, probabilities} <-
            Dialect.Decision.probabilities(choices, answer["probabilities"], :key) do
       {:ok,
-       %Answer.Choice{
+       Answer.Choice.new(
          choice: choice,
          probabilities: probabilities,
          confidence: float(answer["confidence"])
-       }}
+       )}
     end
   end
 
@@ -135,15 +135,15 @@ defmodule Omni.Dialects.TypeSafeSystemOne do
     with {:ok, probabilities} <-
            Dialect.Decision.probabilities(levels, answer["probabilities"], :index) do
       {:ok,
-       %Answer.Score{
+       Answer.Score.new(
          score: float(score),
          probabilities: probabilities,
          confidence: float(answer["confidence"])
-       }}
+       )}
     end
   end
 
-  defp decode_answer(_question, %{"type" => "refusal"}), do: {:ok, %Answer.Refusal{}}
+  defp decode_answer(_question, %{"type" => "refusal"}), do: {:ok, Answer.Refusal.new()}
   defp decode_answer(_question, _answer), do: :error
 
   # Alibaba reports input only.
