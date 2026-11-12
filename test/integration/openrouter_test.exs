@@ -24,8 +24,11 @@ defmodule Integration.OpenRouterTest do
       {resp, request} = assert_thinking(model, "#{@dir}/thinking.sse")
 
       assert request.body["reasoning"] == %{"effort" => "low"}
-      assert [%Thinking{text: "" <> _}, %Text{}] = resp.message.content
-      assert [%{"type" => "reasoning.text"} | _] = resp.message.private.reasoning_details
+      assert [%Thinking{text: thinking}, %Text{}] = resp.message.content
+
+      # 76 streamed fragments merge into one entry
+      assert [%{"type" => "reasoning.text", "text" => ^thinking}] =
+               resp.message.private.reasoning_details
     end
 
     test "tool use", %{model: model} do
@@ -70,7 +73,8 @@ defmodule Integration.OpenRouterTest do
   end
 
   # Each upstream's reasoning comes back in its own `reasoning_details` shape,
-  # kept in `Message.private` and sent back verbatim on the next turn.
+  # merged into one entry per block in `Message.private` and sent back on the
+  # next turn.
   describe "cases" do
     test "Gemini thinks with encrypted reasoning only" do
       {:ok, model} = Omni.get_model(:openrouter, "google/gemini-3.8-flash")
@@ -113,10 +117,11 @@ defmodule Integration.OpenRouterTest do
       {:ok, model} = Omni.get_model(:openrouter, "anthropic/claude-haiku-5.5")
       {resp, _request} = assert_thinking(model, "#{@dir}/anthropic_thinking.sse")
 
-      assert [%Thinking{text: "" <> _}, %Text{}] = resp.message.content
-      details = resp.message.private.reasoning_details
-      assert Enum.all?(details, &(&1["type"] == "reasoning.text"))
-      assert Enum.any?(details, &match?(%{"signature" => "" <> _}, &1))
+      assert [%Thinking{text: thinking}, %Text{}] = resp.message.content
+
+      # 8 fragments, the signature on the last, merge into one signed entry
+      assert [%{"type" => "reasoning.text", "text" => ^thinking, "signature" => "" <> _}] =
+               resp.message.private.reasoning_details
     end
   end
 

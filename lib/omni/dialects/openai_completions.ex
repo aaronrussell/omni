@@ -38,7 +38,8 @@ defmodule Omni.Dialects.OpenAICompletions do
       `reasoning_content` field on that assistant message
     * `:reasoning` — the same, in a `reasoning` field
     * `:reasoning_details` — captures `reasoning_details` from responses and
-      sends them back on that assistant message
+      sends them back on that assistant message; streamed fragments are
+      merged into one entry per reasoning block when the stream completes
     * `:content_chunks` — sends the message's thinking as one leading
       `{type: "thinking", thinking: [{type: "text", ...}]}` part of a
       `content` array, before its text parts
@@ -52,7 +53,7 @@ defmodule Omni.Dialects.OpenAICompletions do
   use Omni.Dialect, :text
 
   alias Omni.Content.{Text, Thinking, ToolUse, ToolResult, Attachment}
-  alias Omni.{Context, Dialect, Model}
+  alias Omni.{Context, Dialect, Message, Model}
 
   import Omni.Util, only: [maybe_put: 3, put_path: 3]
 
@@ -220,6 +221,20 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   def handle_event(_, _model), do: []
 
+  # OpenRouter streams `reasoning_details` as fragments, one per chunk, all
+  # sharing `index` 0, so `index` can't reassemble them. As OpenRouter's
+  # ai-sdk provider does, consecutive text fragments join until one carries a
+  # signature (it closes the block it signs), consecutive summaries join, and
+  # encrypted entries and unknown types stay as they are. Other fields keep
+  # the first value given.
+  @impl true
+  def handle_message(%Message{private: %{reasoning_details: [_ | _] = details}} = message, _model) do
+    merged = details |> Enum.reduce([], &merge_detail/2) |> Enum.reverse()
+    %{message | private: %{message.private | reasoning_details: merged}}
+  end
+
+  def handle_message(message, _model), do: message
+
   defp extract_start(delta, event) do
     if delta["role"] == "assistant" or has_tool_call_start?(delta) do
       case event do
@@ -297,6 +312,30 @@ defmodule Omni.Dialects.OpenAICompletions do
   end
 
   defp extract_replay(_delta, _compat), do: []
+
+  # Details accumulate newest first.
+  defp merge_detail(detail, [last | rest] = acc) do
+    case {detail["type"], last["type"]} do
+      {"reasoning.text", "reasoning.text"} ->
+        if last["signature"] in [nil, ""],
+          do: [join_detail(last, detail, "text") | rest],
+          else: [detail | acc]
+
+      {"reasoning.summary", "reasoning.summary"} ->
+        [join_detail(last, detail, "summary") | rest]
+
+      _ ->
+        [detail | acc]
+    end
+  end
+
+  defp merge_detail(detail, []), do: [detail]
+
+  defp join_detail(last, detail, field) do
+    last
+    |> Map.merge(detail, fn _key, old, new -> if old in [nil, ""], do: new, else: old end)
+    |> Map.put(field, (last[field] || "") <> (detail[field] || ""))
+  end
 
   defp extract_content(%{"content" => content})
        when is_binary(content) and content != "" do

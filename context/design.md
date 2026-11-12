@@ -497,6 +497,7 @@ A dialect is a module translating between Omni's types and the wire format of a 
 | both | `handle_path/2` | `String.t()` | Resource path for the model and opts, appended to the endpoint's `base_url` |
 | both | `handle_body/3` | `map()` | The request body from the model, the `%Context{}` or `%Decision{}`, and validated options |
 | `Text` | `handle_event/2` | `[delta]` | Parses one decoded stream event into delta tuples; receives the model |
+| `Text` | `handle_message/2` | `Message.t()` | Optional. Finishes the `:done` message once every event is folded in |
 | `Decision` | `handle_response/3` | `{:ok, Decision.t()} \| {:error, term}` | Reads the decoded JSON body into answers and usage (see [Decisions](#decisions)) |
 
 **Encoding never fails.** Option validation happens at the API boundary before any dialect callback runs, so dialects receive validated options and operate on known-good data. `handle_event/2` returns a list (empty to skip). Request bodies are not validated at runtime; a malformed body is a library bug caught by tests. `handle_response/3` is the one callback returning a tuple: a whole response either matches the questions asked or doesn't.
@@ -540,6 +541,8 @@ def handle_event(%{"type" => "content_block_delta", "index" => idx,
   [{:block_delta, %{type: :text, index: idx, delta: text}}]
 end
 ```
+
+**`handle_message/2`** -- optional. Receives the assembled assistant message of a completed stream, and the model, and returns it, once, before the `:done` event. It is for work that needs the whole stream rather than one event; `handle_event/2` stays stateless, collecting goes on in StreamingResponse, and the dialect finishes the result. Completions merges OpenRouter's `reasoning_details` fragments here. It isn't called when a stream errors or is cancelled, so those partial messages keep what was collected. Decision dialects have no counterpart: `handle_response/3` already sees the whole body.
 
 ### Option validation
 
@@ -612,7 +615,7 @@ The cost: `extra_body` is provider-wide and unconditional. A field only some mod
 
 No library surveyed uses flags to parse Completions streams, and Omni doesn't either. The Completions parser is a union: `reasoning_content` or `reasoning`, `content` as a string or a list of thinking and text chunks (Mistral), tool calls with or without `index` and with arguments as a string or an object (Mistral), every known finish reason (including Z.ai's, Mistral's and Together's), cached tokens under `prompt_tokens_details` or flat on `usage` (Together), packed chunks (Venice), in-stream errors. All variation is on the encode side.
 
-The one parse-side read of compat is capture for replay: with `thinking_replay_format: :reasoning_details`, the dialect stashes `reasoning_details` into `Message.private` while parsing and sends them back on that assistant message when encoding. Capture and replay share the flag, so data is only collected when it will be sent back. That is why `handle_event/2` receives the model. The other replay values need no capture: `:reasoning_content` and `:reasoning` send the message's thinking text in that field, and `:content_chunks` as a leading chunk.
+The one parse-side read of compat is capture for replay: with `thinking_replay_format: :reasoning_details`, the dialect stashes `reasoning_details` into `Message.private` while parsing and sends them back on that assistant message when encoding. OpenRouter streams them as fragments (76 for one short DeepSeek answer), all with `index` 0, so `handle_message/2` merges them into one entry per block, by the rule of OpenRouter's ai-sdk provider (pi does the same; req_llm sends fragments, which OpenRouter also accepts): consecutive text joins until a fragment carries a signature, which closes the block it signs; consecutive summaries join; encrypted entries and unknown types stay as they are. Capture and replay share the flag, so data is only collected when it will be sent back. That is why `handle_event/2` receives the model. The other replay values need no capture: `:reasoning_content` and `:reasoning` send the message's thinking text in that field, and `:content_chunks` as a leading chunk.
 
 Not adopted: replaying reasoning in the field it arrived in (pi). The flag lets the receiving API decide the shape, so a history from one provider never sends another's field to an API that rejects unknown fields (Mistral, Groq). Nor are the switches that keep reasoning from earlier turns (Z.ai `clear_thinking: false`, Alibaba `preserve_thinking: true`, Together's `chat_template_kwargs`) sent: they trade input tokens for continuity, a choice left to users: `extra_body`, or module code where the switch nests inside a field Omni sets (Z.ai's sits in `thinking`, and `extra_body` merges shallowly). Without them, providers use replayed reasoning within a tool loop, which is where it matters most.
 
@@ -1262,6 +1265,7 @@ dialect.handle_event/2 (parse to delta tuples; receives the model)
 StreamingResponse Enumerable (wraps the delta stream)
     │  → accumulates partial Response
     │  → yields {event_type, event_map, partial_response}
+    │  → on :done, dialect.handle_message/2 finishes the message (optional)
     ▼
 Consumer receives rich events
 ```
@@ -1355,7 +1359,7 @@ Both parsers expose the same `stream/1` interface — accepting an enumerable of
 
 ### Dialect event parsing
 
-Each dialect's `handle_event/2` (see [Dialect callback details](#dialect-callback-details)) receives one decoded event map and the model, and returns a list of delta tuples -- `[]` to drop the event, several when one event bundles data that maps to separate deltas. It is stateless; accumulation is StreamingResponse's job.
+Each dialect's `handle_event/2` (see [Dialect callback details](#dialect-callback-details)) receives one decoded event map and the model, and returns a list of delta tuples -- `[]` to drop the event, several when one event bundles data that maps to separate deltas. It is stateless; accumulation is StreamingResponse's job, and the dialect's optional `handle_message/2` finishes the `:done` message.
 
 ### Internal delta format
 
@@ -1365,7 +1369,7 @@ Dialect deltas are the contract between dialects and StreamingResponse. There ar
 # Message-level metadata, folded into the accumulating response (no consumer event)
 {:message, %{model: "claude-sonnet-5-5"}}
 {:message, %{stop_reason: :stop, usage: %{...}}}
-{:message, %{private: %{reasoning_details: [...]}}}   # merged into Message.private
+{:message, %{private: %{reasoning_details: [...]}}}   # into Message.private: lists append, others replace
 
 # A content block starts: :type is :text, :thinking or :tool_use
 {:block_start, %{type: :text, index: 0}}
@@ -1616,7 +1620,7 @@ Omni.stream_text(model, context, opts)
       │     ├── Req.request → resp (body is Req.Response.Async)
       │     ├── check_status → :ok | {:error, {:http_error, ...}}
       │     ├── parser (SSE | NDJSON by content-type) |> dialect.handle_event(event, model)
-      │     └── StreamingResponse.new(deltas, model:, cancel:, raw:)
+      │     └── StreamingResponse.new(deltas, model:, cancel:, raw:)   (:done message → dialect.handle_message/2, optional)
       └── On :done: run tools / validate output → next step, or terminal event
 Return {:ok, StreamingResponse.t()} | {:error, term()}
 ```

@@ -69,7 +69,7 @@ defmodule Omni.StreamingResponse do
       {:error, reason, %Response{}}
   """
 
-  alias Omni.{Message, Response, Usage}
+  alias Omni.{Message, Model, Request, Response, Usage}
   alias Omni.Content.{Text, Thinking, ToolUse}
 
   import Omni.Util, only: [maybe_put: 3]
@@ -318,11 +318,18 @@ defmodule Omni.StreamingResponse do
   defp finalize_done(acc) do
     stop_reason = infer_stop_reason(acc)
     acc = %{acc | stop_reason: stop_reason}
-    response = build_response(acc)
+    response = build_response(acc) |> finish_message(acc.model)
     response = %{response | messages: [response.message]}
     response = if acc.raw, do: %{response | raw: [acc.raw]}, else: response
     {:done, %{stop_reason: stop_reason}, response}
   end
+
+  # The dialect's optional pass over the whole message (Dialect.Text's
+  # handle_message/2). Streams built without a model (tests) skip it.
+  defp finish_message(response, %Model{} = model),
+    do: %{response | message: Request.finish_message(model, response.message)}
+
+  defp finish_message(response, _model), do: response
 
   # Google sends finishReason "STOP" even for function calls, and may split
   # the function call and finish reason across separate SSE events. Since

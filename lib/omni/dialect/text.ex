@@ -24,7 +24,8 @@ defmodule Omni.Dialect.Text do
       {:message, %{private: %{key: value}}}
 
   Recognized keys: `:model` (string), `:stop_reason` (atom), `:usage` (map),
-  `:private` (map merged into `Message.private`).
+  `:private` (map merged into `Message.private`: list values append across
+  events, other values replace; `c:handle_message/2` can reshape the result).
 
   ### `:block_start`
 
@@ -103,7 +104,7 @@ defmodule Omni.Dialect.Text do
       end
   """
 
-  alias Omni.{Context, Model}
+  alias Omni.{Context, Message, Model}
 
   @doc """
   Returns a Peri schema map for dialect-specific options.
@@ -167,4 +168,21 @@ defmodule Omni.Dialect.Text do
   testable: pass a JSON map, assert the tuples that come out.
   """
   @callback handle_event(event :: map(), Model.t()) :: [{atom(), map() | term()}]
+
+  @doc """
+  Finishes the assembled assistant message once a stream completes.
+
+  Optional. Called once, on the message of the `:done` response, after every
+  event has been folded in. Use it for work that needs the whole stream
+  rather than one event, such as merging replay data captured in fragments
+  into the shape the API takes back. Not called when a stream ends in an
+  error or is cancelled. Without it, the message is used as assembled.
+
+      def handle_message(%Message{private: %{chunks: chunks}} = message, _model) do
+        %{message | private: %{message.private | chunks: merge(chunks)}}
+      end
+  """
+  @callback handle_message(Message.t(), Model.t()) :: Message.t()
+
+  @optional_callbacks handle_message: 2
 end

@@ -216,6 +216,8 @@ decision.answers[:team]  #=> %Omni.Answer.Choice{choice: :infra, probabilities: 
 
 **`handle_event/2` receives the model.** *(phase 2)* `handle_event(event, model)` (was `handle_event/1`).
 
+**New optional text callback `handle_message/2`.** *(reasoning details)* `handle_message(message, model)` receives the assembled assistant message once a stream completes and returns it, for work that needs the whole stream. OpenRouter's streamed `reasoning_details` are now merged into one entry per reasoning block (was one entry per streamed fragment), so they are smaller in `Message.private` and when sent back.
+
 **New: `Omni.Dialect.Thinking`.** *(phase 2)* Resolves the `:thinking` option against a model's thinking data — shared clamping and budgets for custom dialects too.
 
 **New required callback `auth/0`.** *(phase 1)* Returns `:bearer` or `{:header, name}` — the home API's key scheme. Custom dialects must implement it.

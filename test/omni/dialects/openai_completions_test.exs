@@ -1486,4 +1486,56 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       end
     end
   end
+
+  describe "handle_message/2" do
+    defp finish(details) do
+      message = Message.new(role: :assistant, content: [], private: %{reasoning_details: details})
+      OpenAICompletions.handle_message(message, @model).private.reasoning_details
+    end
+
+    defp text(text, extra \\ %{}),
+      do: Map.merge(%{"type" => "reasoning.text", "text" => text, "index" => 0}, extra)
+
+    test "joins text fragments and keeps the signature" do
+      assert finish([
+               text("Count", %{"format" => "anthropic-claude-v1"}),
+               text("ing r's"),
+               text("", %{"signature" => "sig"})
+             ]) == [
+               text("Counting r's", %{"format" => "anthropic-claude-v1", "signature" => "sig"})
+             ]
+    end
+
+    test "a signature closes the text block it signs" do
+      assert finish([
+               text("one"),
+               text("", %{"signature" => "a"}),
+               text("two"),
+               text("", %{"signature" => "b"})
+             ]) == [text("one", %{"signature" => "a"}), text("two", %{"signature" => "b"})]
+    end
+
+    test "joins summaries, and keeps encrypted entries and unknown types apart" do
+      summary = &%{"type" => "reasoning.summary", "summary" => &1}
+      encrypted = &%{"type" => "reasoning.encrypted", "data" => &1, "id" => &1}
+      other = %{"type" => "reasoning.other"}
+
+      assert finish([
+               summary.("A"),
+               summary.("B"),
+               encrypted.("x"),
+               encrypted.("y"),
+               other,
+               other,
+               text("t")
+             ]) == [summary.("AB"), encrypted.("x"), encrypted.("y"), other, other, text("t")]
+    end
+
+    test "leaves a message without reasoning_details as it is" do
+      message =
+        Message.new(role: :assistant, content: [Text.new("Hi")], private: %{other: [1, 2]})
+
+      assert OpenAICompletions.handle_message(message, @model) == message
+    end
+  end
 end

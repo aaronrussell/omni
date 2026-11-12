@@ -170,6 +170,17 @@ defmodule Omni.Request do
     dialect!(model).handle_event(raw_event, model)
   end
 
+  # The dialect's optional finishing pass over a completed stream's message.
+  @doc false
+  @spec finish_message(Model.t(), Message.t()) :: Message.t()
+  def finish_message(%Model{} = model, %Message{} = message) do
+    dialect = dialect!(model)
+
+    if Code.ensure_loaded?(dialect) and function_exported?(dialect, :handle_message, 2),
+      do: dialect.handle_message(message, model),
+      else: message
+  end
+
   @doc false
   @spec validate_context(Model.t(), Context.t()) :: :ok | {:error, term()}
   def validate_context(%Model{} = model, %Context{} = context) do

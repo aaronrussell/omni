@@ -242,6 +242,37 @@ defmodule Omni.StreamingResponseTest do
     end
   end
 
+  describe "dialect handle_message/2" do
+    # OpenAICompletions merges reasoning_details fragments in handle_message/2
+    @fragments [
+      {:message,
+       %{private: %{reasoning_details: [%{"type" => "reasoning.text", "text" => "a"}]}}},
+      {:message,
+       %{private: %{reasoning_details: [%{"type" => "reasoning.text", "text" => "b"}]}}},
+      {:block_delta, %{type: :text, index: 0, delta: "Hi"}}
+    ]
+
+    test "finishes the :done message, not partial ones" do
+      events = @fragments ++ [{:message, %{stop_reason: :stop}}]
+      result = collect_scripted(events, model: Fixtures.model(id: "test"))
+
+      {:text_delta, _, partial} = Enum.find(result, &match?({:text_delta, _, _}, &1))
+      assert length(partial.message.private.reasoning_details) == 2
+
+      {:done, _, resp} = List.last(result)
+      merged = [%{"type" => "reasoning.text", "text" => "ab"}]
+      assert resp.message.private.reasoning_details == merged
+      assert resp.messages == [resp.message]
+    end
+
+    test "is not called when the stream ends in an error" do
+      result = collect_scripted(@fragments, model: Fixtures.model(id: "test"))
+
+      {:error, :incomplete_stream, resp} = List.last(result)
+      assert length(resp.message.private.reasoning_details) == 2
+    end
+  end
+
   describe "message merging" do
     test "multiple :message events are merged" do
       events = [
