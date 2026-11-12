@@ -90,9 +90,5 @@ defmodule Omni.Test.Fixtures do
   end
 
   @doc "Removes a provider and its models from the store."
-  def unload(id) do
-    :persistent_term.erase(Provider.models_key(id))
-    providers = :persistent_term.get(Provider.providers_key(), %{})
-    :persistent_term.put(Provider.providers_key(), Map.delete(providers, id))
-  end
+  def unload(id), do: Omni.Provider.Loader.unload(id)
 end

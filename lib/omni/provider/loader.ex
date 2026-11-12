@@ -155,9 +155,23 @@ defmodule Omni.Provider.Loader do
     :ok
   end
 
+  @doc """
+  Removes a provider and its models from the store.
+  """
+  @spec unload(atom()) :: :ok
+  def unload(id) when is_atom(id) do
+    with_lock(fn ->
+      :persistent_term.erase(Provider.models_key(id))
+      providers = :persistent_term.get(Provider.providers_key(), %{})
+      :persistent_term.put(Provider.providers_key(), Map.delete(providers, id))
+    end)
+
+    :ok
+  end
+
   # Writing a changed value to persistent term scans every process heap, so
   # loading is a boot or on-demand operation, never per request. The lock
-  # keeps concurrent loads from dropping each other's entries.
+  # keeps concurrent loads and unloads from dropping each other's entries.
   defp store({%Provider{id: id} = provider, models}) do
     with_lock(fn ->
       :persistent_term.put(Provider.models_key(id), Map.new(models, &{&1.id, &1}))
@@ -166,7 +180,9 @@ defmodule Omni.Provider.Loader do
     end)
   end
 
-  defp with_lock(fun), do: :global.trans({__MODULE__, :store}, fun, [node()])
+  # The lock id is {resource, requester}. :global lets every process with the
+  # same requester hold the lock at once, so the requester must be self().
+  defp with_lock(fun), do: :global.trans({{__MODULE__, :store}, self()}, fun, [node()])
 
   # -- Sources ----------------------------------------------------------------
 

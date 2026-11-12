@@ -879,6 +879,27 @@ defmodule Omni.Provider.LoaderTest do
     end
   end
 
+  describe "store" do
+    test "concurrent loads and unloads don't drop each other's providers" do
+      dialects = %{@completions => [base_url: "https://x.test/v1"]}
+
+      missing =
+        1..8
+        |> Task.async_stream(fn worker ->
+          Enum.reject(1..15, fn i ->
+            id = :"store_#{worker}_#{i}_#{System.unique_integer([:positive])}"
+            Loader.load([{id, dialects: dialects}])
+            loaded? = Map.has_key?(:persistent_term.get(Provider.providers_key(), %{}), id)
+            Loader.unload(id)
+            loaded?
+          end)
+        end)
+        |> Enum.flat_map(fn {:ok, missing} -> missing end)
+
+      assert missing == []
+    end
+  end
+
   describe "boot config validation" do
     test "a module in providers: raises, suggesting the id" do
       Application.put_env(:omni, :models, providers: [Omni.Providers.OpenAI])
