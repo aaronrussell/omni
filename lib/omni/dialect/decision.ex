@@ -46,15 +46,38 @@ defmodule Omni.Dialect.Decision do
 
         @impl true
         def handle_response(%{"answers" => answers} = body, %Decision{} = decision, _model) do
-          with {:ok, answers} <- decode_answers(answers, decision.questions) do
+          with {:ok, answers} <-
+                 Omni.Dialect.Decision.decode_answers(decision.questions, answers, &decode_answer/2) do
             usage = Usage.new(input_tokens: body["usage"]["input_tokens"])
             {:ok, %{decision | answers: answers, usage: usage}}
           end
         end
+
+        defp decode_answer(%Question.Predicate{}, %{"probability" => p}) when is_number(p),
+          do: {:ok, %Answer.Predicate{probability: p * 1.0}}
+
+        defp decode_answer(%Question.Choice{choices: choices}, answer) do
+          with {:ok, choice} <- Omni.Dialect.Decision.choice_key(choices, answer["choice"]),
+               {:ok, probabilities} <-
+                 Omni.Dialect.Decision.probabilities(choices, answer["probabilities"], :key) do
+            {:ok, %Answer.Choice{choice: choice, probabilities: probabilities}}
+          end
+        end
+
+        defp decode_answer(_question, _answer), do: :error
       end
+
+  ## Decoding answers
+
+  `decode_answers/3` applies the strict rule every decision dialect follows:
+  each question has exactly one answer of its type, and no answer is for a
+  question that wasn't asked. Index the wire answers by question name and
+  decode one at a time; `choice_key/2` and `probabilities/3` map wire values
+  back to the caller's option keys, in the caller's order. Numbers come back
+  as floats, since hosts send `1` and `0` as JSON integers.
   """
 
-  alias Omni.{Decision, Model}
+  alias Omni.{Decision, Model, Question}
 
   @doc """
   Returns a Peri schema map for dialect-specific options.
@@ -101,4 +124,99 @@ defmodule Omni.Dialect.Decision do
   """
   @callback handle_response(body :: map(), Decision.t(), Model.t()) ::
               {:ok, Decision.t()} | {:error, term()}
+
+  @doc """
+  Decodes wire answers into a keyword list aligned with `questions`.
+
+  `by_name` maps each question name, as a string, to its wire answer;
+  `decode` turns one question and its wire answer into `{:ok, answer}` or
+  `:error`. Returns `{:error, {:invalid_answer, name}}` for the first
+  question without a decodable answer, or for an answer to a question that
+  wasn't asked (named by its wire string).
+
+      Omni.Dialect.Decision.decode_answers(
+        [ok?: %Omni.Question.Predicate{instructions: []}],
+        %{"ok?" => %{"probability" => 1}},
+        fn _question, %{"probability" => p} -> {:ok, %Omni.Answer.Predicate{probability: p * 1.0}} end
+      )
+      #=> {:ok, [ok?: %Omni.Answer.Predicate{probability: 1.0}]}
+  """
+  @spec decode_answers(
+          [{atom(), Question.t()}],
+          %{String.t() => map()},
+          (Question.t(), map() -> {:ok, Omni.Answer.t()} | :error)
+        ) :: {:ok, [{atom(), Omni.Answer.t()}]} | {:error, {:invalid_answer, atom() | String.t()}}
+  def decode_answers(questions, by_name, decode) do
+    names = Enum.map(questions, fn {name, _question} -> Atom.to_string(name) end)
+
+    case Enum.find(Map.keys(by_name), &(&1 not in names)) do
+      nil -> decode_each(questions, by_name, decode)
+      extra -> {:error, {:invalid_answer, extra}}
+    end
+  end
+
+  defp decode_each(questions, by_name, decode) do
+    questions
+    |> Enum.reduce_while([], fn {name, question}, acc ->
+      with %{} = wire <- Map.get(by_name, Atom.to_string(name)),
+           {:ok, answer} <- decode.(question, wire) do
+        {:cont, [{name, answer} | acc]}
+      else
+        _ -> {:halt, {:error, {:invalid_answer, name}}}
+      end
+    end)
+    |> case do
+      {:error, _} = error -> error
+      answers -> {:ok, Enum.reverse(answers)}
+    end
+  end
+
+  @doc """
+  Returns the caller's key for a wire choice string.
+
+      Omni.Dialect.Decision.choice_key([yes: nil, no: nil], "no")
+      #=> {:ok, :no}
+  """
+  @spec choice_key([Question.option()], term()) :: {:ok, Question.key()} | :error
+  def choice_key(options, wire) when is_binary(wire) do
+    case Enum.find(options, fn {key, _desc} -> to_string(key) == wire end) do
+      {key, _desc} -> {:ok, key}
+      nil -> :error
+    end
+  end
+
+  def choice_key(_options, _wire), do: :error
+
+  @doc """
+  Returns `{key, probability}` for every option, in the caller's order.
+
+  The wire map is keyed by each option's key as a string (`:key`) or by its
+  index as a string (`:index`). Every option must have a number.
+
+      Omni.Dialect.Decision.probabilities([yes: nil, no: nil], %{"yes" => 1, "no" => 0}, :key)
+      #=> {:ok, [yes: 1.0, no: 0.0]}
+
+      Omni.Dialect.Decision.probabilities([low: nil, high: nil], %{"0" => 0.2, "1" => 0.8}, :index)
+      #=> {:ok, [low: 0.2, high: 0.8]}
+  """
+  @spec probabilities([Question.option()], term(), :key | :index) ::
+          {:ok, [{Question.key(), float()}]} | :error
+  def probabilities(options, wire, by) when is_map(wire) do
+    options
+    |> Enum.with_index()
+    |> Enum.reduce_while([], fn {{key, _desc}, index}, acc ->
+      wire_key = if by == :key, do: to_string(key), else: Integer.to_string(index)
+
+      case Map.get(wire, wire_key) do
+        p when is_number(p) -> {:cont, [{key, p * 1.0} | acc]}
+        _ -> {:halt, :error}
+      end
+    end)
+    |> case do
+      :error -> :error
+      pairs -> {:ok, Enum.reverse(pairs)}
+    end
+  end
+
+  def probabilities(_options, _wire, _by), do: :error
 end

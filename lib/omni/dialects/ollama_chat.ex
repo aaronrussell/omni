@@ -58,7 +58,7 @@ defmodule Omni.Dialects.OllamaChat do
   # Models listing effort values (gpt-oss) take them as strings; every other
   # model takes a boolean.
   defp encode_thinking(model, option) do
-    case Dialect.Thinking.resolve(model, option) do
+    case Dialect.Text.resolve_thinking(model, option) do
       nil -> nil
       :off -> false
       %{effort: nil} -> true

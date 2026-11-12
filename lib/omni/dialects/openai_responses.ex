@@ -174,7 +174,7 @@ defmodule Omni.Dialects.OpenAIResponses do
   # Thinking
 
   defp encode_thinking(model, option) do
-    case Dialect.Thinking.resolve(model, option) do
+    case Dialect.Text.resolve_thinking(model, option) do
       nil ->
         nil
 

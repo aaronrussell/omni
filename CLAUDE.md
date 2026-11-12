@@ -59,7 +59,7 @@ Run `mix precommit` before considering any change done. It fixes formatting and 
 
 - **Recursive stream loop**: `Omni.Loop` handles tool auto-execution and structured output validation via recursive `Stream.flat_map`. `stream_text/3` always delegates to `Loop.stream/3`. Tools execute in parallel via `Tool.Runner.run/3`. `:max_steps` (default `:infinity`) caps rounds. When `:output` is set, the loop validates against the schema and retries up to 3 times on failure.
 
-- **Dialect behaviours**: `Omni.Dialect` is the base (`auth/0`, `compat_schema/0`, registry, `compat/2`, `capability/1`); `Omni.Dialect.Text` and `Omni.Dialect.Decision` hold the capability callbacks. `use Omni.Dialect, :text | :decision` declares both. A dialect serves exactly one capability.
+- **Dialect behaviours**: `Omni.Dialect` is the base (`auth/0`, `compat_schema/0`, registry, `compat/2`, `capability/1`); `Omni.Dialect.Text` and `Omni.Dialect.Decision` hold the capability callbacks. `use Omni.Dialect, :text | :decision` declares both. A dialect serves exactly one capability. Helpers dialects share are public functions on the behaviour they serve (`Dialect.compat/2`, `Dialect.Text.resolve_thinking/2`, `Dialect.Decision.decode_answers/3`), not support modules.
 
 - **Decisions**: `%Omni.Decision{state, questions, answers, usage, model, raw}` is both request and result. The state and each question's instructions are lists of parts (`Content.Text`, `Content.Data`), cast from strings, maps and lists by `Decision.new/1` and the question constructors. Questions and answers are keyword lists of structs (`Omni.Question.{Predicate,Choice,Score}`, `Omni.Answer.{Predicate,Choice,Score,Refusal}`), answers aligned with questions; probabilities are `[{key, float}]` in the caller's keys and order, passed through unrounded. Validated once by `Decision.validate/1` (the floor every host accepts; caps are left to the provider). A missing, extra or mistyped answer is `{:error, {:invalid_answer, name}}`.
 
@@ -101,9 +101,7 @@ lib/omni/
 ├── source.ex                       # Source behaviour + build_model/1 + endpoints/3 + memo cache
 ├── sources/{models_dev,llmdb}.ex
 ├── dialect.ex                      # Base dialect behaviour + `use` + string→module registry + compat/2 + capability/1
-├── dialect/{text,decision}.ex      # Capability behaviours
-├── dialect/decision/answers.ex     # Shared answer matching for decision dialects
-├── dialect/thinking.ex             # Shared :thinking resolution (effort clamping, budgets)
+├── dialect/{text,decision}.ex      # Capability behaviours + their shared helpers (thinking resolution; answer matching)
 └── dialects/{anthropic_messages,openai_completions,openai_responses,google_generate_content,ollama_chat,typesafe_system_one,openai_decisions}.ex
 lib/mix/tasks/omni.{snapshot,verify}.ex
 ```
@@ -127,7 +125,7 @@ lib/mix/tasks/omni.{snapshot,verify}.ex
 - Struct constructors (`new/1`) return bare structs without validation. Validation happens once at the API boundary via Peri schemas.
 - `Omni.Schema` preserves property key types as-is. Snake_case option keywords normalize to camelCase JSON Schema keywords.
 - `Tool.execute/2` validates and casts input via Peri before calling the handler — string-keyed LLM input maps back to schema key types.
-- `Model.thinking` is `false`, `true` (reasons, no detail), or `%{efforts, toggle, budget}` from catalog `reasoning_options`. Dialects translate the `:thinking` option through `Omni.Dialect.Thinking.resolve/2` (shared clamping and budgets); no dialect matches on model-name prefixes for thinking. `thinking: true` is `:medium` everywhere (no dynamic mode).
+- `Model.thinking` is `false`, `true` (reasons, no detail), or `%{efforts, toggle, budget}` from catalog `reasoning_options`. Dialects translate the `:thinking` option through `Omni.Dialect.Text.resolve_thinking/2` (shared clamping and budgets); no dialect matches on model-name prefixes for thinking. `thinking: true` is `:medium` everywhere (no dynamic mode).
 - Compat flags are named by wire shape or Omni concept, never by provider; absent means the dialect's home-API behaviour. A flag ships only with a built-in provider that uses it.
 - A **capability** is a kind of request (`:text`, `:decision`): the keys of `Model.dialects`, read with `Model.capabilities/1`, `capability?/2` and `dialect/2`. A **modality** is a kind of content (`:text`, `:image`, `:pdf`). Don't mix the terms; `:text` is both. Thinking and tool use are text features; every catalog text model supports tool use (sources filter out the rest).
 - Supported modalities defined on `Omni.Model`. Input: `:text`, `:image`, `:pdf`. Output: `:text` (a decision's answers count as text).

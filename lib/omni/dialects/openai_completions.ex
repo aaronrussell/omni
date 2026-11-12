@@ -114,7 +114,7 @@ defmodule Omni.Dialects.OpenAICompletions do
     effort_field = Map.get(compat, :thinking_effort_field, "reasoning_effort")
     toggle = compat[:thinking_toggle_format]
 
-    case Dialect.Thinking.resolve(model, option) do
+    case Dialect.Text.resolve_thinking(model, option) do
       nil ->
         body
 

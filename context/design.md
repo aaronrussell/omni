@@ -633,9 +633,9 @@ The `:thinking` option is translated per model, from capability data, not from m
 - `:budget` -- `{min, max}` when the model takes a token budget; either bound may be `nil`.
 - `true` means the model reasons and nothing more is known (the catalog's empty list normalises to `true`); dialects fall back to their plain encoding.
 
-#### Resolution (`Omni.Dialect.Thinking`)
+#### Resolution (`Omni.Dialect.Text.resolve_thinking/2`)
 
-Shared by the five text dialects and public, so custom dialects agree too. `resolve(model, option)` returns:
+Shared by the five text dialects and public on the text behaviour, so custom dialects agree too (`thinking_budget/2` gives a level's clamped budget). `resolve_thinking(model, option)` returns:
 
 - `nil` -- send nothing: option unset, model doesn't reason, or off requested on a model whose data shows no way to switch off.
 - `:off` -- switch off (toggle, `"none"` in efforts, or no data).
@@ -1490,7 +1490,7 @@ decision.answers[:anger]   #=> %Omni.Answer.Score{score: 1.4, probabilities: [{"
 ### Validation and errors
 
 - **One Peri pass at the boundary** (`Decision.validate/1`, in `Request.build/3`): state and instructions non-empty lists of Text and Data parts, no blank Text or empty Data; a non-empty keyword list of question structs with unique names; non-empty instructions; at least two choices or levels. That is the floor every host accepts. Host caps (26 choices on some hosts, 255 on most; 16 questions on Alibaba; required `instructions` on some) are left to the provider's HTTP error.
-- **Strict answers.** A missing answer, one for a question not asked, or one of the wrong shape is `{:error, {:invalid_answer, name}}`; a body with no answers `{:error, {:invalid_response, body}}`. Extra top-level fields are ignored (OpenRouter's `id`, `provider`, `usage.cost`; Alibaba's `request_id`). The matching rule is shared by both dialects in `Omni.Dialect.Decision.Answers` (internal).
+- **Strict answers.** A missing answer, one for a question not asked, or one of the wrong shape is `{:error, {:invalid_answer, name}}`; a body with no answers `{:error, {:invalid_response, body}}`. Extra top-level fields are ignored (OpenRouter's `id`, `provider`, `usage.cost`; Alibaba's `request_id`). The matching rule is public on the decision behaviour, so custom dialects follow it too: `Omni.Dialect.Decision.decode_answers/3`, with `choice_key/2` and `probabilities/3` mapping wire values back to the caller's keys. Shared helpers live on their capability's behaviour module (as `Omni.Dialect.compat/2` does on the base), so `Omni.Dialect.*` holds only behaviours.
 
 ### Encoding
 
@@ -1771,9 +1771,9 @@ lib/omni/
 │                              #   (get/1), compat/2, capability/1
 ├── dialect/
 │   ├── text.ex                # Text behaviour (handle_body/3, handle_event/2, ...)
-│   ├── decision.ex            # Decision behaviour (handle_body/3, handle_response/3, ...)
-│   ├── decision/answers.ex    # Shared answer matching for decision dialects (internal)
-│   └── thinking.ex            # Shared :thinking resolution (clamping, budgets)
+│   │                          #   + resolve_thinking/2, thinking_budget/2
+│   └── decision.ex            # Decision behaviour (handle_body/3, handle_response/3, ...)
+│                              #   + decode_answers/3, choice_key/2, probabilities/3
 └── dialects/
     ├── anthropic_messages.ex  # text
     ├── google_generate_content.ex

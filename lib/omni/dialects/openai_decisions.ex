@@ -39,7 +39,7 @@ defmodule Omni.Dialects.OpenAIDecisions do
 
   alias Omni.{Answer, Decision, Model, Usage}
   alias Omni.Content.{Data, Text}
-  alias Omni.Dialect.Decision.Answers
+  alias Omni.Dialect
   alias Omni.Question.{Choice, Predicate, Score}
 
   import Omni.Util, only: [maybe_put: 3]
@@ -72,7 +72,8 @@ defmodule Omni.Dialects.OpenAIDecisions do
       when is_list(answers) do
     by_name = Map.new(answers, fn answer -> {answer["name"], answer} end)
 
-    with {:ok, answers} <- Answers.decode(decision.questions, by_name, &decode_answer/2) do
+    with {:ok, answers} <-
+           Dialect.Decision.decode_answers(decision.questions, by_name, &decode_answer/2) do
       {:ok, %{decision | answers: answers, usage: decode_usage(body["usage"])}}
     end
   end
@@ -127,18 +128,18 @@ defmodule Omni.Dialects.OpenAIDecisions do
 
   defp decode_answer(%Predicate{}, %{"type" => "predicate", "probability" => probability})
        when is_number(probability),
-       do: {:ok, %Answer.Predicate{probability: Answers.float(probability)}}
+       do: {:ok, %Answer.Predicate{probability: float(probability)}}
 
   defp decode_answer(%Choice{choices: choices}, %{"type" => "choice"} = answer) do
     wire = by_field(answer["probabilities"], "value")
 
-    with {:ok, choice} <- Answers.key(choices, answer["choice"]),
-         {:ok, probabilities} <- Answers.probabilities(choices, wire, :key) do
+    with {:ok, choice} <- Dialect.Decision.choice_key(choices, answer["choice"]),
+         {:ok, probabilities} <- Dialect.Decision.probabilities(choices, wire, :key) do
       {:ok,
        %Answer.Choice{
          choice: choice,
          probabilities: probabilities,
-         confidence: Answers.float(answer["confidence"])
+         confidence: float(answer["confidence"])
        }}
     end
   end
@@ -147,12 +148,12 @@ defmodule Omni.Dialects.OpenAIDecisions do
        when is_number(score) do
     wire = by_field(answer["probabilities"], "value")
 
-    with {:ok, probabilities} <- Answers.probabilities(levels, wire, :index) do
+    with {:ok, probabilities} <- Dialect.Decision.probabilities(levels, wire, :index) do
       {:ok,
        %Answer.Score{
-         score: Answers.float(score),
+         score: float(score),
          probabilities: probabilities,
-         confidence: Answers.float(answer["confidence"])
+         confidence: float(answer["confidence"])
        }}
     end
   end
@@ -181,4 +182,9 @@ defmodule Omni.Dialects.OpenAIDecisions do
   end
 
   defp decode_usage(_usage), do: %Usage{}
+
+  # A wire number as a float (hosts send 1 and 0 as integers); anything else,
+  # such as an absent confidence, is nil.
+  defp float(number) when is_number(number), do: number * 1.0
+  defp float(_other), do: nil
 end

@@ -57,7 +57,7 @@ defmodule Omni.Dialects.GoogleGenerateContent do
   # name; the rest (Gemini 2.5) take thinkingBudget.
 
   defp encode_thinking(model, option) do
-    case Dialect.Thinking.resolve(model, option) do
+    case Dialect.Text.resolve_thinking(model, option) do
       nil ->
         nil
 
@@ -68,7 +68,7 @@ defmodule Omni.Dialects.GoogleGenerateContent do
         thinking_config(%{"thinkingLevel" => effort, "includeThoughts" => true})
 
       %{level: level, budget: budget} ->
-        budget = budget || Dialect.Thinking.budget(model, level)
+        budget = budget || Dialect.Text.thinking_budget(model, level)
         thinking_config(%{"thinkingBudget" => budget, "includeThoughts" => true})
     end
   end

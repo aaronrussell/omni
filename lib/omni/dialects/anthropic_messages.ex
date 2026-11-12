@@ -176,7 +176,7 @@ defmodule Omni.Dialects.AnthropicMessages do
   # (type: "adaptive" + output_config.effort); the rest, including models
   # with no thinking data, use budget-based thinking.
   defp apply_thinking(body, model, option) do
-    case Dialect.Thinking.resolve(model, option) do
+    case Dialect.Text.resolve_thinking(model, option) do
       nil ->
         body
 
@@ -186,7 +186,7 @@ defmodule Omni.Dialects.AnthropicMessages do
       %{effort: effort, level: level, budget: budget} ->
         if adaptive?(model),
           do: put_adaptive(body, effort || Atom.to_string(level)),
-          else: put_budget(body, budget || Dialect.Thinking.budget(model, level))
+          else: put_budget(body, budget || Dialect.Text.thinking_budget(model, level))
     end
   end
 
