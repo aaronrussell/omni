@@ -123,6 +123,18 @@ defmodule Integration.OpenRouterTest do
       assert [%{"type" => "reasoning.text", "text" => ^thinking, "signature" => "" <> _}] =
                resp.message.private.reasoning_details
     end
+
+    test "Anthropic caches with top-level cache_control" do
+      {:ok, model} = Omni.get_model(:openrouter, "anthropic/claude-haiku-5.5")
+
+      {resp1, _resp2} =
+        assert_cache_hit(model, "#{@dir}/anthropic_cache_1.sse", "#{@dir}/anthropic_cache_2.sse")
+
+      assert resp1.usage.cache_write_tokens > 0
+
+      assert_received {:replay_request, %{body: body}}
+      assert body["cache_control"] == %{"type" => "ephemeral"}
+    end
   end
 
   describe "synthetic" do

@@ -819,6 +819,23 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert usage["cache_read_tokens"] == 20
     end
 
+    test "usage takes cache writes from prompt_tokens_details (OpenRouter)" do
+      event = %{
+        "choices" => [],
+        "usage" => %{
+          "prompt_tokens" => 7600,
+          "completion_tokens" => 17,
+          "total_tokens" => 7617,
+          "prompt_tokens_details" => %{"cached_tokens" => 7500, "cache_write_tokens" => 96}
+        }
+      }
+
+      assert [{:message, %{usage: usage}}] = OpenAICompletions.handle_event(event, @model)
+      assert usage["input_tokens"] == 4
+      assert usage["cache_read_tokens"] == 7500
+      assert usage["cache_write_tokens"] == 96
+    end
+
     test "usage without prompt_tokens_details omits cache_read_tokens" do
       event = %{
         "choices" => [],

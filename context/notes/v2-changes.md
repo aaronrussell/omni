@@ -89,6 +89,8 @@ config :omni, :providers,
 
 **Decision endpoints on built-ins.** *(decisions)* OpenAI gains an OpenAI Decisions endpoint and gives `gpt-6-luna` the decision dialect beside its text one. OpenRouter, OpenCode Zen and NearAI load their catalog decision models over System One (OpenRouter at `/api/v1/systemone`, Zen at `/inference/systemone/v1`). Local Ollama gains a System One endpoint at `http://localhost:11434/v1`, which `host:` moves with chat; a decision model there names `dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}`. xAI and Ollama Cloud re-stamp only text models.
 
+**OpenRouter caches Claude.** *(OpenRouter cache)* `:cache` sends Claude models (`anthropic/*`) a top-level `cache_control` (`ttl: "1h"` for `:long`, which no longer sends `prompt_cache_retention` to them). Before, `:cache` did nothing for them and they never cached. Completions usage now reads OpenRouter's `prompt_tokens_details.cache_write_tokens` into `cache_write_tokens`, priced at the write rate and left out of `input_tokens`.
+
 **OpenCode Zen requests go to per-API mounts.** *(decisions, snapshot refresh)* The catalog now mounts each API under `https://opencode.ai/inference/` (`openai/v1`, `anthropic/v1`, `google/v1beta`, `systemone/v1`) instead of serving all from `zen/v1`, and Omni follows it.
 
 **Provider modules changed shape.** *(phase 1)*

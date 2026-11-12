@@ -77,7 +77,7 @@ matrix = [
   {:opencode, "mistral-large-4", add: [:no_thinking, :image, :kitchen_sink]},
   {:opencode, "gemini-3.5-flash-lite", []},
   {:opencode, "jev-1.13-free", []},
-  {:openrouter, "anthropic/claude-haiku-5.5", loop_off},
+  {:openrouter, "anthropic/claude-haiku-5.5", add: [:no_thinking, :kitchen_sink, :cache_usage]},
   {:openrouter, "openai/gpt-6-luna", loop_off},
   {:openrouter, "google/gemini-3.8-flash", loop},
   {:openrouter, "deepseek/deepseek-v4.1-flash", loop_off},

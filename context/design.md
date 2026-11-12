@@ -166,7 +166,7 @@ Each dialect translates the option into the appropriate mechanism:
 | `:short` | Breakpoints, 5min TTL | Nothing sent (default retention) | Nothing sent | Nothing sent |
 | `:long` | Breakpoints, 1h TTL | `prompt_cache_retention: "24h"` | `prompt_cache_retention: "24h"` | Nothing sent |
 
-For Anthropic, the dialect places `cache_control` breakpoints on the system prompt, the tools, and the last message content block. The provider's prefix matching handles the rest -- previous messages that match the cached prefix get cache hits automatically, even as new messages are appended. Where a dialect has no mechanism, the option is silently ignored (caching is an optimisation hint, not a semantic requirement). A provider that rejects the Completions field drops it with `omit: [:cache]` in its Completions endpoint's compat.
+For Anthropic, the dialect places `cache_control` breakpoints on the system prompt, the tools, and the last message content block. The provider's prefix matching handles the rest -- previous messages that match the cached prefix get cache hits automatically, even as new messages are appended. Where a dialect has no mechanism, the option is silently ignored (caching is an optimisation hint, not a semantic requirement). A provider that rejects the Completions field drops it with `omit: [:cache]` in its Completions endpoint's compat. OpenRouter's Claude models (`anthropic/*`) cache only on request, so OpenRouter's `modify_body/4` sends them a top-level `cache_control` (`ttl: "1h"` for `:long`, and no `prompt_cache_retention`); OpenRouter places the breakpoint itself. Gemini and Qwen there cache automatically (verified 2026-11-12); OpenRouter documents per-block markers for some Qwen models, which Omni doesn't send. Completions reads OpenRouter's `prompt_tokens_details.cache_write_tokens` as cache writes.
 
 ---
 
@@ -606,8 +606,7 @@ Per-model compat was ruled out because what looked like per-model variation reso
 | Variation | Resolved by |
 |---|---|
 | Effort levels differ per model (Groq); effort vs toggle models on one provider (Moonshot, Z.ai, Alibaba) | Model capability data (`Model.thinking`) |
-| One model needs another dialect's wire shape (OpenRouter's `anthropic/*` cache control) | The provider module stamping that model with another dialect, as Ollama Cloud's `models/2` does (not yet built) |
-| Anything genuinely per-model that remains | Module code, which sees the model (Groq `modify_body/4`) |
+| Anything genuinely per-model that remains | Module code, which sees the model (`modify_body/4`: Groq's parsed reasoning, OpenRouter's Claude cache control) |
 
 The cost: `extra_body` is provider-wide and unconditional. A field only some models accept is module code.
 

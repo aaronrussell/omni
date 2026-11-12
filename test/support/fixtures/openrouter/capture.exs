@@ -50,3 +50,15 @@ end
 # Anthropic: reasoning text with a signature.
 {context, opts} = Baseline.request(:thinking)
 Capture.record(haiku, context, "#{dir}/anthropic_thinking.sse", opts)
+
+# Anthropic cache: Claude caches only on request, so top-level `cache_control`
+# goes with `cache: :short`. Turn 1 writes the prefix, turn 2 reads it. Run
+# with a cold cache (no Haiku cache run in the last 5 minutes), or turn 1
+# reads instead of writing.
+{context, opts} = Baseline.request(:cache_usage)
+
+with {:ok, resp} <- Capture.record(haiku, context, "#{dir}/anthropic_cache_1.sse", opts) do
+  Process.sleep(2_000)
+  turn2 = Baseline.follow_up(:cache_usage, context, resp)
+  Capture.record(haiku, turn2, "#{dir}/anthropic_cache_2.sse", opts)
+end

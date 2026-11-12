@@ -1,0 +1,16 @@
+: OPENROUTER PROCESSING
+
+: OPENROUTER PROCESSING
+
+data: {"id":"gen-1794500442-ao6v9vlkdOW9O4oRrbYE","object":"chat.completion.chunk","created":1794500442,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"","role":"assistant","reasoning_details":[{"type":"reasoning.text","signature":"CAQSqQUKEAgTGAI4AUIIdGhpbmtpbmcSDABWdQKEuXeyFuml8RoMKp1bDu+M/40hslYgIjDn6bmRZ4HdLweKgdOVLd3JnN80xUxMDohqMxyIQxsKLVQ0f+mioQZZcAwei3iSSWcqxgSfnQ4j99QJhzY6CsKu6Ybqo5M7s9bwkJeUQP/uoWkLha//VVX8A07lTsiAx10g4jI5XMPintS7L6cRumvKZOZ4jG3wJVNSfk0BJpLv3EUV0FNRd8/AFNzpC5RYfEyU2y5tPkFjf7HneKRkP8fiuYcMXt7FmNJYoj6xVsYMImG7Od9a9MuJ2uDB66ji2AF5PESz2wJ0lqe7lBKJZd12BTDrE7o3gbapnQhxoydII/h9iTcRVOdOtmeSYR7/FG20AUsrfBblcWuY74/PE9mgsfyjzvn7C1XVXxUwFmsW7sR84seydJtMVJ7lvXt7Tc0iECq2UDIHGS1d8nTGkzJ6pX7kHHKfhZCKVi7Bzsl3KGnbsr09RF13ki5C45w8WXKeIqU8KdzhDcCmTXYjcHpUzG5cTcPpL/vZYmmcty0SoRZ0f7yfWNwY4PpG1cyXjZ1hrqpynZJJ0VqCGO+LFBlPyEdq9ybME74l/Yt2ckVOXRaxQhUTBpyCFAl0NC6E003sZHI0ToVsnVQsRh0jEDbN49fDIvHiDylGVUnGmeM0FuKFyKI2/xylqwLPW/RZcmp599rnws8Iw4/Sih+DeQK9MmShMMy5Dh5IdcflWVBi1wJabEoZ/yzcL3nJP4SkSR+j2ia40h4+dENEPAbk1xJaIOtfsQFG1g+3tCDQJQbnrCGtuqTFFKfT/L8d0DV58ZUpozoiV5rOPvrH0qJfb/TgZw9Kkx9JTqW7uXrMcDWEd2lm8maL0tk2LNwi/vhpMEEkFcP0FyUxuzkYAQ==.eyJlbmRwb2ludF9zbHVnIjoiYW50aHJvcGljL2NsYXVkZS1oYWlrdS01LjUtMjAyNjEwMDd8Y2xhdWRlLW9uLWF3cyJ9","format":"anthropic-claude-v1","index":0}]},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1794500442-ao6v9vlkdOW9O4oRrbYE","object":"chat.completion.chunk","created":1794500442,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"Kings Hill ","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1794500442-ao6v9vlkdOW9O4oRrbYE","object":"chat.completion.chunk","created":1794500442,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"42","role":"assistant"},"finish_reason":null,"native_finish_reason":null}]}
+
+data: {"id":"gen-1794500442-ao6v9vlkdOW9O4oRrbYE","object":"chat.completion.chunk","created":1794500442,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","choices":[{"index":0,"delta":{"content":"","role":"assistant","reasoning":null},"finish_reason":"stop","native_finish_reason":"end_turn"}]}
+
+data: {"id":"gen-1794500442-ao6v9vlkdOW9O4oRrbYE","object":"chat.completion.chunk","created":1794500442,"model":"anthropic/claude-haiku-5.5","provider":"Claude Platform on AWS","service_tier":"default","choices":[{"index":0,"delta":{"content":"","role":"assistant"},"finish_reason":"stop","native_finish_reason":"end_turn"}],"usage":{"prompt_tokens":7513,"completion_tokens":45,"total_tokens":7558,"cost":0.00095190975,"is_byok":false,"prompt_tokens_details":{"cached_tokens":0,"cache_write_tokens":7509,"audio_tokens":0,"video_tokens":0},"cost_details":{"upstream_inference_cost":0.000961525,"upstream_inference_prompt_cost":0.000939025,"upstream_inference_completions_cost":0.0000225},"completion_tokens_details":{"reasoning_tokens":35,"image_tokens":0,"audio_tokens":0}}}
+
+data: [DONE]
+

@@ -577,17 +577,21 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   # `prompt_tokens` includes cached tokens; Omni's `input_tokens` doesn't.
   # Some servers (Together) report the cached count flat on `usage`.
+  # OpenRouter reports cache writes as `cache_write_tokens`, also included.
   defp normalize_usage(usage) do
-    cached = get_in(usage, ["prompt_tokens_details", "cached_tokens"]) || usage["cached_tokens"]
+    details = usage["prompt_tokens_details"] || %{}
+    cached = details["cached_tokens"] || usage["cached_tokens"]
+    written = details["cache_write_tokens"]
 
     %{}
-    |> maybe_put("input_tokens", uncached(usage["prompt_tokens"], cached))
+    |> maybe_put("input_tokens", uncached(usage["prompt_tokens"], (cached || 0) + (written || 0)))
     |> maybe_put("output_tokens", usage["completion_tokens"])
     |> maybe_put("cache_read_tokens", cached)
+    |> maybe_put("cache_write_tokens", written)
   end
 
   defp uncached(nil, _cached), do: nil
-  defp uncached(input, cached), do: input - (cached || 0)
+  defp uncached(input, cached), do: input - cached
 
   # Helpers
 
