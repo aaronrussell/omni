@@ -189,6 +189,19 @@ defmodule Omni.Dialects.TypeSafeSystemOneTest do
       assert {:ok, %Decision{}} = respond(body)
     end
 
+    test "a refusal answers its question; the others are still answered" do
+      body = put_in(@response["answers"]["urgent"], %{"type" => "refusal"})
+
+      assert {:ok,
+              %Decision{
+                answers: [
+                  urgent: %Answer.Refusal{},
+                  team: %Answer.Choice{},
+                  anger: %Answer.Score{}
+                ]
+              }} = respond(body)
+    end
+
     test "a missing answer is an error" do
       body = update_in(@response["answers"], &Map.delete(&1, "team"))
       assert respond(body) == {:error, {:invalid_answer, :team}}

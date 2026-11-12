@@ -3,7 +3,7 @@ defmodule Omni.Answer.Refusal do
   The model declined to answer a question.
 
   Any question can be refused; the others in the decision are still answered.
-  OpenAI's Decisions API reports refusals; System One hosts don't.
+  OpenAI's Decisions API and OpenRouter's System One API report refusals.
   """
 
   defstruct []

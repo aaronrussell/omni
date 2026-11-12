@@ -23,7 +23,9 @@ defmodule Omni.Dialects.TypeSafeSystemOne do
 
   Probabilities come back keyed by choice name or level index and are
   mapped to the question's keys, in the question's order. The level
-  `legend` is dropped as redundant. System One has no refusal answer.
+  `legend` is dropped as redundant. A refused question (`{"type": "refusal"}`,
+  which OpenRouter documents) is answered with `%Omni.Answer.Refusal{}`; the
+  others are still answered.
 
   ## Compat flags
 
@@ -138,6 +140,7 @@ defmodule Omni.Dialects.TypeSafeSystemOne do
     end
   end
 
+  defp decode_answer(_question, %{"type" => "refusal"}), do: {:ok, %Answer.Refusal{}}
   defp decode_answer(_question, _answer), do: :error
 
   # Alibaba reports input only.
