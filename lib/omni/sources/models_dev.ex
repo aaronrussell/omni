@@ -4,10 +4,10 @@ defmodule Omni.Sources.ModelsDev do
 
   The snapshot (`priv/models/models_dev.json`) is a verbatim capture of the
   [models.dev](https://models.dev) catalog's chat and decision models
-  (`api.json?type=chat,decision`), refreshed with `mix omni.snapshot`. Every
-  Omni release ships a fresh snapshot, with data-only patch releases for
-  notable catalog changes and at least one release per month; use live mode
-  (below) when you need fresher data than the release cadence provides.
+  (`api.json?type=chat,decision`). Every Omni release ships a fresh
+  snapshot, with data-only patch releases for notable catalog changes and at
+  least one release per month; use live mode (below) when you need fresher
+  data than the release cadence provides.
 
   The snapshot is transformed into `%Omni.Model{}` structs at load time.
   Each model loads for one capability, by its catalog `type`:

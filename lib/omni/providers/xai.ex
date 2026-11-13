@@ -1,35 +1,34 @@
 defmodule Omni.Providers.XAI do
-  @moduledoc """
-  Provider for the xAI API, using the `Omni.Dialects.OpenAIResponses`
-  dialect.
+  @moduledoc false
 
-  Provider id `:xai`. Reads the API key from `XAI_API_KEY`, so no
-  configuration is needed if it is set. Override any setting under
-  `config :omni, :providers, xai: [...]` (see `Omni.Provider`).
-
-  xAI also serves Chat Completions, as a legacy endpoint. Omni uses
-  Responses, xAI's preferred API and the only one that returns encrypted
-  reasoning, so every text model (and every config model that names no
-  dialect) is given the Responses dialect when the provider loads, in the
-  module's `c:Omni.Provider.models/2`. That runs after config `models:`
-  entries are merged, so a text dialect set in config is replaced too.
-  Decision-only models are left alone.
-
-  ## Reasoning
-
-  `:thinking` is supported and sent as `reasoning.effort`, rounded to the
-  levels the model accepts. Most Grok models can't switch reasoning off, so
-  `thinking: false` sends nothing on them; models that list a `"none"`
-  effort (such as `grok-4.3`) are switched off.
-
-  Models with no effort levels in their data (such as
-  `grok-4.20-0309-reasoning`) reason but reject `reasoning.effort` with any
-  value, `"none"` included, so `:thinking` is not sent to them. This is done
-  in the module's `c:Omni.Provider.modify_body/4`, not with a compat flag.
-
-  Reasoning is sent back on later turns of a conversation as encrypted
-  content, which also keeps xAI's prompt cache warm.
-  """
+  # Provider for the xAI API, using the `Omni.Dialects.OpenAIResponses`
+  # dialect.
+  #
+  # xAI also serves Chat Completions, as a legacy endpoint. Omni uses
+  # Responses, xAI's preferred API and the only one that returns encrypted
+  # reasoning, so every text model (and every config model that names no
+  # dialect) is given the Responses dialect when the provider loads, in the
+  # module's `models/2`. That runs after config `models:`
+  # entries are merged, so a text dialect set in config is replaced too.
+  # Decision-only models are left alone.
+  #
+  # Reasoning:
+  #
+  # `:thinking` is supported and sent as `reasoning.effort`, rounded to the
+  # levels the model accepts. Most Grok models can't switch reasoning off, so
+  # `thinking: false` sends nothing on them; models that list a `"none"`
+  # effort (such as `grok-4.3`) are switched off.
+  #
+  # Models with no effort levels in their data (such as
+  # `grok-4.20-0309-reasoning`) reason but reject `reasoning.effort` with any
+  # value, `"none"` included, so `:thinking` is not sent to them. This is done
+  # in the module's `modify_body/4`, not with a compat flag.
+  #
+  # Reasoning is sent back on later turns of a conversation as encrypted
+  # content, which also keeps xAI's prompt cache warm.
+  #
+  # What users are told is the "xAI" section of guides/built-in-providers.md;
+  # keep it in step with this module.
 
   @behaviour Omni.Provider
 

@@ -1,38 +1,31 @@
 defmodule Omni.Providers.OpenCode do
-  @moduledoc """
-  Provider for the OpenCode Zen API.
+  @moduledoc false
 
-  Provider id `:opencode`. Reads the API key from `OPENCODE_API_KEY`, so no
-  configuration is needed if it is set. Override any setting under
-  `config :omni, :providers, opencode: [...]` (see `Omni.Provider`).
-
-  Zen is a gateway to models from several labs through one service, and the
-  wire format depends on the model: Claude models use
-  `Omni.Dialects.AnthropicMessages`, GPT models use
-  `Omni.Dialects.OpenAIResponses`, and so on. Each model's dialect comes from
-  the catalog, and each request authenticates the way that dialect's home API
-  does.
-
-  ## Reasoning
-
-  On Chat Completions models, earlier reasoning is sent back in the
-  `reasoning_content` field of assistant messages. Mistral models (ids
-  starting `mistral-`) take it as a leading thinking chunk in `content`
-  instead, as on Mistral's own API: Zen passes Mistral's wire through. This
-  is done in the module's `c:Omni.Provider.modify_body/4`, since the shape
-  varies by model within one dialect.
-
-  ## Compat flags
-
-  Sets this `Omni.Dialects.OpenAICompletions` flag:
-
-    * `thinking_replay_format: :reasoning_content`
-
-  Each dialect's URL comes from the catalog, which mounts each API under
-  `https://opencode.ai/inference/`: `openai/v1` (Completions and
-  Responses), `anthropic/v1`, `google/v1beta` and, for decision models
-  (`jev-1.13`), `systemone/v1`.
-  """
+  # Provider for the OpenCode Zen API.
+  #
+  # Zen is a gateway to models from several labs through one service, and the
+  # wire format depends on the model: Claude models use
+  # `Omni.Dialects.AnthropicMessages`, GPT models use
+  # `Omni.Dialects.OpenAIResponses`, and so on. Each model's dialect comes from
+  # the catalog, and each request authenticates the way that dialect's home API
+  # does.
+  #
+  # Reasoning:
+  #
+  # On Chat Completions models, earlier reasoning is sent back in the
+  # `reasoning_content` field of assistant messages. Mistral models (ids
+  # starting `mistral-`) take it as a leading thinking chunk in `content`
+  # instead, as on Mistral's own API: Zen passes Mistral's wire through. This
+  # is done in the module's `modify_body/4`, since the shape
+  # varies by model within one dialect.
+  #
+  # Each dialect's URL comes from the catalog, which mounts each API under
+  # `https://opencode.ai/inference/`: `openai/v1` (Completions and
+  # Responses), `anthropic/v1`, `google/v1beta` and, for decision models
+  # (`jev-1.13`), `systemone/v1`.
+  #
+  # What users are told is the "OpenCode Zen" section of
+  # guides/built-in-providers.md; keep it in step with this module.
 
   @behaviour Omni.Provider
 

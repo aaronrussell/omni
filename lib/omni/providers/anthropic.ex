@@ -1,14 +1,13 @@
 defmodule Omni.Providers.Anthropic do
-  @moduledoc """
-  Provider for the Anthropic API, using the `Omni.Dialects.AnthropicMessages`
-  dialect.
+  @moduledoc false
 
-  Provider id `:anthropic`. Reads the API key from `ANTHROPIC_API_KEY`, so no
-  configuration is needed if it is set. Override any setting under
-  `config :omni, :providers, anthropic: [...]` (see `Omni.Provider`).
-
-  Sends the `anthropic-version: 2023-06-01` header on every request.
-  """
+  # Provider for the Anthropic API, using the `Omni.Dialects.AnthropicMessages`
+  # dialect.
+  #
+  # Sends the `anthropic-version: 2023-06-01` header on every request.
+  #
+  # What users are told is the "Anthropic" section of
+  # guides/built-in-providers.md; keep it in step with this module.
 
   @behaviour Omni.Provider
 

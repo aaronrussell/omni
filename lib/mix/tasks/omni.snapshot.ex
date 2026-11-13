@@ -1,26 +1,26 @@
 defmodule Mix.Tasks.Omni.Snapshot do
-  @shortdoc "Captures a models.dev snapshot"
+  @moduledoc false
 
-  @moduledoc """
-  Fetches the models.dev catalog's chat and decision models and writes them
-  to `priv/models/models_dev.json`.
-
-      mix omni.snapshot
-
-  The snapshot content is the raw API response for
-  `api.json?type=chat,decision` — all providers, no transformation. The
-  query leaves out the catalog's other model types (image, embedding,
-  speech, realtime, ...), which Omni can't call. `Omni.Sources.ModelsDev` transforms it into
-  `%Omni.Model{}` structs at load time; keeping the snapshot unpruned lets
-  custom providers point at any models.dev catalog, not just Omni's built-ins.
-
-  Only the encoding is normalized: pretty-printed with keys sorted at every
-  level, so successive snapshots produce minimal, reviewable git diffs.
-
-  This is a maintainer task: the snapshot is checked into the repo and shipped
-  in the package. Run it manually when model data needs refreshing, and update
-  the golden test expectations alongside the new snapshot.
-  """
+  # A maintainer task, so it has no `@shortdoc` and stays out of `mix help`.
+  #
+  # Fetches the models.dev catalog's chat and decision models and writes them
+  # to `priv/models/models_dev.json`.
+  #
+  #     mix omni.snapshot
+  #
+  # The snapshot content is the raw API response for
+  # `api.json?type=chat,decision`: all providers, no transformation. The
+  # query leaves out the catalog's other model types (image, embedding,
+  # speech, realtime, ...), which Omni can't call. `Omni.Sources.ModelsDev`
+  # transforms it into `%Omni.Model{}` structs at load time; keeping the
+  # snapshot unpruned lets any models.dev provider load, not just Omni's
+  # built-ins.
+  #
+  # Only the encoding is normalized: pretty-printed with keys sorted at every
+  # level, so successive snapshots produce minimal, reviewable git diffs.
+  #
+  # The snapshot is checked into the repo and shipped in the package. Run it manually when model data needs refreshing, and update
+  # the golden test expectations alongside the new snapshot.
 
   use Mix.Task
 

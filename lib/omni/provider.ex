@@ -12,32 +12,9 @@ defmodule Omni.Provider do
 
   ## Built-in providers
 
-  All built-ins load by default. Each module's documentation covers that
-  provider's quirks and the compat flags it sets.
-
-  | Id | Module | Dialects | API key variable |
-  | --- | --- | --- | --- |
-  | `:alibaba` | `Omni.Providers.Alibaba` | `Omni.Dialects.OpenAICompletions` | `DASHSCOPE_API_KEY` |
-  | `:anthropic` | `Omni.Providers.Anthropic` | `Omni.Dialects.AnthropicMessages` | `ANTHROPIC_API_KEY` |
-  | `:google` | `Omni.Providers.Google` | `Omni.Dialects.GoogleGenerateContent` | `GEMINI_API_KEY` |
-  | `:groq` | `Omni.Providers.Groq` | `Omni.Dialects.OpenAICompletions` | `GROQ_API_KEY` |
-  | `:mistral` | `Omni.Providers.Mistral` | `Omni.Dialects.OpenAICompletions` | `MISTRAL_API_KEY` |
-  | `:moonshotai` | `Omni.Providers.Moonshot` | `Omni.Dialects.OpenAICompletions` | `MOONSHOT_API_KEY` |
-  | `:nearai` | `Omni.Providers.NearAI` | `Omni.Dialects.OpenAICompletions`, `Omni.Dialects.TypeSafeSystemOne` | `NEARAI_API_KEY` |
-  | `:ollama` | `Omni.Providers.Ollama` | `Omni.Dialects.OllamaChat`, `Omni.Dialects.TypeSafeSystemOne` | none (local) |
-  | `:ollama_cloud` | `Omni.Providers.OllamaCloud` | `Omni.Dialects.OllamaChat` | `OLLAMA_API_KEY` |
-  | `:openai` | `Omni.Providers.OpenAI` | `Omni.Dialects.OpenAIResponses`, `Omni.Dialects.OpenAIDecisions` | `OPENAI_API_KEY` |
-  | `:opencode` | `Omni.Providers.OpenCode` | per model | `OPENCODE_API_KEY` |
-  | `:openrouter` | `Omni.Providers.OpenRouter` | `Omni.Dialects.OpenAICompletions`, `Omni.Dialects.TypeSafeSystemOne` | `OPENROUTER_API_KEY` |
-  | `:togetherai` | `Omni.Providers.Together` | `Omni.Dialects.OpenAICompletions` | `TOGETHER_API_KEY` |
-  | `:typesafe` | `Omni.Providers.TypeSafe` | `Omni.Dialects.TypeSafeSystemOne` | `TYPESAFE_API_KEY` |
-  | `:venice` | `Omni.Providers.Venice` | `Omni.Dialects.OpenAICompletions` | `VENICE_API_KEY` |
-  | `:xai` | `Omni.Providers.XAI` | `Omni.Dialects.OpenAIResponses` | `XAI_API_KEY` |
-  | `:zai` | `Omni.Providers.Zai` | `Omni.Dialects.OpenAICompletions` | `ZAI_API_KEY` |
-
-  Text dialects serve `Omni.generate_text/3` and `Omni.stream_text/3`;
-  decision dialects (`Omni.Dialects.TypeSafeSystemOne`, `Omni.Dialects.OpenAIDecisions`)
-  serve `Omni.decide/3`.
+  Omni ships a provider module for each built-in provider, and loads them all
+  by default. The [Built-in providers](built-in-providers.md) guide lists
+  them, with each one's id, API key variable and quirks.
 
   ## Built-in, catalog, and custom providers
 
@@ -68,7 +45,7 @@ defmodule Omni.Provider do
      models, each with the dialect the catalog gives it.
   2. **Provider module** — an optional module implementing this behaviour.
      Its `c:config/0` overrides source values; its other callbacks adjust
-     models and requests. Built-in providers have one (`Omni.Providers.*`).
+     models and requests. Built-in providers have one.
   3. **App config** — `config :omni, :providers, <id>: [...]`.
 
   Values replace; `:headers` merge by key, `:dialects` by dialect module and
@@ -176,7 +153,7 @@ defmodule Omni.Provider do
   An entry with a new id adds a model, and names its dialect. A config
   model with no dialect, or one the provider has no endpoint for, raises at
   load. The provider module's `c:models/2` runs after entries are merged, so
-  a module can stamp a dialect on them (`Omni.Providers.Ollama` does).
+  a module can stamp a dialect on them (the built-in `:ollama` provider's does).
 
   ## Compat flags
 

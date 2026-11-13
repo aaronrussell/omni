@@ -7,17 +7,17 @@
 ![Build Status](https://img.shields.io/github/actions/workflow/status/aaronrussell/omni/elixir.yml?branch=main)
 
 **Universal Elixir client for LLM APIs.**
-Streaming text generation, tool use, and structured output.
+Text generation, tool use, structured output and decisions across many providers.
 
 ## Features
 
-- **Multi-provider** — supports many LLM providers out of the box (see table below)
-- **Streaming-first** — all requests stream by default; `generate_text` is built on `stream_text`
-- **Tool use** — define tools with schemas and handlers; the loop auto-executes and feeds results back
-- **Structured output** — JSON Schema validation with constrained decoding and automatic retries
-- **Decisions** — ask decision models typed questions about an input and get calibrated probabilities back, over TypeSafe's System One or OpenAI's Decisions API
-- **Pluggable model catalog** — bundled [models.dev](https://models.dev) snapshot by default, with optional live fetching or the [`llm_db`](https://hex.pm/packages/llm_db) package as alternative sources
-- **Extensible** — load any provider in the models.dev catalog by id, or define your own in config
+- **One API, many providers.** Anthropic, OpenAI, Google and 14 more are built in. Any provider in the [models.dev](https://models.dev) catalog loads by its id, and your own inference server needs only config.
+- **Streaming first.** Every text request streams. Handle events as they arrive, or wait for the finished response.
+- **Tool use.** Give the model tools with a schema and a handler. Omni runs them and feeds the results back until the model answers.
+- **Structured output.** Pass a JSON Schema and get back a validated map, with retries when the model misses.
+- **Thinking.** One `:thinking` option, translated to whatever each model accepts.
+- **Decisions.** Ask decision models typed questions and get probabilities back, over TypeSafe's System One or OpenAI's Decisions API.
+- **A model catalog included.** Limits, prices and capabilities for thousands of models ship with the package, with live updates as an option.
 
 ## Installation
 
@@ -31,103 +31,23 @@ def deps do
 end
 ```
 
-Each built-in provider reads its API key from a standard environment variable
-by default — if your keys are set, no configuration is needed:
+Each built-in provider reads its API key from its usual environment variable (`ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GEMINI_API_KEY` and so on). If your keys are set, there is nothing to configure.
 
-| Provider | Id | Environment variable |
-| --- | --- | --- |
-| Alibaba | `:alibaba` | `DASHSCOPE_API_KEY` |
-| Anthropic | `:anthropic` | `ANTHROPIC_API_KEY` |
-| Google | `:google` | `GEMINI_API_KEY` |
-| Groq | `:groq` | `GROQ_API_KEY` |
-| Mistral AI | `:mistral` | `MISTRAL_API_KEY` |
-| Moonshot AI | `:moonshotai` | `MOONSHOT_API_KEY` |
-| NEAR AI Cloud | `:nearai` | `NEARAI_API_KEY` |
-| Ollama Cloud | `:ollama_cloud` | `OLLAMA_API_KEY` |
-| OpenAI | `:openai` | `OPENAI_API_KEY` |
-| OpenCode | `:opencode` | `OPENCODE_API_KEY` |
-| OpenRouter | `:openrouter` | `OPENROUTER_API_KEY` |
-| Together AI | `:togetherai` | `TOGETHER_API_KEY` |
-| TypeSafe (decisions only) | `:typesafe` | `TYPESAFE_API_KEY` |
-| Venice AI | `:venice` | `VENICE_API_KEY` |
-| xAI | `:xai` | `XAI_API_KEY` |
-| Z.ai | `:zai` | `ZAI_API_KEY` |
+## Usage
 
-A local-Ollama provider (`:ollama`) is also included; it needs no API key —
-configure it with the models you have pulled locally:
+Generate text by naming a model and giving it a prompt:
 
 ```elixir
-config :omni, :providers, ollama: [models: ["llama3.1:8b", "qwen3.5:4b"]]
-```
-
-All built-in providers are loaded by default. To choose what loads at startup,
-list provider ids (`:builtins` names all built-ins and may appear in the list):
-
-```elixir
-config :omni, :models, providers: [:anthropic, :openai]
-
-# or: everything built-in plus a provider from the models.dev catalog
-config :omni, :models, providers: [:builtins, :togetherai]
-```
-
-Providers are configured by id, separately from selecting them. Any provider
-in the [models.dev](https://models.dev) catalog can be loaded this way, and a
-fully custom provider needs only config:
-
-```elixir
-config :omni, :providers,
-  anthropic: [api_key: {:system, "MY_ANTHROPIC_KEY"}],
-  ollama: [host: "http://gpu-box:11434"],
-  gpu_box: [
-    dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "http://gpu-box:8000/v1"]},
-    auth: :none,
-    models: [[id: "llama-3.3-70b", dialects: %{text: Omni.Dialects.OpenAICompletions}]]
-  ]
-```
-
-Built-in providers come configured for their APIs' quirks; a catalog or
-custom provider speaks its wire format plain, which may need adjusting (see
-`Omni.Provider`). To check a model works with your configuration, run a few
-real requests against it:
-
-```sh
-mix omni.verify togetherai moonshotai/Kimi-K3
-```
-
-## Quick start
-
-### Text generation
-
-Pass a model tuple and a string:
-
-```elixir
-{:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
+{:ok, response} = Omni.generate_text("anthropic:claude-sonnet-5-5", "Why is the sky blue?")
 
 response.message
-#=> %Omni.Message{role: :assistant, content: [%Omni.Content.Text{text: "Hello! How can..."}]}
+#=> %Omni.Message{role: :assistant, content: [%Omni.Content.Text{text: "Sunlight is..."}]}
 ```
 
-For multi-turn conversations, build a context with a system prompt and messages:
+Stream the response as it is written:
 
 ```elixir
-context = Omni.context(
-  system: "You are a helpful assistant.",
-  messages: [
-    Omni.message(role: :user, content: "What is Elixir?"),
-    Omni.message(role: :assistant, content: "Elixir is a functional programming language..."),
-    Omni.message(role: :user, content: "How does it handle concurrency?")
-  ]
-)
-
-{:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, context)
-```
-
-### Streaming
-
-`stream_text` returns a `StreamingResponse` that you consume with event handlers:
-
-```elixir
-{:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Tell me a story")
+{:ok, stream} = Omni.stream_text("openai:gpt-6.1-sol", "Tell me a story")
 
 {:ok, response} =
   stream
@@ -135,96 +55,31 @@ context = Omni.context(
   |> Omni.StreamingResponse.complete()
 ```
 
-For simple cases where you just need the text chunks:
-
-```elixir
-stream
-|> Omni.StreamingResponse.text_stream()
-|> Enum.each(&IO.write/1)
-```
-
-### Structured output
-
-Pass a schema via the `:output` option to get validated, decoded output:
-
-```elixir
-schema = Omni.Schema.object(%{
-  name: Omni.Schema.string(description: "The capital city"),
-  population: Omni.Schema.integer(description: "Approximate population")
-}, required: [:name, :population])
-
-{:ok, response} =
-  Omni.generate_text(
-    {:anthropic, "claude-sonnet-5-5"},
-    "What is the capital of France?",
-    output: schema
-  )
-
-response.output
-#=> %{name: "Paris", population: 2161000}
-```
-
-### Tool use
-
-Define tools with schemas and handlers — the loop automatically executes tool uses and feeds results back to the model:
-
-```elixir
-weather_tool = Omni.tool(
-  name: "get_weather",
-  description: "Gets the current weather for a city",
-  input_schema: Omni.Schema.object(
-    %{city: Omni.Schema.string(description: "City name")},
-    required: [:city]
-  ),
-  handler: fn input -> "72°F and sunny in #{input.city}" end
-)
-
-context = Omni.context(
-  messages: [Omni.message("What's the weather in London?")],
-  tools: [weather_tool]
-)
-
-{:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, context)
-```
-
-### Decisions
-
-Decision models answer typed questions about a shared input with probabilities instead of prose. Pass the input and a keyword list of questions:
+Ask a decision model typed questions and get probabilities back:
 
 ```elixir
 {:ok, decision} =
-  Omni.decide({:openrouter, "typesafe/jev-1.14"}, {ticket_text, [
+  Omni.decide("openrouter:typesafe/jev-1.14", {ticket_text, [
     urgent: Omni.predicate("Does this need a reply within the hour?"),
-    team: Omni.choice("Which team owns this?", billing: "Payments and refunds", infra: "Outages", other: nil),
-    anger: Omni.score("How angry is the customer?", ["Calm", "Frustrated but civil", "Very angry"])
+    team: Omni.choice("Which team owns this?", [:billing, :infra, :other])
   ]})
 
 decision.answers[:urgent]  #=> %Omni.Answer.Predicate{probability: 0.91}
 decision.answers[:team]    #=> %Omni.Answer.Choice{choice: :infra, probabilities: [billing: 0.02, infra: 0.95, other: 0.03], confidence: 0.93}
 ```
 
-Decision models are listed alongside text models; `Omni.Model.capability?(model, :decision)` tells them apart. Built-in providers with decision models are TypeSafe, OpenAI (`gpt-6-luna`), OpenRouter, OpenCode Zen and NEAR AI, and local Ollama models can be configured as decision models.
-
-## Model catalog
-
-Model data loads at startup from a pluggable source. The default reads a bundled [models.dev](https://models.dev) snapshot — no network access required. The snapshot is refreshed with every release, with data-only patch releases for notable catalog changes (major model launches, pricing changes) and at least one release per month. If you need fresher data than that, fetch the catalog at boot instead (disk-cached, degrading gracefully to the bundled snapshot when models.dev is unreachable):
-
-```elixir
-config :omni, :models,
-  source: {Omni.Sources.ModelsDev, live: true}
-```
-
-Or source the catalog from the optional [`llm_db`](https://hex.pm/packages/llm_db) package (requires `{:llm_db, "~> 2026.7"}` in your deps):
-
-```elixir
-config :omni, :models, source: Omni.Sources.LLMDB
-```
-
-Sources can also be pinned per provider (`config :omni, :providers, openai: [source: ...]`), and custom sources implement the `Omni.Source` behaviour. See the [HexDocs](https://hexdocs.pm/omni) for details.
-
 ## Documentation
 
-Full API documentation is available on [HexDocs](https://hexdocs.pm/omni).
+The guides and API reference are on [HexDocs](https://hexdocs.pm/omni):
+
+- [Getting started](https://hexdocs.pm/omni/getting-started.html)
+- [Text generation](https://hexdocs.pm/omni/text-generation.html): conversations, streaming, thinking, tools and structured output
+- [Decisions](https://hexdocs.pm/omni/decisions.html)
+- [Providers and models](https://hexdocs.pm/omni/providers-and-models.html): configuring providers, adding your own, and model data
+- [Built-in providers](https://hexdocs.pm/omni/built-in-providers.html)
+- [Upgrading to v2](https://hexdocs.pm/omni/upgrading-to-v2.html)
+
+To build agents on top of Omni, see [`omni_agent`](https://github.com/aaronrussell/omni_agent).
 
 ## License
 

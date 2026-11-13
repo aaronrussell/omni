@@ -1,23 +1,22 @@
 defmodule Omni.Providers.OpenAI do
-  @moduledoc """
-  Provider for the OpenAI API, using the `Omni.Dialects.OpenAIResponses`
-  dialect for text and `Omni.Dialects.OpenAIDecisions` for decisions.
+  @moduledoc false
 
-  Provider id `:openai`. Reads the API key from `OPENAI_API_KEY`, so no
-  configuration is needed if it is set. Override any setting under
-  `config :omni, :providers, openai: [...]` (see `Omni.Provider`).
-
-  ## Decisions
-
-  `gpt-6-luna` serves both text and decisions on the same model id. The
-  catalog lists it as a chat model only, so the module adds the decision
-  dialect when the provider loads, in its `c:Omni.Provider.models/2`; a
-  catalog without the model gets no decision model.
-
-      {:ok, decision} = Omni.decide({:openai, "gpt-6-luna"}, {"I was charged twice", [
-        refund: Omni.predicate("Is the customer asking for a refund?")
-      ]})
-  """
+  # Provider for the OpenAI API, using the `Omni.Dialects.OpenAIResponses`
+  # dialect for text and `Omni.Dialects.OpenAIDecisions` for decisions.
+  #
+  # Decisions:
+  #
+  # `gpt-6-luna` serves both text and decisions on the same model id. The
+  # catalog lists it as a chat model only, so the module adds the decision
+  # dialect when the provider loads, in its `models/2`; a
+  # catalog without the model gets no decision model.
+  #
+  #     {:ok, decision} = Omni.decide({:openai, "gpt-6-luna"}, {"I was charged twice", [
+  #       refund: Omni.predicate("Is the customer asking for a refund?")
+  #     ]})
+  #
+  # What users are told is the "OpenAI" section of guides/built-in-providers.md;
+  # keep it in step with this module.
 
   @behaviour Omni.Provider
 

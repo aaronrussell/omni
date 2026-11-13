@@ -1,39 +1,38 @@
 defmodule Omni.Providers.TypeSafe do
-  @moduledoc """
-  Provider for TypeSafe's System One API, using the `Omni.Dialects.TypeSafeSystemOne`
-  dialect.
+  @moduledoc false
 
-  Provider id `:typesafe`. Reads the API key from `TYPESAFE_API_KEY`, so no
-  configuration is needed if it is set. Override any setting under
-  `config :omni, :providers, typesafe: [...]` (see `Omni.Provider`).
-
-  TypeSafe serves decision models only: use them with `Omni.decide/3`.
-
-      {:ok, decision} = Omni.decide({:typesafe, "jev-latest"}, {"I was charged twice", [
-        refund: Omni.predicate("Is the customer asking for a refund?")
-      ]})
-
-  ## Models
-
-  models.dev has no TypeSafe entry, so the module lists TypeSafe's models
-  itself: `jev-1.14.0`, `jev-1.13.0`, and the aliases `jev-latest` and
-  `jev-preview`, as TypeSafe documents them. Models from the source
-  (`Omni.Sources.LLMDB` carries TypeSafe) and from config take precedence
-  by id; the module's list fills in the rest. A new release is a config
-  entry away:
-
-      config :omni, :providers,
-        typesafe: [
-          models: [
-            [id: "jev-1.15.0", dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}, input_cost: 0.042]
-          ]
-        ]
-
-  Requests use TypeSafe's default context limits (64k tokens per request).
-  Its long-context mode is switched on per request with a header:
-
-      Omni.decide(model, decision, headers: %{"TypeSafe-Danger-Zone-Long-Context" => "true"})
-  """
+  # Provider for TypeSafe's System One API, using the `Omni.Dialects.TypeSafeSystemOne`
+  # dialect.
+  #
+  # TypeSafe serves decision models only: use them with `Omni.decide/3`.
+  #
+  #     {:ok, decision} = Omni.decide({:typesafe, "jev-latest"}, {"I was charged twice", [
+  #       refund: Omni.predicate("Is the customer asking for a refund?")
+  #     ]})
+  #
+  # Models:
+  #
+  # models.dev has no TypeSafe entry, so the module lists TypeSafe's models
+  # itself: `jev-1.14.0`, `jev-1.13.0`, and the aliases `jev-latest` and
+  # `jev-preview`, as TypeSafe documents them. Models from the source
+  # (`Omni.Sources.LLMDB` carries TypeSafe) and from config take precedence
+  # by id; the module's list fills in the rest. A new release is a config
+  # entry away:
+  #
+  #     config :omni, :providers,
+  #       typesafe: [
+  #         models: [
+  #           [id: "jev-1.15.0", dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}, input_cost: 0.042]
+  #         ]
+  #       ]
+  #
+  # Requests use TypeSafe's default context limits (64k tokens per request).
+  # Its long-context mode is switched on per request with a header:
+  #
+  #     Omni.decide(model, decision, headers: %{"TypeSafe-Danger-Zone-Long-Context" => "true"})
+  #
+  # What users are told is the "TypeSafe" section of
+  # guides/built-in-providers.md; keep it in step with this module.
 
   @behaviour Omni.Provider
 

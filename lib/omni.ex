@@ -2,205 +2,59 @@ defmodule Omni do
   @moduledoc """
   ![Omni](https://raw.githubusercontent.com/aaronrussell/omni/main/media/poster.webp)
 
-  ![License](https://img.shields.io/github/license/aaronrussell/omni?color=informational)
+  Universal Elixir client for LLM APIs. Text generation, tool use, structured
+  output and decisions across many providers.
 
-  Universal Elixir client for LLM APIs. Streaming text generation, tool use, and structured output.
-
-  Omni provides a single API for text generation that works with many LLM
-  providers. Text requests are streaming-first — `generate_text/3` is built
-  on top of `stream_text/3`. Decision models answer typed questions with
-  probabilities through `decide/3`.
-
-  ## Setup
-
-  Add Omni to your dependencies:
-
-      {:omni, "~> 2.0"}
-
-  Each built-in provider reads its API key from a standard environment variable
-  by default — if your keys are set, no configuration is needed:
-
-  | Provider | Id | Environment variable |
-  | --- | --- | --- |
-  | Alibaba | `:alibaba` | `DASHSCOPE_API_KEY` |
-  | Anthropic | `:anthropic` | `ANTHROPIC_API_KEY` |
-  | Google | `:google` | `GEMINI_API_KEY` |
-  | Groq | `:groq` | `GROQ_API_KEY` |
-  | Mistral AI | `:mistral` | `MISTRAL_API_KEY` |
-  | Moonshot AI | `:moonshotai` | `MOONSHOT_API_KEY` |
-  | NEAR AI Cloud | `:nearai` | `NEARAI_API_KEY` |
-  | Ollama Cloud | `:ollama_cloud` | `OLLAMA_API_KEY` |
-  | OpenAI | `:openai` | `OPENAI_API_KEY` |
-  | OpenCode | `:opencode` | `OPENCODE_API_KEY` |
-  | OpenRouter | `:openrouter` | `OPENROUTER_API_KEY` |
-  | Together AI | `:togetherai` | `TOGETHER_API_KEY` |
-  | TypeSafe (decisions only) | `:typesafe` | `TYPESAFE_API_KEY` |
-  | Venice AI | `:venice` | `VENICE_API_KEY` |
-  | xAI | `:xai` | `XAI_API_KEY` |
-  | Z.ai | `:zai` | `ZAI_API_KEY` |
-
-  A provider for a local Ollama instance (`:ollama`) is also built in. It
-  needs no key; list the models you have pulled (see `Omni.Providers.Ollama`).
-
-  To override a key — for example, to use a different variable name or load
-  from a vault at runtime — configure the provider by id:
-
-      # config/runtime.exs
-      config :omni, :providers,
-        anthropic: [api_key: {:system, "MY_ANTHROPIC_KEY"}],
-        openai: [api_key: {MyApp.Secrets, :fetch, ["openai"]}]
-
-  You can also pass `:api_key` directly to `generate_text/3`, `stream_text/3`
-  or `decide/3`.
-
-  All built-in providers are loaded by default. To choose what loads at
-  startup, list provider ids (`:builtins` names all built-ins and may appear
-  in the list):
-
-      config :omni, :models,
-        providers: [:anthropic, :openai]
+  This module is the whole top-level API. New to Omni?
+  [Getting started](getting-started.md) is the place to begin.
 
   ## Text generation
 
-  The simplest way to use Omni — pass a model tuple and a string:
+  `generate_text/3` sends a context to a model and returns the finished
+  response. `stream_text/3` takes the same arguments and returns events as
+  the model writes. Tools in the context are run for you, and `:output`
+  asks for a validated map in place of prose.
 
-      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
+      {:ok, response} = Omni.generate_text("anthropic:claude-sonnet-5-5", "Hello!")
 
       response.message
       #=> %Omni.Message{role: :assistant, content: [%Omni.Content.Text{text: "Hello! How can..."}]}
 
-      response.usage
-      #=> %Omni.Usage{input_tokens: 10, output_tokens: 25, total_cost: 0.0003, ...}
-
-  For multi-turn conversations, build a context with a system prompt and messages:
-
-      context = Omni.context(
-        system: "You are a helpful assistant.",
-        messages: [
-          Omni.message(role: :user, content: "What is Elixir?"),
-          Omni.message(role: :assistant, content: "Elixir is a functional programming language..."),
-          Omni.message(role: :user, content: "How does it handle concurrency?")
-        ]
-      )
-
-      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, context)
-
-  Messages can carry images and PDFs as attachments, mixed with text:
-
-      message = Omni.message(role: :user, content: [
-        "What's in this image?",
-        Omni.attachment({:base64, Base.encode64(File.read!("photo.png"))}, "image/png")
-      ])
-
-      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, [message])
-
-  ## Streaming
-
-  `stream_text/3` returns a `StreamingResponse` that you can consume with
-  event handlers:
-
-      {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Tell me a story")
-
-      {:ok, response} =
-        stream
-        |> StreamingResponse.on(:text_delta, fn %{delta: text} -> IO.write(text) end)
-        |> StreamingResponse.complete()
-
-  For simple cases where you just need the text chunks:
-
-      stream
-      |> StreamingResponse.text_stream()
-      |> Enum.each(&IO.write/1)
-
-  See `Omni.StreamingResponse` for the full event taxonomy.
-
-  ## Structured output
-
-  Pass an `Omni.Schema` map via the `:output` option to get validated,
-  decoded output:
-
-      schema = Omni.Schema.object(%{
-        name: Omni.Schema.string(description: "The capital city"),
-        population: Omni.Schema.integer(description: "Approximate population")
-      }, required: [:name, :population])
-
-      {:ok, response} =
-        Omni.generate_text(
-          {:anthropic, "claude-sonnet-5-5"},
-          "What is the capital of France?",
-          output: schema
-        )
-
-      response.output
-      #=> %{name: "Paris", population: 2161000}
-
-  The schema is sent to the provider for constrained decoding. The response
-  text is validated against the schema and decoded into `response.output`,
-  with automatic retries on validation failure.
-
-  ## Tool use
-
-  Define tools with schemas and handlers — the loop automatically executes tool
-  uses and feeds results back to the model:
-
-      weather_tool = Omni.tool(
-        name: "get_weather",
-        description: "Gets the current weather for a city",
-        input_schema: Omni.Schema.object(
-          %{city: Omni.Schema.string(description: "City name")},
-          required: [:city]
-        ),
-        handler: fn input -> "72°F and sunny in \#{input.city}" end
-      )
-
-      context = Omni.context(
-        messages: [Omni.message("What's the weather in London?")],
-        tools: [weather_tool]
-      )
-
-      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, context)
-
-  When tools have handlers, the loop automatically executes tool uses and feeds
-  results back to the model until it produces a final text response.
-
-  For reusable tools with validation, define a tool module — see `Omni.Tool`.
+  [Text generation](text-generation.md) covers conversations, streaming,
+  thinking, tools and structured output.
 
   ## Decisions
 
-  Decision models answer typed questions about a shared input with
-  calibrated probabilities instead of prose. Pass the input and a keyword
-  list of questions:
+  `decide/3` asks a decision model typed questions about a shared state and
+  returns a probability for each answer.
 
       {:ok, decision} =
-        Omni.decide({:openrouter, "typesafe/jev-1.14"}, {ticket_text, [
-          urgent: Omni.predicate("Does this need a reply within the hour?"),
-          team: Omni.choice("Which team owns this?", billing: "Payments and refunds", infra: "Outages", other: nil),
-          anger: Omni.score("How angry is the customer?", ["Calm", "Frustrated but civil", "Very angry"])
+        Omni.decide("openrouter:typesafe/jev-1.14", {ticket_text, [
+          urgent: Omni.predicate("Does this need a reply within the hour?")
         ]})
 
-      decision.answers[:urgent]  #=> %Omni.Answer.Predicate{probability: 0.91}
-      decision.answers[:team]    #=> %Omni.Answer.Choice{choice: :infra, probabilities: [billing: 0.02, infra: 0.95, other: 0.03], confidence: 0.93}
+      decision.answers[:urgent]
+      #=> %Omni.Answer.Predicate{probability: 0.91}
 
-  See `Omni.Decision` and `Omni.Question`.
+  [Decisions](decisions.md) covers the question types and their answers.
 
-  ## Providers
+  ## Models
 
-  Models are referenced as `{provider_id, model_id}` tuples or as
-  `"provider_id:model_id"` strings (a slash works too; see
-  `Omni.Model`). To list a provider's models:
+  Every request names a model, as a `%Omni.Model{}` or a reference to one: a
+  `{provider_id, model_id}` tuple or a `"provider_id:model_id"` string.
+  `get_model/1` and `list_models/1` look models up.
 
       {:ok, models} = Omni.list_models(:anthropic)
 
-  Beyond the built-ins, any provider in the models.dev catalog can be loaded
-  by its id, and a provider the catalog doesn't know can be defined wholly in
-  config:
+  [Providers and models](providers-and-models.md) covers choosing and
+  configuring providers, adding your own, and where model data comes from.
 
-      config :omni, :models, providers: [:builtins, :fireworks_ai]
+  ## Building requests
 
-  Each model names the dialect it speaks: the wire format of an API family,
-  such as `Omni.Dialects.OpenAICompletions`. Most providers use one dialect;
-  gateways like OpenCode Zen use a different one per model. See
-  `Omni.Provider` for configuring and defining providers.
+  `context/1`, `message/1`, `tool/1`, `attachment/2` and `tool_result/1`
+  build what goes into a text request. `predicate/2`, `choice/2` and
+  `score/2` build the questions of a decision. Each is a shortcut for the
+  `new` function of the struct it returns.
   """
 
   alias Omni.{Context, Decision, Loop, Model, Request, Response, StreamingResponse}
@@ -229,8 +83,8 @@ defmodule Omni do
       * `%{effort: level, budget: tokens}` — an exact budget, for models
         that take one
       * `false` — off, where the model can be switched off
-    * `:output` — a JSON Schema map for structured output (see the
-      [Structured output](#module-structured-output) section above)
+    * `:output` — a JSON Schema map for structured output (see
+      [Structured output](text-generation.md#structured-output))
     * `:max_steps` — maximum tool execution rounds (default `:infinity`).
       Pass `1` to disable auto-looping for manual tool handling
     * `:tool_timeout` — per-tool execution timeout in milliseconds (default `30_000`)

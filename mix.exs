@@ -71,26 +71,41 @@ defmodule Omni.MixProject do
 
   defp docs do
     [
-      main: "Omni",
+      main: "getting-started",
       source_url: @source_url,
       source_ref: "v#{@version}",
       homepage_url: @source_url,
-      extras: ["CHANGELOG.md"],
-      skip_undefined_reference_warnings_on: ["CHANGELOG.md"],
+      extras: [
+        "CHANGELOG.md",
+        "guides/upgrading-to-v2.md",
+        "guides/getting-started.md",
+        "guides/text-generation.md",
+        "guides/decisions.md",
+        "guides/providers-and-models.md",
+        "guides/built-in-providers.md"
+      ],
+      groups_for_extras: [
+        Guides: ~r/^guides\/(?!upgrading)/
+      ],
+      skip_undefined_reference_warnings_on: ["CHANGELOG.md", "guides/upgrading-to-v2.md"],
       groups_for_modules: [
-        Data: [
-          ~r/Omni\.Content\..+$/,
+        "Text generation": [
           Omni.Context,
           Omni.Message,
           Omni.Response,
-          Omni.Usage
+          Omni.StreamingResponse,
+          Omni.Tool,
+          Omni.Tool.Runner,
+          Omni.Schema,
+          Omni.Schema.Adapter
         ],
+        Content: ~r/^Omni\.Content\..+$/,
         Decisions: [
           Omni.Decision,
           Omni.Question,
-          ~r/Omni\.Question\..+$/,
+          ~r/^Omni\.Question\..+$/,
           Omni.Answer,
-          ~r/Omni\.Answer\..+$/
+          ~r/^Omni\.Answer\..+$/
         ],
         Providers: ~r/^Omni\.Provider/,
         Dialects: ~r/^Omni\.Dialect/,
@@ -108,7 +123,7 @@ defmodule Omni.MixProject do
   defp pkg do
     [
       description:
-        "Universal Elixir client for LLM APIs. Streaming text generation, tool use, and structured output.",
+        "Universal Elixir client for LLM APIs. Text generation, tool use, structured output and decisions across many providers.",
       licenses: ["Apache-2.0"],
       maintainers: ["Aaron Russell"],
       files:

@@ -1,33 +1,26 @@
 defmodule Omni.Providers.Groq do
-  @moduledoc """
-  Provider for the Groq API, using the `Omni.Dialects.OpenAICompletions`
-  dialect.
+  @moduledoc false
 
-  Provider id `:groq`. Reads the API key from `GROQ_API_KEY`, so no
-  configuration is needed if it is set. Override any setting under
-  `config :omni, :providers, groq: [...]` (see `Omni.Provider`).
-
-  ## Reasoning
-
-  `:thinking` is supported. Accepted effort levels vary by model family, and
-  each level is rounded to the nearest the model supports, so `:xhigh` and
-  `:max` may become the model's highest level.
-
-  Reasoning always arrives separately from the answer. gpt-oss models return
-  it that way; other reasoning models (such as Qwen) are asked for it with
-  `reasoning_format: "parsed"`, because Groq's default puts it in the answer
-  as `<think>` tags. This is done in the module's `c:Omni.Provider.modify_body/4`,
-  not with a compat flag, so `like: :groq` doesn't copy it.
-
-  Earlier reasoning is sent back in the `reasoning` field of assistant
-  messages.
-
-  ## Compat flags
-
-  Sets this `Omni.Dialects.OpenAICompletions` flag:
-
-    * `thinking_replay_format: :reasoning`
-  """
+  # Provider for the Groq API, using the `Omni.Dialects.OpenAICompletions`
+  # dialect.
+  #
+  # Reasoning:
+  #
+  # `:thinking` is supported. Accepted effort levels vary by model family, and
+  # each level is rounded to the nearest the model supports, so `:xhigh` and
+  # `:max` may become the model's highest level.
+  #
+  # Reasoning always arrives separately from the answer. gpt-oss models return
+  # it that way; other reasoning models (such as Qwen) are asked for it with
+  # `reasoning_format: "parsed"`, because Groq's default puts it in the answer
+  # as `<think>` tags. This is done in the module's `modify_body/4`,
+  # not with a compat flag, so `like: :groq` doesn't copy it.
+  #
+  # Earlier reasoning is sent back in the `reasoning` field of assistant
+  # messages.
+  #
+  # What users are told is the "Groq" section of guides/built-in-providers.md;
+  # keep it in step with this module.
 
   @behaviour Omni.Provider
 

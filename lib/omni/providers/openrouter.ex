@@ -1,44 +1,36 @@
 defmodule Omni.Providers.OpenRouter do
-  @moduledoc """
-  Provider for the OpenRouter API, using the `Omni.Dialects.OpenAICompletions`
-  dialect for text and `Omni.Dialects.TypeSafeSystemOne` for decisions.
+  @moduledoc false
 
-  Provider id `:openrouter`. Reads the API key from `OPENROUTER_API_KEY`, so
-  no configuration is needed if it is set. Override any setting under
-  `config :omni, :providers, openrouter: [...]` (see `Omni.Provider`).
-
-  ## Decisions
-
-  Decision models (`typesafe/jev-1.14`, `liquid/d1` and others) are sent to
-  `/api/v1/systemone`, OpenRouter's System One route. OpenRouter also
-  serves the same wire format at `/api/alpha/decisions`, which it marks as
-  subject to change.
-
-  ## Reasoning
-
-  `:thinking` is supported and sent as `reasoning.effort`. Reasoning is sent
-  back on later turns of a conversation, as OpenRouter's `reasoning_details`,
-  with no extra handling needed.
-
-  ## Caching
-
-  Claude models (`anthropic/*`) cache only when asked. With `:cache` set,
-  they are sent a top-level `cache_control` (`ttl: "1h"` for `:long`), and
-  OpenRouter places the breakpoint on the last cacheable block. This is done
-  in the module's `c:Omni.Provider.modify_body/4`, for models on the
-  Completions dialect.
-
-  Other upstreams cache automatically, whatever `:cache` says (Gemini and
-  Qwen were verified). OpenRouter documents per-block `cache_control`
-  markers for some Qwen models, which Omni doesn't send.
-
-  ## Compat flags
-
-  Sets these `Omni.Dialects.OpenAICompletions` flags:
-
-    * `thinking_effort_field: "reasoning.effort"`
-    * `thinking_replay_format: :reasoning_details`
-  """
+  # Provider for the OpenRouter API, using the `Omni.Dialects.OpenAICompletions`
+  # dialect for text and `Omni.Dialects.TypeSafeSystemOne` for decisions.
+  #
+  # Decisions:
+  #
+  # Decision models (`typesafe/jev-1.14`, `liquid/d1` and others) are sent to
+  # `/api/v1/systemone`, OpenRouter's System One route. OpenRouter also
+  # serves the same wire format at `/api/alpha/decisions`, which it marks as
+  # subject to change.
+  #
+  # Reasoning:
+  #
+  # `:thinking` is supported and sent as `reasoning.effort`. Reasoning is sent
+  # back on later turns of a conversation, as OpenRouter's `reasoning_details`,
+  # with no extra handling needed.
+  #
+  # Caching:
+  #
+  # Claude models (`anthropic/*`) cache only when asked. With `:cache` set,
+  # they are sent a top-level `cache_control` (`ttl: "1h"` for `:long`), and
+  # OpenRouter places the breakpoint on the last cacheable block. This is done
+  # in the module's `modify_body/4`, for models on the
+  # Completions dialect.
+  #
+  # Other upstreams cache automatically, whatever `:cache` says (Gemini and
+  # Qwen were verified). OpenRouter documents per-block `cache_control`
+  # markers for some Qwen models, which Omni doesn't send.
+  #
+  # What users are told is the "OpenRouter" section of
+  # guides/built-in-providers.md; keep it in step with this module.
 
   @behaviour Omni.Provider
 

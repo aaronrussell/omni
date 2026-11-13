@@ -1,12 +1,11 @@
 defmodule Omni.Providers.Google do
-  @moduledoc """
-  Provider for the Google Gemini API, using the `Omni.Dialects.GoogleGenerateContent`
-  dialect.
+  @moduledoc false
 
-  Provider id `:google`. Reads the API key from `GEMINI_API_KEY`, so no
-  configuration is needed if it is set. Override any setting under
-  `config :omni, :providers, google: [...]` (see `Omni.Provider`).
-  """
+  # Provider for the Google Gemini API, using the `Omni.Dialects.GoogleGenerateContent`
+  # dialect.
+  #
+  # What users are told is the "Google" section of guides/built-in-providers.md;
+  # keep it in step with this module.
 
   @behaviour Omni.Provider
 
