@@ -299,18 +299,27 @@ defmodule Omni.Dialects.OllamaChat do
 
   # Tool result encoding (separate "tool" role messages)
 
-  # Ollama's tool messages take no id, so `tool_use_id` is not sent. Nor is
-  # the optional `tool_name`. They have no error field either, so a failure
-  # is marked by prefixing the content with "Error: ".
-  defp encode_tool_result(%ToolResult{content: content, is_error: is_error}) do
+  # Ollama's message type takes `tool_name` and `tool_call_id` (its tool
+  # calling examples send the name; the `/api/chat` reference lists neither).
+  # Each model's prompt template reads one or the other: Gemma 4 names the
+  # response "unknown" without either, Mistral-style templates need the id,
+  # and only the id tells apart two results from the same tool. There is no
+  # error field, so a failure is marked by prefixing the content with
+  # "Error: ".
+  defp encode_tool_result(%ToolResult{} = result) do
     text =
-      content
+      result.content
       |> Enum.filter(&match?(%Text{}, &1))
       |> Enum.map_join("", & &1.text)
 
-    text = if is_error, do: "Error: " <> text, else: text
+    text = if result.is_error, do: "Error: " <> text, else: text
 
-    %{"role" => "tool", "content" => text}
+    %{
+      "role" => "tool",
+      "tool_name" => result.name,
+      "tool_call_id" => result.tool_use_id,
+      "content" => text
+    }
   end
 
   # Tool schema encoding

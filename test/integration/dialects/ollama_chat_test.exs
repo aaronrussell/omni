@@ -43,7 +43,34 @@ defmodule Integration.Dialects.OllamaChatTest do
       assert tool_uses |> Enum.map(& &1.id) |> Enum.uniq() |> length() == 4
       assert Enum.all?(tool_uses, &match?(%{"city" => "" <> _}, &1.input))
     end
+
+    # One `tool` message per result, carrying the call's id and name.
+    test "tool round", %{model: model} do
+      {context, opts} = request(:kitchen_sink)
+      {:ok, resp1} = Capture.replay(model, context, "#{@dir}/tools_1.ndjson", opts)
+      assert_received {:replay_request, _}
+
+      turn2 = tool_round(context, resp1)
+      assert {:ok, resp2} = Capture.replay(model, turn2, "#{@dir}/tools_2.ndjson", opts)
+      assert_received {:replay_request, %{body: body}}
+
+      assert [_question, %{"role" => "assistant", "tool_calls" => calls} | results] =
+               body["messages"]
+
+      assert length(results) == 4
+
+      for {call, result} <- Enum.zip(calls, results) do
+        assert %{"role" => "tool", "content" => "" <> _} = result
+        assert result["tool_call_id"] == call["id"]
+        assert result["tool_name"] == call["function"]["name"]
+      end
+
+      assert resp2.stop_reason == :stop
+      assert [%Text{text: "" <> _} | _] = Enum.reject(resp2.message.content, &thinking?/1)
+    end
   end
+
+  defp thinking?(block), do: match?(%Omni.Content.Thinking{}, block)
 
   describe "synthetic" do
     test "error in the stream returns stream_error", %{model: model} do

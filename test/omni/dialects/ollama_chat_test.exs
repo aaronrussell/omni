@@ -139,8 +139,13 @@ defmodule Omni.Dialects.OllamaChatTest do
       body = OllamaChat.handle_body(@model, context, %{})
 
       [tool_msg] = body["messages"]
-      assert tool_msg["role"] == "tool"
-      assert tool_msg["content"] == "72°F"
+
+      assert tool_msg == %{
+               "role" => "tool",
+               "tool_name" => "get_weather",
+               "tool_call_id" => "tc_1",
+               "content" => "72°F"
+             }
     end
 
     test "tools encoded as function type" do

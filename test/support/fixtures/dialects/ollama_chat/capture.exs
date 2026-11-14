@@ -26,6 +26,10 @@ end
 {context, opts} = Cases.request(:length)
 Capture.record(model, context, "#{dir}/length.ndjson", opts)
 
-# Parallel tool calls, which Ollama sends as one `tool_calls` list.
+# Parallel tool calls, which Ollama sends as one `tool_calls` list, then the
+# tool round that answers them.
 {context, opts} = Baseline.request(:kitchen_sink)
-Capture.record(model, context, "#{dir}/tools_1.ndjson", opts)
+
+with {:ok, resp} <- Capture.record(model, context, "#{dir}/tools_1.ndjson", opts) do
+  Capture.record(model, Baseline.tool_round(context, resp), "#{dir}/tools_2.ndjson", opts)
+end
