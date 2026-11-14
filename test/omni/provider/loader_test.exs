@@ -553,7 +553,7 @@ defmodule Omni.Provider.LoaderTest do
     end
 
     test "auth_header raises with a migration hint" do
-      assert_raise ArgumentError, ~r/use auth: \{:header, "x-api-key"\}/, fn ->
+      assert_raise ArgumentError, ~r/is now auth: \{:header, "x-api-key"\}/, fn ->
         assemble(source: catalog([], []), auth_header: "x-api-key")
       end
     end
@@ -929,7 +929,7 @@ defmodule Omni.Provider.LoaderTest do
       Application.put_env(:omni, :models, providers: [])
       Application.put_env(:omni, :providers, never_loaded: [auth_header: "x-api-key"])
 
-      assert_raise ArgumentError, ~r/auth_header: was replaced by auth:/, fn -> Loader.boot() end
+      assert_raise ArgumentError, ~r/auth_header: is now auth:/, fn -> Loader.boot() end
     end
 
     test "an empty providers list loads nothing" do

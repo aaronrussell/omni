@@ -1,26 +1,28 @@
 defmodule Omni.Provider.Loader do
+  @moduledoc false
+
   # Assembles providers and their models, and writes them to the store.
   #
-  # For each provider id:
+  # "Config" below is the provider's `config :omni, :providers` entry with
+  # the opts given to load/1 or assemble/2 merged over it. For each id:
   #
   #   1. Resolve the provider module: config `module:`, else the built-in.
   #   2. Fetch catalog data from the source: a partial %Provider{} with its
   #      endpoints, and provider-less models. An unknown id starts empty.
   #   3. Merge the provider: source <- module config/0, then move those
-  #      endpoint URLs to app config's `host:`, then <- app config. Endpoints
-  #      merge by dialect module, then by field.
+  #      endpoint URLs to config's `host:`, then <- config. Endpoints merge
+  #      by dialect module, then by field. Validate the result (raise).
   #   4. Merge config `models:` entries over source models by id; entries
   #      with new ids are added. Pass the models through the module's
   #      models/2.
-  #   5. Validate the provider (raise), then check each model has a dialect
-  #      the provider has an endpoint for: catalog models without are skipped
-  #      with a warning, config models without raise. Nothing is filled in.
+  #   5. Check each model has a dialect the provider has an endpoint for:
+  #      catalog models without are skipped with a warning, config models
+  #      without raise. Nothing is filled in.
   #   6. Stamp the provider onto every model, apply the global transform and
   #      check its results again (raise: every model was valid before it),
   #      then apply the global filter.
   #
   # assemble/2 does all of that without touching the store; load/1 stores.
-  @moduledoc false
 
   require Logger
 
@@ -47,7 +49,9 @@ defmodule Omni.Provider.Loader do
   # -- Boot -------------------------------------------------------------------
 
   @doc """
-  Validates app config and loads the selected providers. Called at startup.
+  Validates app config and loads the selected providers.
+
+  Called at startup. Raises on invalid or v1-style config.
   """
   @spec boot() :: :ok
   def boot do
@@ -62,7 +66,10 @@ defmodule Omni.Provider.Loader do
   # -- Loading ----------------------------------------------------------------
 
   @doc """
-  Assembles and stores providers. Entries are ids or `{id, opts}`.
+  Assembles and stores providers.
+
+  Entries are ids or `{id, opts}`, the opts merging over the provider's app
+  config.
   """
   @spec load([atom() | {atom(), keyword() | map()}]) :: :ok
   def load(entries) when is_list(entries) do
@@ -127,13 +134,16 @@ defmodule Omni.Provider.Loader do
   end
 
   @doc """
-  Registers one model under its (loaded) provider.
+  Registers one model under its provider.
+
+  Raises if the model has no dialects, names a dialect under the wrong
+  capability, or its provider is not loaded.
   """
   @spec put_model(Model.t()) :: :ok
   def put_model(%Model{provider: %Provider{id: id}} = model) do
     if model.dialects == %{} do
       raise ArgumentError,
-            "cannot register model #{inspect(model.id)}: it has no dialects — set one, " <>
+            "cannot register model #{inspect(model.id)}: it has no dialects. Set one, " <>
               "e.g. dialects: %{text: Omni.Dialects.OpenAICompletions}"
     end
 
@@ -194,7 +204,7 @@ defmodule Omni.Provider.Loader do
   defp normalize_source!({module, opts}) when is_atom(module) and is_list(opts) do
     unless Code.ensure_loaded?(module) and function_exported?(module, :fetch, 2) do
       raise ArgumentError,
-            "#{inspect(module)} is not an Omni.Source — it does not export fetch/2"
+            "#{inspect(module)} is not an Omni.Source: it does not export fetch/2"
     end
 
     {module, opts}
@@ -204,7 +214,7 @@ defmodule Omni.Provider.Loader do
 
   defp normalize_source!(other) do
     raise ArgumentError,
-          "invalid model source #{inspect(other)} — expected a module or a {module, opts} tuple"
+          "invalid model source #{inspect(other)}. Expected a module or a {module, opts} tuple"
   end
 
   defp fetch(source, id, opts) do
@@ -219,7 +229,7 @@ defmodule Omni.Provider.Loader do
       {:error, reason} ->
         Logger.warning(
           "Omni: failed to fetch provider #{inspect(id)} from #{inspect(source)} " <>
-            "(#{inspect(reason)}) — loading it from config alone"
+            "(#{inspect(reason)}). Loading it from config alone"
         )
 
         {%Provider{id: id}, []}
@@ -325,7 +335,7 @@ defmodule Omni.Provider.Loader do
     e in [KeyError, ArgumentError] ->
       raise ArgumentError,
             "invalid model #{inspect(attrs.id)} for provider #{inspect(id)} in " <>
-              "config :omni, :providers — #{Exception.message(e)}"
+              "config :omni, :providers: #{Exception.message(e)}"
   end
 
   # -- Model checks -----------------------------------------------------------
@@ -392,7 +402,7 @@ defmodule Omni.Provider.Loader do
       end
 
     "provider #{inspect(id)}: model #{inspect(model.id)} in config :omni, :providers " <>
-      "has no dialect — name it: models: [[id: #{inspect(model.id)}, dialects: #{example}]]"
+      "has no dialect. Name it: models: [[id: #{inspect(model.id)}, dialects: #{example}]]"
   end
 
   defp config_model_message(%Provider{id: id}, model, :wrong_capability) do
@@ -403,7 +413,7 @@ defmodule Omni.Provider.Loader do
   defp config_model_message(%Provider{id: id}, model, :no_endpoint) do
     "provider #{inspect(id)}: model #{inspect(model.id)} in config :omni, :providers " <>
       "speaks #{inspect(Map.values(model.dialects))}, which the provider has no " <>
-      "endpoint for — add one: dialects: %{Module => [base_url: \"https://...\"]}"
+      "endpoint for. Add one: dialects: %{Module => [base_url: \"https://...\"]}"
   end
 
   defp capability_mismatch(%Model{dialects: dialects}) do
@@ -415,7 +425,7 @@ defmodule Omni.Provider.Loader do
     case is_atom(dialect) && Omni.Dialect.capability(dialect) do
       actual when actual in [:text, :decision] ->
         "names #{inspect(dialect)} for #{inspect(capability)}, but it is a " <>
-          "#{inspect(actual)} dialect — use dialects: %{#{actual}: #{inspect(dialect)}}"
+          "#{inspect(actual)} dialect. Use dialects: %{#{actual}: #{inspect(dialect)}}"
 
       _ ->
         "names #{inspect(dialect)} for #{inspect(capability)}, which is not an Omni.Dialect module"
@@ -465,7 +475,7 @@ defmodule Omni.Provider.Loader do
       unknown ->
         raise ArgumentError,
               "provider #{inspect(id)}: unknown compat flags #{inspect(unknown)} for " <>
-                "#{inspect(dialect)} — expected any of #{inspect(Map.keys(schema))}"
+                "#{inspect(dialect)}. Expected any of #{inspect(Map.keys(schema))}"
     end
 
     case Peri.validate(schema, flags) do
@@ -474,7 +484,7 @@ defmodule Omni.Provider.Loader do
 
       {:error, errors} ->
         raise ArgumentError,
-              "provider #{inspect(id)}: invalid compat flags for #{inspect(dialect)} — " <>
+              "provider #{inspect(id)}: invalid compat flags for #{inspect(dialect)}: " <>
                 inspect(errors)
     end
   end
@@ -484,7 +494,7 @@ defmodule Omni.Provider.Loader do
 
   defp validate_auth!(id, auth) do
     raise ArgumentError,
-          "provider #{inspect(id)}: invalid auth #{inspect(auth)} — expected :bearer, " <>
+          "provider #{inspect(id)}: invalid auth #{inspect(auth)}. Expected :bearer, " <>
             "{:header, name}, :none, or :dialect"
   end
 
@@ -511,19 +521,19 @@ defmodule Omni.Provider.Loader do
 
       %Model{id: ^model_id} ->
         raise ArgumentError,
-              "#{where} changed the provider of model #{inspect(model_id)} — it may " <>
-                "change any field but :id and :provider; configure the provider under " <>
+              "#{where} changed the provider of model #{inspect(model_id)}. It may " <>
+                "change any field but :id and :provider. Configure the provider under " <>
                 "config :omni, :providers"
 
       %Model{id: other} ->
         raise ArgumentError,
-              "#{where} changed the id of model #{inspect(model_id)} to #{inspect(other)} — " <>
-                "it may change any field but :id and :provider"
+              "#{where} changed the id of model #{inspect(model_id)} to #{inspect(other)}. " <>
+                "It may change any field but :id and :provider"
 
       other ->
         raise ArgumentError,
-              "#{where} returned #{inspect(other)} for model #{inspect(model_id)} — " <>
-                "it must return a %Omni.Model{} (use filter: to drop models)"
+              "#{where} returned #{inspect(other)} for model #{inspect(model_id)}. " <>
+                "It must return a %Omni.Model{} (use filter: to drop models)"
     end
   end
 
@@ -535,7 +545,7 @@ defmodule Omni.Provider.Loader do
 
   defp transform_message(where, model, :no_endpoint) do
     "#{where} gave model #{inspect(model.id)} #{inspect(Map.values(model.dialects))}, " <>
-      "which the provider has no endpoint for — add one under config :omni, :providers: " <>
+      "which the provider has no endpoint for. Add one under config :omni, :providers: " <>
       "dialects: %{Module => [base_url: \"https://...\"]}"
   end
 
@@ -603,7 +613,7 @@ defmodule Omni.Provider.Loader do
 
   defp normalize_entry!(other) do
     raise ArgumentError,
-          "invalid provider entry #{inspect(other)} — expected an id or {id, opts}"
+          "invalid provider entry #{inspect(other)}. Expected an id or {id, opts}"
   end
 
   defp normalize_config!(id, config, allowed, where \\ "config :omni, :providers")
@@ -637,28 +647,27 @@ defmodule Omni.Provider.Loader do
   end
 
   defp unknown_key_message(id, :auth_header, _allowed, where) do
-    "provider #{inspect(id)} in #{where}: auth_header: was replaced by auth: — " <>
-      "use auth: {:header, \"x-api-key\"}"
+    "provider #{inspect(id)} in #{where}: auth_header: is now auth: {:header, \"x-api-key\"}"
   end
 
   defp unknown_key_message(id, :compat, _allowed, where) do
-    "provider #{inspect(id)} in #{where}: compat: moved under its dialect — use " <>
+    "provider #{inspect(id)} in #{where}: compat: moved under its dialect. Use " <>
       "dialects: %{Omni.Dialects.OpenAICompletions => [compat: [...]]}, with like: " <>
       "inside it to copy a built-in's flags"
   end
 
   defp unknown_key_message(id, :base_url, _allowed, where) do
-    "provider #{inspect(id)} in #{where}: base_url: moved to each dialect's endpoint — use " <>
+    "provider #{inspect(id)} in #{where}: base_url: moved to each dialect's endpoint. Use " <>
       "dialects: %{Omni.Dialects.OpenAICompletions => [base_url: \"https://...\"]}"
   end
 
   defp unknown_key_message(id, key, allowed, where) do
-    "provider #{inspect(id)} in #{where}: unknown key #{inspect(key)} — " <>
-      "expected one of #{inspect(allowed)}"
+    "provider #{inspect(id)} in #{where}: unknown key #{inspect(key)}. " <>
+      "Expected one of #{inspect(allowed)}"
   end
 
-  # Provider-level base_url is gone. Suggest host: when the URL only changes
-  # the origin of the provider's one endpoint, else that endpoint's URL.
+  # Raises for a v1 provider-level base_url. Suggests host: when the URL only
+  # changes the origin of the provider's one endpoint, else that endpoint's URL.
   defp check_legacy_base_url!(id, %{legacy_base_url: url}, %Provider{dialects: dialects}) do
     {origin, path} = Endpoint.split(url)
 
@@ -681,7 +690,7 @@ defmodule Omni.Provider.Loader do
       end
 
     raise ArgumentError, """
-    provider #{inspect(id)}: base_url: is no longer a provider key — each dialect \
+    provider #{inspect(id)}: base_url: is no longer a provider key. Each dialect \
     the provider serves has an endpoint with its own base_url, and host: moves \
     the origin of all of them. Use:
 
@@ -748,7 +757,7 @@ defmodule Omni.Provider.Loader do
 
   defp normalize_dialects!(id, other) do
     raise ArgumentError,
-          "provider #{inspect(id)}: invalid dialects #{inspect(other)} — expected " <>
+          "provider #{inspect(id)}: invalid dialects #{inspect(other)}. Expected " <>
             "%{Module => [base_url: ..., compat: [...]]}"
   end
 
@@ -759,7 +768,7 @@ defmodule Omni.Provider.Loader do
     unless is_map(endpoint) or Keyword.keyword?(endpoint) do
       raise ArgumentError,
             "provider #{inspect(id)}: invalid endpoint for #{inspect(dialect)} " <>
-              "#{inspect(endpoint)} — expected [base_url: ..., compat: [...]]"
+              "#{inspect(endpoint)}. Expected [base_url: ..., compat: [...]]"
     end
 
     Map.new(endpoint, fn
@@ -771,8 +780,8 @@ defmodule Omni.Provider.Loader do
 
   defp normalize_endpoint!(id, dialect, other) do
     raise ArgumentError,
-          "provider #{inspect(id)}: invalid endpoint for #{inspect(dialect)} #{inspect(other)} " <>
-            "— expected [base_url: ..., compat: [...]]"
+          "provider #{inspect(id)}: invalid endpoint for #{inspect(dialect)} #{inspect(other)}. " <>
+            "Expected [base_url: ..., compat: [...]]"
   end
 
   defp base_url!(_id, _dialect, url) when is_binary(url) or is_nil(url), do: url
@@ -806,7 +815,7 @@ defmodule Omni.Provider.Loader do
       nil ->
         raise ArgumentError,
               "provider #{inspect(id)}: compat like: #{inspect(target)} is not a built-in " <>
-                "provider — expected one of #{inspect(Builtins.ids())}"
+                "provider. Expected one of #{inspect(Builtins.ids())}"
 
       module ->
         config =
@@ -823,7 +832,7 @@ defmodule Omni.Provider.Loader do
 
           :error ->
             raise ArgumentError,
-                  "provider #{inspect(id)}: compat like: #{inspect(target)} — " <>
+                  "provider #{inspect(id)}: compat like: #{inspect(target)}, but " <>
                     "#{inspect(target)} sets no endpoint for #{inspect(dialect)}"
         end
     end
@@ -834,8 +843,8 @@ defmodule Omni.Provider.Loader do
   end
 
   defp unknown_endpoint_key_message(id, dialect, key) do
-    "provider #{inspect(id)}: unknown key #{inspect(key)} for #{inspect(dialect)} — " <>
-      "expected one of #{inspect(@endpoint_keys)}"
+    "provider #{inspect(id)}: unknown key #{inspect(key)} for #{inspect(dialect)}. " <>
+      "Expected one of #{inspect(@endpoint_keys)}"
   end
 
   defp legacy_dialects_message(id, dialects) do
@@ -868,12 +877,12 @@ defmodule Omni.Provider.Loader do
 
   defp validate_models_config!(config) when is_list(config) or is_map(config) do
     unless is_map(config) or Keyword.keyword?(config) do
-      raise ArgumentError, "invalid config :omni, :models — expected a keyword list"
+      raise ArgumentError, "invalid config :omni, :models. Expected a keyword list"
     end
 
     for {key, _} <- config, key not in @models_keys do
       raise ArgumentError,
-            "config :omni, :models: unknown key #{inspect(key)} — expected one of " <>
+            "config :omni, :models: unknown key #{inspect(key)}. Expected one of " <>
               inspect(@models_keys)
     end
 
@@ -901,7 +910,7 @@ defmodule Omni.Provider.Loader do
 
   defp validate_models_config!(other) do
     raise ArgumentError,
-          "invalid config :omni, :models #{inspect(other)} — expected a keyword list"
+          "invalid config :omni, :models #{inspect(other)}. Expected a keyword list"
   end
 
   defp validate_providers_config!(nil), do: :ok
@@ -933,16 +942,16 @@ defmodule Omni.Provider.Loader do
 
       other ->
         raise ArgumentError,
-              "invalid entry #{inspect(other)} in config :omni, :models, providers: — " <>
-                "expected provider ids (e.g. :openai) or :builtins"
+              "invalid entry #{inspect(other)} in the providers: list of config :omni, :models. " <>
+                "Expected provider ids (e.g. :openai) or :builtins"
     end)
     |> Enum.uniq()
   end
 
   defp expand_providers!(other) do
     raise ArgumentError,
-          "invalid providers: value #{inspect(other)} in config :omni, :models — " <>
-            "expected :builtins or a list of provider ids"
+          "invalid providers: value #{inspect(other)} in config :omni, :models. " <>
+            "Expected :builtins or a list of provider ids"
   end
 
   defp module_atom?(atom),
@@ -952,7 +961,7 @@ defmodule Omni.Provider.Loader do
 
   defp module_config_message(module) do
     """
-    config :omni, #{inspect(module)} is no longer read — provider config moved \
+    config :omni, #{inspect(module)} is no longer read. Provider config moved \
     under :providers, keyed by provider id:
 
         config :omni, :providers,
