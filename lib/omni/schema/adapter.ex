@@ -24,23 +24,25 @@ defmodule Omni.Schema.Adapter do
   This is not shipped with Omni — implement it in your own application if
   you want JSV-backed validation.
 
-      defmodule MyApp.JSVAdapter do
-        @behaviour Omni.Schema.Adapter
+  ```elixir
+  defmodule MyApp.JSVAdapter do
+    @behaviour Omni.Schema.Adapter
 
-        @impl true
-        def to_schema(%JSV.Root{raw: raw}), do: raw
+    @impl true
+    def to_schema(%JSV.Root{raw: raw}), do: raw
 
-        @impl true
-        def validate(%JSV.Root{} = root, input) do
-          case JSV.validate(input, root) do
-            {:ok, data} ->
-              {:ok, data}
+    @impl true
+    def validate(%JSV.Root{} = root, input) do
+      case JSV.validate(input, root) do
+        {:ok, data} ->
+          {:ok, data}
 
-            {:error, %JSV.ValidationError{} = err} ->
-              {:error, Exception.message(err)}
-          end
-        end
+        {:error, %JSV.ValidationError{} = err} ->
+          {:error, Exception.message(err)}
       end
+    end
+  end
+  ```
 
   ## Using an adapter
 
@@ -48,33 +50,35 @@ defmodule Omni.Schema.Adapter do
   are evaluated at compile time, so the build cost is paid once per module
   load:
 
-      # Structured output
-      @output_root JSV.build!(%{
-        type: :object,
-        properties: %{name: %{type: :string}},
-        required: [:name]
-      })
+  ```elixir
+  # Structured output
+  @output_root JSV.build!(%{
+    type: :object,
+    properties: %{name: %{type: :string}},
+    required: [:name]
+  })
 
-      Omni.generate_text(model, prompt,
-        output: {MyApp.JSVAdapter, @output_root}
-      )
+  Omni.generate_text(model, prompt,
+    output: {MyApp.JSVAdapter, @output_root}
+  )
 
-      # Tool with adapter-validated input
-      defmodule MyApp.Tools.Search do
-        use Omni.Tool, name: "search", description: "Search the docs"
+  # Tool with adapter-validated input
+  defmodule MyApp.Tools.Search do
+    use Omni.Tool, name: "search", description: "Search the docs"
 
-        @input_root JSV.build!(%{
-          type: :object,
-          properties: %{query: %{type: :string, minLength: 1}},
-          required: [:query]
-        })
+    @input_root JSV.build!(%{
+      type: :object,
+      properties: %{query: %{type: :string, minLength: 1}},
+      required: [:query]
+    })
 
-        def schema, do: {MyApp.JSVAdapter, @input_root}
+    def schema, do: {MyApp.JSVAdapter, @input_root}
 
-        def call(input) do
-          MyApp.Docs.search(input["query"])
-        end
-      end
+    def call(input) do
+      MyApp.Docs.search(input["query"])
+    end
+  end
+  ```
 
   Note: when an adapter returns string-keyed maps from validation (as JSV
   does), tool handlers must access input by string key rather than the

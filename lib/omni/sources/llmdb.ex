@@ -5,15 +5,19 @@ defmodule Omni.Sources.LLMDB do
 
   Select it globally or per provider:
 
-      config :omni, :models, source: Omni.Sources.LLMDB
+  ```elixir
+  config :omni, :models, source: Omni.Sources.LLMDB
 
-      # keep one provider on the bundled snapshot
-      config :omni, :providers, openai: [source: Omni.Sources.ModelsDev]
+  # keep one provider on the bundled snapshot
+  config :omni, :providers, openai: [source: Omni.Sources.ModelsDev]
+  ```
 
   llm_db must be in your deps — selecting this source without the package
   raises at boot:
 
-      {:llm_db, "~> 2026.7"}
+  ```elixir
+  {:llm_db, "~> 2026.7"}
+  ```
 
   Models are read from llm_db's catalog store and transformed at load time.
   A model loads for text when llm_db says it chats, supports tool use and

@@ -19,9 +19,11 @@ defmodule Omni.Dialect.Text do
   Carries message-level metadata. Does not produce a consumer event directly —
   the data is folded into the accumulating response.
 
-      {:message, %{model: "claude-sonnet-5-5"}}
-      {:message, %{stop_reason: :stop, usage: %{...}}}
-      {:message, %{private: %{key: value}}}
+  ```elixir
+  {:message, %{model: "claude-sonnet-5-5"}}
+  {:message, %{stop_reason: :stop, usage: %{...}}}
+  {:message, %{private: %{key: value}}}
+  ```
 
   Recognized keys: `:model` (string), `:stop_reason` (atom), `:usage` (map),
   `:private` (map merged into `Message.private`: list values append across
@@ -31,9 +33,11 @@ defmodule Omni.Dialect.Text do
 
   Signals the start of a new content block. Requires `:type` and `:index`:
 
-      {:block_start, %{type: :text, index: 0}}
-      {:block_start, %{type: :thinking, index: 0}}
-      {:block_start, %{type: :tool_use, index: 1, id: "call_1", name: "weather"}}
+  ```elixir
+  {:block_start, %{type: :text, index: 0}}
+  {:block_start, %{type: :thinking, index: 0}}
+  {:block_start, %{type: :tool_use, index: 1, id: "call_1", name: "weather"}}
+  ```
 
   The `:type` determines the consumer event name (`:text_start`, `:thinking_start`,
   `:tool_use_start`). Tool use blocks include `:id` and `:name`. Thinking blocks
@@ -45,9 +49,11 @@ defmodule Omni.Dialect.Text do
   An incremental update to a content block. Requires `:type`, `:index`, and
   typically `:delta`:
 
-      {:block_delta, %{type: :text, index: 0, delta: "Hello"}}
-      {:block_delta, %{type: :thinking, index: 0, delta: "Let me think..."}}
-      {:block_delta, %{type: :tool_use, index: 1, delta: "{\\"city\\":"}}
+  ```elixir
+  {:block_delta, %{type: :text, index: 0, delta: "Hello"}}
+  {:block_delta, %{type: :thinking, index: 0, delta: "Let me think..."}}
+  {:block_delta, %{type: :tool_use, index: 1, delta: "{\\"city\\":"}}
+  ```
 
   The `:delta` is a string fragment. For thinking blocks, `:signature` may be
   included for round-trip integrity tokens.
@@ -58,7 +64,9 @@ defmodule Omni.Dialect.Text do
   bare reason term rather than a map — matching Elixir's `{:error, reason}`
   convention:
 
-      {:error, "overloaded_error"}
+  ```elixir
+  {:error, "overloaded_error"}
+  ```
 
   ## Thinking
 
@@ -67,26 +75,26 @@ defmodule Omni.Dialect.Text do
   `Omni.Model`) decides what is sent, so every dialect agrees on how levels
   map to a model's effort values and budgets:
 
-    * `true` is `:medium`.
-    * Effort levels are clamped to the model's values on one ladder,
-      `minimal < low < medium < high < xhigh < max`: round up to the nearest
-      supported value, else down. A model whose only "on" value is
-      `"default"` gets `"default"`.
-    * Budgets come from the level (`low` 1024, `medium` 4096, `high` 16384,
-      `xhigh` 24576, `max` 32768) unless one is given, clamped to the
-      model's range.
+  - `true` is `:medium`.
+  - Effort levels are clamped to the model's values on one ladder,
+    `minimal < low < medium < high < xhigh < max`: round up to the nearest
+    supported value, else down. A model whose only "on" value is
+    `"default"` gets `"default"`.
+  - Budgets come from the level (`low` 1024, `medium` 4096, `high` 16384,
+    `xhigh` 24576, `max` 32768) unless one is given, clamped to the
+    model's range.
 
   `resolve_thinking/2` returns:
 
-    * `nil` — send nothing: thinking wasn't requested, the model doesn't
-      reason, or it was switched off on a model that can't be switched off
-    * `:off` — switch thinking off
-    * a map — on, with:
-      * `:level` — the requested Omni level
-      * `:effort` — the model's effort value for that level, or `nil` when
-        the model lists no effort values
-      * `:budget` — a token budget, or `nil` when the model takes none. Set
-        when the model has a budget range, or no thinking data at all.
+  - `nil` - send nothing: thinking wasn't requested, the model doesn't
+    reason, or it was switched off on a model that can't be switched off
+  - `:off` - switch thinking off
+  - a map — on, with:
+    - `:level` - the requested Omni level
+    - `:effort` - the model's effort value for that level, or `nil` when
+      the model lists no effort values
+    - `:budget` - a token budget, or `nil` when the model takes none. Set
+      when the model has a budget range, or no thinking data at all.
 
   On a model with no thinking data (`thinking: true`), `:effort` is `nil`
   and `:budget` is set; dialects fall back to their plain encoding of
@@ -98,37 +106,39 @@ defmodule Omni.Dialect.Text do
   already-validated inputs and returns plain data. No HTTP, no configuration,
   no side effects.
 
-      defmodule MyApp.Dialects.CustomFormat do
-        use Omni.Dialect, :text
+  ```elixir
+  defmodule MyApp.Dialects.CustomFormat do
+    use Omni.Dialect, :text
 
-        @impl true
-        def option_schema, do: %{}
+    @impl true
+    def option_schema, do: %{}
 
-        @impl true
-        def compat_schema, do: %{}
+    @impl true
+    def compat_schema, do: %{}
 
-        @impl true
-        def auth, do: :bearer
+    @impl true
+    def auth, do: :bearer
 
-        @impl true
-        def handle_path(_model, _opts), do: "/generate"
+    @impl true
+    def handle_path(_model, _opts), do: "/generate"
 
-        @impl true
-        def handle_body(model, context, opts) do
-          %{
-            "model" => model.id,
-            "messages" => encode_messages(context.messages),
-            "stream" => true
-          }
-        end
+    @impl true
+    def handle_body(model, context, opts) do
+      %{
+        "model" => model.id,
+        "messages" => encode_messages(context.messages),
+        "stream" => true
+      }
+    end
 
-        @impl true
-        def handle_event(%{"type" => "text", "content" => text}, _model) do
-          [{:block_delta, %{type: :text, index: 0, delta: text}}]
-        end
+    @impl true
+    def handle_event(%{"type" => "text", "content" => text}, _model) do
+      [{:block_delta, %{type: :text, index: 0, delta: text}}]
+    end
 
-        def handle_event(_event, _model), do: []
-      end
+    def handle_event(_event, _model), do: []
+  end
+  ```
   """
 
   alias Omni.{Context, Message, Model}
@@ -158,9 +168,11 @@ defmodule Omni.Dialect.Text do
   declare options unique to the API format, such as required parameters with
   defaults:
 
-      def option_schema do
-        %{max_tokens: {:integer, {:default, 4096}}}
-      end
+  ```elixir
+  def option_schema do
+    %{max_tokens: {:integer, {:default, 4096}}}
+  end
+  ```
 
   Return an empty map if the dialect has no additional options.
   """
@@ -174,7 +186,9 @@ defmodule Omni.Dialect.Text do
   segment (`https://api.openai.com/v1`), so the path does not. Most dialects
   return a static path:
 
-      def handle_path(_model, _opts), do: "/chat/completions"
+  ```elixir
+  def handle_path(_model, _opts), do: "/chat/completions"
+  ```
 
   Some API families interpolate the model ID into the path (e.g. Google
   Gemini uses `/models/{model}:streamGenerateContent`).
@@ -221,9 +235,11 @@ defmodule Omni.Dialect.Text do
   into the shape the API takes back. Not called when a stream ends in an
   error or is cancelled. Without it, the message is used as assembled.
 
-      def handle_message(%Message{private: %{chunks: chunks}} = message, _model) do
-        %{message | private: %{message.private | chunks: merge(chunks)}}
-      end
+  ```elixir
+  def handle_message(%Message{private: %{chunks: chunks}} = message, _model) do
+    %{message | private: %{message.private | chunks: merge(chunks)}}
+  end
+  ```
   """
   @callback handle_message(Message.t(), Model.t()) :: Message.t()
 
@@ -232,9 +248,11 @@ defmodule Omni.Dialect.Text do
   @doc """
   Resolves a `:thinking` option value for a model. See "Thinking" above.
 
-      model = %Omni.Model{id: "gpt-oss", name: "gpt-oss", thinking: %{efforts: ["low", "medium", "high"]}}
-      Omni.Dialect.Text.resolve_thinking(model, :max)
-      #=> %{level: :max, effort: "high", budget: nil}
+  ```elixir
+  model = %Omni.Model{id: "gpt-oss", name: "gpt-oss", thinking: %{efforts: ["low", "medium", "high"]}}
+  Omni.Dialect.Text.resolve_thinking(model, :max)
+  #=> %{level: :max, effort: "high", budget: nil}
+  ```
   """
   @spec resolve_thinking(Model.t(), term()) :: thinking()
   def resolve_thinking(%Model{thinking: false}, _option), do: nil

@@ -11,22 +11,22 @@ defmodule Omni.Model do
 
   ## Struct fields
 
-    * `:id` — the provider's string identifier (e.g. `"claude-sonnet-5-5"`)
-    * `:name` — human-readable display name (e.g. `"Claude Sonnet 5.5"`)
-    * `:provider` — the `%Omni.Provider{}` serving the model
-    * `:dialects` — the dialect module per capability (`:text`, `:decision`),
-      e.g. `%{text: Omni.Dialects.AnthropicMessages}`
-    * `:context_size` — maximum input tokens the model accepts
-    * `:max_output_tokens` — maximum tokens the model can generate
-    * `:thinking` — what thinking the model supports: `false` (none), `true`
-      (supported, with no detail), or a map of what it accepts (see below)
-    * `:input_modalities` — supported input types (`:text`, `:image`, `:pdf`)
-    * `:output_modalities` — supported output types (`:text`)
-    * `:input_cost` — USD cost per million input tokens
-    * `:output_cost` — USD cost per million output tokens
-    * `:cache_read_cost` — USD cost per million cached input tokens (read)
-    * `:cache_write_cost` — USD cost per million cached input tokens (write)
-    * `:release_date` — date the model was released (from models.dev)
+  - `:id` - the provider's string identifier (e.g. `"claude-sonnet-5-5"`)
+  - `:name` - human-readable display name (e.g. `"Claude Sonnet 5.5"`)
+  - `:provider` - the `%Omni.Provider{}` serving the model
+  - `:dialects` - the dialect module per capability (`:text`, `:decision`),
+    e.g. `%{text: Omni.Dialects.AnthropicMessages}`
+  - `:context_size` - maximum input tokens the model accepts
+  - `:max_output_tokens` - maximum tokens the model can generate
+  - `:thinking` - what thinking the model supports: `false` (none), `true`
+    (supported, with no detail), or a map of what it accepts (see below)
+  - `:input_modalities` - supported input types (`:text`, `:image`, `:pdf`)
+  - `:output_modalities` - supported output types (`:text`)
+  - `:input_cost` - USD cost per million input tokens
+  - `:output_cost` - USD cost per million output tokens
+  - `:cache_read_cost` - USD cost per million cached input tokens (read)
+  - `:cache_write_cost` - USD cost per million cached input tokens (write)
+  - `:release_date` - date the model was released (from models.dev)
 
   ## Capabilities and modalities
 
@@ -37,8 +37,10 @@ defmodule Omni.Model do
   serve both (OpenAI's `gpt-6-luna`). Read them with `capabilities/1`,
   `capability?/2` and `dialect/2`:
 
-      {:ok, models} = Omni.list_models(:openrouter)
-      Enum.filter(models, &Omni.Model.capability?(&1, :decision))
+  ```elixir
+  {:ok, models} = Omni.list_models(:openrouter)
+  Enum.filter(models, &Omni.Model.capability?(&1, :decision))
+  ```
 
   A **modality** is a kind of content going in or out: `:text`, `:image`,
   `:pdf`. Text generation checks attachments against `:input_modalities`.
@@ -54,14 +56,18 @@ defmodule Omni.Model do
   `:thinking` tells dialects how to translate the `:thinking` request option
   into something the model accepts. A map carries any of:
 
-    * `:efforts` — the effort values the model takes, as wire strings
-      (`["low", "medium", "high"]`). `"none"` means it can be switched off.
-    * `:toggle` — `true` when thinking is switched on and off as a whole
-    * `:budget` — `{min, max}` when the model takes a token budget; either
-      bound may be `nil`
+  - `:efforts` - the effort values the model takes, as wire strings
+    (`["low", "medium", "high"]`). `"none"` means it can be switched off.
+  - `:toggle` - `true` when thinking is switched on and off as a whole
+  - `:budget` - `{min, max}` when the model takes a token budget; either
+    bound may be `nil`
 
-      %Omni.Model{thinking: %{efforts: ["none", "low", "medium", "high"]}}
-      %Omni.Model{thinking: %{toggle: true, budget: {0, 24_576}}}
+  For example:
+
+  ```elixir
+  %Omni.Model{thinking: %{efforts: ["none", "low", "medium", "high"]}}
+  %Omni.Model{thinking: %{toggle: true, budget: {0, 24_576}}}
+  ```
 
   Sources fill it from catalog data. `true` means the model reasons but
   nothing more is known; requests then fall back to each dialect's plain
@@ -72,16 +78,20 @@ defmodule Omni.Model do
   Most users access models through the top-level API with a model reference
   — Omni resolves it automatically:
 
-      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
-      {:ok, response} = Omni.generate_text("anthropic:claude-sonnet-5-5", "Hello!")
+  ```elixir
+  {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
+  {:ok, response} = Omni.generate_text("anthropic:claude-sonnet-5-5", "Hello!")
+  ```
 
   To inspect a model's capabilities or browse what's available:
 
-      {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-5-5")
-      model.context_size  #=> 1000000
+  ```elixir
+  {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-5-5")
+  model.context_size  #=> 1000000
 
-      {:ok, models} = Omni.list_models(:openai)
-      Enum.map(models, & &1.id)
+  {:ok, models} = Omni.list_models(:openai)
+  Enum.map(models, & &1.id)
+  ```
 
   ## Model references
 
@@ -89,9 +99,11 @@ defmodule Omni.Model do
   string. Strings take a colon or a slash; the provider id ends at the first
   of either, so model ids keep any they hold:
 
-      {:openrouter, "typesafe/jev-1.14"}
-      "openrouter:typesafe/jev-1.14"
-      "openrouter/typesafe/jev-1.14"
+  ```elixir
+  {:openrouter, "typesafe/jev-1.14"}
+  "openrouter:typesafe/jev-1.14"
+  "openrouter/typesafe/jev-1.14"
+  ```
 
   The provider may be spelled as its catalog key (`"fireworks-ai:…"` for
   `:fireworks_ai`). A bare model id is not a reference: the same id can be
@@ -100,12 +112,14 @@ defmodule Omni.Model do
   `to_ref/2` writes a model or tuple in any form, `parse_ref/1` reads a string
   back into a tuple, and interpolation gives the colon form:
 
-      Model.to_ref(model)          #=> {:anthropic, "claude-sonnet-5-5"}
-      Model.to_ref(model, :slash)  #=> "anthropic/claude-sonnet-5-5"
-      "\#{model}"                   #=> "anthropic:claude-sonnet-5-5"
+  ```elixir
+  Model.to_ref(model)          #=> {:anthropic, "claude-sonnet-5-5"}
+  Model.to_ref(model, :slash)  #=> "anthropic/claude-sonnet-5-5"
+  "\#{model}"                   #=> "anthropic:claude-sonnet-5-5"
 
-      Model.parse_ref("anthropic:claude-sonnet-5-5")
-      #=> {:ok, {:anthropic, "claude-sonnet-5-5"}}
+  Model.parse_ref("anthropic:claude-sonnet-5-5")
+  #=> {:ok, {:anthropic, "claude-sonnet-5-5"}}
+  ```
 
   ## Custom models
 
@@ -113,38 +127,46 @@ defmodule Omni.Model do
   add it under its provider in config. A new model names its dialect, since
   there is no catalog data to take it from:
 
-      config :omni, :providers,
-        openai: [
-          models: [
-            [id: "ft:gpt-4o:acme::abc123", dialects: %{text: Omni.Dialects.OpenAIResponses}]
-          ]
-        ]
+  ```elixir
+  config :omni, :providers,
+    openai: [
+      models: [
+        [id: "ft:gpt-4o:acme::abc123", dialects: %{text: Omni.Dialects.OpenAIResponses}]
+      ]
+    ]
+  ```
 
   A decision model names its decision dialect the same way:
 
-      config :omni, :providers,
-        ollama: [models: [[id: "clef", dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}]]]
+  ```elixir
+  config :omni, :providers,
+    ollama: [models: [[id: "clef", dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}]]]
+  ```
 
   An entry whose id the catalog already has is merged over the catalog
   model instead, which corrects catalog data without restating it:
 
-      config :omni, :providers,
-        openai: [models: [[id: "gpt-6", context_size: 1_000_000]]]
+  ```elixir
+  config :omni, :providers,
+    openai: [models: [[id: "gpt-6", context_size: 1_000_000]]]
+  ```
 
   Or create and register one at runtime:
 
-      model = Omni.Model.new(
-        id: "my-fine-tune",
-        name: "My Fine-Tune",
-        provider: :openai,
-        dialects: %{text: Omni.Dialects.OpenAIResponses},
-        context_size: 128_000,
-        max_output_tokens: 16_384,
-        input_cost: 2.0,
-        output_cost: 8.0
-      )
+  ```elixir
+  model = Omni.Model.new(
+    id: "my-fine-tune",
+    name: "My Fine-Tune",
+    provider: :openai,
+    dialects: %{text: Omni.Dialects.OpenAIResponses},
+    context_size: 128_000,
+    max_output_tokens: 16_384,
+    input_cost: 2.0,
+    output_cost: 8.0
+  )
 
-      Omni.put_model(model)
+  Omni.put_model(model)
+  ```
 
   The model is now discoverable via `Omni.get_model/2` and `Omni.list_models/1`,
   and can be used directly as a struct with `generate_text/3` and `stream_text/3`.
@@ -238,10 +260,12 @@ defmodule Omni.Model do
   The format is `:tuple` (the default), `:colon` or `:slash`. To reformat a
   string reference, read it with `parse_ref/1` first.
 
-      {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-5-5")
-      Model.to_ref(model)          #=> {:anthropic, "claude-sonnet-5-5"}
-      Model.to_ref(model, :colon)  #=> "anthropic:claude-sonnet-5-5"
-      Model.to_ref(model, :slash)  #=> "anthropic/claude-sonnet-5-5"
+  ```elixir
+  {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-5-5")
+  Model.to_ref(model)          #=> {:anthropic, "claude-sonnet-5-5"}
+  Model.to_ref(model, :colon)  #=> "anthropic:claude-sonnet-5-5"
+  Model.to_ref(model, :slash)  #=> "anthropic/claude-sonnet-5-5"
+  ```
   """
   @spec to_ref(t() | {atom(), String.t()}, ref_format()) :: ref()
   def to_ref(model, format \\ :tuple)
@@ -266,9 +290,11 @@ defmodule Omni.Model do
   spelled as its catalog key. The provider must be loaded; the model is not
   looked up (see `get/1`).
 
-      Model.parse_ref("openrouter:typesafe/jev-1.14")  #=> {:ok, {:openrouter, "typesafe/jev-1.14"}}
-      Model.parse_ref("fireworks-ai/accounts/fireworks/models/kimi-k3")
-      #=> {:ok, {:fireworks_ai, "accounts/fireworks/models/kimi-k3"}}
+  ```elixir
+  Model.parse_ref("openrouter:typesafe/jev-1.14")  #=> {:ok, {:openrouter, "typesafe/jev-1.14"}}
+  Model.parse_ref("fireworks-ai/accounts/fireworks/models/kimi-k3")
+  #=> {:ok, {:fireworks_ai, "accounts/fireworks/models/kimi-k3"}}
+  ```
 
   Returns `{:error, {:invalid_model_ref, ref}}` when the string has no
   provider and model id to split, and `{:error, {:unknown_provider, name}}`,
@@ -303,9 +329,11 @@ defmodule Omni.Model do
   @doc """
   Returns the model's dialect for a capability.
 
-      {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-5-5")
-      Model.dialect(model, :text)      #=> {:ok, Omni.Dialects.AnthropicMessages}
-      Model.dialect(model, :decision)  #=> {:error, {:unsupported_capability, :decision}}
+  ```elixir
+  {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-5-5")
+  Model.dialect(model, :text)      #=> {:ok, Omni.Dialects.AnthropicMessages}
+  Model.dialect(model, :decision)  #=> {:error, {:unsupported_capability, :decision}}
+  ```
   """
   @spec dialect(t(), capability()) ::
           {:ok, module()} | {:error, {:unsupported_capability, capability()}}
@@ -319,8 +347,10 @@ defmodule Omni.Model do
   @doc """
   Returns the capabilities the model serves, in sorted order.
 
-      {:ok, model} = Omni.get_model(:openai, "gpt-6-luna")
-      Model.capabilities(model)  #=> [:decision, :text]
+  ```elixir
+  {:ok, model} = Omni.get_model(:openai, "gpt-6-luna")
+  Model.capabilities(model)  #=> [:decision, :text]
+  ```
   """
   @spec capabilities(t()) :: [capability()]
   def capabilities(%__MODULE__{dialects: dialects}),
@@ -329,8 +359,10 @@ defmodule Omni.Model do
   @doc """
   Returns whether the model serves a capability.
 
-      {:ok, models} = Omni.list_models(:openrouter)
-      Enum.filter(models, &Model.capability?(&1, :decision))
+  ```elixir
+  {:ok, models} = Omni.list_models(:openrouter)
+  Enum.filter(models, &Model.capability?(&1, :decision))
+  ```
   """
   @spec capability?(t(), capability()) :: boolean()
   def capability?(%__MODULE__{} = model, capability),
@@ -339,8 +371,10 @@ defmodule Omni.Model do
   @doc """
   Looks up a model by reference: a tuple or a string (see `t:ref/0`).
 
-      Model.get("anthropic:claude-sonnet-5-5")
-      Model.get({:anthropic, "claude-sonnet-5-5"})
+  ```elixir
+  Model.get("anthropic:claude-sonnet-5-5")
+  Model.get({:anthropic, "claude-sonnet-5-5"})
+  ```
 
   Returns the errors of `parse_ref/1` for a string, then those of `get/2`.
   """

@@ -12,18 +12,20 @@ defmodule Omni.Schema do
 
   ## Example
 
-      iex> Omni.Schema.object(%{
-      ...>   city: Omni.Schema.string(description: "City name"),
-      ...>   temp: Omni.Schema.number()
-      ...> }, required: [:city])
-      %{
-        type: "object",
-        properties: %{
-          city: %{type: "string", description: "City name"},
-          temp: %{type: "number"}
-        },
-        required: [:city]
-      }
+  ```elixir
+  iex> Omni.Schema.object(%{
+  ...>   city: Omni.Schema.string(description: "City name"),
+  ...>   temp: Omni.Schema.number()
+  ...> }, required: [:city])
+  %{
+    type: "object",
+    properties: %{
+      city: %{type: "string", description: "City name"},
+      temp: %{type: "number"}
+    },
+    required: [:city]
+  }
+  ```
 
   ## Custom validators
 
@@ -103,7 +105,9 @@ defmodule Omni.Schema do
   @doc """
   Merges additional options into an existing schema map.
 
-      Schema.string() |> Schema.update(min_length: 1, max_length: 100)
+  ```elixir
+  Schema.string() |> Schema.update(min_length: 1, max_length: 100)
+  ```
   """
   @spec update(map(), keyword()) :: map()
   def update(schema, opts) do

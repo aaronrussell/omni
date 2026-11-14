@@ -27,22 +27,22 @@ defmodule Omni.Dialects.OpenAICompletions do
 
   `:thinking_toggle_format` values:
 
-    * `:thinking_type` — `thinking: {type: "enabled" | "disabled"}`
-    * `:enable_thinking` — `enable_thinking: true | false`
-    * `:reasoning_enabled` — `reasoning: {enabled: true | false}`
+  - `:thinking_type` - `thinking: {type: "enabled" | "disabled"}`
+  - `:enable_thinking` - `enable_thinking: true | false`
+  - `:reasoning_enabled` - `reasoning: {enabled: true | false}`
 
   `:thinking_replay_format` values:
 
-    * `:none` — reasoning is not sent back
-    * `:reasoning_content` — sends the message's thinking text in a
-      `reasoning_content` field on that assistant message
-    * `:reasoning` — the same, in a `reasoning` field
-    * `:reasoning_details` — captures `reasoning_details` from responses and
-      sends them back on that assistant message; streamed fragments are
-      merged into one entry per reasoning block when the stream completes
-    * `:content_chunks` — sends the message's thinking as one leading
-      `{type: "thinking", thinking: [{type: "text", ...}]}` part of a
-      `content` array, before its text parts
+  - `:none` - reasoning is not sent back
+  - `:reasoning_content` - sends the message's thinking text in a
+    `reasoning_content` field on that assistant message
+  - `:reasoning` - the same, in a `reasoning` field
+  - `:reasoning_details` - captures `reasoning_details` from responses and
+    sends them back on that assistant message; streamed fragments are
+    merged into one entry per reasoning block when the stream completes
+  - `:content_chunks` - sends the message's thinking as one leading
+    `{type: "thinking", thinking: [{type: "text", ...}]}` part of a
+    `content` array, before its text parts
 
   Models that list effort values (see `Omni.Model`) take the effort, even
   when a toggle format is set; the toggle switches them off, and switches on

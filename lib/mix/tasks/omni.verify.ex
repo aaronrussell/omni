@@ -4,9 +4,11 @@ defmodule Mix.Tasks.Omni.Verify do
   @moduledoc """
   Runs a set of live scenarios against one model and reports which pass.
 
-      mix omni.verify anthropic:claude-haiku-5-5
-      mix omni.verify openai:gpt-6-luna --add image,pdf
-      mix omni.verify fireworks_ai:accounts/fireworks/models/kimi-k3 --only text,tool_use
+  ```sh
+  mix omni.verify anthropic:claude-haiku-5-5
+  mix omni.verify openai:gpt-6-luna --add image,pdf
+  mix omni.verify fireworks_ai:accounts/fireworks/models/kimi-k3 --only text,tool_use
+  ```
 
   The model is a `provider:model` reference (a slash works too), or the
   provider id and model id as two arguments.
@@ -32,45 +34,45 @@ defmodule Mix.Tasks.Omni.Verify do
 
   Text, run by default:
 
-    * `text` — a short prompt; passes on a `:stop` response with text
-    * `thinking` — a reasoning question with `thinking: :low`; passes when
-      the response shows thinking (text, a signature, or redacted data)
-    * `tool_use` — a weather tool without a handler; passes on a
-      `get_weather` tool use for London
-    * `structured_output` — an object schema via `:output`; passes when the
-      output matches it
+  - `text` - a short prompt; passes on a `:stop` response with text
+  - `thinking` - a reasoning question with `thinking: :low`; passes when
+    the response shows thinking (text, a signature, or redacted data)
+  - `tool_use` - a weather tool without a handler; passes on a
+    `get_weather` tool use for London
+  - `structured_output` - an object schema via `:output`; passes when the
+    output matches it
 
   Text, run on request:
 
-    * `no_thinking` — the reasoning question with `thinking: false`; passes
-      when no thinking comes back. Only meaningful on a model whose data says
-      it can switch thinking off: on one that can't, Omni sends nothing and
-      the model reasons as usual.
-    * `image` — a PNG logo; passes when the answer names the brand
-    * `pdf` — a one-page PDF; passes when the answer names the author
-    * `kitchen_sink` — two tools with handlers and `thinking: :low`, run
-      through the tool loop, then a follow-up turn over the whole history;
-      passes when both turns finish with text after at least one tool round
-    * `cache_usage` — a long system prompt with `cache: :short`, then a
-      second turn on top of the first; passes when the second turn reports
-      cache-read tokens
+  - `no_thinking` - the reasoning question with `thinking: false`; passes
+    when no thinking comes back. Only meaningful on a model whose data says
+    it can switch thinking off: on one that can't, Omni sends nothing and
+    the model reasons as usual.
+  - `image` - a PNG logo; passes when the answer names the brand
+  - `pdf` - a one-page PDF; passes when the answer names the author
+  - `kitchen_sink` - two tools with handlers and `thinking: :low`, run
+    through the tool loop, then a follow-up turn over the whole history;
+    passes when both turns finish with text after at least one tool round
+  - `cache_usage` - a long system prompt with `cache: :short`, then a
+    second turn on top of the first; passes when the second turn reports
+    cache-read tokens
 
   Decision, run by default:
 
-    * `decision` — a string state with a predicate, a choice and a score;
-      passes when every answer is well formed and the clear-cut predicate
-      and choice come back as expected (the score is checked for shape only)
-    * `decision_json` — a map state and a question with map instructions;
-      passes on the same rule
+  - `decision` - a string state with a predicate, a choice and a score;
+    passes when every answer is well formed and the clear-cut predicate
+    and choice come back as expected (the score is checked for shape only)
+  - `decision_json` - a map state and a question with map instructions;
+    passes on the same rule
 
   A scenario a model doesn't support fails; select the ones that apply.
 
   ## Options
 
-    * `--only a,b` — run exactly these scenarios
-    * `--add a,b` — run these as well as the defaults
-    * `--skip a,b` — leave these out of the defaults
-    * `--delay ms` — pause between scenarios, for rate-limited accounts
+  - `--only a,b` - run exactly these scenarios
+  - `--add a,b` - run these as well as the defaults
+  - `--skip a,b` - leave these out of the defaults
+  - `--delay ms` - pause between scenarios, for rate-limited accounts
   """
 
   use Mix.Task

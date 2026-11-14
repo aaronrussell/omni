@@ -42,7 +42,9 @@ defmodule Omni.Message do
   content is wrapped in a `Text` block, and so is each string in a content
   list:
 
-      Message.new(role: :user, content: ["What's in this image?", Attachment.new({:base64, png}, "image/png")])
+  ```elixir
+  Message.new(role: :user, content: ["What's in this image?", Attachment.new({:base64, png}, "image/png")])
+  ```
 
   A timestamp is auto-assigned via `DateTime.utc_now/0` unless explicitly
   set.
@@ -50,7 +52,9 @@ defmodule Omni.Message do
   `:origin` takes the `%Model{}` that wrote the message, recorded as its
   reference and dialect, or an origin map as is:
 
-      Message.new(role: :assistant, content: "Hi", origin: model)
+  ```elixir
+  Message.new(role: :assistant, content: "Hi", origin: model)
+  ```
   """
   @spec new(Enumerable.t() | String.t() | t()) :: t()
   def new(%__MODULE__{} = message), do: message

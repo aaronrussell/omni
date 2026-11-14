@@ -88,8 +88,8 @@ defmodule Omni.Verify do
 
   ## Options
 
-    * `:delay` — milliseconds to pause between scenarios (default `0`)
-    * `:on_result` — a 1-arity function called with each result as it lands
+  - `:delay` - milliseconds to pause between scenarios (default `0`)
+  - `:on_result` - a 1-arity function called with each result as it lands
 
   Other options pass through to `Omni.generate_text/3` or `Omni.decide/3`
   (for example `:api_key` or `:plug`). `:timeout` (the longest wait for a

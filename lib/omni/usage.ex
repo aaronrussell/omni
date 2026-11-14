@@ -8,12 +8,12 @@ defmodule Omni.Usage do
 
   ## Struct fields
 
-    * `:input_tokens`, `:output_tokens` — request and generated token counts
-    * `:cache_read_tokens`, `:cache_write_tokens` — prompt caching token counts
-    * `:total_tokens` — sum of all token counts
-    * `:input_cost`, `:output_cost`, `:cache_read_cost`, `:cache_write_cost` —
-      per-category USD costs derived from model pricing
-    * `:total_cost` — sum of all USD cost fields
+  - `:input_tokens`, `:output_tokens` - request and generated token counts
+  - `:cache_read_tokens`, `:cache_write_tokens` - prompt caching token counts
+  - `:total_tokens` - sum of all token counts
+  - `:input_cost`, `:output_cost`, `:cache_read_cost`, `:cache_write_cost` -
+    per-category USD costs derived from model pricing
+  - `:total_cost` - sum of all USD cost fields
 
   All fields default to `0`. Use `add/2` and `sum/1` to accumulate across
   multiple requests.
@@ -56,10 +56,12 @@ defmodule Omni.Usage do
   `:total_cost` are the sums of the four categories. Existing costs and
   totals are overwritten.
 
-      usage = Usage.new(input_tokens: 1_000, output_tokens: 200)
-      Usage.price(usage, model)
-      #=> %Usage{input_tokens: 1000, output_tokens: 200, total_tokens: 1200,
-      #          input_cost: 0.003, output_cost: 0.003, total_cost: 0.006, ...}
+  ```elixir
+  usage = Usage.new(input_tokens: 1_000, output_tokens: 200)
+  Usage.price(usage, model)
+  #=> %Usage{input_tokens: 1000, output_tokens: 200, total_tokens: 1200,
+  #          input_cost: 0.003, output_cost: 0.003, total_cost: 0.006, ...}
+  ```
   """
   @spec price(t(), Omni.Model.t() | nil) :: t()
   def price(%__MODULE__{} = usage, model) do

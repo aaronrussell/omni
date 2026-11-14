@@ -7,9 +7,9 @@ defmodule Omni.Dialect do
   corresponds to one API format (e.g. Anthropic Messages, OpenAI Chat
   Completions) and serves one capability:
 
-    * `Omni.Dialect.Text` — text generation, streamed (`Omni.stream_text/3`)
-    * `Omni.Dialect.Decision` — decisions: typed questions answered with
-      probabilities (`Omni.decide/3`)
+  - `Omni.Dialect.Text` - text generation, streamed (`Omni.stream_text/3`)
+  - `Omni.Dialect.Decision` - decisions: typed questions answered with
+    probabilities (`Omni.decide/3`)
 
   This module is the base every dialect shares: how the home API
   authenticates (`c:auth/0`) and the compat flags it understands
@@ -25,18 +25,18 @@ defmodule Omni.Dialect do
 
   Text:
 
-    * `Omni.Dialects.OpenAICompletions` — OpenAI Chat Completions format, used
-      by most third-party providers (Groq, Together, Fireworks, DeepSeek, etc.)
-    * `Omni.Dialects.OpenAIResponses` — OpenAI's newer Responses API format
-    * `Omni.Dialects.AnthropicMessages` — Anthropic Messages format
-    * `Omni.Dialects.GoogleGenerateContent` — Gemini API `generateContent` format
-    * `Omni.Dialects.OllamaChat` — Ollama native chat format (NDJSON streaming)
+  - `Omni.Dialects.OpenAICompletions` - OpenAI Chat Completions format, used
+    by most third-party providers (Groq, Together, Fireworks, DeepSeek, etc.)
+  - `Omni.Dialects.OpenAIResponses` - OpenAI's newer Responses API format
+  - `Omni.Dialects.AnthropicMessages` - Anthropic Messages format
+  - `Omni.Dialects.GoogleGenerateContent` - Gemini API `generateContent` format
+  - `Omni.Dialects.OllamaChat` - Ollama native chat format (NDJSON streaming)
 
   Decision:
 
-    * `Omni.Dialects.TypeSafeSystemOne` — TypeSafe's System One format, served by
-      TypeSafe, OpenRouter, OpenCode Zen, Ollama and others
-    * `Omni.Dialects.OpenAIDecisions` — OpenAI's Decisions API
+  - `Omni.Dialects.TypeSafeSystemOne` - TypeSafe's System One format, served by
+    TypeSafe, OpenRouter, OpenCode Zen, Ollama and others
+  - `Omni.Dialects.OpenAIDecisions` - OpenAI's Decisions API
 
   ## Dialect registry
 
@@ -60,17 +60,19 @@ defmodule Omni.Dialect do
   `use Omni.Dialect` with the capability the dialect serves. It declares
   both behaviours, this one and the capability's, and nothing more:
 
-      defmodule MyApp.Dialects.CustomFormat do
-        use Omni.Dialect, :text
+  ```elixir
+  defmodule MyApp.Dialects.CustomFormat do
+    use Omni.Dialect, :text
 
-        @impl true
-        def auth, do: :bearer
+    @impl true
+    def auth, do: :bearer
 
-        @impl true
-        def compat_schema, do: %{}
+    @impl true
+    def compat_schema, do: %{}
 
-        # ...and the callbacks of Omni.Dialect.Text
-      end
+    # ...and the callbacks of Omni.Dialect.Text
+  end
+  ```
 
   A dialect serves exactly one capability. A provider that serves two lists
   a dialect for each. See `Omni.Dialect.Text` and `Omni.Dialect.Decision`
@@ -139,8 +141,10 @@ defmodule Omni.Dialect do
   Reads the flags of the provider's endpoint for the dialect, returning `%{}`
   when it sets none (or the model has no provider):
 
-      compat = Omni.Dialect.compat(model, __MODULE__)
-      field = Map.get(compat, :max_tokens_field, "max_completion_tokens")
+  ```elixir
+  compat = Omni.Dialect.compat(model, __MODULE__)
+  field = Map.get(compat, :max_tokens_field, "max_completion_tokens")
+  ```
   """
   @spec compat(Model.t(), module()) :: map()
   def compat(%Model{provider: %Provider{dialects: dialects}}, dialect) do
@@ -159,8 +163,10 @@ defmodule Omni.Dialect do
   Read from the capability behaviour the module declares (see
   `use Omni.Dialect`):
 
-      Omni.Dialect.capability(Omni.Dialects.AnthropicMessages)  #=> :text
-      Omni.Dialect.capability(Omni.Dialects.TypeSafeSystemOne)  #=> :decision
+  ```elixir
+  Omni.Dialect.capability(Omni.Dialects.AnthropicMessages)  #=> :text
+  Omni.Dialect.capability(Omni.Dialects.TypeSafeSystemOne)  #=> :decision
+  ```
   """
   @spec capability(module()) :: :text | :decision | nil
   def capability(module) when is_atom(module) do
@@ -186,9 +192,11 @@ defmodule Omni.Dialect do
   deviation from the dialect's home API, so an absent flag means home-API
   behaviour:
 
-      def compat_schema do
-        %{max_tokens_field: :string, omit: {:list, {:enum, [:cache]}}}
-      end
+  ```elixir
+  def compat_schema do
+    %{max_tokens_field: :string, omit: {:list, {:enum, [:cache]}}}
+  end
+  ```
 
   Return an empty map if the dialect has no flags.
   """
@@ -202,7 +210,9 @@ defmodule Omni.Dialect do
   API does — and a gateway serving several dialects authenticates each model
   correctly:
 
-      def auth, do: {:header, "x-api-key"}
+  ```elixir
+  def auth, do: {:header, "x-api-key"}
+  ```
 
   Return `:bearer` for an `Authorization: Bearer <key>` header, or
   `{:header, name}` to send the raw key on a named header.

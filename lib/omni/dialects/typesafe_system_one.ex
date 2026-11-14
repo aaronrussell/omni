@@ -8,16 +8,16 @@ defmodule Omni.Dialects.TypeSafeSystemOne do
 
   ## Encoding
 
-    * The state and each question's instructions are parts: one part is sent
-      on its own (a text part as a string, a data part as an object), several
-      as an array of them.
-    * Questions go in a map keyed by name. A predicate is a `noul` question,
-      and its criteria become `{"true": ..., "false": ...}`.
-    * Choices are sent as `{key: description}`, a `nil` description meaning
-      the choice is judged by its key.
-    * Levels are sent as a list of descriptions, lowest first; a level with no
-      description sends its key. System One numbers levels by position, so
-      the keys only map the answer back.
+  - The state and each question's instructions are parts: one part is sent
+    on its own (a text part as a string, a data part as an object), several
+    as an array of them.
+  - Questions go in a map keyed by name. A predicate is a `noul` question,
+    and its criteria become `{"true": ..., "false": ...}`.
+  - Choices are sent as `{key: description}`, a `nil` description meaning
+    the choice is judged by its key.
+  - Levels are sent as a list of descriptions, lowest first; a level with no
+    description sends its key. System One numbers levels by position, so
+    the keys only map the answer back.
 
   ## Answers
 

@@ -6,20 +6,24 @@ defmodule Omni.StreamingResponse do
 
   ## Stream to UI and get the final response
 
-      {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
+  ```elixir
+  {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
 
-      {:ok, response} =
-        stream
-        |> StreamingResponse.on(:text_delta, fn %{delta: d} -> IO.write(d) end)
-        |> StreamingResponse.complete()
+  {:ok, response} =
+    stream
+    |> StreamingResponse.on(:text_delta, fn %{delta: d} -> IO.write(d) end)
+    |> StreamingResponse.complete()
+  ```
 
   ## Just the text chunks
 
-      {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
+  ```elixir
+  {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
 
-      stream
-      |> StreamingResponse.text_stream()
-      |> Enum.each(&IO.write/1)
+  stream
+  |> StreamingResponse.text_stream()
+  |> Enum.each(&IO.write/1)
+  ```
 
   ## Full event control
 
@@ -27,16 +31,18 @@ defmodule Omni.StreamingResponse do
   partial_response}` tuples. The partial response is rebuilt after every event to
   reflect the current state of the stream:
 
-      {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
+  ```elixir
+  {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
 
-      for {type, data, _partial} <- stream do
-        case type do
-          :text_delta -> IO.write(data.delta)
-          :tool_use_start -> IO.puts("Calling tool: \#{data.name}")
-          :done -> IO.puts("\\nDone! Stop reason: \#{data.stop_reason}")
-          _ -> :ok
-        end
-      end
+  for {type, data, _partial} <- stream do
+    case type do
+      :text_delta -> IO.write(data.delta)
+      :tool_use_start -> IO.puts("Calling tool: \#{data.name}")
+      :done -> IO.puts("\\nDone! Stop reason: \#{data.stop_reason}")
+      _ -> :ok
+    end
+  end
+  ```
 
   ## Event types
 
@@ -45,28 +51,34 @@ defmodule Omni.StreamingResponse do
   block starts (or at stream completion, for the last block), so a block
   always closes before another opens:
 
-      {:text_start,     %{index: 0}, %Response{}}
-      {:text_delta,     %{index: 0, delta: "Hello"}, %Response{}}
-      {:text_end,       %{index: 0, content: %Text{}}, %Response{}}
+  ```elixir
+  {:text_start,     %{index: 0}, %Response{}}
+  {:text_delta,     %{index: 0, delta: "Hello"}, %Response{}}
+  {:text_end,       %{index: 0, content: %Text{}}, %Response{}}
 
-      {:thinking_start, %{index: 0}, %Response{}}
-      {:thinking_delta, %{index: 0, delta: "..."}, %Response{}}
-      {:thinking_end,   %{index: 0, content: %Thinking{}}, %Response{}}
+  {:thinking_start, %{index: 0}, %Response{}}
+  {:thinking_delta, %{index: 0, delta: "..."}, %Response{}}
+  {:thinking_end,   %{index: 0, content: %Thinking{}}, %Response{}}
 
-      {:tool_use_start, %{index: 1, id: "call_1", name: "weather"}, %Response{}}
-      {:tool_use_delta, %{index: 1, delta: "{\\"city\\":"}, %Response{}}
-      {:tool_use_end,   %{index: 1, content: %ToolUse{}}, %Response{}}
+  {:tool_use_start, %{index: 1, id: "call_1", name: "weather"}, %Response{}}
+  {:tool_use_delta, %{index: 1, delta: "{\\"city\\":"}, %Response{}}
+  {:tool_use_end,   %{index: 1, content: %ToolUse{}}, %Response{}}
+  ```
 
   Tool results are emitted between rounds when tools are auto-executed. The
   third element is the completed response from the step that triggered tool
   execution (not a partial response):
 
-      {:tool_result, %ToolResult{}, %Response{}}
+  ```elixir
+  {:tool_result, %ToolResult{}, %Response{}}
+  ```
 
   Terminal events — every stream ends with exactly one of these:
 
-      {:done,  %{stop_reason: :stop}, %Response{}}
-      {:error, reason, %Response{}}
+  ```elixir
+  {:done,  %{stop_reason: :stop}, %Response{}}
+  {:error, reason, %Response{}}
+  ```
   """
 
   alias Omni.{Message, Model, Request, Response, Usage}
@@ -149,19 +161,23 @@ defmodule Omni.StreamingResponse do
 
   Multiple handlers can be chained — all fire independently:
 
-      {:ok, response} =
-        stream
-        |> StreamingResponse.on(:text_delta, fn %{delta: d} -> IO.write(d) end)
-        |> StreamingResponse.on(:thinking_delta, fn %{delta: d} -> IO.write(d) end)
-        |> StreamingResponse.on(:done, fn %{stop_reason: r} -> IO.puts("\\nStop: \#{r}") end)
-        |> StreamingResponse.complete()
+  ```elixir
+  {:ok, response} =
+    stream
+    |> StreamingResponse.on(:text_delta, fn %{delta: d} -> IO.write(d) end)
+    |> StreamingResponse.on(:thinking_delta, fn %{delta: d} -> IO.write(d) end)
+    |> StreamingResponse.on(:done, fn %{stop_reason: r} -> IO.puts("\\nStop: \#{r}") end)
+    |> StreamingResponse.complete()
+  ```
 
   Use an arity-2 callback to access the partial response (e.g. for progress
   tracking based on accumulated token usage):
 
-      StreamingResponse.on(stream, :text_delta, fn _event, partial ->
-        send(self(), {:tokens, partial.usage.output_tokens})
-      end)
+  ```elixir
+  StreamingResponse.on(stream, :text_delta, fn _event, partial ->
+    send(self(), {:tokens, partial.usage.output_tokens})
+  end)
+  ```
   """
   @spec on(t(), event_type(), (map() -> any()) | (map(), Response.t() -> any())) :: t()
   def on(%__MODULE__{} = sr, event_type, callback)
@@ -192,9 +208,11 @@ defmodule Omni.StreamingResponse do
   Filters the event stream to only `:text_delta` events and extracts the
   delta string from each. Useful when you only need the text content:
 
-      stream
-      |> StreamingResponse.text_stream()
-      |> Enum.into("")
+  ```elixir
+  stream
+  |> StreamingResponse.text_stream()
+  |> Enum.into("")
+  ```
   """
   @spec text_stream(t()) :: Enumerable.t()
   def text_stream(%__MODULE__{} = sr) do

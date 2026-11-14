@@ -14,58 +14,60 @@ defmodule Omni.Dialect.Decision do
   Like text dialects, decision dialects are stateless and pure: no HTTP, no
   configuration, no side effects.
 
-      defmodule MyApp.Dialects.CustomDecisions do
-        use Omni.Dialect, :decision
+  ```elixir
+  defmodule MyApp.Dialects.CustomDecisions do
+    use Omni.Dialect, :decision
 
-        alias Omni.{Answer, Decision, Question, Usage}
-        alias Omni.Content.{Data, Text}
+    alias Omni.{Answer, Decision, Question, Usage}
+    alias Omni.Content.{Data, Text}
 
-        @impl true
-        def option_schema, do: %{}
+    @impl true
+    def option_schema, do: %{}
 
-        @impl true
-        def compat_schema, do: %{}
+    @impl true
+    def compat_schema, do: %{}
 
-        @impl true
-        def auth, do: :bearer
+    @impl true
+    def auth, do: :bearer
 
-        @impl true
-        def handle_path(_model, _opts), do: "/decide"
+    @impl true
+    def handle_path(_model, _opts), do: "/decide"
 
-        @impl true
-        def handle_body(model, %Decision{} = decision, _opts) do
-          %{
-            "model" => model.id,
-            "input" => Enum.map(decision.state, &encode_part/1),
-            "questions" => Enum.map(decision.questions, &encode_question/1)
-          }
-        end
+    @impl true
+    def handle_body(model, %Decision{} = decision, _opts) do
+      %{
+        "model" => model.id,
+        "input" => Enum.map(decision.state, &encode_part/1),
+        "questions" => Enum.map(decision.questions, &encode_question/1)
+      }
+    end
 
-        defp encode_part(%Text{text: text}), do: text
-        defp encode_part(%Data{data: data}), do: data
+    defp encode_part(%Text{text: text}), do: text
+    defp encode_part(%Data{data: data}), do: data
 
-        @impl true
-        def handle_response(%{"answers" => answers} = body, %Decision{} = decision, _model) do
-          with {:ok, answers} <-
-                 Omni.Dialect.Decision.decode_answers(decision.questions, answers, &decode_answer/2) do
-            usage = Usage.new(input_tokens: body["usage"]["input_tokens"])
-            {:ok, %{decision | answers: answers, usage: usage}}
-          end
-        end
-
-        defp decode_answer(%Question.Predicate{}, %{"probability" => p}) when is_number(p),
-          do: {:ok, Answer.Predicate.new(probability: p * 1.0)}
-
-        defp decode_answer(%Question.Choice{choices: choices}, answer) do
-          with {:ok, choice} <- Omni.Dialect.Decision.choice_key(choices, answer["choice"]),
-               {:ok, probabilities} <-
-                 Omni.Dialect.Decision.probabilities(choices, answer["probabilities"], :key) do
-            {:ok, Answer.Choice.new(choice: choice, probabilities: probabilities)}
-          end
-        end
-
-        defp decode_answer(_question, _answer), do: :error
+    @impl true
+    def handle_response(%{"answers" => answers} = body, %Decision{} = decision, _model) do
+      with {:ok, answers} <-
+             Omni.Dialect.Decision.decode_answers(decision.questions, answers, &decode_answer/2) do
+        usage = Usage.new(input_tokens: body["usage"]["input_tokens"])
+        {:ok, %{decision | answers: answers, usage: usage}}
       end
+    end
+
+    defp decode_answer(%Question.Predicate{}, %{"probability" => p}) when is_number(p),
+      do: {:ok, Answer.Predicate.new(probability: p * 1.0)}
+
+    defp decode_answer(%Question.Choice{choices: choices}, answer) do
+      with {:ok, choice} <- Omni.Dialect.Decision.choice_key(choices, answer["choice"]),
+           {:ok, probabilities} <-
+             Omni.Dialect.Decision.probabilities(choices, answer["probabilities"], :key) do
+        {:ok, Answer.Choice.new(choice: choice, probabilities: probabilities)}
+      end
+    end
+
+    defp decode_answer(_question, _answer), do: :error
+  end
+  ```
 
   ## Decoding answers
 
@@ -87,7 +89,9 @@ defmodule Omni.Dialect.Decision do
   generation options such as `:max_tokens` are not part of a decision
   request. Return an empty map if the dialect has no options:
 
-      def option_schema, do: %{safety_identifier: :string}
+  ```elixir
+  def option_schema, do: %{safety_identifier: :string}
+  ```
   """
   @callback option_schema() :: Peri.map_schema()
 
@@ -97,7 +101,9 @@ defmodule Omni.Dialect.Decision do
   The path is the API's resource path, appended to the base URL of the
   provider's endpoint for the dialect:
 
-      def handle_path(_model, _opts), do: "/systemone"
+  ```elixir
+  def handle_path(_model, _opts), do: "/systemone"
+  ```
   """
   @callback handle_path(Model.t(), map()) :: String.t()
 
@@ -134,12 +140,14 @@ defmodule Omni.Dialect.Decision do
   question without a decodable answer, or for an answer to a question that
   wasn't asked (named by its wire string).
 
-      Omni.Dialect.Decision.decode_answers(
-        [ok?: %Omni.Question.Predicate{instructions: []}],
-        %{"ok?" => %{"probability" => 1}},
-        fn _question, %{"probability" => p} -> {:ok, Omni.Answer.Predicate.new(probability: p * 1.0)} end
-      )
-      #=> {:ok, [ok?: %Omni.Answer.Predicate{probability: 1.0}]}
+  ```elixir
+  Omni.Dialect.Decision.decode_answers(
+    [ok?: %Omni.Question.Predicate{instructions: []}],
+    %{"ok?" => %{"probability" => 1}},
+    fn _question, %{"probability" => p} -> {:ok, Omni.Answer.Predicate.new(probability: p * 1.0)} end
+  )
+  #=> {:ok, [ok?: %Omni.Answer.Predicate{probability: 1.0}]}
+  ```
   """
   @spec decode_answers(
           [{atom(), Question.t()}],
@@ -174,8 +182,10 @@ defmodule Omni.Dialect.Decision do
   @doc """
   Returns the caller's key for a wire choice string.
 
-      Omni.Dialect.Decision.choice_key([yes: nil, no: nil], "no")
-      #=> {:ok, :no}
+  ```elixir
+  Omni.Dialect.Decision.choice_key([yes: nil, no: nil], "no")
+  #=> {:ok, :no}
+  ```
   """
   @spec choice_key([Question.option()], term()) :: {:ok, Question.key()} | :error
   def choice_key(options, wire) when is_binary(wire) do
@@ -193,11 +203,13 @@ defmodule Omni.Dialect.Decision do
   The wire map is keyed by each option's key as a string (`:key`) or by its
   index as a string (`:index`). Every option must have a number.
 
-      Omni.Dialect.Decision.probabilities([yes: nil, no: nil], %{"yes" => 1, "no" => 0}, :key)
-      #=> {:ok, [yes: 1.0, no: 0.0]}
+  ```elixir
+  Omni.Dialect.Decision.probabilities([yes: nil, no: nil], %{"yes" => 1, "no" => 0}, :key)
+  #=> {:ok, [yes: 1.0, no: 0.0]}
 
-      Omni.Dialect.Decision.probabilities([low: nil, high: nil], %{"0" => 0.2, "1" => 0.8}, :index)
-      #=> {:ok, [low: 0.2, high: 0.8]}
+  Omni.Dialect.Decision.probabilities([low: nil, high: nil], %{"0" => 0.2, "1" => 0.8}, :index)
+  #=> {:ok, [low: 0.2, high: 0.8]}
+  ```
   """
   @spec probabilities([Question.option()], term(), :key | :index) ::
           {:ok, [{Question.key(), float()}]} | :error

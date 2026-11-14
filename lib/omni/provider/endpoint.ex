@@ -7,17 +7,19 @@ defmodule Omni.Provider.Endpoint do
   docs and SDKs mean it. A request goes to the base URL plus the dialect's
   resource path, and the dialect reads `:compat` while it encodes:
 
-      %Omni.Provider{
-        id: :togetherai,
-        dialects: %{
-          Omni.Dialects.OpenAICompletions => %Omni.Provider.Endpoint{
-            base_url: "https://api.together.ai/v1",
-            compat: %{max_tokens_field: "max_tokens"}
-          }
-        }
+  ```elixir
+  %Omni.Provider{
+    id: :togetherai,
+    dialects: %{
+      Omni.Dialects.OpenAICompletions => %Omni.Provider.Endpoint{
+        base_url: "https://api.together.ai/v1",
+        compat: %{max_tokens_field: "max_tokens"}
       }
+    }
+  }
 
-      # POST https://api.together.ai/v1/chat/completions
+  # POST https://api.together.ai/v1/chat/completions
+  ```
 
   Endpoints are assembled when the provider loads; configure them under
   `:dialects` (see `Omni.Provider`).

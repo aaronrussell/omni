@@ -15,9 +15,11 @@ defmodule Omni.Source do
   [models.dev](https://models.dev) snapshot) and `Omni.Sources.LLMDB`. Select
   a source globally or per provider:
 
-      config :omni, :models, source: Omni.Sources.LLMDB
+  ```elixir
+  config :omni, :models, source: Omni.Sources.LLMDB
 
-      config :omni, :providers, openai: [source: Omni.Sources.ModelsDev]
+  config :omni, :providers, openai: [source: Omni.Sources.ModelsDev]
+  ```
 
   A source value is a module or a `{module, opts}` tuple; `opts` are passed
   to `c:fetch/2`.
@@ -33,16 +35,16 @@ defmodule Omni.Source do
   Return `{:ok, provider, models}` with **raw catalog data only** — Omni
   layers provider modules and config over it afterwards:
 
-    * `provider` — a `%Omni.Provider{}` with `id`, and whatever the catalog
-      knows of `name`, `api_key` (`{:system, var}` when the catalog names
-      exactly one environment variable), and `dialects`: an
-      `%Omni.Provider.Endpoint{}` per dialect the provider's models speak,
-      holding the catalog's whole URL for it. Leave the rest unset.
-    * `models` — `%Omni.Model{}` structs **without** a provider. Each model's
-      `dialects` comes from the catalog's own data (for example, an npm
-      package mapped to a dialect), one per capability the catalog says the
-      model serves (see `Omni.Model`). Omni never fills in a missing
-      dialect, so skip a model the catalog gives no dialect for.
+  - `provider` - a `%Omni.Provider{}` with `id`, and whatever the catalog
+    knows of `name`, `api_key` (`{:system, var}` when the catalog names
+    exactly one environment variable), and `dialects`: an
+    `%Omni.Provider.Endpoint{}` per dialect the provider's models speak,
+    holding the catalog's whole URL for it. Leave the rest unset.
+  - `models` - `%Omni.Model{}` structs **without** a provider. Each model's
+    `dialects` comes from the catalog's own data (for example, an npm
+    package mapped to a dialect), one per capability the catalog says the
+    model serves (see `Omni.Model`). Omni never fills in a missing
+    dialect, so skip a model the catalog gives no dialect for.
 
   Use `endpoints/3` to derive the endpoints from the models' URLs. Keep
   templated URLs (`https://${ACCOUNT}.example.com/v1`) as they are: a
@@ -96,8 +98,10 @@ defmodule Omni.Source do
   is returned in `skipped` with its URL. The provider-level dialect gets the provider URL
   when no model claimed it. A provider URL with no dialect is dropped.
 
-      {endpoints, models, skipped} =
-        Omni.Source.endpoints(pairs, "https://api.acme.ai/v1", Omni.Dialects.OpenAICompletions)
+  ```elixir
+  {endpoints, models, skipped} =
+    Omni.Source.endpoints(pairs, "https://api.acme.ai/v1", Omni.Dialects.OpenAICompletions)
+  ```
   """
   @spec endpoints([{Model.t(), String.t() | nil}], String.t() | nil, module() | nil) ::
           {%{module() => Endpoint.t()}, [Model.t()], [{Model.t(), String.t()}]}
@@ -152,9 +156,11 @@ defmodule Omni.Source do
   `"reasoning_options"` is a list in models.dev's form, which becomes the
   model's `:thinking` map (see `Omni.Model`) when `"reasoning"` is true:
 
-      [%{"type" => "effort", "values" => ["low", "medium", "high"]},
-       %{"type" => "toggle"},
-       %{"type" => "budget_tokens", "min" => 1024, "max" => 32_000}]
+  ```elixir
+  [%{"type" => "effort", "values" => ["low", "medium", "high"]},
+   %{"type" => "toggle"},
+   %{"type" => "budget_tokens", "min" => 1024, "max" => 32_000}]
+  ```
 
   Option maps may have string or atom keys. Unknown types are ignored.
 

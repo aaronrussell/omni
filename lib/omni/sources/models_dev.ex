@@ -12,10 +12,10 @@ defmodule Omni.Sources.ModelsDev do
   The snapshot is transformed into `%Omni.Model{}` structs at load time.
   Each model loads for one capability, by its catalog `type`:
 
-    * **text** — no type, or `"chat"`: the model must support tool use and
-      take and produce text.
-    * **decision** — `"decision"`: the model must take text; tool use
-      doesn't apply.
+  - **text** — no type, or `"chat"`: the model must support tool use and
+    take and produce text.
+  - **decision** — `"decision"`: the model must take text; tool use
+    doesn't apply.
 
   Deprecated models and every other type (image, embedding, speech,
   realtime, ...) are left out. Modalities are narrowed to those Omni
@@ -39,19 +39,21 @@ defmodule Omni.Sources.ModelsDev do
 
   ## Options
 
-    * `:live` — when `true`, fetch fresh catalog data from models.dev at
-      load time instead of reading the bundled snapshot. Defaults to `false`.
-    * `:cache_ttl` — how long a cached live catalog stays fresh, in
-      milliseconds. Defaults to `to_timeout(hour: 24)`; `0` means always
-      fetch. Ignored unless `live: true`.
-    * `:cache_dir` — directory for the live catalog cache. Defaults to a
-      per-user directory under `System.tmp_dir!()` (e.g. `/tmp/omni_alice`).
-      Ignored unless `live: true`.
+  - `:live` - when `true`, fetch fresh catalog data from models.dev at
+    load time instead of reading the bundled snapshot. Defaults to `false`.
+  - `:cache_ttl` - how long a cached live catalog stays fresh, in
+    milliseconds. Defaults to `to_timeout(hour: 24)`; `0` means always
+    fetch. Ignored unless `live: true`.
+  - `:cache_dir` - directory for the live catalog cache. Defaults to a
+    per-user directory under `System.tmp_dir!()` (e.g. `/tmp/omni_alice`).
+    Ignored unless `live: true`.
 
   ## Live mode
 
-      config :omni, :models,
-        source: {Omni.Sources.ModelsDev, live: true}
+  ```elixir
+  config :omni, :models,
+    source: {Omni.Sources.ModelsDev, live: true}
+  ```
 
   Live mode fetches the same catalog data over HTTPS and caches the
   response on disk. Each load walks a resilience ladder, logging a warning

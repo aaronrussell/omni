@@ -14,12 +14,12 @@ defmodule Omni.Codec do
 
   ## Supported types
 
-    * `Omni.Message`
-    * `Omni.Content.Text`, `Omni.Content.Thinking`, `Omni.Content.Attachment`,
-      `Omni.Content.ToolUse`, `Omni.Content.ToolResult`, `Omni.Content.Data`
-    * `Omni.Usage`
-    * `Omni.Decision`, the `Omni.Question` structs and the `Omni.Answer`
-      structs
+  - `Omni.Message`
+  - `Omni.Content.Text`, `Omni.Content.Thinking`, `Omni.Content.Attachment`,
+    `Omni.Content.ToolUse`, `Omni.Content.ToolResult`, `Omni.Content.Data`
+  - `Omni.Usage`
+  - `Omni.Decision`, the `Omni.Question` structs and the `Omni.Answer`
+    structs
 
   Lists of any combination of the above are also supported. Keyword lists
   (a decision's questions or answers) are encoded only inside a decision.
@@ -37,17 +37,17 @@ defmodule Omni.Codec do
   A decision is encoded whole: state, questions, and once answered its
   answers, usage and model.
 
-    * `:model` is stored as a string reference (`"openai:gpt-6-luna"`) and
-      looked up when decoding, so the decoded decision holds the model as it
-      is loaded now. A model that isn't loaded decodes as `nil`.
-    * `:raw` is not encoded and decodes as `nil`.
-    * Questions and answers are lists of `%{"name" => ..., "question" => ...}`
-      (or `"answer"`) maps in order. Choices, levels, probabilities and
-      criteria are lists of `[key, value]` pairs, so order survives stores
-      that reorder object keys.
-    * Choice and level keys keep their type: a string key is a JSON string,
-      an atom key `%{"atom" => "billing"}`. Question names are always atoms
-      and are stored as plain strings.
+  - `:model` is stored as a string reference (`"openai:gpt-6-luna"`) and
+    looked up when decoding, so the decoded decision holds the model as it
+    is loaded now. A model that isn't loaded decodes as `nil`.
+  - `:raw` is not encoded and decodes as `nil`.
+  - Questions and answers are lists of `%{"name" => ..., "question" => ...}`
+    (or `"answer"`) maps in order. Choices, levels, probabilities and
+    criteria are lists of `[key, value]` pairs, so order survives stores
+    that reorder object keys.
+  - Choice and level keys keep their type: a string key is a JSON string,
+    an atom key `%{"atom" => "billing"}`. Question names are always atoms
+    and are stored as plain strings.
 
   ## Atoms
 
@@ -63,7 +63,9 @@ defmodule Omni.Codec do
   When decoding data your app wrote itself, pass `atoms: :create` to create
   them, for decision keys and opaque blobs alike:
 
-      Omni.Codec.decode(stored, atoms: :create)
+  ```elixir
+  Omni.Codec.decode(stored, atoms: :create)
+  ```
 
   Never pass it for untrusted input: atoms are not garbage-collected, and
   enough distinct ones crash the node.
@@ -84,9 +86,11 @@ defmodule Omni.Codec do
 
   ## Examples
 
-      iex> message = Omni.Message.new("hello")
-      iex> encoded = Omni.Codec.encode(message)
-      iex> {:ok, ^message} = Omni.Codec.decode(encoded)
+  ```elixir
+  iex> message = Omni.Message.new("hello")
+  iex> encoded = Omni.Codec.encode(message)
+  iex> {:ok, ^message} = Omni.Codec.decode(encoded)
+  ```
   """
 
   alias Omni.{Answer, Decision, Message, Model, Question, Usage, Util}
@@ -159,9 +163,9 @@ defmodule Omni.Codec do
 
   ## Options
 
-    * `:atoms` — `:existing` (default) decodes only atoms that already
-      exist on this node; `:create` creates them, for data your app wrote
-      itself (see [Atoms](#module-atoms))
+  - `:atoms` - `:existing` (default) decodes only atoms that already
+    exist on this node; `:create` creates them, for data your app wrote
+    itself (see [Atoms](#module-atoms))
   """
   @spec decode(map() | [map()], decode_opts()) :: {:ok, term()} | {:error, error()}
   def decode(input, opts \\ []), do: do_decode(input, atoms_mode(opts))
@@ -174,8 +178,10 @@ defmodule Omni.Codec do
   portable JSON representation (atom-keyed maps, tuples, structs) when you
   need to stash them in a JSON-typed storage column.
 
-      iex> wrapper = Omni.Codec.encode_term({:ok, %{a: 1}})
-      iex> {:ok, {:ok, %{a: 1}}} = Omni.Codec.decode_term(wrapper)
+  ```elixir
+  iex> wrapper = Omni.Codec.encode_term({:ok, %{a: 1}})
+  iex> {:ok, {:ok, %{a: 1}}} = Omni.Codec.decode_term(wrapper)
+  ```
   """
   @spec encode_term(term()) :: %{String.t() => String.t()}
   def encode_term(term) do

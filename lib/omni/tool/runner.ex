@@ -10,15 +10,17 @@ defmodule Omni.Tool.Runner do
   when you handle tool execution yourself — for example, with schema-only
   tools where the loop breaks and hands `ToolUse` blocks back to you:
 
-      # Schema-only tool — loop breaks, response contains ToolUse blocks
-      tool_uses = Enum.filter(response.message.content, &match?(%ToolUse{}, &1))
+  ```elixir
+  # Schema-only tool — loop breaks, response contains ToolUse blocks
+  tool_uses = Enum.filter(response.message.content, &match?(%ToolUse{}, &1))
 
-      # Build a tool map and execute
-      tool_map = %{"search" => search_tool, "fetch" => fetch_tool}
-      results = Tool.Runner.run(tool_uses, tool_map)
+  # Build a tool map and execute
+  tool_map = %{"search" => search_tool, "fetch" => fetch_tool}
+  results = Tool.Runner.run(tool_uses, tool_map)
 
-      # Place results in the next user message
-      message = Omni.message(role: :user, content: results)
+  # Place results in the next user message
+  message = Omni.message(role: :user, content: results)
+  ```
   """
 
   alias Omni.Tool

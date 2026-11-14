@@ -30,7 +30,9 @@ defmodule Omni.Content.ToolResult do
   String content is wrapped in a `Text` block, and so is each string in a
   content list. Missing content becomes `[]`.
 
-      ToolResult.new(tool_use_id: tool_use.id, name: tool_use.name, content: "72°F and sunny")
+  ```elixir
+  ToolResult.new(tool_use_id: tool_use.id, name: tool_use.name, content: "72°F and sunny")
+  ```
   """
   @spec new(Enumerable.t()) :: t()
   def new(attrs) do

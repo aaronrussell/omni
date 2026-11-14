@@ -17,18 +17,20 @@ defmodule Omni.Tool do
 
   A tool module implements `schema/0` and `call/1`:
 
-      defmodule MyApp.Tools.GetWeather do
-        use Omni.Tool, name: "get_weather", description: "Gets the weather for a city"
+  ```elixir
+  defmodule MyApp.Tools.GetWeather do
+    use Omni.Tool, name: "get_weather", description: "Gets the weather for a city"
 
-        def schema do
-          import Omni.Schema
-          object(%{city: string(description: "City name")}, required: [:city])
-        end
+    def schema do
+      import Omni.Schema
+      object(%{city: string(description: "City name")}, required: [:city])
+    end
 
-        def call(input) do
-          WeatherAPI.fetch(input.city)
-        end
-      end
+    def call(input) do
+      WeatherAPI.fetch(input.city)
+    end
+  end
+  ```
 
   `schema/0` returns a plain map following JSON Schema conventions. The
   `Omni.Schema` helpers are a convenient way to build these, but any map with
@@ -45,20 +47,22 @@ defmodule Omni.Tool do
   When a tool needs runtime state (a database connection, configuration, an
   API client), implement `init/1` and `call/2`:
 
-      defmodule MyApp.Tools.DbLookup do
-        use Omni.Tool, name: "db_lookup", description: "Looks up a record by ID"
+  ```elixir
+  defmodule MyApp.Tools.DbLookup do
+    use Omni.Tool, name: "db_lookup", description: "Looks up a record by ID"
 
-        def schema do
-          import Omni.Schema
-          object(%{id: integer()}, required: [:id])
-        end
+    def schema do
+      import Omni.Schema
+      object(%{id: integer()}, required: [:id])
+    end
 
-        def init(repo), do: repo
+    def init(repo), do: repo
 
-        def call(input, repo) do
-          repo.get(Record, input.id)
-        end
-      end
+    def call(input, repo) do
+      repo.get(Record, input.id)
+    end
+  end
+  ```
 
   `init/1` receives the argument passed to `new/1` and returns the state.
   `call/2` receives validated input and that state. The state is captured in
@@ -68,15 +72,17 @@ defmodule Omni.Tool do
 
   Pass tool structs in the context:
 
-      weather = MyApp.Tools.GetWeather.new()
-      db_lookup = MyApp.Tools.DbLookup.new(MyApp.Repo)
+  ```elixir
+  weather = MyApp.Tools.GetWeather.new()
+  db_lookup = MyApp.Tools.DbLookup.new(MyApp.Repo)
 
-      context = Omni.context(
-        messages: [Omni.message("What's the weather in Paris?")],
-        tools: [weather, db_lookup]
-      )
+  context = Omni.context(
+    messages: [Omni.message("What's the weather in Paris?")],
+    tools: [weather, db_lookup]
+  )
 
-      {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, context)
+  {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, context)
+  ```
 
   The loop executes tool uses automatically and continues the conversation
   until the model responds with text (or hits `:max_steps`).
@@ -88,15 +94,19 @@ defmodule Omni.Tool do
   containing `ToolUse` blocks for you to handle manually. This is useful when
   tool execution requires human approval or happens outside your application.
 
-      schema = Omni.Schema.object(%{query: Omni.Schema.string()}, required: [:query])
-      tool = Omni.tool(name: "search", description: "Web search", input_schema: schema)
+  ```elixir
+  schema = Omni.Schema.object(%{query: Omni.Schema.string()}, required: [:query])
+  tool = Omni.tool(name: "search", description: "Web search", input_schema: schema)
+  ```
 
   ## Custom schema validators
 
   When the built-in validator isn't enough, return an `Omni.Schema.Adapter`
   tuple from `schema/0`:
 
-      def schema, do: {MyApp.JSVAdapter, @input_root}
+  ```elixir
+  def schema, do: {MyApp.JSVAdapter, @input_root}
+  ```
 
   See `Omni.Schema.Adapter` for the behaviour and a JSV example. Note that
   adapters control their own key conventions for validated input — JSV-style
@@ -109,39 +119,41 @@ defmodule Omni.Tool do
   environment details or configuration injected at construction time — override
   `description/1`. It receives the state returned by `init/1`:
 
-      defmodule MyApp.Tools.Search do
-        use Omni.Tool, name: "search", description: "Searches the knowledge base"
+  ```elixir
+  defmodule MyApp.Tools.Search do
+    use Omni.Tool, name: "search", description: "Searches the knowledge base"
 
-        def schema do
-          import Omni.Schema
-          object(%{query: string()}, required: [:query])
-        end
+    def schema do
+      import Omni.Schema
+      object(%{query: string()}, required: [:query])
+    end
 
-        @impl Omni.Tool
-        def description(opts) do
-          base = description()
-          case Keyword.get(opts, :extra) do
-            nil -> base
-            extra -> base <> "\n\n" <> extra
-          end
-        end
-
-        def init(opts), do: opts
-
-        def call(input, _opts) do
-          KnowledgeBase.search(input.query)
-        end
+    @impl Omni.Tool
+    def description(opts) do
+      base = description()
+      case Keyword.get(opts, :extra) do
+        nil -> base
+        extra -> base <> "\n\n" <> extra
       end
+    end
 
-      # Base description
-      tool = MyApp.Tools.Search.new()
-      tool.description
-      #=> "Searches the knowledge base"
+    def init(opts), do: opts
 
-      # With extra context
-      tool = MyApp.Tools.Search.new(extra: "Only return results from 2024.")
-      tool.description
-      #=> "Searches the knowledge base\n\nOnly return results from 2024."
+    def call(input, _opts) do
+      KnowledgeBase.search(input.query)
+    end
+  end
+
+  # Base description
+  tool = MyApp.Tools.Search.new()
+  tool.description
+  #=> "Searches the knowledge base"
+
+  # With extra context
+  tool = MyApp.Tools.Search.new(extra: "Only return results from 2024.")
+  tool.description
+  #=> "Searches the knowledge base\n\nOnly return results from 2024."
+  ```
 
   Implement either `description/0` or `description/1` (or both). The default
   `description/1` delegates to `description/0`, so existing tools that only
@@ -154,26 +166,28 @@ defmodule Omni.Tool do
   of allowed values comes from configuration or a database — override
   `schema/1`. It receives the state returned by `init/1`:
 
-      defmodule MyApp.Tools.SetMode do
-        use Omni.Tool, name: "set_mode", description: "Switches the assistant's mode"
+  ```elixir
+  defmodule MyApp.Tools.SetMode do
+    use Omni.Tool, name: "set_mode", description: "Switches the assistant's mode"
 
-        @impl Omni.Tool
-        def schema(allowed_modes) do
-          import Omni.Schema
-          object(
-            %{mode: string(enum: allowed_modes)},
-            required: [:mode]
-          )
-        end
+    @impl Omni.Tool
+    def schema(allowed_modes) do
+      import Omni.Schema
+      object(
+        %{mode: string(enum: allowed_modes)},
+        required: [:mode]
+      )
+    end
 
-        def init(modes), do: modes
+    def init(modes), do: modes
 
-        def call(input, _modes) do
-          {:ok, input.mode}
-        end
-      end
+    def call(input, _modes) do
+      {:ok, input.mode}
+    end
+  end
 
-      tool = MyApp.Tools.SetMode.new(["focus", "casual", "technical"])
+  tool = MyApp.Tools.SetMode.new(["focus", "casual", "technical"])
+  ```
 
   Implement either `schema/0` or `schema/1` (or both). The default `schema/1`
   delegates to `schema/0`, so existing tools that only implement `schema/0`
@@ -185,18 +199,20 @@ defmodule Omni.Tool do
   shorthand, but both are optional. You can omit them and implement `name/0`
   and `description/0` as callbacks directly:
 
-      defmodule MyApp.Tools.Ping do
-        use Omni.Tool
+  ```elixir
+  defmodule MyApp.Tools.Ping do
+    use Omni.Tool
 
-        @impl Omni.Tool
-        def name, do: "ping"
+    @impl Omni.Tool
+    def name, do: "ping"
 
-        @impl Omni.Tool
-        def description, do: "Returns pong"
+    @impl Omni.Tool
+    def description, do: "Returns pong"
 
-        def schema, do: Omni.Schema.object(%{})
-        def call(_input), do: "pong"
-      end
+    def schema, do: Omni.Schema.object(%{})
+    def call(_input), do: "pong"
+  end
+  ```
 
   If you omit an option without implementing the callback, the compiler will
   warn about the missing callback.
@@ -312,10 +328,12 @@ defmodule Omni.Tool do
   `Omni.Schema.Adapter`). If using `Omni.Schema` builders, import them
   inside the callback body — they are not auto-imported by `use Omni.Tool`.
 
-      def schema do
-        import Omni.Schema
-        object(%{city: string(description: "City name")}, required: [:city])
-      end
+  ```elixir
+  def schema do
+    import Omni.Schema
+    object(%{city: string(description: "City name")}, required: [:city])
+  end
+  ```
 
   Implement `schema/1` instead when the schema needs runtime state. See the
   "Dynamic schemas" section in the module documentation.

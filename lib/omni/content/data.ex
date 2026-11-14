@@ -5,8 +5,10 @@ defmodule Omni.Content.Data do
   Used in decisions, as part of the state or of a question's instructions
   (see `Omni.Decision`). Not a message content block.
 
-      Omni.Content.Data.new(%{ticket: %{subject: "Refund", plan: :enterprise}})
-      #=> %Omni.Content.Data{data: %{"ticket" => %{"subject" => "Refund", "plan" => "enterprise"}}}
+  ```elixir
+  Omni.Content.Data.new(%{ticket: %{subject: "Refund", plan: :enterprise}})
+  #=> %Omni.Content.Data{data: %{"ticket" => %{"subject" => "Refund", "plan" => "enterprise"}}}
+  ```
 
   `new/1` passes the map through JSON, so the struct holds exactly what the
   model sees: string keys, atoms as strings, and any struct with a
@@ -24,8 +26,10 @@ defmodule Omni.Content.Data do
   Creates a data block from the data map itself, or from a keyword list
   (`data: map`), normalising the map through JSON.
 
-      Omni.Content.Data.new(%{plan: :pro})
-      Omni.Content.Data.new(data: %{plan: :pro})
+  ```elixir
+  Omni.Content.Data.new(%{plan: :pro})
+  Omni.Content.Data.new(data: %{plan: :pro})
+  ```
 
   A map is always the data, never attributes (unlike `Omni.Content.Text.new/1`),
   so `new(%{data: x})` builds `%{"data" => x}`.

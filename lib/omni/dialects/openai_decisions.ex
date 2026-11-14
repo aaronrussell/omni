@@ -7,16 +7,16 @@ defmodule Omni.Dialects.OpenAIDecisions do
 
   ## Encoding
 
-    * A state of one text part is sent as the `input` string. Any other state
-      is one user message with a content part per state part: text as
-      `input_text`, data as `input_json`.
-    * Questions are sent in order, each named by its key. Instructions of one
-      text part are sent as a string, and one data part as its JSON text;
-      several parts are an array of `input_text` parts, data JSON-encoded,
-      since instructions take no `input_json`.
-    * Choices are sent as `{value, description}` and levels as
-      `{label, description}`, keys as strings.
-    * Predicate criteria have no field in this API and are dropped.
+  - A state of one text part is sent as the `input` string. Any other state
+    is one user message with a content part per state part: text as
+    `input_text`, data as `input_json`.
+  - Questions are sent in order, each named by its key. Instructions of one
+    text part are sent as a string, and one data part as its JSON text;
+    several parts are an array of `input_text` parts, data JSON-encoded,
+    since instructions take no `input_json`.
+  - Choices are sent as `{value, description}` and levels as
+    `{label, description}`, keys as strings.
+  - Predicate criteria have no field in this API and are dropped.
 
   ## Answers
 
@@ -26,9 +26,9 @@ defmodule Omni.Dialects.OpenAIDecisions do
 
   ## Options
 
-    * `:safety_identifier` — a stable identifier for the end user, for
-      OpenAI's abuse detection
-    * `:prompt_cache_key` — groups requests that share a prefix for caching
+  - `:safety_identifier` - a stable identifier for the end user, for
+    OpenAI's abuse detection
+  - `:prompt_cache_key` - groups requests that share a prefix for caching
 
   ## Compat flags
 

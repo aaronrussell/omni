@@ -6,17 +6,19 @@ defmodule Omni.Util do
 
   Works with both maps (string or atom keys) and keyword lists.
 
-      iex> maybe_put(%{}, "a", 1)
-      %{"a" => 1}
+  ```elixir
+  iex> maybe_put(%{}, "a", 1)
+  %{"a" => 1}
 
-      iex> maybe_put(%{}, "a", nil)
-      %{}
+  iex> maybe_put(%{}, "a", nil)
+  %{}
 
-      iex> maybe_put([], :a, 1)
-      [a: 1]
+  iex> maybe_put([], :a, 1)
+  [a: 1]
 
-      iex> maybe_put([], :a, nil)
-      []
+  iex> maybe_put([], :a, nil)
+  []
+  ```
   """
   @spec maybe_put(map() | keyword(), term(), term()) :: map() | keyword()
   def maybe_put(container, _key, nil), do: container
@@ -31,11 +33,13 @@ defmodule Omni.Util do
 
   Works with both maps and keyword lists.
 
-      iex> maybe_merge(%{"a" => 1}, %{"b" => 2})
-      %{"a" => 1, "b" => 2}
+  ```elixir
+  iex> maybe_merge(%{"a" => 1}, %{"b" => 2})
+  %{"a" => 1, "b" => 2}
 
-      iex> maybe_merge(%{"a" => 1}, nil)
-      %{"a" => 1}
+  iex> maybe_merge(%{"a" => 1}, nil)
+  %{"a" => 1}
+  ```
   """
   @spec maybe_merge(map() | keyword(), map() | keyword() | nil) :: map() | keyword()
   def maybe_merge(container, nil), do: container
@@ -50,14 +54,16 @@ defmodule Omni.Util do
   Puts `value` at a dotted string `path` in `map` unless `value` is `nil`,
   creating or merging into nested maps.
 
-      iex> put_path(%{}, "reasoning.effort", "high")
-      %{"reasoning" => %{"effort" => "high"}}
+  ```elixir
+  iex> put_path(%{}, "reasoning.effort", "high")
+  %{"reasoning" => %{"effort" => "high"}}
 
-      iex> put_path(%{"reasoning" => %{"enabled" => true}}, "reasoning.effort", "high")
-      %{"reasoning" => %{"enabled" => true, "effort" => "high"}}
+  iex> put_path(%{"reasoning" => %{"enabled" => true}}, "reasoning.effort", "high")
+  %{"reasoning" => %{"enabled" => true, "effort" => "high"}}
 
-      iex> put_path(%{}, "max_tokens", nil)
-      %{}
+  iex> put_path(%{}, "max_tokens", nil)
+  %{}
+  ```
   """
   @spec put_path(map(), String.t(), term()) :: map()
   def put_path(map, _path, nil), do: map

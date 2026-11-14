@@ -20,16 +20,16 @@ defmodule Omni.Provider do
 
   Any provider can be loaded, but Omni knows more about some than others:
 
-    * **Built-in** — Omni ships a module for it, which sets whatever compat
-      flags it needs.
-    * **Catalog** — any other provider in the source's catalog, such as
-      `:fireworks_ai`. Omni takes its endpoint URLs, API key variable,
-      models and their dialects from catalog data, and speaks each dialect
-      with no compat flags. It may work as is; if it doesn't, set the flags
-      it needs yourself, or copy a built-in's with `like:` (see
-      [Compat flags](#module-compat-flags)).
-    * **Custom** — a provider the catalog doesn't know, defined wholly in
-      config.
+  - **Built-in** — Omni ships a module for it, which sets whatever compat
+    flags it needs.
+  - **Catalog** — any other provider in the source's catalog, such as
+    `:fireworks_ai`. Omni takes its endpoint URLs, API key variable,
+    models and their dialects from catalog data, and speaks each dialect
+    with no compat flags. It may work as is; if it doesn't, set the flags
+    it needs yourself, or copy a built-in's with `like:` (see
+    [Compat flags](#module-compat-flags)).
+  - **Custom** — a provider the catalog doesn't know, defined wholly in
+    config.
 
   To check a model works with your configuration, whatever kind of provider
   serves it, run `mix omni.verify` (see `Mix.Tasks.Omni.Verify`).
@@ -62,44 +62,46 @@ defmodule Omni.Provider do
 
   ## Configuration
 
-      # Select what loads (default: all built-ins)
-      config :omni, :models,
-        providers: [:builtins, :togetherai, :gpu_box]
+  ```elixir
+  # Select what loads (default: all built-ins)
+  config :omni, :models,
+    providers: [:builtins, :togetherai, :gpu_box]
 
-      # Configure providers — configuring never enables
-      config :omni, :providers,
-        anthropic: [api_key: {:system, "MY_ANTHROPIC_KEY"}],
+  # Configure providers — configuring never enables
+  config :omni, :providers,
+    anthropic: [api_key: {:system, "MY_ANTHROPIC_KEY"}],
 
-        # Another machine, same paths
-        ollama: [host: "http://gpu-box:11434"],
+    # Another machine, same paths
+    ollama: [host: "http://gpu-box:11434"],
 
-        # A custom provider, defined entirely in config
-        gpu_box: [
-          dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "http://gpu-box:8000/v1"]},
-          auth: :none,
-          models: [
-            [id: "qwen3-32b", dialects: %{text: Omni.Dialects.OpenAICompletions}],
-            [id: "llama-3.3-70b", context_size: 128_000, dialects: %{text: Omni.Dialects.OpenAICompletions}]
-          ]
-        ]
+    # A custom provider, defined entirely in config
+    gpu_box: [
+      dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "http://gpu-box:8000/v1"]},
+      auth: :none,
+      models: [
+        [id: "qwen3-32b", dialects: %{text: Omni.Dialects.OpenAICompletions}],
+        [id: "llama-3.3-70b", context_size: 128_000, dialects: %{text: Omni.Dialects.OpenAICompletions}]
+      ]
+    ]
+  ```
 
   Per-provider keys:
 
-    * `:name` — display name
-    * `:host` — an origin (`scheme://host[:port]`) that replaces the origin
-      of every endpoint URL from the catalog and the provider module (see
-      [Endpoints](#module-endpoints))
-    * `:api_key` — a string, `{:system, "ENV_VAR"}`, or `{Mod, :fun, args}`
-      (see `resolve_auth/1`)
-    * `:auth` — how the key is sent: `:bearer`, `{:header, name}`, `:none`,
-      or `:dialect` (the default — the scheme of the dialect's home API)
-    * `:headers` — extra headers sent on every request (map)
-    * `:dialects` — the provider's endpoints, keyed by dialect module:
-      `%{Module => [base_url: "...", compat: [...]]}`
-    * `:module` — a module implementing this behaviour
-    * `:models` — models to correct or add, as model ids or keyword lists of
-      `Omni.Model.new/1` attributes (see [Models](#module-models))
-    * `:source` — a model source for this provider only (see `Omni.Source`)
+  - `:name` - display name
+  - `:host` - an origin (`scheme://host[:port]`) that replaces the origin
+    of every endpoint URL from the catalog and the provider module (see
+    [Endpoints](#module-endpoints))
+  - `:api_key` - a string, `{:system, "ENV_VAR"}`, or `{Mod, :fun, args}`
+    (see `resolve_auth/1`)
+  - `:auth` - how the key is sent: `:bearer`, `{:header, name}`, `:none`,
+    or `:dialect` (the default — the scheme of the dialect's home API)
+  - `:headers` - extra headers sent on every request (map)
+  - `:dialects` - the provider's endpoints, keyed by dialect module:
+    `%{Module => [base_url: "...", compat: [...]]}`
+  - `:module` - a module implementing this behaviour
+  - `:models` - models to correct or add, as model ids or keyword lists of
+    `Omni.Model.new/1` attributes (see [Models](#module-models))
+  - `:source` - a model source for this provider only (see `Omni.Source`)
 
   A missing API key or endpoint URL is not an error at boot: a key can be
   passed per request, and a request to an endpoint with no URL returns
@@ -111,8 +113,10 @@ defmodule Omni.Provider do
   version segment included, and its compat flags. A request goes to the
   endpoint's base URL plus the dialect's resource path:
 
-      # dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "https://api.together.ai/v1"]}
-      # POST https://api.together.ai/v1/chat/completions
+  ```elixir
+  # dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "https://api.together.ai/v1"]}
+  # POST https://api.together.ai/v1/chat/completions
+  ```
 
   A gateway that serves several dialects has an endpoint for each, at
   whatever URL the catalog gives it — on another path or another host.
@@ -147,8 +151,10 @@ defmodule Omni.Provider do
   field by field (`:dialects` by capability), which corrects catalog data
   without restating it:
 
-      config :omni, :providers,
-        openai: [models: [[id: "gpt-6", context_size: 1_000_000]]]
+  ```elixir
+  config :omni, :providers,
+    openai: [models: [[id: "gpt-6", context_size: 1_000_000]]]
+  ```
 
   An entry with a new id adds a model, and names its dialect. A config
   model with no dialect, or one the provider has no endpoint for, raises at
@@ -166,22 +172,26 @@ defmodule Omni.Provider do
 
   Flags are set on the endpoint of the dialect they apply to:
 
-      config :omni, :providers,
-        gpu_box: [
-          dialects: %{
-            Omni.Dialects.OpenAICompletions => [
-              base_url: "http://gpu-box:8000/v1",
-              compat: [max_tokens_field: "max_tokens", omit: [:cache]]
-            ]
-          }
+  ```elixir
+  config :omni, :providers,
+    gpu_box: [
+      dialects: %{
+        Omni.Dialects.OpenAICompletions => [
+          base_url: "http://gpu-box:8000/v1",
+          compat: [max_tokens_field: "max_tokens", omit: [:cache]]
         ]
+      }
+    ]
+  ```
 
   `like:` copies a built-in provider's flags for the same dialect. It suits
   catalog providers that are a built-in under another name, such as a
   regional endpoint or a separate plan:
 
-      config :omni, :providers,
-        zai_coding_plan: [dialects: %{Omni.Dialects.OpenAICompletions => [compat: [like: :zai]]}]
+  ```elixir
+  config :omni, :providers,
+    zai_coding_plan: [dialects: %{Omni.Dialects.OpenAICompletions => [compat: [like: :zai]]}]
+  ```
 
   Flags listed alongside `like:` are layered over the copied ones. Flags
   merge one at a time over a built-in's own, so setting one flag leaves the
@@ -193,21 +203,23 @@ defmodule Omni.Provider do
   the optional callbacks. Built-ins are mapped to their modules
   automatically; for other providers, set `module:` in config:
 
-      defmodule MyApp.Together do
-        @behaviour Omni.Provider
+  ```elixir
+  defmodule MyApp.Together do
+    @behaviour Omni.Provider
 
-        @impl true
-        def config do
-          [dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "https://api.together.xyz/v1"]}]
-        end
+    @impl true
+    def config do
+      [dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "https://api.together.xyz/v1"]}]
+    end
 
-        @impl true
-        def modify_body(body, _model, _context, _opts) do
-          Map.delete(body, "stream_options")
-        end
-      end
+    @impl true
+    def modify_body(body, _model, _context, _opts) do
+      Map.delete(body, "stream_options")
+    end
+  end
 
-      config :omni, :providers, togetherai: [module: MyApp.Together]
+  config :omni, :providers, togetherai: [module: MyApp.Together]
+  ```
 
   Reach for compat flags first; module callbacks are for what flags can't
   express, such as a quirk only some of a provider's models have.
@@ -222,7 +234,9 @@ defmodule Omni.Provider do
 
   Providers load at boot. To load more later:
 
-      Omni.Provider.load([:togetherai, gpu_box: [dialects: %{...}, models: [...]]])
+  ```elixir
+  Omni.Provider.load([:togetherai, gpu_box: [dialects: %{...}, models: [...]]])
+  ```
 
   Loading an id that is already loaded replaces its provider and models.
   Models obtained earlier keep the provider struct they were built with.
@@ -265,18 +279,20 @@ defmodule Omni.Provider do
   Accepts `:name`, `:api_key`, `:auth`, `:headers` and `:dialects`, as in
   `config :omni, :providers`. App config overrides these values.
 
-      @impl true
-      def config do
-        [
-          api_key: {:system, "ACME_API_KEY"},
-          dialects: %{
-            Omni.Dialects.OpenAICompletions => [
-              base_url: "https://api.acme.ai/v1",
-              compat: [max_tokens_field: "max_tokens"]
-            ]
-          }
+  ```elixir
+  @impl true
+  def config do
+    [
+      api_key: {:system, "ACME_API_KEY"},
+      dialects: %{
+        Omni.Dialects.OpenAICompletions => [
+          base_url: "https://api.acme.ai/v1",
+          compat: [max_tokens_field: "max_tokens"]
         ]
-      end
+      }
+    ]
+  end
+  ```
 
   A built-in's flags are copied by dialect with `like:`.
   """
@@ -290,10 +306,12 @@ defmodule Omni.Provider do
   and the merged provider. Returns the final list. Models still without a
   dialect afterwards are skipped (catalog) or raise (config).
 
-      @impl true
-      def models(models, _provider) do
-        Enum.map(models, &%{&1 | input_modalities: Enum.uniq([:pdf | &1.input_modalities])})
-      end
+  ```elixir
+  @impl true
+  def models(models, _provider) do
+    Enum.map(models, &%{&1 | input_modalities: Enum.uniq([:pdf | &1.input_modalities])})
+  end
+  ```
   """
   @callback models(models :: [Model.t()], provider :: t()) :: [Model.t()]
 
@@ -315,9 +333,11 @@ defmodule Omni.Provider do
   capability: a `%Omni.Context{}` for text generation, a `%Omni.Decision{}`
   for a decision. Match on it to touch only one kind of request:
 
-      @impl true
-      def modify_body(body, _model, %Omni.Context{}, _opts), do: Map.delete(body, "stream_options")
-      def modify_body(body, _model, _decision, _opts), do: body
+  ```elixir
+  @impl true
+  def modify_body(body, _model, %Omni.Context{}, _opts), do: Map.delete(body, "stream_options")
+  def modify_body(body, _model, _decision, _opts), do: body
+  ```
   """
   @callback modify_body(
               body :: map(),
@@ -331,8 +351,10 @@ defmodule Omni.Provider do
   @doc """
   Returns a loaded provider by id.
 
-      {:ok, provider} = Omni.Provider.get(:anthropic)
-      provider.name  #=> "Anthropic"
+  ```elixir
+  {:ok, provider} = Omni.Provider.get(:anthropic)
+  provider.name  #=> "Anthropic"
+  ```
   """
   @spec get(atom()) :: {:ok, t()} | {:error, {:unknown_provider, atom()}}
   def get(id) when is_atom(id) do
@@ -348,8 +370,10 @@ defmodule Omni.Provider do
   Each entry is a provider id, read with its `config :omni, :providers`
   entry, or `{id, opts}`, where `opts` layer over that entry.
 
-      Omni.Provider.load([:togetherai])
-      Omni.Provider.load(gpu_box: [dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "http://gpu-box:8000/v1"]}])
+  ```elixir
+  Omni.Provider.load([:togetherai])
+  Omni.Provider.load(gpu_box: [dialects: %{Omni.Dialects.OpenAICompletions => [base_url: "http://gpu-box:8000/v1"]}])
+  ```
 
   Raises `ArgumentError` when a provider can't be assembled (see the moduledoc).
   """
@@ -367,10 +391,10 @@ defmodule Omni.Provider do
 
   Supports multiple formats:
 
-  - `"sk-..."` — a literal string, returned as-is
-  - `{:system, "ENV_VAR"}` — resolved from the environment
-  - `{Module, :function, args}` — resolved via `apply/3`
-  - `nil` — returns `{:error, :no_api_key}`
+  - `"sk-..."` - a literal string, returned as-is
+  - `{:system, "ENV_VAR"}` - resolved from the environment
+  - `{Module, :function, args}` - resolved via `apply/3`
+  - `nil` - returns `{:error, :no_api_key}`
   """
   @spec resolve_auth(term()) :: {:ok, String.t()} | {:error, term()}
   def resolve_auth(value) when is_binary(value), do: {:ok, value}
@@ -396,9 +420,11 @@ defmodule Omni.Provider do
   @doc """
   Returns the provider's endpoint for a dialect.
 
-      {:ok, provider} = Omni.Provider.get(:anthropic)
-      {:ok, endpoint} = Omni.Provider.endpoint(provider, Omni.Dialects.AnthropicMessages)
-      endpoint.base_url  #=> "https://api.anthropic.com/v1"
+  ```elixir
+  {:ok, provider} = Omni.Provider.get(:anthropic)
+  {:ok, endpoint} = Omni.Provider.endpoint(provider, Omni.Dialects.AnthropicMessages)
+  endpoint.base_url  #=> "https://api.anthropic.com/v1"
+  ```
   """
   @spec endpoint(t(), module()) :: {:ok, Endpoint.t()} | {:error, {:no_endpoint, module()}}
   def endpoint(%__MODULE__{dialects: dialects}, dialect) do

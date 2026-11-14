@@ -112,7 +112,7 @@ defmodule Omni.MixProject do
         Sources: ~r/^Omni\.Source/
       ],
       groups_for_docs: [
-        "Text Generation": &(&1[:group] == :generation),
+        "Text generation": &(&1[:group] == :generation),
         Decisions: &(&1[:group] == :decisions),
         Models: &(&1[:group] == :models),
         Context: &(&1[:group] == :context)
