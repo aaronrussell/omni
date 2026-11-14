@@ -69,8 +69,8 @@ defmodule Omni.Source do
   derives models from something costly to produce, such as a large decoded
   snapshot or a network response, should wrap that work in `memo/2`. The
   result is computed once per pass and garbage collected when the pass
-  ends, so it doesn't linger
-  for the VM's lifetime. `Omni.Sources.ModelsDev` does this.
+  ends, so it doesn't linger for the VM's lifetime. `Omni.Sources.ModelsDev`
+  does this.
   """
 
   alias Omni.{Model, Provider}

@@ -37,7 +37,7 @@ context =
 {:ok, response} = Omni.generate_text("openai:gpt-6.1-sol", context)
 ```
 
-Omni keeps no state between requests. The context is yours to hold, store and trim. For presistence, `Omni.Codec` turns contexts, messages and responses into JSON-safe maps and back without loss.
+Omni keeps no state between requests. The context is yours to hold, store and trim. For persistence, `Omni.Codec` turns messages into JSON-safe maps and back without loss.
 
 ## Images and PDFs
 
@@ -127,7 +127,7 @@ Models differ in what they accept, and Omni translates for each. A level the mod
 
 Reasoning comes back as `Omni.Content.Thinking` blocks, and streams as `:thinking_delta` events. Some providers return a summary, some return it encrypted, and some return nothing readable.
 
-Keep those blocks in the conversation: on later turns Omni sends them back, which models need to continue their reasoning across tool use. They only go back to the provider and dialect that wrote them. If you switch model mid-conversation, earlier thinking is left out and the text and tool uses are kept.
+Keep those blocks in the conversation: on later turns Omni sends them back, which models need to continue their reasoning across tool use. They only go back to the provider and [dialect](providers-and-models.md#three-ideas) that wrote them. If you switch model mid-conversation, earlier thinking is left out and the text and tool uses are kept.
 
 ## Tools
 

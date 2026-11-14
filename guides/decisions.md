@@ -133,7 +133,7 @@ These built-in providers serve decision models:
 | NEAR AI Cloud (`:nearai`) | `typesafe/jev-1.13`, `levanto/sage-1.4` |
 | Ollama (`:ollama`) | Any decision model you have pulled |
 
-Two wire formats are in use: TypeSafe's System One, which most providers serve, and OpenAI's Decisions API. Omni speaks both, and your code is the same either way. One difference shows through: OpenAI has no field for a predicate's criteria, so they are not sent to it.
+Two wire formats, or [dialects](providers-and-models.md#three-ideas), are in use: TypeSafe's System One, which most providers serve, and OpenAI's Decisions API. Omni speaks both, and your code is the same either way. One difference shows through: OpenAI has no field for a predicate's criteria, so they are not sent to it.
 
 A local Ollama model is a decision model when its config says so:
 

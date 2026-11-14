@@ -82,7 +82,7 @@ Each entry under `config :omni, :providers` takes these keys. Your values are la
 | `:models` | Models to add or correct |
 | `:source` | Where this provider's model data comes from |
 
-An unknown key is an error at startup. A missing API key is not: you can pass `:api_key` on each request, and a request with no key returns `{:error, :no_api_key}`.
+An unknown key is an error at startup. A missing API key is not: you can pass `:api_key` on each request. A request with no key returns `{:error, :no_api_key}`, or `{:error, {:missing_env_var, "ANTHROPIC_API_KEY"}}` when the key is read from a variable that isn't set.
 
 ### URLs
 

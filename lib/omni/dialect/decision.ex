@@ -114,8 +114,9 @@ defmodule Omni.Dialect.Decision do
   instructions are non-empty lists of `Omni.Content.Text` and
   `Omni.Content.Data` parts, it has at least one question, and every choice
   or score question has at least two options. Encode each question under a
-  name the response can be matched back by. The returned map may be further adjusted by the provider module's
-  `c:Omni.Provider.modify_body/4` before being sent as JSON.
+  name the response can be matched back by. The returned map may be further
+  adjusted by the provider module's `c:Omni.Provider.modify_body/4` before
+  being sent as JSON.
   """
   @callback handle_body(Model.t(), Decision.t(), map()) :: map()
 

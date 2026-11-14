@@ -19,6 +19,7 @@ defmodule Omni.Providers.Ollama do
   @impl true
   def config do
     [
+      name: "Ollama",
       auth: :none,
       dialects: %{
         Omni.Dialects.OllamaChat => [base_url: "http://localhost:11434"],

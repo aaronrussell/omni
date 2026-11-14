@@ -150,12 +150,24 @@ Two jobs, kept apart. **Tests** check that Omni handles real wire bytes: offline
 
 ## Documentation
 
-- All public modules must have a `@moduledoc`. Internal/private modules use `@moduledoc false`.
-- All public types must have a `@typedoc`. Keep it on one line unless complex.
-- All public functions must have a `@doc`. Rely on `@spec` for types — don't repeat in prose.
-- Document options when a function accepts them.
-- Private functions (`defp`) do not need `@doc` annotations.
-- Tone: practical, concise, example-driven. Lead with what you do, not what things are.
+Three layers, each with one job. **Getting started** (the docs main page) gets a reader to a first request. **Topic guides** (`guides/`, wired into `mix.exs` `extras`) explain an area and show the common paths. **Module docs** are the complete reference for one module, and link to the guides instead of doing guide work. The README is the pitch for GitHub and hex.pm. The provider table and all user-facing docs for the built-ins live in `guides/built-in-providers.md`; keep each `Omni.Providers.*` comment block in step with its section.
+
+Guidelines, not laws: break one where the page is clearly better for it.
+
+- **Visibility**: a module is public when a user meets its name (in a call, config, a struct they match on, a behaviour they implement) and has a `@moduledoc`. Everything else takes `@moduledoc false` first, then a comment block for whoever works on it. A new public module goes in its sidebar group in `mix.exs`.
+- **`@doc` follows the function, not the module**: a public function that is part of a module's API has a `@doc`, hidden module or not. A public but internal-only function has `@doc false`. Private functions have none. Public types have a `@typedoc`.
+- **First paragraph is one short sentence** in every `@moduledoc`, `@doc` and `@typedoc`: ex_doc shows it in listings. The explanation starts in the second paragraph. (`Omni` opens with what Omni is.)
+- **Tone**: practical, concise, example-led. Lead with what you do, not what things are. Second person, present tense, no hype.
+- **British spelling** in prose; identifiers and wire terms keep their own. **Plain punctuation**: no em dashes in new or revised prose, error strings included (the remedy is a second sentence).
+- **Wrapping**: Markdown files soft-wrap, one line per paragraph or list item. Doc blocks in `.ex` files hard-wrap.
+- **Rely on `@spec` for types**; don't repeat them in prose. Document options where a function takes them. Describe validation by intent, in a sentence or two.
+- **Check facts against the code**, not only style. Example model ids exist in the snapshot (`claude-sonnet-5-5`, `gpt-6.1-sol`, `gemini-3.5-flash`, `deepseek-v4-pro`, `typesafe/jev-1.14`).
+- **Module page shape**: intro, then "Struct fields" (every public struct has one, checked against the struct), then the sections that explain them. One guide link, in the second paragraph, on modules a guide section is about; leaf modules get none.
+- **Lists** use `-`, flush with the surrounding text, items as `` - `:key` - text ``. **Code blocks are fenced** with their language, never indented.
+- **Naming a struct in prose**: the module name in backticks (`Omni.Content.Text`), which ex_doc links. Keep `%Text{}` for code and for showing a shape.
+- **Terms**: tool use (not tool call); capability vs modality; id (not ID); a provider is named by its id, not its module.
+- **Comments** must be true, useful and current. Cut one that restates the code, narrates history ("used to", "now", "v1") or repeats `context/design.md`. Keep the why the code can't show.
+- **Check**: `mix docs` builds with no warnings. The upgrade guide and changelog are excluded from undefined-reference warnings, since they name removed functions.
 
 ## Context Documents
 

@@ -4,23 +4,23 @@ Omni ships with code for the providers on this page. Each is set up for its API'
 
 | Provider | Id | API key variable | Text API | Decision API |
 | --- | --- | --- | --- | --- |
-| [Alibaba](#alibaba) | `:alibaba` | `DASHSCOPE_API_KEY` | `"openai_completions"` | |
-| [Anthropic](#anthropic) | `:anthropic` | `ANTHROPIC_API_KEY` | `"anthropic_messages"` | |
-| [Google](#google) | `:google` | `GEMINI_API_KEY` | `"google_generate_content"` | |
-| [Groq](#groq) | `:groq` | `GROQ_API_KEY` | `"openai_completions"` | |
-| [Mistral AI](#mistral-ai) | `:mistral` | `MISTRAL_API_KEY` | `"openai_completions"` | |
-| [Moonshot AI](#moonshot-ai) | `:moonshotai` | `MOONSHOT_API_KEY` | `"openai_completions"` | |
-| [NEAR AI Cloud](#near-ai-cloud) | `:nearai` | `NEARAI_API_KEY` | `"openai_completions"` | `"typesafe_system_one"` |
-| [Ollama](#ollama) | `:ollama` | none | `"ollama_chat"` | `"typesafe_system_one"` |
-| [Ollama Cloud](#ollama-cloud) | `:ollama_cloud` | `OLLAMA_API_KEY` | `"ollama_chat"` | |
-| [OpenAI](#openai) | `:openai` | `OPENAI_API_KEY` | `"openai_responses"` | `"openai_decisions"` |
-| [OpenCode Zen](#opencode-zen) | `:opencode` | `OPENCODE_API_KEY` | *by model* | `"typesafe_system_one"` |
-| [OpenRouter](#openrouter) | `:openrouter` | `OPENROUTER_API_KEY` | `"openai_completions"` | `"typesafe_system_one"` |
-| [Together AI](#together-ai) | `:togetherai` | `TOGETHER_API_KEY` | `"openai_completions"` | |
-| [TypeSafe](#typesafe) | `:typesafe` | `TYPESAFE_API_KEY` | | `"typesafe_system_one"` |
-| [Venice AI](#venice-ai) | `:venice` | `VENICE_API_KEY` | `"openai_completions"` | |
-| [xAI](#xai) | `:xai` | `XAI_API_KEY` | `"openai_responses"` | |
-| [Z.ai](#z-ai) | `:zai` | `ZAI_API_KEY` | `"openai_completions"` | |
+| [Alibaba](#alibaba) | `:alibaba` | `DASHSCOPE_API_KEY` | `OpenAICompletions` | |
+| [Anthropic](#anthropic) | `:anthropic` | `ANTHROPIC_API_KEY` | `AnthropicMessages` | |
+| [Google](#google) | `:google` | `GEMINI_API_KEY` | `GoogleGenerateContent` | |
+| [Groq](#groq) | `:groq` | `GROQ_API_KEY` | `OpenAICompletions` | |
+| [Mistral AI](#mistral-ai) | `:mistral` | `MISTRAL_API_KEY` | `OpenAICompletions` | |
+| [Moonshot AI](#moonshot-ai) | `:moonshotai` | `MOONSHOT_API_KEY` | `OpenAICompletions` | |
+| [NEAR AI Cloud](#near-ai-cloud) | `:nearai` | `NEARAI_API_KEY` | `OpenAICompletions` | `TypeSafeSystemOne` |
+| [Ollama](#ollama) | `:ollama` | none | `OllamaChat` | `TypeSafeSystemOne` |
+| [Ollama Cloud](#ollama-cloud) | `:ollama_cloud` | `OLLAMA_API_KEY` | `OllamaChat` | |
+| [OpenAI](#openai) | `:openai` | `OPENAI_API_KEY` | `OpenAIResponses` | `OpenAIDecisions` |
+| [OpenCode Zen](#opencode-zen) | `:opencode` | `OPENCODE_API_KEY` | *by model* | `TypeSafeSystemOne` |
+| [OpenRouter](#openrouter) | `:openrouter` | `OPENROUTER_API_KEY` | `OpenAICompletions` | `TypeSafeSystemOne` |
+| [Together AI](#together-ai) | `:togetherai` | `TOGETHER_API_KEY` | `OpenAICompletions` | |
+| [TypeSafe](#typesafe) | `:typesafe` | `TYPESAFE_API_KEY` | | `TypeSafeSystemOne` |
+| [Venice AI](#venice-ai) | `:venice` | `VENICE_API_KEY` | `OpenAICompletions` | |
+| [xAI](#xai) | `:xai` | `XAI_API_KEY` | `OpenAIResponses` | |
+| [Z.ai](#z-ai) | `:zai` | `ZAI_API_KEY` | `OpenAICompletions` | |
 
 If a provider's variable is set, it needs no configuration. To change anything about one, configure it by id:
 
@@ -121,6 +121,8 @@ A model listed this way is a text model. A decision model names its dialect:
 config :omni, :providers,
   ollama: [models: [[id: "clef", dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}]]]
 ```
+
+A model that serves both names both dialects.
 
 **Another machine.** Set `:host`, which moves text and decision requests together:
 

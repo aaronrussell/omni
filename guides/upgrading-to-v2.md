@@ -161,7 +161,7 @@ These need no code change, but your results may differ.
 
 **A response cut short stays cut short.** A response that hits the token limit inside a tool use now stops with `:length`. In v1 it reported `:tool_use` and the loop ran the tool with incomplete input.
 
-**More Completions providers get their reasoning back.** Moonshot, Z.ai, Alibaba, Venice, Groq, Together and OpenCode Zen now send earlier reasoning back on later turns, as OpenRouter and Mistral already did.
+**More Completions providers get their reasoning back.** Moonshot, Z.ai, Alibaba, Venice, Groq, Together and OpenCode Zen now send earlier reasoning back on later turns, as OpenRouter already did.
 
 **OpenRouter caches Claude models** when you pass `:cache`. In v1 the option did nothing for them.
 

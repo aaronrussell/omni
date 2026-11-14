@@ -30,6 +30,7 @@ defmodule Omni.Providers.TypeSafe do
   @impl true
   def config do
     [
+      name: "TypeSafe",
       api_key: {:system, "TYPESAFE_API_KEY"},
       dialects: %{Omni.Dialects.TypeSafeSystemOne => [base_url: "https://api.typesafe.ai/v1"]}
     ]
