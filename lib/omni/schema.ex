@@ -49,9 +49,10 @@ defmodule Omni.Schema do
   simple shape: objects, arrays and constrained values, which is what
   models handle best. `validate/2` lists what it checks and where it stops.
 
-  For schemas that lean on combinators or references, or to use a JSON
-  Schema library you already have, pass an `Omni.Schema.Adapter` tuple,
-  `{module, state}`, wherever a schema is taken.
+  For schemas that need more, such as exact `oneOf`, recursive references
+  or checked date formats, or to use a JSON Schema library you already
+  have, pass an `Omni.Schema.Adapter` tuple, `{module, state}`, wherever a
+  schema is taken.
   """
 
   @behaviour Omni.Schema.Adapter
@@ -155,14 +156,23 @@ defmodule Omni.Schema do
   [Peri](https://hex.pm/packages/peri), which checks:
 
   - types, union types and required fields
-  - strings: `minLength`, `maxLength`, `pattern`, `format`
+  - strings: `minLength`, `maxLength`, `pattern`, and `format` when it is
+    `email` or `uri`
   - numbers: `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`,
     `multipleOf`
   - arrays: `minItems`, `maxItems`, `uniqueItems`
   - `enum` and `const`
-  - `anyOf` and `oneOf`
-  - `allOf`, over object schemas only
-  - `$ref` to one of the schema's own `$defs`
+  - `anyOf`, and `oneOf` as if it were `anyOf`
+  - `allOf` over object schemas that don't define the same property twice
+  - `$ref` to one of the schema's own `$defs`, but not recursively
+
+  Everything else in the schema is sent to the model but not checked,
+  including other formats such as `date` and `date-time`, and keywords
+  such as `not` and `if`. Properties the schema doesn't list are dropped
+  from the validated data, not rejected, unless `additionalProperties` is
+  `true`. A schema the validator can't convert, such as `allOf` over
+  strings, fails every input with a message saying so. When a schema needs
+  any of these, use an `Omni.Schema.Adapter`.
 
   Validated data has the schema's keys: a schema written with atom keys
   turns string-keyed JSON back into atom keys. This follows `properties`
@@ -179,21 +189,45 @@ defmodule Omni.Schema do
   end
 
   def validate(schema, input) when is_map(schema) do
-    with {:ok, peri_schema} <- Peri.from_json_schema(stringify(schema), keys: :strings),
-         {:ok, validated} <- Peri.validate(restore_permissive(peri_schema), input) do
-      {:ok, recase(validated, schema)}
-    else
-      {:error, errors} -> {:error, format_errors(errors)}
+    json_schema = stringify(schema)
+
+    case Peri.from_json_schema(json_schema, keys: :strings) do
+      {:ok, peri_schema} ->
+        case Peri.validate(restore_permissive(peri_schema), input) do
+          {:ok, validated} -> {:ok, recase(validated, schema)}
+          {:error, errors} -> {:error, errors |> describe(json_schema, input) |> format_errors()}
+        end
+
+      {:error, reason} ->
+        {:error, unsupported(reason)}
     end
   end
+
+  # Peri's converter refuses some schemas outright. Every input fails the
+  # same way, so the message names the schema, not the input.
+
+  defp unsupported({:unsupported_all_of_branch, _}),
+    do: "unsupported schema: allOf is only supported over object schemas"
+
+  defp unsupported({:all_of_conflict, key, _, _}),
+    do: "unsupported schema: allOf defines property #{inspect(key)} more than once"
+
+  defp unsupported({:recursive_ref, name}),
+    do: "unsupported schema: $ref to #{inspect(name)} is recursive"
+
+  defp unsupported(errors) when is_list(errors),
+    do: "unsupported schema:\n" <> format_errors(errors)
+
+  defp unsupported(other), do: "unsupported schema: #{inspect(other)}"
 
   @doc false
   @spec format_errors(term()) :: String.t()
   def format_errors(errors) when is_list(errors) do
     errors
     |> flatten_errors([])
-    |> Enum.map_join("\n", fn {path, message} ->
-      "- #{Enum.join(path, ".")}: #{message}"
+    |> Enum.map_join("\n", fn
+      {[], message} -> "- #{message}"
+      {path, message} -> "- #{Enum.join(path, ".")}: #{message}"
     end)
   end
 
@@ -221,15 +255,131 @@ defmodule Omni.Schema do
     flatten_errors(rest, [{[], inspect(other)} | acc])
   end
 
+  # -- Readable messages for numbers, unions and enums --
+  #
+  # Peri's messages for these name its own internals ("expected either
+  # :integer or {:custom, ...}"), and a failed union doesn't say which check
+  # failed. They are rewritten from the schema node and the value at the
+  # error's path, when the path follows `properties` and `items`; otherwise
+  # Peri's message stands.
+
+  defp describe(errors, json_schema, input) when is_list(errors) do
+    Enum.map(errors, &describe(&1, json_schema, input))
+  end
+
+  defp describe(%Peri.Error{errors: [_ | _] = nested} = error, json_schema, input) do
+    %{error | errors: describe(nested, json_schema, input)}
+  end
+
+  defp describe(%Peri.Error{code: code} = error, json_schema, input)
+       when code in [:either, :oneof, :enum] do
+    path = error.path || []
+
+    with {:ok, node} <- node_at(json_schema, path),
+         {:ok, value} <- value_at(input, path),
+         message when is_binary(message) <- describe_value(code, node, value) do
+      %{error | message: message}
+    else
+      _ -> error
+    end
+  end
+
+  defp describe(error, _json_schema, _input), do: error
+
+  defp describe_value(:enum, %{"enum" => values}, value) do
+    "expected one of #{inspect(values)}, got: #{inspect(value)}"
+  end
+
+  defp describe_value(code, %{"type" => type} = node, value) when code in [:either, :oneof] do
+    types = List.wrap(type)
+
+    if Enum.any?(types, &type?(&1, value)) do
+      "#{broken_limit(node, value) || "does not meet the schema's constraints"}, got: #{inspect(value)}"
+    else
+      "expected #{Enum.map_join(types, " or ", &type_name/1)}, got: #{inspect(value)}"
+    end
+  end
+
+  defp describe_value(_code, _node, _value), do: nil
+
+  defp type?("integer", v), do: is_integer(v) or (is_float(v) and v == trunc(v))
+  defp type?("number", v), do: is_number(v)
+  defp type?("string", v), do: is_binary(v)
+  defp type?("boolean", v), do: is_boolean(v)
+  defp type?("null", v), do: is_nil(v)
+  defp type?("object", v), do: is_map(v)
+  defp type?("array", v), do: is_list(v)
+  defp type?(_type, _v), do: false
+
+  defp type_name("integer"), do: "an integer"
+  defp type_name("object"), do: "an object"
+  defp type_name("array"), do: "an array"
+  defp type_name("null"), do: "null"
+  defp type_name(type), do: "a #{type}"
+
+  @numeric_limits ~w(minimum exclusiveMinimum maximum exclusiveMaximum multipleOf)
+
+  defp broken_limit(node, value) when is_number(value) do
+    Enum.find_value(@numeric_limits, fn key ->
+      bound = node[key]
+      if is_number(bound) and breaks?(key, bound, value), do: "#{limit_phrase(key)} #{bound}"
+    end)
+  end
+
+  defp broken_limit(_node, _value), do: nil
+
+  defp breaks?("minimum", bound, v), do: v < bound
+  defp breaks?("exclusiveMinimum", bound, v), do: v <= bound
+  defp breaks?("maximum", bound, v), do: v > bound
+  defp breaks?("exclusiveMaximum", bound, v), do: v >= bound
+  defp breaks?("multipleOf", bound, v), do: bound != 0 and v / bound != Float.round(v / bound)
+
+  defp limit_phrase("minimum"), do: "must be at least"
+  defp limit_phrase("exclusiveMinimum"), do: "must be greater than"
+  defp limit_phrase("maximum"), do: "must be at most"
+  defp limit_phrase("exclusiveMaximum"), do: "must be less than"
+  defp limit_phrase("multipleOf"), do: "must be a multiple of"
+
+  defp node_at(node, []), do: {:ok, node}
+
+  defp node_at(%{"properties" => props}, [key | rest]) when is_map_key(props, key),
+    do: node_at(props[key], rest)
+
+  defp node_at(%{"items" => items}, [index | rest]) when is_integer(index) and is_map(items),
+    do: node_at(items, rest)
+
+  defp node_at(_node, _path), do: :error
+
+  defp value_at(value, []), do: {:ok, value}
+
+  defp value_at(map, [key | rest]) when is_map_key(map, key), do: value_at(map[key], rest)
+
+  defp value_at(list, [index | rest]) when is_list(list) and is_integer(index) do
+    case Enum.fetch(list, index) do
+      {:ok, value} -> value_at(value, rest)
+      :error -> :error
+    end
+  end
+
+  defp value_at(_value, _path), do: :error
+
   # -- Schema preparation for Peri.from_json_schema/2 --
   #
   # Peri's converter requires fully string-keyed schemas with string values
   # for `type`, `required`, etc. The builders produce atom-keyed maps with
   # mostly string values, and users may pass either, so everything is
   # stringified before conversion. Booleans, nils and structs are left alone.
+  #
+  # String formats other than `email` and `uri` are dropped here, so they
+  # reach the model but aren't checked: Peri converts the date and time
+  # formats to types that only accept Elixir structs, which JSON never holds.
+
+  @checked_formats ~w(email uri)
 
   defp stringify(map) when is_map(map) do
-    Map.new(map, fn {k, v} -> {stringify_key(k), stringify(v)} end)
+    map
+    |> Map.new(fn {k, v} -> {stringify_key(k), stringify(v)} end)
+    |> drop_unchecked_format()
   end
 
   defp stringify(list) when is_list(list), do: Enum.map(list, &stringify/1)
@@ -245,6 +395,17 @@ defmodule Omni.Schema do
   end
 
   defp stringify_key(k), do: k
+
+  defp drop_unchecked_format(%{"format" => format} = schema)
+       when format not in @checked_formats do
+    if string_schema?(schema), do: Map.delete(schema, "format"), else: schema
+  end
+
+  defp drop_unchecked_format(schema), do: schema
+
+  defp string_schema?(%{"type" => "string"}), do: true
+  defp string_schema?(%{"type" => types}) when is_list(types), do: "string" in types
+  defp string_schema?(_schema), do: false
 
   # Peri's converter produces an empty map (`%{}`) for an object schema
   # without `properties`, which then drops every key on validate. These are

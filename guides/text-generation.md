@@ -232,7 +232,7 @@ The schema goes to the provider, which constrains the model to it where the prov
 
 `Omni.Schema` has builders for the common JSON Schema types, and any map in JSON Schema form works. Keys in `response.output` are the keys you wrote in the schema.
 
-Omni's own validator is meant for schemas of simple shape. For a schema that needs more, such as one built on `allOf` or `$ref`, or to validate with a library you already use, such as [JSV](https://hex.pm/packages/jsv), pass a `{module, state}` adapter as `:output`. `Omni.Schema.Adapter` shows how to write one.
+Omni's own validator is meant for schemas of simple shape, and `Omni.Schema.validate/2` lists what it checks. For a schema that needs more, such as exact `oneOf`, recursive `$ref` or checked date formats, or to validate with a library you already use, such as [JSV](https://hex.pm/packages/jsv), pass a `{module, state}` adapter as `:output`. `Omni.Schema.Adapter` shows how to write one.
 
 ## Prompt caching
 

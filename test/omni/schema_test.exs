@@ -388,6 +388,111 @@ defmodule Omni.SchemaTest do
       assert {:error, _} = Schema.validate(schema, "world")
     end
 
+    test "rejects a fractional number for an integer" do
+      assert {:ok, 2.0} = Schema.validate(Schema.integer(), 2.0)
+      assert {:error, "- expected an integer, got: 1.5"} = Schema.validate(Schema.integer(), 1.5)
+    end
+
+    test "names the expected numeric type" do
+      schema =
+        Schema.object(%{
+          count: Schema.integer(),
+          price: Schema.number(),
+          ids: Schema.array(Schema.integer()),
+          parent: %{type: ["integer", "null"]}
+        })
+
+      input = %{"count" => "x", "price" => "y", "ids" => [1, "z"], "parent" => "w"}
+      assert {:error, message} = Schema.validate(schema, input)
+      assert message =~ ~s(- count: expected an integer, got: "x")
+      assert message =~ ~s(- price: expected a number, got: "y")
+      assert message =~ ~s(- ids.1: expected an integer, got: "z")
+      assert message =~ ~s(- parent: expected an integer or null, got: "w")
+    end
+
+    test "names the numeric limit that was broken" do
+      schema =
+        Schema.object(%{
+          a: Schema.integer(minimum: 3),
+          b: Schema.number(maximum: 1),
+          c: Schema.integer(exclusive_minimum: 0),
+          d: Schema.integer(exclusive_maximum: 2),
+          e: Schema.integer(multiple_of: 2)
+        })
+
+      input = %{"a" => 1, "b" => 1.5, "c" => 0, "d" => 2, "e" => 3}
+      assert {:error, message} = Schema.validate(schema, input)
+      assert message =~ "- a: must be at least 3, got: 1"
+      assert message =~ "- b: must be at most 1, got: 1.5"
+      assert message =~ "- c: must be greater than 0, got: 0"
+      assert message =~ "- d: must be less than 2, got: 2"
+      assert message =~ "- e: must be a multiple of 2, got: 3"
+    end
+
+    test "lists a numeric enum as written" do
+      schema = Schema.object(%{n: %{type: "integer", enum: [1, 2]}})
+
+      assert {:error, "- n: expected one of [1, 2], got: 3"} =
+               Schema.validate(schema, %{"n" => 3})
+    end
+
+    test "keeps Peri's message where the path can't be followed" do
+      schema = %{anyOf: [Schema.object(%{n: Schema.integer()})]}
+      assert {:error, message} = Schema.validate(schema, %{"n" => "x"})
+      assert is_binary(message)
+    end
+
+    test "checks email and uri formats" do
+      assert {:error, _} = Schema.validate(Schema.string(format: "email"), "nope")
+      assert {:ok, "a@b.co"} = Schema.validate(Schema.string(format: "email"), "a@b.co")
+      assert {:error, _} = Schema.validate(Schema.string(format: "uri"), "nope")
+    end
+
+    test "doesn't check other formats" do
+      for format <- ["date", "time", "date-time"] do
+        schema = Schema.object(%{at: Schema.string(format: format)})
+        assert {:ok, %{at: "2026-01-02"}} = Schema.validate(schema, %{"at" => "2026-01-02"})
+        assert {:ok, %{at: "nope"}} = Schema.validate(schema, %{"at" => "nope"})
+      end
+
+      assert {:ok, nil} = Schema.validate(%{type: ["string", "null"], format: "date"}, nil)
+    end
+
+    test "keeps a property named format" do
+      schema = Schema.object(%{format: Schema.string()}, required: [:format])
+      assert {:ok, %{format: "date"}} = Schema.validate(schema, %{"format" => "date"})
+    end
+
+    test "sends unchecked formats to the provider" do
+      schema = Schema.string(format: "date")
+      assert Schema.to_schema(schema) == schema
+    end
+
+    test "reports a schema it can't convert" do
+      assert {:error, "unsupported schema: allOf is only supported over object schemas"} =
+               Schema.validate(%{allOf: [%{type: "string"}, %{minLength: 2}]}, "a")
+
+      conflict = %{
+        allOf: [Schema.object(%{a: Schema.string()}), Schema.object(%{a: Schema.integer()})]
+      }
+
+      assert {:error, ~s(unsupported schema: allOf defines property "a" more than once)} =
+               Schema.validate(conflict, %{"a" => "x"})
+
+      recursive = %{
+        "$defs" => %{
+          "node" => %{
+            "type" => "object",
+            "properties" => %{"child" => %{"$ref" => "#/$defs/node"}}
+          }
+        },
+        "$ref" => "#/$defs/node"
+      }
+
+      assert {:error, ~s(unsupported schema: $ref to "node" is recursive)} =
+               Schema.validate(recursive, %{})
+    end
+
     test "returns error message as a string" do
       schema = Schema.object(%{name: Schema.string()}, required: [:name])
       assert {:error, message} = Schema.validate(schema, %{})

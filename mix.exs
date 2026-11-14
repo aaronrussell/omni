@@ -48,7 +48,7 @@ defmodule Omni.MixProject do
   # Run "mix help deps" to learn about dependencies.
   defp deps do
     [
-      {:peri, "~> 0.8"},
+      {:peri, "~> 0.12"},
       {:req, "~> 0.5"},
 
       # dev dependencies

@@ -165,6 +165,8 @@ These need no code change, but your results may differ.
 
 **OpenRouter caches Claude models** when you pass `:cache`. In v1 the option did nothing for them.
 
+**Schema validation is stricter in one place and looser in another.** An `integer` schema now rejects a number with a fraction, such as `1.5`, which v1 accepted. String formats other than `email` and `uri`, including `date` and `date-time`, are sent to the model but no longer checked: in v1 they rejected every input. `Omni.Schema.validate/2` lists what the built-in validator checks.
+
 **Some models no longer load.** The catalog now holds chat and decision models only, so realtime models and image-generation models have gone. On the `llm_db` source, models it marks as not callable are skipped.
 
 ## 4. If you wrote a provider module

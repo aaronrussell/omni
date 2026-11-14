@@ -167,6 +167,12 @@ config :omni, :providers,
 
 **New: `Message.origin`.** *(thinking from other models)* `%{model: {provider_id, model_id}, dialect: module}` on assistant messages Omni produces, `nil` otherwise. `Message.new/1` builds it from a `%Model{}` passed as `:origin`. `Omni.Codec` encodes it as `%{"model" => "provider:model", "dialect" => "Omni.Dialects.…"}` (a string model reference; `"provider/model"` also decodes); a provider that isn't loaded or an unknown dialect decodes as `nil`.
 
+**Schema validation on Peri 0.12.** *(release prep)* Omni requires `peri ~> 0.12`. Behaviour changes in `Omni.Schema.validate/2`, which checks tool input and `:output`:
+- An `integer` rejects a number with a fraction (`1.5`); v1 accepted it. `2.0` is still accepted.
+- String formats other than `email` and `uri` are sent to the model but not checked. `date`, `time` and `date-time` rejected every input in v1.
+- Errors for numbers, unions and enums read plainly (`- n: expected an integer, got: "x"`, `- n: must be at least 3, got: 1`) instead of naming Peri's internals.
+- A schema Peri can't convert (`allOf` over non-object schemas or with a property defined twice, a recursive `$ref`) returns `{:error, "unsupported schema: ..."}` for every input; it raised `FunctionClauseError` on Peri 0.12.
+
 ## Decisions
 
 **New: `Omni.decide/3`.** *(decisions)* A second capability beside text: one shared input (the state) and a keyword list of typed questions, answered with probabilities in one JSON request. Not streamed.
