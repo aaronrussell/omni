@@ -1,55 +1,45 @@
 defmodule Omni.StreamingResponse do
   @moduledoc """
-  A streaming LLM response that yields events as they arrive from the provider.
+  A streaming text response, yielding events as the model writes.
 
-  Returned by `Omni.stream_text/3`. The three most common consumption patterns:
+  Returned by `Omni.stream_text/3`. The stream is lazy and runs in the
+  process that consumes it: nothing is read from the provider until you
+  enumerate it. [Streaming](text-generation.md#streaming) introduces the
+  three ways to consume one:
 
-  ## Stream to UI and get the final response
+  - `on/3` registers a handler for one event type, and `complete/1` runs the
+    stream to its end and returns the `Omni.Response`
+  - `text_stream/1` gives only the text, chunk by chunk
+  - the struct is `Enumerable`, so `Enum` and `Stream` functions and `for`
+    see every event
 
   ```elixir
-  {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
+  {:ok, stream} = Omni.stream_text("anthropic:claude-sonnet-5-5", "Hello!")
 
   {:ok, response} =
     stream
-    |> StreamingResponse.on(:text_delta, fn %{delta: d} -> IO.write(d) end)
+    |> StreamingResponse.on(:text_delta, fn %{delta: text} -> IO.write(text) end)
     |> StreamingResponse.complete()
   ```
 
-  ## Just the text chunks
+  A stream can be consumed once. To stop early, call `cancel/1`.
 
-  ```elixir
-  {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
+  ## Struct fields
 
-  stream
-  |> StreamingResponse.text_stream()
-  |> Enum.each(&IO.write/1)
-  ```
+  Use the functions in this module; the fields are for building on top of
+  them.
 
-  ## Full event control
+  - `:stream` - the lazy stream of events
+  - `:cancel` - a function that closes the HTTP response, or `nil`
 
-  `StreamingResponse` implements `Enumerable`, yielding `{event_type, event_map,
-  partial_response}` tuples. The partial response is rebuilt after every event to
-  reflect the current state of the stream:
+  ## Events
 
-  ```elixir
-  {:ok, stream} = Omni.stream_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
+  Each event is a `{type, data, partial_response}` tuple. The third element
+  is the `Omni.Response` as built so far, rebuilt after every event.
 
-  for {type, data, _partial} <- stream do
-    case type do
-      :text_delta -> IO.write(data.delta)
-      :tool_use_start -> IO.puts("Calling tool: \#{data.name}")
-      :done -> IO.puts("\\nDone! Stop reason: \#{data.stop_reason}")
-      _ -> :ok
-    end
-  end
-  ```
-
-  ## Event types
-
-  Content block lifecycle events follow a `start` → `delta` → `end` pattern.
-  Blocks are sequential: a block's `end` event is emitted as soon as the next
-  block starts (or at stream completion, for the last block), so a block
-  always closes before another opens:
+  Every content block arrives as a `_start`, any number of `_delta`s and an
+  `_end`. `:index` is the block's position in the message content. Blocks
+  never overlap: one ends before the next starts.
 
   ```elixir
   {:text_start,     %{index: 0}, %Response{}}
@@ -65,20 +55,25 @@ defmodule Omni.StreamingResponse do
   {:tool_use_end,   %{index: 1, content: %ToolUse{}}, %Response{}}
   ```
 
-  Tool results are emitted between rounds when tools are auto-executed. The
-  third element is the completed response from the step that triggered tool
-  execution (not a partial response):
+  When Omni runs tools, a `:tool_result` event follows for each result,
+  before the next request starts. Its data is the result block, and its
+  third element is the finished response of the step that used the tool:
 
   ```elixir
   {:tool_result, %ToolResult{}, %Response{}}
   ```
 
-  Terminal events — every stream ends with exactly one of these:
+  Every stream ends with exactly one of these:
 
   ```elixir
   {:done,  %{stop_reason: :stop}, %Response{}}
   {:error, reason, %Response{}}
   ```
+
+  `:done` means the model finished, with the response's stop reason. An
+  `:error` reason is `{:stream_error, reason}` when the stream failed
+  part-way, or `:incomplete_stream` when it ended before the model
+  finished.
   """
 
   alias Omni.{Message, Model, Request, Response, Usage}
@@ -88,13 +83,13 @@ defmodule Omni.StreamingResponse do
 
   defstruct [:stream, :cancel]
 
-  @typedoc "A streaming response wrapper."
+  @typedoc "A streaming response."
   @type t :: %__MODULE__{
           stream: Enumerable.t(),
           cancel: (-> :ok) | nil
         }
 
-  @typedoc "An event type atom emitted during enumeration."
+  @typedoc "The type of an event (see [Events](#module-events))."
   @type event_type ::
           :text_start
           | :text_delta
@@ -109,7 +104,7 @@ defmodule Omni.StreamingResponse do
           | :error
           | :done
 
-  @typedoc "A consumer event emitted during enumeration."
+  @typedoc "An event: its type, its data and the response so far."
   @type event :: {event_type(), map(), Response.t()} | {:error, term(), Response.t()}
 
   @doc false
@@ -131,11 +126,11 @@ defmodule Omni.StreamingResponse do
   end
 
   @doc """
-  Consumes the entire stream and returns the final `%Response{}`.
+  Runs the stream to its end and returns the final response.
 
-  This drives the stream to completion, triggering any handlers registered
-  with `on/3` along the way. Returns `{:ok, response}` on success or
-  `{:error, reason}` if the stream terminated with an error.
+  Handlers registered with `on/3` fire along the way. Returns
+  `{:ok, response}`, or `{:error, reason}` if the stream ended with an
+  error.
   """
   @spec complete(t()) :: {:ok, Response.t()} | {:error, term()}
   def complete(%__MODULE__{} = sr) do
@@ -147,19 +142,24 @@ defmodule Omni.StreamingResponse do
     end
   end
 
-  @doc "Cancels the underlying async HTTP response."
+  @doc """
+  Cancels the request by closing the HTTP response.
+
+  Call it when you stop consuming a stream before its end, so the
+  connection is not left open.
+  """
   @spec cancel(t()) :: :ok
   def cancel(%__MODULE__{cancel: nil}), do: :ok
   def cancel(%__MODULE__{cancel: fun}), do: fun.()
 
   @doc """
-  Registers a side-effect handler for events of the given type.
+  Registers a handler for events of one type.
 
-  Returns a new `StreamingResponse` with the handler inserted into the pipeline.
-  Handlers fire during consumption (when `complete/1` or any `Enum` function
-  drives the stream) and their return values are discarded.
+  Returns a new streaming response with the handler in its pipeline. The
+  handler is called with the event's data as the stream is consumed (by
+  `complete/1` or any `Enum` function), and its return value is ignored.
 
-  Multiple handlers can be chained — all fire independently:
+  Handlers chain, and each fires for its own events:
 
   ```elixir
   {:ok, response} =
@@ -170,8 +170,8 @@ defmodule Omni.StreamingResponse do
     |> StreamingResponse.complete()
   ```
 
-  Use an arity-2 callback to access the partial response (e.g. for progress
-  tracking based on accumulated token usage):
+  A two-argument handler also receives the partial response, for example
+  to track token usage as it grows:
 
   ```elixir
   StreamingResponse.on(stream, :text_delta, fn _event, partial ->
@@ -205,8 +205,8 @@ defmodule Omni.StreamingResponse do
   @doc """
   Returns a stream of text delta binaries.
 
-  Filters the event stream to only `:text_delta` events and extracts the
-  delta string from each. Useful when you only need the text content:
+  Keeps only the `:text_delta` events and takes the text from each, for
+  when the text is all you need:
 
   ```elixir
   stream

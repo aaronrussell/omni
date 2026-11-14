@@ -67,7 +67,9 @@ defmodule Omni.Response do
   - `:tool_use` - the model used a tool that Omni did not run
   - `:refusal` - the model or provider declined, on content or safety grounds
   - `:error` - the stream failed part-way (see the `:error` field)
-  - `:cancelled` - the stream was cancelled
+  - `:cancelled` - generation was cancelled. Omni never sets this itself;
+    it is for code built on Omni that cancels a stream and keeps the
+    partial response
   """
   @type stop_reason :: :stop | :length | :tool_use | :refusal | :error | :cancelled
 

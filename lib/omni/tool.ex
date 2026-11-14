@@ -1,19 +1,29 @@
 defmodule Omni.Tool do
   @moduledoc """
-  Reusable, validated tools that an LLM can invoke during a conversation.
+  A tool the model can use during a conversation.
 
-  Tools give the model access to external capabilities — looking up data,
-  calling APIs, running computations. When the model decides to use a tool,
-  Omni's loop automatically executes it and feeds the result back, continuing
-  until the model produces a final text response.
+  A tool has a name, a description that tells the model when to use it, a
+  schema for its input, and a handler that does the work. Put tools in a
+  context and Omni runs the ones the model uses, sending the results back
+  until the model answers. [Tools](text-generation.md#tools) introduces
+  them.
 
-  A tool is a `%Tool{}` struct with a name, description, optional input schema,
-  and optional handler function. You can create one directly with `Omni.tool/1`
-  for quick, inline use (see the Tools section in `Omni`), or define a tool
-  module with `use Omni.Tool` to bundle the schema, handler, and metadata in a
-  reusable unit.
+  There are two ways to make one. `Omni.tool/1` builds a tool inline from a
+  name, description, schema and function. `use Omni.Tool` defines a tool
+  module, which keeps those together in one reusable place and is what
+  most of this page is about.
 
-  ## Defining a tool module
+  ## Struct fields
+
+  - `:name` - the name the model uses the tool by
+  - `:description` - what the tool does and when to use it, for the model
+  - `:input_schema` - a JSON Schema map for the input, an
+    `Omni.Schema.Adapter` tuple, or `nil` for a tool that takes none
+  - `:handler` - a one-argument function called with the validated input,
+    or `nil` for a tool Omni does not run (see
+    [Tools without a handler](#module-tools-without-a-handler))
+
+  ## Tool modules
 
   A tool module implements `schema/0` and `call/1`:
 
@@ -32,24 +42,28 @@ defmodule Omni.Tool do
   end
   ```
 
-  `schema/0` returns a plain map following JSON Schema conventions. The
-  `Omni.Schema` helpers are a convenient way to build these, but any map with
-  the right structure works — you can construct schemas by hand or with other
-  libraries. Import `Omni.Schema` inside the callback if you use it — it is
-  not auto-imported by `use Omni.Tool`.
+  `schema/0` returns a JSON Schema map. The `Omni.Schema` builders are a
+  convenient way to write one, and any map of the right shape works. Import
+  `Omni.Schema` inside the callback: `use Omni.Tool` does not import it.
 
-  `call/1` receives the validated input with atom keys matching the schema,
-  regardless of the string keys the LLM sends. Return any term — it will be
-  serialized and sent back to the model as a tool result.
+  `call/1` receives the validated input with the schema's own keys, whatever
+  the model sent. It may return any term.
 
-  ## Stateful tools
+  The module gains `new/0` and `new/1`, which build the tool struct to put
+  in a context:
 
-  When a tool needs runtime state (a database connection, configuration, an
-  API client), implement `init/1` and `call/2`:
+  ```elixir
+  Omni.context(messages: messages, tools: [MyApp.Tools.GetWeather.new()])
+  ```
+
+  ## Tools with state
+
+  When a tool needs something at runtime (a database connection, an API
+  client, configuration), implement `init/1` and `call/2`:
 
   ```elixir
   defmodule MyApp.Tools.DbLookup do
-    use Omni.Tool, name: "db_lookup", description: "Looks up a record by ID"
+    use Omni.Tool, name: "db_lookup", description: "Looks up a record by id"
 
     def schema do
       import Omni.Schema
@@ -62,186 +76,102 @@ defmodule Omni.Tool do
       repo.get(Record, input.id)
     end
   end
+
+  tool = MyApp.Tools.DbLookup.new(MyApp.Repo)
   ```
 
-  `init/1` receives the argument passed to `new/1` and returns the state.
-  `call/2` receives validated input and that state. The state is captured in
-  a closure at construction time, so each `new/1` call can bind different state.
+  `init/1` receives the argument given to `new/1` and returns the state.
+  `call/2` receives the input and that state. Each `new/1` binds its own
+  state, so one module can make several differently configured tools.
 
-  ## Using tools
-
-  Pass tool structs in the context:
+  The description and the schema can depend on the state too. Implement
+  `description/1` or `schema/1` in place of the zero-argument callback:
 
   ```elixir
-  weather = MyApp.Tools.GetWeather.new()
-  db_lookup = MyApp.Tools.DbLookup.new(MyApp.Repo)
+  defmodule MyApp.Tools.SetMode do
+    use Omni.Tool, name: "set_mode"
 
-  context = Omni.context(
-    messages: [Omni.message("What's the weather in Paris?")],
-    tools: [weather, db_lookup]
-  )
+    def init(modes), do: modes
 
-  {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, context)
+    def description(modes), do: "Switches the assistant's mode to one of: " <> Enum.join(modes, ", ")
+
+    def schema(modes) do
+      import Omni.Schema
+      object(%{mode: enum(modes)}, required: [:mode])
+    end
+
+    def call(input, _modes), do: {:ok, input.mode}
+  end
+
+  tool = MyApp.Tools.SetMode.new(["focus", "casual", "technical"])
   ```
 
-  The loop executes tool uses automatically and continues the conversation
-  until the model responds with text (or hits `:max_steps`).
+  ## Name and description as callbacks
 
-  ## Schema-only tools
+  The `name:` and `description:` options to `use Omni.Tool` are shorthand
+  for the `name/0` and `description/0` callbacks. Leave an option out and
+  implement the callback yourself:
 
-  A `%Tool{}` struct with `handler: nil` defines a tool the model can invoke
-  but Omni won't auto-execute. The loop breaks and returns the response
-  containing `ToolUse` blocks for you to handle manually. This is useful when
-  tool execution requires human approval or happens outside your application.
+  ```elixir
+  defmodule MyApp.Tools.Ping do
+    use Omni.Tool
+
+    def name, do: "ping"
+    def description, do: "Returns pong"
+    def schema, do: Omni.Schema.object(%{})
+    def call(_input), do: "pong"
+  end
+  ```
+
+  ## Tools without a handler
+
+  A tool with `handler: nil` is one the model may use but Omni won't run.
+  The loop stops and the response comes back with `stop_reason: :tool_use`
+  and the `Omni.Content.ToolUse` blocks for you to answer. This suits tools
+  that need a person's approval, or that run somewhere else (see
+  [Running tools yourself](text-generation.md#running-tools-yourself)).
 
   ```elixir
   schema = Omni.Schema.object(%{query: Omni.Schema.string()}, required: [:query])
   tool = Omni.tool(name: "search", description: "Web search", input_schema: schema)
   ```
 
-  ## Custom schema validators
+  ## Other schema validators
 
-  When the built-in validator isn't enough, return an `Omni.Schema.Adapter`
-  tuple from `schema/0`:
+  Where Omni's own validator isn't enough, a schema can be an
+  `Omni.Schema.Adapter` tuple, which validates with a library of your
+  choice:
 
   ```elixir
   def schema, do: {MyApp.JSVAdapter, @input_root}
   ```
 
-  See `Omni.Schema.Adapter` for the behaviour and a JSV example. Note that
-  adapters control their own key conventions for validated input — JSV-style
-  adapters return string-keyed maps, so handlers must access input
-  accordingly.
+  An adapter decides the keys of the input it returns. One that returns
+  string keys, as JSV does, hands your `call/1` string keys.
 
-  ## Dynamic descriptions
+  ## How a tool runs
 
-  When a tool's description needs to include runtime context — for example,
-  environment details or configuration injected at construction time — override
-  `description/1`. It receives the state returned by `init/1`:
+  `new/1` on a tool module calls `init/1` with its argument (`[]` for
+  `new/0`), then `description/1` and `schema/1` with the state, and returns
+  a tool struct whose handler is bound to that state.
 
-  ```elixir
-  defmodule MyApp.Tools.Search do
-    use Omni.Tool, name: "search", description: "Searches the knowledge base"
+  When the model uses the tool, `execute/2` validates the input against the
+  schema, casts its keys to the schema's, and calls the handler. Calling
+  `tool.handler` directly skips the validation.
 
-    def schema do
-      import Omni.Schema
-      object(%{query: string()}, required: [:query])
-    end
-
-    @impl Omni.Tool
-    def description(opts) do
-      base = description()
-      case Keyword.get(opts, :extra) do
-        nil -> base
-        extra -> base <> "\n\n" <> extra
-      end
-    end
-
-    def init(opts), do: opts
-
-    def call(input, _opts) do
-      KnowledgeBase.search(input.query)
-    end
-  end
-
-  # Base description
-  tool = MyApp.Tools.Search.new()
-  tool.description
-  #=> "Searches the knowledge base"
-
-  # With extra context
-  tool = MyApp.Tools.Search.new(extra: "Only return results from 2024.")
-  tool.description
-  #=> "Searches the knowledge base\n\nOnly return results from 2024."
-  ```
-
-  Implement either `description/0` or `description/1` (or both). The default
-  `description/1` delegates to `description/0`, so existing tools that only
-  implement `description/0` are unaffected. If you implement only
-  `description/1`, the unused `description/0` default raises if invoked.
-
-  ## Dynamic schemas
-
-  When a tool's input schema depends on runtime state — for example, the set
-  of allowed values comes from configuration or a database — override
-  `schema/1`. It receives the state returned by `init/1`:
-
-  ```elixir
-  defmodule MyApp.Tools.SetMode do
-    use Omni.Tool, name: "set_mode", description: "Switches the assistant's mode"
-
-    @impl Omni.Tool
-    def schema(allowed_modes) do
-      import Omni.Schema
-      object(
-        %{mode: string(enum: allowed_modes)},
-        required: [:mode]
-      )
-    end
-
-    def init(modes), do: modes
-
-    def call(input, _modes) do
-      {:ok, input.mode}
-    end
-  end
-
-  tool = MyApp.Tools.SetMode.new(["focus", "casual", "technical"])
-  ```
-
-  Implement either `schema/0` or `schema/1` (or both). The default `schema/1`
-  delegates to `schema/0`, so existing tools that only implement `schema/0`
-  are unaffected.
-
-  ## Callbacks as an alternative to options
-
-  The `name:` and `description:` options on `use Omni.Tool` are convenient
-  shorthand, but both are optional. You can omit them and implement `name/0`
-  and `description/0` as callbacks directly:
-
-  ```elixir
-  defmodule MyApp.Tools.Ping do
-    use Omni.Tool
-
-    @impl Omni.Tool
-    def name, do: "ping"
-
-    @impl Omni.Tool
-    def description, do: "Returns pong"
-
-    def schema, do: Omni.Schema.object(%{})
-    def call(_input), do: "pong"
-  end
-  ```
-
-  If you omit an option without implementing the callback, the compiler will
-  warn about the missing callback.
-
-  ## How execution works
-
-  Calling `new/0` or `new/1` on a tool module:
-
-  1. Calls `init/1` with the given argument (defaults to `nil`)
-  2. Calls `description/1` with the init state to resolve the description
-  3. Calls `schema/1` with the init state to resolve the input schema
-  4. Returns a `%Tool{}` struct with a handler closure bound to the init state
-
-  When the model invokes the tool, `execute/2` validates the LLM's
-  string-keyed input against the schema (via `Omni.Schema.validate/2`), casts
-  keys to match the schema's key types, then calls the handler. Direct handler
-  calls (`tool.handler.(input)`) bypass this validation.
+  The result goes back to the model as text: a string as it is, anything
+  else as JSON. Invalid input, a handler that raises and a tool that
+  outruns `:tool_timeout` each become an error result the model can read
+  and recover from. `Omni.Tool.Runner` does this part.
   """
 
   @enforce_keys [:name, :description]
   defstruct [:name, :description, :input_schema, :handler]
 
   @typedoc """
-  A tool struct.
+  A tool.
 
-  `input_schema` is either a JSON Schema map, an `Omni.Schema.Adapter`
-  tuple `{module, state}`, or `nil`. When `handler` is `nil`, the tool is
-  schema-only — the loop will break and return `ToolUse` blocks for manual
-  handling instead of auto-executing.
+  See [Struct fields](#module-struct-fields).
   """
   @type t :: %__MODULE__{
           name: String.t(),
@@ -251,27 +181,34 @@ defmodule Omni.Tool do
         }
 
   @doc """
-  Creates a bare tool struct from a keyword list or map.
+  Creates a tool from a keyword list or map.
 
-  This is a low-level constructor — it does not bind a handler closure or
-  validate fields. Prefer `Omni.tool/1` for inline tools or `YourModule.new/0`
-  for tool modules.
+  `Omni.tool/1` is the same function. For a tool module, call the module's
+  own `new/0` or `new/1`, which binds the handler to its state.
+
+  ```elixir
+  Omni.Tool.new(
+    name: "search",
+    description: "Searches the web",
+    input_schema: Omni.Schema.object(%{query: Omni.Schema.string()}, required: [:query]),
+    handler: fn input -> do_search(input.query) end
+  )
+  ```
   """
   @spec new(Enumerable.t()) :: t()
   def new(attrs), do: struct!(__MODULE__, attrs)
 
   @doc """
-  Executes a tool's handler with the given input.
+  Runs a tool's handler with the given input.
 
-  If the tool has an `input_schema`, the input is validated and cast before
-  calling the handler. Peri maps string-keyed LLM input to the key types used
-  in the schema, so handlers receive atom keys when the schema uses atoms.
-  When `input_schema` is `nil`, input is passed through to the handler as-is.
+  The input is validated against the tool's schema first, and its keys cast
+  to the schema's, so a schema written with atom keys gives the handler
+  atom keys. A tool with no schema passes the input through as it is.
 
-  Returns `{:ok, result}` on success, `{:error, errors}` on validation failure,
-  or `{:error, exception}` if the handler raises.
+  Returns `{:ok, result}`, `{:error, message}` when the input is invalid, or
+  `{:error, exception}` when the handler raises.
 
-  Raises `FunctionClauseError` if the tool has no handler (`handler: nil`).
+  Raises `FunctionClauseError` if the tool has no handler.
   """
   @spec execute(t(), map()) :: {:ok, term()} | {:error, term()}
   def execute(%__MODULE__{handler: handler, input_schema: schema}, input)
@@ -294,39 +231,34 @@ defmodule Omni.Tool do
   @doc """
   Returns the tool's name.
 
-  Defaults to the `name:` value passed to `use Omni.Tool`. Override this
-  callback to provide the name directly when omitting the option.
+  Defaults to the `name:` option of `use Omni.Tool`. Implement it when you
+  leave the option out.
   """
   @callback name() :: String.t()
 
   @doc """
-  Returns the tool's base description.
+  Returns the tool's description.
 
-  Defaults to the `description:` value passed to `use Omni.Tool`. Override
-  this callback to provide the description directly when omitting the option.
+  Defaults to the `description:` option of `use Omni.Tool`. Implement it
+  when you leave the option out.
   """
   @callback description() :: String.t()
 
   @doc """
-  Returns the tool's description, optionally incorporating runtime state.
+  Returns the tool's description, given the tool's state.
 
-  Called by `new/1` with the state returned by `init/1`. The default
-  implementation delegates to `description/0`, ignoring state. Override this
-  when the description needs runtime context — for example, appending
-  environment-specific prompt fragments.
-
-  See the "Dynamic descriptions" section in the module documentation for an
-  example.
+  Called by `new/1` with the state `init/1` returned. The default calls
+  `description/0`. Implement it when the description depends on the state
+  (see [Tools with state](#module-tools-with-state)).
   """
   @callback description(state :: term()) :: String.t()
 
   @doc """
   Returns the tool's input schema.
 
-  May return either a plain JSON Schema map, or an `Omni.Schema.Adapter`
-  tuple `{module, state}` for adapter-based validation (see
-  `Omni.Schema.Adapter`). If using `Omni.Schema` builders, import them
-  inside the callback body — they are not auto-imported by `use Omni.Tool`.
+  Returns a JSON Schema map, or an `Omni.Schema.Adapter` tuple
+  `{module, state}`. To use the `Omni.Schema` builders, import them inside
+  the callback: `use Omni.Tool` does not.
 
   ```elixir
   def schema do
@@ -335,52 +267,45 @@ defmodule Omni.Tool do
   end
   ```
 
-  Implement `schema/1` instead when the schema needs runtime state. See the
-  "Dynamic schemas" section in the module documentation.
+  Implement `schema/1` instead when the schema depends on the tool's state.
   """
   @callback schema() :: Omni.Schema.t()
 
   @doc """
-  Returns the tool's input schema, optionally incorporating runtime state.
+  Returns the tool's input schema, given the tool's state.
 
-  Called by `new/1` with the state returned by `init/1`. The default
-  implementation delegates to `schema/0`, ignoring state. Override this when
-  the schema needs runtime context — for example, populating an enum from
-  configuration.
-
-  See the "Dynamic schemas" section in the module documentation for an
-  example.
+  Called by `new/1` with the state `init/1` returned. The default calls
+  `schema/0`. Implement it when the schema depends on the state, such as an
+  enum of values read from configuration (see
+  [Tools with state](#module-tools-with-state)).
   """
   @callback schema(state :: term()) :: Omni.Schema.t()
 
   @doc """
-  Initializes state for a stateful tool.
+  Builds the tool's state.
 
-  Called once by `new/1` at construction time. The argument is whatever was
-  passed to `new/1` (defaults to `nil` for `new/0`). The return value becomes
-  the second argument to `call/2`.
+  Called once by `new/1`, with the argument given to it (`[]` for `new/0`).
+  What it returns is passed to `call/2`, `description/1` and `schema/1`.
 
-  The default implementation returns `nil`.
+  The default returns its argument.
   """
   @callback init(params :: term()) :: term()
 
   @doc """
-  Handles a tool invocation (stateless).
+  Runs the tool.
 
-  Receives the validated input map with keys matching the schema. Return any
-  term — it will be serialized and sent back to the model as a tool result.
+  Receives the validated input, with the schema's keys. Return any term: a
+  string goes back to the model as it is, anything else as JSON.
 
-  Implement either `call/1` or `call/2`, not both. The default `call/2`
-  delegates to `call/1`, ignoring state.
+  Implement `call/1` or `call/2`, not both. The default `call/2` calls
+  `call/1`.
   """
   @callback call(input :: map()) :: term()
 
   @doc """
-  Handles a tool invocation with state (stateful).
+  Runs the tool, given the tool's state.
 
-  Same as `call/1`, but receives the state returned by `init/1` as the second
-  argument. Implement this instead of `call/1` when the tool needs runtime
-  state.
+  As `call/1`, with the state `init/1` returned as the second argument.
   """
   @callback call(input :: map(), state :: term()) :: term()
 
@@ -448,7 +373,7 @@ defmodule Omni.Tool do
       @impl Omni.Tool
       def call(input, _state), do: call(input)
 
-      @doc "Builds a `%Omni.Tool{}` struct with a bound handler."
+      @doc "Builds the tool, binding its handler to the state `init/1` returns."
       def new(params \\ []) do
         state = init(params)
 

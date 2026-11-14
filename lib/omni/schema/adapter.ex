@@ -1,28 +1,24 @@
 defmodule Omni.Schema.Adapter do
   @moduledoc """
-  Behaviour for plugging in alternative schema validators.
+  A behaviour for validating schemas with a library of your choice.
 
-  Omni's built-in `Omni.Schema` validator is a pragmatic Peri-backed
-  implementation that covers the common JSON Schema cases. For schemas that
-  need richer semantics — `$ref` resolution, `oneOf`/`allOf` combinators,
-  custom casting, draft-2020-12 compliance — implement this behaviour to plug
-  in a library like [JSV](https://hex.pm/packages/jsv).
+  Omni's own validator (`Omni.Schema.validate/2`) is meant for schemas of
+  simple shape, and lists where it stops. Write an adapter when a schema
+  needs more, such as combinators, references or casting into your own
+  types, or to validate with a library you already use, such as
+  [JSV](https://hex.pm/packages/jsv).
 
-  An adapter wraps both schema construction and validation. Anywhere Omni
-  accepts a JSON Schema map (the `:output` option, a `Tool`'s
-  `input_schema`, the `schema/0` callback in tool modules) it also accepts
-  a `{module, state}` tuple where `module` implements this behaviour and
-  `state` is whatever shape that adapter wants to hold (a built validator,
-  a struct, a closure-bound resource).
+  Wherever Omni takes a JSON Schema map (the `:output` option, a tool's
+  `:input_schema`, a tool module's `schema/0`) it also takes a
+  `{module, state}` tuple. The module implements this behaviour, and the
+  state is whatever the adapter needs: a built validator, a struct.
 
-  At wire-encoding time Omni calls `to_schema/1` to extract the JSON Schema
-  map sent to the LLM. At validation time it calls `validate/2` with the
-  LLM's response (or tool input).
+  Omni calls `to_schema/1` for the JSON Schema map to send to the provider,
+  and `validate/2` with the model's output or a tool's input.
 
   ## Example: a JSV adapter
 
-  This is not shipped with Omni — implement it in your own application if
-  you want JSV-backed validation.
+  Omni does not ship this. Define it in your own application:
 
   ```elixir
   defmodule MyApp.JSVAdapter do
@@ -46,9 +42,8 @@ defmodule Omni.Schema.Adapter do
 
   ## Using an adapter
 
-  Build the validator state once and pass it as a tuple. Module attributes
-  are evaluated at compile time, so the build cost is paid once per module
-  load:
+  Build the state once and pass it in a tuple. A module attribute is
+  evaluated at compile time, so the cost of building is paid once:
 
   ```elixir
   # Structured output
@@ -80,39 +75,31 @@ defmodule Omni.Schema.Adapter do
   end
   ```
 
-  Note: when an adapter returns string-keyed maps from validation (as JSV
-  does), tool handlers must access input by string key rather than the
-  atom-key default that Omni's built-in validator preserves.
+  An adapter decides the keys of the data it returns. JSV returns string
+  keys, so the handler above reads `input["query"]`, where Omni's own
+  validator would give it the schema's atom keys.
   """
 
   @doc """
   Returns the JSON Schema map for this adapter's state.
 
-  Called by Omni at request-build time when emitting the schema to the LLM
-  on the wire. The returned map should be a plain JSON-encodable shape.
+  Called when Omni builds a request, for the schema sent to the provider.
+  The map must be JSON-encodable.
   """
   @callback to_schema(state :: term()) :: map()
 
   @doc """
   Validates input against the adapter's state.
 
-  Called by Omni when validating structured output or tool input. Return
-  `{:ok, value}` with the validated data, or `{:error, message}` with a
-  human-readable error string.
+  Called to validate structured output or a tool's input. Return
+  `{:ok, value}` with the validated data, or `{:error, message}`.
 
-  Adapters typically cast input to a normalised shape on success — for
-  example, casting JSON string keys to atom keys (the built-in
-  `Omni.Schema` validator), coercing values to typed structs (JSV with
-  `defschema`), or transforming dates and decimals. The cast value
-  becomes the structured output on `Response`, or the input map handed
-  to a tool handler.
+  The value is what the caller gets: `response.output`, or the input handed
+  to a tool's handler. An adapter may cast it on the way, for example
+  turning string keys into atoms or maps into structs.
 
-  The error string is sent back to the LLM during structured-output
-  retries and back to the caller as a tool result on tool input
-  failures, so favour clarity over detail.
-
-  Argument order mirrors `Omni.Schema.validate/2`: state first (the
-  schema-shaped thing), input second (the data being validated).
+  The message goes back to the model, as a retry prompt for structured
+  output or as an error result for a tool, so make it clear and short.
   """
   @callback validate(state :: term(), input :: term()) ::
               {:ok, term()} | {:error, String.t()}

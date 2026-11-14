@@ -1,25 +1,24 @@
 defmodule Omni.Tool.Runner do
   @moduledoc """
-  Executes tool use blocks in parallel and returns tool result blocks.
+  Runs tool uses in parallel and returns their tool results.
 
-  Takes `ToolUse` content blocks from an assistant message, runs the
-  corresponding tools concurrently, and returns `ToolResult` content blocks
-  ready to be placed in a user message.
-
-  Omni's generation loop uses this internally, but it's also useful
-  when you handle tool execution yourself — for example, with schema-only
-  tools where the loop breaks and hands `ToolUse` blocks back to you:
+  The tool loop uses this to run the tools the model asks for. Use it
+  yourself when you take over the loop, with `max_steps: 1`, and want the
+  same validation, timeouts and error handling (see
+  [Running tools yourself](text-generation.md#running-tools-yourself)).
 
   ```elixir
-  # Schema-only tool — loop breaks, response contains ToolUse blocks
-  tool_uses = Enum.filter(response.message.content, &match?(%ToolUse{}, &1))
+  {:ok, response} = Omni.generate_text(model, context, max_steps: 1)
 
-  # Build a tool map and execute
-  tool_map = %{"search" => search_tool, "fetch" => fetch_tool}
-  results = Tool.Runner.run(tool_uses, tool_map)
+  tool_uses = Enum.filter(response.message.content, &match?(%Omni.Content.ToolUse{}, &1))
+  tools = Map.new(context.tools, &{&1.name, &1})
 
-  # Place results in the next user message
-  message = Omni.message(role: :user, content: results)
+  results = Omni.Tool.Runner.run(tool_uses, tools)
+
+  context =
+    context
+    |> Omni.Context.push(response)
+    |> Omni.Context.push(Omni.message(role: :user, content: results))
   ```
   """
 
@@ -27,15 +26,18 @@ defmodule Omni.Tool.Runner do
   alias Omni.Content.{ToolResult, ToolUse}
 
   @doc """
-  Executes tool uses in parallel, returning results in input order.
+  Runs tool uses in parallel, returning one result for each, in order.
 
-  `tool_map` is a `%{name => %Tool{}}` map keyed by tool name strings. Each
-  tool use is looked up by name — missing tools (hallucinated names), tools
-  that raise, and tools that exceed the timeout all produce error results
-  with `is_error: true`. Every input `ToolUse` produces exactly one output
-  `ToolResult`, always in the same order.
+  `tool_map` maps each tool's name to its `Omni.Tool`. A result's content
+  is what the handler returned: a string as it is, anything else as JSON.
 
-  The default timeout is 5000ms per tool.
+  A tool use never fails the call. A name with no tool in the map, input
+  that fails the schema, a handler that raises and a tool that outruns the
+  timeout each give a result with `is_error: true` and a message the model
+  can read.
+
+  `timeout` is in milliseconds and applies to each tool (default `5_000`;
+  the tool loop passes its `:tool_timeout`).
   """
   @spec run([ToolUse.t()], %{String.t() => Tool.t()}, timeout()) :: [ToolResult.t()]
   def run(tool_uses, tool_map, timeout \\ 5_000) do

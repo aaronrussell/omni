@@ -2,15 +2,9 @@ defmodule Omni.Schema do
   @moduledoc """
   Builders and validation for JSON Schema maps.
 
-  Each builder returns a plain map following JSON Schema conventions. Property
-  keys are preserved as-is — use atoms for idiomatic Elixir, and JSON
-  serialisation handles stringification on the wire.
-
-  Option keywords accept snake_case and are normalized to camelCase JSON Schema
-  keywords automatically (e.g. `min_length:` becomes `minLength`). Keys without
-  a known mapping pass through unchanged.
-
-  ## Example
+  Schemas describe a tool's input and structured output (the `:output`
+  option). Each builder returns a plain map in JSON Schema form, so builders
+  nest, and a map you write by hand works wherever a built one does.
 
   ```elixir
   iex> Omni.Schema.object(%{
@@ -27,17 +21,37 @@ defmodule Omni.Schema do
   }
   ```
 
-  ## Custom validators
+  ## Keys
 
-  For schemas that need richer semantics than the built-in Peri-backed
-  validator provides — `$ref` resolution, `oneOf`/`allOf` combinators,
-  custom casting — implement the `Omni.Schema.Adapter` behaviour and pass
-  a `{module, state}` tuple anywhere a schema is accepted. See
-  `Omni.Schema.Adapter` for a worked JSV example.
+  Property keys are kept as you write them. Write atoms, and validated data
+  (a tool's input, `response.output`) comes back with atom keys, whatever
+  the model sent.
 
-  This module is itself the default `Omni.Schema.Adapter` — `to_schema/1`
-  and `validate/2` both implement the behaviour for raw JSON Schema maps,
-  and dispatch to the relevant adapter when given an adapter tuple.
+  ## Options
+
+  Every builder takes options, which become keywords of the schema:
+  `description:`, `minimum:`, `default:` and so on. Keywords that JSON
+  Schema spells in camelCase can be written in snake_case:
+
+  ```elixir
+  Omni.Schema.string(min_length: 1, max_length: 100)
+  #=> %{type: "string", minLength: 1, maxLength: 100}
+  ```
+
+  These are `min_length`, `max_length`, `min_items`, `max_items`,
+  `unique_items`, `multiple_of`, `exclusive_minimum`, `exclusive_maximum`,
+  `additional_properties`, `min_properties`, `max_properties` and
+  `pattern_properties`. Any other key passes through unchanged.
+
+  ## Other validators
+
+  Omni's own validator is deliberately small. It is meant for schemas of
+  simple shape: objects, arrays and constrained values, which is what
+  models handle best. `validate/2` lists what it checks and where it stops.
+
+  For schemas that lean on combinators or references, or to use a JSON
+  Schema library you already have, pass an `Omni.Schema.Adapter` tuple,
+  `{module, state}`, wherever a schema is taken.
   """
 
   @behaviour Omni.Schema.Adapter
@@ -90,13 +104,13 @@ defmodule Omni.Schema do
     Keyword.put(opts, :items, items) |> array()
   end
 
-  @doc "Builds a JSON Schema enum — a list of allowed literal values."
+  @doc "Builds a JSON Schema enum: a list of allowed literal values."
   @spec enum(list(), keyword()) :: map()
   def enum(values, opts \\ []) do
     normalize_opts(opts) |> Map.put(:enum, values)
   end
 
-  @doc "Builds a JSON Schema `anyOf` — valid when at least one subschema matches."
+  @doc "Builds a JSON Schema `anyOf`: valid when at least one subschema matches."
   @spec any_of(list(map()), keyword()) :: map()
   def any_of(schemas, opts \\ []) when is_list(schemas) do
     normalize_opts(opts) |> Map.put(:anyOf, schemas)
@@ -115,19 +129,18 @@ defmodule Omni.Schema do
   end
 
   @typedoc """
-  A schema accepted anywhere Omni takes a JSON Schema. Either a raw map, or
-  a `{module, state}` tuple where `module` implements `Omni.Schema.Adapter`.
+  A schema, as taken wherever Omni takes one.
+
+  A JSON Schema map, or a `{module, state}` tuple whose module implements
+  `Omni.Schema.Adapter`.
   """
   @type t :: map() | {module(), term()}
 
   @doc """
-  Returns the JSON Schema map sent on the wire for the given schema.
+  Returns the JSON Schema map sent to the provider for a schema.
 
-  When the schema is a raw map, returns it unchanged. When it is a
-  `{module, state}` adapter tuple, calls `module.to_schema(state)`.
-
-  Implements the `Omni.Schema.Adapter` behaviour for raw maps; delegates
-  to the named module for adapter tuples.
+  A map is returned unchanged. An adapter tuple gives its module's
+  `to_schema/1`.
   """
   @impl Omni.Schema.Adapter
   @spec to_schema(t()) :: map()
@@ -137,23 +150,27 @@ defmodule Omni.Schema do
   @doc """
   Validates input against a schema.
 
-  When the schema is a `{module, state}` adapter tuple, dispatches to the
-  adapter's `validate/2`. When it is a raw map, runs the built-in validator
-  (Peri-backed via `Peri.from_json_schema/1`).
+  An adapter tuple is validated by its module's `validate/2`. A map is
+  validated by Omni's own validator, built on
+  [Peri](https://hex.pm/packages/peri), which checks:
 
-  The built-in validator enforces JSON Schema constraints including types,
-  required fields, string constraints (`minLength`, `maxLength`, `pattern`,
-  `format`), numeric constraints (`minimum`, `maximum`, `exclusiveMinimum`,
-  `exclusiveMaximum`, `multipleOf`), array constraints (`minItems`,
-  `maxItems`, `uniqueItems`), enums, const literals, union types, and
-  `anyOf`/`oneOf`/`allOf` combinators.
+  - types, union types and required fields
+  - strings: `minLength`, `maxLength`, `pattern`, `format`
+  - numbers: `minimum`, `maximum`, `exclusiveMinimum`, `exclusiveMaximum`,
+    `multipleOf`
+  - arrays: `minItems`, `maxItems`, `uniqueItems`
+  - `enum` and `const`
+  - `anyOf` and `oneOf`
+  - `allOf`, over object schemas only
+  - `$ref` to one of the schema's own `$defs`
 
-  Property key types are preserved: atom-keyed schemas validate and cast
-  string-keyed JSON input back to atom keys, so validated output uses the
-  same key types as the schema definition.
+  Validated data has the schema's keys: a schema written with atom keys
+  turns string-keyed JSON back into atom keys. This follows `properties`
+  and `items` only. An object reached through `anyOf`, `oneOf`, `allOf` or
+  `$ref` keeps its string keys.
 
-  Returns `{:ok, validated}` or `{:error, message}` with a human-readable
-  error string.
+  Returns `{:ok, validated}`, or `{:error, message}` with a message fit to
+  show the model.
   """
   @impl Omni.Schema.Adapter
   @spec validate(t(), term()) :: {:ok, term()} | {:error, String.t()}

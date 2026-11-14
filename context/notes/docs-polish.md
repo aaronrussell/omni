@@ -69,7 +69,7 @@ Hidden: the 17 built-in provider modules (`Omni.Providers.*`), each with a comme
    - Mechanical sweep: lists flush and hyphenated, code blocks fenced, separators to ` - `, the `mix.exs` function group renamed "Text generation". *Done 2026-11-13.*
    - b. Decisions, the pilot that sets the conventions: `Decision`, `Question.*`, `Answer.*`. *Done 2026-11-13.*
    - a1. Core data: `Omni`, `Model`, `Usage`, `Codec`, `Context`, `Message`, `Response`, `Content.*`. *Done 2026-11-14.*
-   - a2. Streaming and tools: `StreamingResponse`, `Tool`, `Tool.Runner`, `Schema`, `Schema.Adapter`. *Not started.*
+   - a2. Streaming and tools: `StreamingResponse`, `Tool`, `Tool.Runner`, `Schema`, `Schema.Adapter`. *Done 2026-11-14.*
    - c. Providers: `Provider` (long moduledoc, much of it now in the guides, including "Migrating from v1 config"), `Endpoint`, `mix omni.verify`. *Not started.*
    - d. Dialects and sources. *Not started.*
 4. **Contributor docs** — the hidden modules' comment blocks and `@doc`s, and code comments throughout `lib/`. These are docs for whoever works on the code, mostly agents. Same standard: concise and clear. Cut comments that confuse more than they clarify, restate the code, or carry stale context. Includes the built-ins' comment blocks, converted mechanically from their moduledocs: trim any that still read as user docs (Ollama, TypeSafe). Em dashes go as each comment is revised. *Not started.*
@@ -98,7 +98,6 @@ For the module pass to fix:
 
 - **`gpt-6` is not a catalog model.** `Omni.Provider` shows `openai: [models: [[id: "gpt-6", context_size: 1_000_000]]]` as correcting a catalog model. With no such id it would add a model with no dialect and raise. Use a real id (`gpt-6.1-sol`). Fixed in `Omni.Model` and `design.md`.
 - **Together is now a built-in**, but `Omni.Provider`'s "Provider modules" example (`MyApp.Together`, `togetherai: [module: ...]`) and its endpoint example still treat it as a catalog provider. Use `:deepseek` or `:fireworks_ai`.
-- **`Omni.Tool` points at "the Tools section in `Omni`"**, which is gone. Point it at the Text generation guide.
 - **`Omni.Provider`'s moduledoc** can lose "Built-in, catalog, and custom providers", most of "Configuration", "Endpoints" and "Compat flags" (now in Providers and models), and "Migrating from v1 config" (now in the upgrade guide). What stays: the struct, how a provider is assembled and the merge rule, provider modules and their callbacks, loading at runtime.
 - **Model ids in examples**: prefer ids that exist in the snapshot (`claude-sonnet-5-5`, `gpt-6.1-sol`, `gemini-3.5-flash`, `deepseek-v4-pro`, `typesafe/jev-1.14`).
 - **`thinking: true`** is under review (roadmap, v2.0.0). Document it as the code has it.

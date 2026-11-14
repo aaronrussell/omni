@@ -151,7 +151,7 @@ context =
 {:ok, response} = Omni.generate_text("anthropic:claude-sonnet-5-5", context)
 ```
 
-When the model answers with tool uses, Omni validates each input against the schema, runs the handlers in parallel, and sends the results back in a new user message. This loop repeats until the model answers with `stope_reason: :stop`. The response you get is the final one; `response.messages` holds every step, and `response.usage` is the total.
+When the model answers with tool uses, Omni validates each input against the schema, runs the handlers in parallel, and sends the results back in a new user message. This loop repeats until the model answers with `stop_reason: :stop`. The response you get is the final one; `response.messages` holds every step, and `response.usage` is the total.
 
 The handler receives input with the schema's own keys. It may return any term. A handler that raises, or a tool name the model made up, becomes an error result the model can read and recover from.
 
@@ -232,7 +232,7 @@ The schema goes to the provider, which constrains the model to it where the prov
 
 `Omni.Schema` has builders for the common JSON Schema types, and any map in JSON Schema form works. Keys in `response.output` are the keys you wrote in the schema.
 
-Omni's own validator covers the common cases. For a schema that needs more, such as `$ref` or `oneOf`, or to validate with a library you already use, such as [JSV](https://hex.pm/packages/jsv), pass a `{module, state}` adapter as `:output`. `Omni.Schema.Adapter` shows how to write one.
+Omni's own validator is meant for schemas of simple shape. For a schema that needs more, such as one built on `allOf` or `$ref`, or to validate with a library you already use, such as [JSV](https://hex.pm/packages/jsv), pass a `{module, state}` adapter as `:output`. `Omni.Schema.Adapter` shows how to write one.
 
 ## Prompt caching
 
