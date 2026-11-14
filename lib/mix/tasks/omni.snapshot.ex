@@ -1,26 +1,24 @@
 defmodule Mix.Tasks.Omni.Snapshot do
   @moduledoc false
 
-  # A maintainer task, so it has no `@shortdoc` and stays out of `mix help`.
-  #
-  # Fetches the models.dev catalog's chat and decision models and writes them
-  # to `priv/models/models_dev.json`.
+  # Writes the models.dev catalog's chat and decision models to
+  # `priv/models/models_dev.json`.
   #
   #     mix omni.snapshot
   #
-  # The snapshot content is the raw API response for
-  # `api.json?type=chat,decision`: all providers, no transformation. The
-  # query leaves out the catalog's other model types (image, embedding,
-  # speech, realtime, ...), which Omni can't call. `Omni.Sources.ModelsDev`
-  # transforms it into `%Omni.Model{}` structs at load time; keeping the
-  # snapshot unpruned lets any models.dev provider load, not just Omni's
-  # built-ins.
+  # A maintainer task, so it has no `@shortdoc` and stays out of `mix help`.
   #
-  # Only the encoding is normalized: pretty-printed with keys sorted at every
-  # level, so successive snapshots produce minimal, reviewable git diffs.
+  # The snapshot is the API response for `api.json?type=chat,decision`: every
+  # provider, untransformed. The query leaves out the catalog's other model
+  # types (image, embedding, speech, realtime, ...), which Omni can't call.
+  # `Omni.Sources.ModelsDev` builds models from it at load time. Keeping it
+  # unpruned lets any models.dev provider load, not only the built-ins.
   #
-  # The snapshot is checked into the repo and shipped in the package. Run it manually when model data needs refreshing, and update
-  # the golden test expectations alongside the new snapshot.
+  # Only the encoding is normalised: pretty-printed, with keys sorted at
+  # every level, so successive snapshots give small, reviewable diffs.
+  #
+  # The snapshot is checked in and shipped in the package. After a refresh,
+  # update the golden test (test/omni/sources/models_dev_golden_test.exs).
 
   use Mix.Task
 
@@ -49,8 +47,8 @@ defmodule Mix.Tasks.Omni.Snapshot do
   @doc """
   Encodes decoded catalog data as pretty-printed JSON with sorted keys.
 
-  Deterministic: the same data always produces the same bytes, regardless of
-  the key order models.dev returned.
+  The same data always produces the same bytes, whatever key order
+  models.dev returned.
   """
   @spec format(term()) :: String.t()
   def format(data) do

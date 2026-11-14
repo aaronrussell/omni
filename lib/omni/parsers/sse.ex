@@ -1,23 +1,21 @@
 defmodule Omni.Parsers.SSE do
-  # Parses a stream of binary chunks into decoded SSE event maps.
+  @moduledoc false
+
+  # Parses a stream of binary chunks into decoded SSE events.
   #
-  # Accepts any enumerable yielding binary chunks (typically a `Req.Response.Async`)
-  # and returns a lazy `Stream` yielding decoded JSON maps — one per SSE `data:` event.
-  #
-  # Follows the SSE specification:
+  # Follows the SSE specification, as far as LLM APIs use it:
   # https://html.spec.whatwg.org/multipage/server-sent-events.html
   #
-  # Comment lines (`:`) are ignored, `event:` / `id:` / `retry:` fields are discarded,
-  # multiple `data:` lines within one event are joined with "\n", and a `data: [DONE]`
-  # sentinel halts the stream.
-  @moduledoc false
+  # Only `data:` lines are read. Comment lines and the `event:`, `id:` and
+  # `retry:` fields are discarded, the `data:` lines of one event are joined
+  # with "\n", and a `data: [DONE]` sentinel halts the stream.
 
   @doc """
   Transforms an enumerable of binary chunks into a stream of decoded JSON maps.
 
-  Each yielded value is a map produced by `JSON.decode/1` from the `data:` lines
-  of a single SSE event. Events without data, comment-only events, and events
-  whose data fails to decode are silently skipped.
+  Takes any enumerable of binaries, typically a `Req.Response.Async`, and
+  yields one map per SSE event. Events without data, and events whose data
+  fails to decode, are skipped.
   """
   @spec stream(Enumerable.t()) :: Enumerable.t()
   def stream(async_body) do
@@ -48,7 +46,7 @@ defmodule Omni.Parsers.SSE do
   end
 
   defp process_chunk(chunk, buffer) do
-    # Normalize \r\n and bare \r to \n per the SSE spec
+    # The spec allows \r\n and bare \r as line endings.
     normalized = String.replace(buffer <> chunk, "\r\n", "\n") |> String.replace("\r", "\n")
 
     case extract_events(normalized, []) do

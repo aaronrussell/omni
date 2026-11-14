@@ -224,10 +224,9 @@ defmodule Omni.Schema do
   # -- Schema preparation for Peri.from_json_schema/2 --
   #
   # Peri's converter requires fully string-keyed schemas with string values
-  # for `type`, `required`, etc. Our builders produce atom-keyed maps with
-  # mostly string values, but users may pass either. Stringify everything
-  # to JSON-shaped strings before conversion. Booleans, nils, structs are
-  # left alone.
+  # for `type`, `required`, etc. The builders produce atom-keyed maps with
+  # mostly string values, and users may pass either, so everything is
+  # stringified before conversion. Booleans, nils and structs are left alone.
 
   defp stringify(map) when is_map(map) do
     Map.new(map, fn {k, v} -> {stringify_key(k), stringify(v)} end)
@@ -247,10 +246,10 @@ defmodule Omni.Schema do
 
   defp stringify_key(k), do: k
 
-  # Peri's converter produces an empty map (`%{}`) for bare object schemas
-  # without `properties` — which then drops every key on validate. Restore
-  # permissive behaviour: a bare object accepts any map. Walk recursively
-  # so nested bare objects also become permissive.
+  # Peri's converter produces an empty map (`%{}`) for an object schema
+  # without `properties`, which then drops every key on validate. These are
+  # made permissive instead, nested ones included: a bare object accepts any
+  # map.
 
   defp restore_permissive(%_{} = struct), do: struct
   defp restore_permissive(%{} = m) when map_size(m) == 0, do: :map
@@ -271,11 +270,10 @@ defmodule Omni.Schema do
 
   # -- Output re-keying --
   #
-  # Peri 0.8.4+ returns string keys deterministically. Walk the validated
-  # value alongside the original (pre-stringification) schema and re-key so
-  # output key types match the schema's original property keys. This
-  # preserves atom-keyed output for atom-keyed schemas without relying on
-  # opportunistic atom-table lookups.
+  # Peri returns string keys. The validated value is walked alongside the
+  # original (pre-stringification) schema and re-keyed, so output key types
+  # match the schema's property keys. An atom-keyed schema gives atom-keyed
+  # output without any atom-table lookup.
 
   defp recase(value, schema) when is_map(schema) and is_map(value) do
     cond do
@@ -304,11 +302,11 @@ defmodule Omni.Schema do
 
   defp recase_object(value, _props), do: value
 
-  # Look up a property in the original schema's properties map. The validated
-  # key is a string (Peri now returns strings deterministically); the original
-  # key may be an atom or string. Return {key, sub_schema} where the key uses
-  # the same type as in the original schema. Properties not present in the
-  # schema (e.g. additionalProperties) pass through as strings.
+  # Looks up a property in the original schema's properties map. The
+  # validated key is a string; the original may be an atom or a string.
+  # Returns {key, sub_schema} with the key as the original schema has it.
+  # Properties the schema doesn't list (additionalProperties) pass through
+  # as strings.
 
   defp lookup_property(props, key) when is_binary(key) do
     cond do

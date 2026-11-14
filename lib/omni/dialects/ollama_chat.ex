@@ -85,7 +85,7 @@ defmodule Omni.Dialects.OllamaChat do
     end
   end
 
-  # Parse events — Ollama sends one JSON object per NDJSON line
+  # Parse events: Ollama sends one JSON object per NDJSON line
 
   @impl true
   def handle_event(%{"done" => true} = event, _model) do
@@ -94,7 +94,7 @@ defmodule Omni.Dialects.OllamaChat do
       |> maybe_put_stop_reason(event)
       |> maybe_put_usage(event)
 
-    # Handle any final content in the done event
+    # The done event can carry final content.
     content = extract_content(event)
 
     case message do
@@ -270,8 +270,8 @@ defmodule Omni.Dialects.OllamaChat do
     end)
   end
 
-  # Ollama only supports base64-encoded images. URL-based image attachments
-  # are silently skipped — Ollama's API has no URL image input mechanism.
+  # Ollama takes images as base64 only. An image given by URL is left out:
+  # the API has no way to take one.
   defp extract_images(blocks) do
     Enum.flat_map(blocks, fn
       %Attachment{source: {:base64, data}, media_type: "image/" <> _} -> [data]
@@ -285,7 +285,7 @@ defmodule Omni.Dialects.OllamaChat do
     |> Enum.map_join("", & &1.text)
   end
 
-  # Tool call encoding (assistant messages)
+  # Tool use encoding (assistant messages)
 
   defp encode_tool_call(%ToolUse{id: id, name: name, input: input}) do
     %{
@@ -298,10 +298,10 @@ defmodule Omni.Dialects.OllamaChat do
   end
 
   # Tool result encoding (separate "tool" role messages)
-  # Ollama correlates results by tool_name, not by ID — tool_use_id is intentionally omitted.
 
-  # Ollama's API has no error field on tool messages, so we prefix the content
-  # with "Error: " to signal failure to the model.
+  # Ollama's tool messages take no id, so `tool_use_id` is not sent. Nor is
+  # the optional `tool_name`. They have no error field either, so a failure
+  # is marked by prefixing the content with "Error: ".
   defp encode_tool_result(%ToolResult{content: content, is_error: is_error}) do
     text =
       content

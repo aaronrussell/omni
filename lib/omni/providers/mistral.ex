@@ -1,31 +1,22 @@
 defmodule Omni.Providers.Mistral do
   @moduledoc false
 
-  # Provider for the Mistral AI API, using the `Omni.Dialects.OpenAICompletions`
-  # dialect.
+  # The built-in `:mistral` provider: the Mistral AI API, over Chat Completions.
   #
-  # Reasoning:
+  # - Mistral's own reasoning models take one effort level, `"high"`. The
+  #   catalog lists it, so the dialect's usual rounding sends `"high"` for every
+  #   level; nothing here does it.
+  # - Reasoning is sent back as a thinking chunk at the head of the assistant
+  #   message's content, as Mistral recommends (`thinking_replay_format:
+  #   :content_chunks`).
+  # - PDFs are unsupported: Mistral takes them in a part shape Omni doesn't
+  #   send, and the catalog lists no PDF input for its models.
+  # - Tool use ids must be 9 characters of a-z, A-Z and 0-9. Mistral's own are,
+  #   but it rejects a conversation carrying ids from another provider. Omni
+  #   doesn't rewrite them.
   #
-  # `:thinking` is supported and sent as `reasoning_effort`. Mistral's own
-  # reasoning models take a single level, `"high"`, so every level becomes
-  # `"high"`; `thinking: false` sends `"none"`. Other models Mistral serves
-  # (such as GLM) take their own levels.
-  #
-  # Reasoning is sent back on later turns of a conversation as a thinking
-  # chunk at the head of the assistant message's content, as Mistral
-  # recommends.
-  #
-  # Limitations:
-  #
-  # PDF attachments are not supported: Mistral takes them in a part shape
-  # Omni doesn't send yet, and the catalog lists no PDF input for its models.
-  #
-  # Tool call ids must be 9 characters of a-z, A-Z and 0-9. Mistral's own ids
-  # are, but a conversation carrying tool calls from another provider is
-  # rejected.
-  #
-  # What users are told is the "Mistral AI" section of
-  # guides/built-in-providers.md; keep it in step with this module.
+  # Users read about it in the "Mistral AI" section of
+  # guides/built-in-providers.md. Keep that in step with this module.
 
   @behaviour Omni.Provider
 

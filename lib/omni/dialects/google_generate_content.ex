@@ -86,8 +86,9 @@ defmodule Omni.Dialects.GoogleGenerateContent do
     }
   end
 
-  # Parse events — Google sends `GenerateContentResponse` objects.
-  # Each event is decomposed into envelope (:message) + content (:block_delta/:block_start).
+  # Parse events: Google sends `GenerateContentResponse` objects. Each is
+  # split into its envelope (:message) and content (:block_start,
+  # :block_delta).
 
   @impl true
   def handle_event(%{"error" => %{"message" => message}}, _model) do
@@ -172,9 +173,9 @@ defmodule Omni.Dialects.GoogleGenerateContent do
     [{:block_delta, %{type: :text, index: 0, delta: text, signature: sig}}]
   end
 
-  # Signature-only part (empty text) — the model thought internally but didn't
-  # surface thinking text. Attach the signature to the text block so it
-  # round-trips correctly without creating a phantom Thinking block.
+  # A signature-only part (empty text): the model thought but surfaced no
+  # thinking text. The signature goes on the text block, so it round-trips
+  # without a phantom Thinking block.
   defp parse_part(%{"text" => "", "thoughtSignature" => sig}) when is_binary(sig) do
     [{:block_delta, %{type: :text, index: 0, signature: sig}}]
   end

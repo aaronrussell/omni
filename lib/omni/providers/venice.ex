@@ -1,24 +1,13 @@
 defmodule Omni.Providers.Venice do
   @moduledoc false
 
-  # Provider for the Venice AI API, using the `Omni.Dialects.OpenAICompletions`
-  # dialect.
+  # The built-in `:venice` provider: the Venice AI API, over Chat Completions.
   #
-  # Reasoning:
+  # Venice extracts the text of a PDF itself, whatever the model's own
+  # modalities, so `models/2` adds `:pdf` to every model's input.
   #
-  # `:thinking` is supported. Thinking is switched off with
-  # `reasoning: {enabled: false}`, which Venice recommends over
-  # `reasoning_effort: "none"`. Earlier reasoning is sent back in the
-  # `reasoning_content` field of assistant messages.
-  #
-  # PDF input:
-  #
-  # Every Venice model accepts PDF attachments: Venice extracts the text itself,
-  # whatever the model's own modalities. The module adds `:pdf` to each model's
-  # input modalities when the provider loads.
-  #
-  # What users are told is the "Venice AI" section of
-  # guides/built-in-providers.md; keep it in step with this module.
+  # Users read about it in the "Venice AI" section of
+  # guides/built-in-providers.md. Keep that in step with this module.
 
   @behaviour Omni.Provider
 
@@ -26,11 +15,11 @@ defmodule Omni.Providers.Venice do
   def config do
     [
       api_key: {:system, "VENICE_API_KEY"},
-      # Venice recommends `reasoning: {enabled: false}` over
       dialects: %{
         Omni.Dialects.OpenAICompletions => [
           base_url: "https://api.venice.ai/api/v1",
           compat: [
+            # Venice recommends `reasoning: {enabled: false}` over
             # `reasoning_effort: "none"`, which has limited support.
             thinking_toggle_format: :reasoning_enabled,
             thinking_replay_format: :reasoning_content

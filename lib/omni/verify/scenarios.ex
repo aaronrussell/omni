@@ -25,10 +25,12 @@ defmodule Omni.Verify.Scenarios do
   end
 
   @doc """
-  The request a scenario sends: its context (a decision for the decision
-  scenarios) and the options it adds. Capture scripts record these, so
-  fixtures are recordings of what verify checks. `:kitchen_sink` and
-  `:cache_usage` give turn 1; `follow_up/3` builds the cache scenario's turn 2.
+  Returns the request a scenario sends.
+
+  That is its context (a decision for the decision scenarios) and the options
+  it adds. Capture scripts record these, so fixtures are recordings of what
+  verify checks. `:kitchen_sink` and `:cache_usage` give turn 1; `follow_up/3`
+  builds the cache scenario's turn 2.
   """
   @spec request(atom()) :: {Context.t() | Decision.t(), keyword()}
   def request(:text), do: {Context.new("Write a haiku about the sky."), [thinking: false]}
@@ -251,11 +253,13 @@ defmodule Omni.Verify.Scenarios do
   def decision_json(model, opts), do: run_decision(:decision_json, model, opts)
 
   @doc """
-  Checks an answered decision scenario: every answer present and well formed
-  (no refusal, probabilities and confidences floats from 0 to 1, keyed by the
-  question's options in order, input tokens counted), and the clear-cut
-  questions answered as expected. The score is checked for shape only. Public
-  for the integration tests' baseline, which holds fixtures to the same rule.
+  Checks an answered decision scenario.
+
+  Every answer must be present and well formed (no refusal, probabilities and
+  confidences floats from 0 to 1, keyed by the question's options in order,
+  input tokens counted), and the clear-cut questions answered as expected.
+  The score is checked for shape only. The integration tests' baseline calls
+  this too, to hold fixtures to the same rule.
   """
   @spec check_decision(atom(), Decision.t()) :: :ok | {:fail, String.t()}
   def check_decision(scenario, %Decision{} = decision) do

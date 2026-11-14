@@ -1,23 +1,16 @@
 defmodule Omni.Request do
-  # Request orchestration for LLM API calls.
-  #
-  # Handles validation, request building, execution, and event parsing.
-  # Composes the model's dialect (wire format) and provider (endpoint, auth,
-  # optional module hooks) into a complete request pipeline. Everything comes
-  # from the %Model{} — its embedded %Provider{} and its dialects — so nothing
-  # is looked up at request time. The struct being sent picks the capability:
-  # a %Context{} is text generation, a %Decision{} a decision.
-  #
-  # Public API:
-  #   - build/3 — validates opts, builds a %Req.Request{} via dialect + provider
-  #   - stream/3 — executes a built text request, returns a %StreamingResponse{}
-  #   - send/4 — executes a built decision request, returns the answered %Decision{}
-  #
-  # Internal (public but undocumented):
-  #   - validate/3 — provider + call-site merge + Peri validation
-  #   - parse_event/2 — dialect handle_event
-  #   - validate_context/2 — checks attachment media types against model modalities
   @moduledoc false
+
+  # Builds and executes requests.
+  #
+  # Composes the model's dialect (wire format) with its provider (endpoint,
+  # auth, optional module hooks). Everything comes from the %Model{}, its
+  # embedded %Provider{} and its dialects, so nothing is looked up at request
+  # time. The struct being sent picks the capability: a %Context{} is text
+  # generation, a %Decision{} a decision.
+  #
+  # build/3 returns a %Req.Request{}. stream/3 executes a text request and
+  # send/4 a decision.
 
   alias Omni.Content.{Attachment, Text, Thinking, ToolUse}
   alias Omni.{Context, Decision, Message, Model, Parsers, Provider, StreamingResponse, Usage}
@@ -25,8 +18,8 @@ defmodule Omni.Request do
 
   import Omni.Util, only: [maybe_put: 3]
 
-  # Config options every capability takes (type-loose — validated by
-  # infrastructure, not user input).
+  # Options every capability takes. `api_key` and `plug` are typed loosely:
+  # they are checked on use, by Provider.resolve_auth/1 and Req.
   @config_schema %{
     api_key: :any,
     host: :string,
@@ -96,8 +89,9 @@ defmodule Omni.Request do
   @doc """
   Executes a built request and returns a `%StreamingResponse{}`.
 
-  Runs the request, checks the HTTP status, sets up the SSE parsing pipeline
-  with `parse_event/2`, and wraps everything in a `StreamingResponse`.
+  Runs the request, checks the HTTP status, parses the body as SSE or NDJSON
+  (by content type) into dialect deltas with `parse_event/2`, and wraps the
+  pipeline in a `StreamingResponse`.
   """
   @spec stream(Req.Request.t(), Model.t(), keyword() | map()) ::
           {:ok, StreamingResponse.t()} | {:error, term()}
@@ -145,7 +139,7 @@ defmodule Omni.Request do
   @spec validate(Model.t(), Model.capability(), keyword() | map()) ::
           {:ok, map()} | {:error, term()}
   def validate(%Model{provider: %Provider{} = provider} = model, capability, opts) do
-    # Two tiers: the provider (which already absorbed app config) <- call site
+    # The provider's values (which already absorbed app config) <- call site.
     data =
       provider
       |> Map.take([:api_key, :headers])
@@ -225,6 +219,7 @@ defmodule Omni.Request do
 
   # -- Private helpers --
 
+  # Streaming is text only, so the stream helpers use the text dialect.
   defp dialect!(%Model{} = model) do
     case Model.dialect(model, :text) do
       {:ok, dialect} -> dialect
@@ -353,7 +348,7 @@ defmodule Omni.Request do
     end
   end
 
-  # Headers merge additively (not last-writer-wins)
+  # Headers merge by key. Any other call-site value replaces the provider's.
   defp merge_config(:headers, a, b), do: Map.merge(a, b)
   defp merge_config(_key, _a, b), do: b
 

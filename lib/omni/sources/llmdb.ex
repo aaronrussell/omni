@@ -58,7 +58,7 @@ defmodule Omni.Sources.LLMDB do
   alias Omni.{Model, Provider, Source}
 
   # npm package -> dialect, for models of multi-dialect providers. Kept in
-  # step with Omni.Sources.ModelsDev's table by hand — the two catalogs can
+  # step with Omni.Sources.ModelsDev's table by hand: the two catalogs can
   # drift independently.
   @npm_to_dialect %{
     "@ai-sdk/alibaba" => "openai_completions",
@@ -92,7 +92,7 @@ defmodule Omni.Sources.LLMDB do
     "openai_responses"
   ]
 
-  # llm_db modalities are atom lists — no stringifying here (compare ModelsDev)
+  # llm_db modalities are atom lists, so nothing is stringified (compare ModelsDev).
   @supported_input_modalities Model.supported_modalities(:input)
   @supported_output_modalities Model.supported_modalities(:output)
 
@@ -122,7 +122,7 @@ defmodule Omni.Sources.LLMDB do
   defp api_key(_), do: nil
 
   # The catalog lives in llm_db's own :persistent_term store, loaded by its
-  # application start — reads are O(1), so unlike ModelsDev there is nothing
+  # application start. Reads are O(1), so unlike ModelsDev there is nothing
   # to memoize per load pass.
   defp ensure_llm_db! do
     unless Code.ensure_loaded?(LLMDB) do
@@ -195,7 +195,7 @@ defmodule Omni.Sources.LLMDB do
     {endpoints, Enum.sort_by(models, & &1.id)}
   end
 
-  # Retired models are dropped; deprecated ones are kept — they remain
+  # Retired models are dropped. Deprecated ones are kept, as they remain
   # callable. (ModelsDev filters on deprecated instead; aligning the two is
   # a future decision.) Catalog-only models are ones llm_db describes but
   # says can't be called. What's left loads for text, decisions, or both.
@@ -223,7 +223,7 @@ defmodule Omni.Sources.LLMDB do
   defp text_in_and_out?(_model), do: false
 
   # llm_db's extra field is an unmapped models.dev passthrough, fragile
-  # across llm_db versions — the rescue keeps one bad model from failing the
+  # across llm_db versions. The rescue keeps one bad model from failing the
   # whole provider.
   defp transform_model(model, provider_id) do
     with {:ok, dialects} <- model_dialects(model) do
@@ -327,8 +327,8 @@ defmodule Omni.Sources.LLMDB do
   end
 
   # capabilities.reasoning.enabled is a materialized schema default upstream,
-  # wrong on some models — OR it with the extra passthrough signals. The list
-  # checks must be non-empty checks: [] is truthy.
+  # wrong on some models, so it is ORed with the extra passthrough signals.
+  # The list checks must be non-empty checks: [] is truthy.
   defp reasoning?(%{capabilities: capabilities} = model) do
     match?(%{reasoning: %{enabled: true}}, capabilities) or
       extra(model, [:reasoning, :mandatory]) == true or
@@ -367,7 +367,7 @@ defmodule Omni.Sources.LLMDB do
   defp list(value) when is_list(value), do: value
   defp list(_value), do: []
 
-  # Missing and nil cost entries become 0; negatives are clamped — OpenRouter
+  # Missing and nil cost entries become 0. Negatives are clamped: OpenRouter
   # router models carry a -1.0e6 sentinel.
   defp cost_for(cost, key) do
     case Map.get(cost, key) do

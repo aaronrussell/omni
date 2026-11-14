@@ -107,8 +107,8 @@ defmodule Omni.Dialects.OpenAICompletions do
     |> Map.merge(Map.get(compat, :extra_body, %{}))
   end
 
-  # Thinking — the model's thinking data says what to send; compat flags say
-  # how to spell it.
+  # Thinking: the model's thinking data says what to send, and compat flags
+  # say how to spell it.
 
   defp apply_thinking(body, model, option, compat) do
     effort_field = Map.get(compat, :thinking_effort_field, "reasoning_effort")
@@ -191,11 +191,11 @@ defmodule Omni.Dialects.OpenAICompletions do
     [%{"role" => "system", "content" => instruction} | messages]
   end
 
-  # Parse events — OpenAI sends homogeneous `chat.completion.chunk` objects.
+  # Parse events: OpenAI sends homogeneous `chat.completion.chunk` objects.
   #
   # Parsing is tolerant: it accepts every known variant from any provider, with
   # no flags. Some servers (e.g. vLLM) pack multiple payload types into a
-  # single chunk (tool_call args + finish_reason, reasoning + content). Each
+  # single chunk (tool arguments + finish_reason, reasoning + content). Each
   # field is extracted independently so nothing is silently dropped; deltas are
   # emitted before finish_reason so downstream accumulation sees the final
   # fragment before the block is finalized. The one flag read here is
@@ -517,14 +517,14 @@ defmodule Omni.Dialects.OpenAICompletions do
     %{"type" => "file", "file" => %{"file_data" => "data:#{mt};base64,#{data}"}}
   end
 
-  # Chat Completions has no generic URL content type — "image_url" is the only
+  # Chat Completions has no generic URL content type: "image_url" is the only
   # URL-based input the API accepts. Non-image URLs (e.g. PDFs) work through
   # this wrapper on providers that support them.
   defp encode_content(%Attachment{source: {:url, url}}, _compat) do
     %{"type" => "image_url", "image_url" => %{"url" => url}}
   end
 
-  # Tool call encoding (assistant messages)
+  # Tool use encoding (assistant messages)
 
   defp encode_tool_call(%ToolUse{id: id, name: name, input: input}, index) do
     %{

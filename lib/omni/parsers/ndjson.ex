@@ -1,19 +1,16 @@
 defmodule Omni.Parsers.NDJSON do
-  # Parses a stream of binary chunks into decoded NDJSON event maps.
-  #
-  # Accepts any enumerable yielding binary chunks (typically a `Req.Response.Async`)
-  # and returns a lazy `Stream` yielding decoded JSON maps — one per newline-delimited
-  # JSON line.
-  #
-  # Empty lines are skipped, and lines that fail to decode as JSON are silently
-  # discarded.
   @moduledoc false
+
+  # Parses a stream of binary chunks into decoded NDJSON lines.
+  #
+  # Ollama's chat API is the one API that streams NDJSON.
 
   @doc """
   Transforms an enumerable of binary chunks into a stream of decoded JSON maps.
 
-  Each yielded value is a map produced by `JSON.decode/1` from one line of
-  newline-delimited JSON. Lines that fail to decode are silently skipped.
+  Takes any enumerable of binaries, typically a `Req.Response.Async`, and
+  yields one map per line. Empty lines, and lines that fail to decode, are
+  skipped.
   """
   @spec stream(Enumerable.t()) :: Enumerable.t()
   def stream(async_body) do

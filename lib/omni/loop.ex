@@ -1,22 +1,27 @@
 defmodule Omni.Loop do
-  # Recursive request loop for LLM interactions.
-  #
-  # Handles two kinds of multi-step loops within a single lazy stream pipeline:
-  #
-  # 1. Tool auto-execution — when the model produces tool use blocks, executes
-  #    tools via Tool.Runner, feeds results back, and streams the next step.
-  #    Controlled by :max_steps option. Breaks when any tool has no handler
-  #    (schema-only). Hallucinated tool names produce error results sent back
-  #    to the model, and the loop continues.
-  #
-  # 2. Structured output validation — when :output schema is set, validates the
-  #    final response text (JSON decode + Peri validation) and retries up to
-  #    @max_output_retries times on failure. Skips retry on :length stop reason.
-  #
-  # Both use recursive Stream.flat_map — each step's StreamingResponse events
-  # pass through to the consumer, and when :done arrives, the flat_map callback
-  # returns either a terminal event or a new lazy stream for the next step.
   @moduledoc false
+
+  # The request loop behind `Omni.stream_text/3`.
+  #
+  # One lazy stream covers every step of two kinds of loop:
+  #
+  #   1. Tool use: when the model stops for tool use, the tools run via
+  #      Tool.Runner, their results go back as a user message, and the next
+  #      step streams. `:max_steps` caps the steps. The loop stops, handing
+  #      the tool uses to the caller, when any tool has no handler. An unknown
+  #      tool name doesn't stop it: the model is sent an error result.
+  #
+  #   2. Structured output: with `:output` set, the final text is decoded and
+  #      validated against the schema. A failure is sent back to the model, up
+  #      to @max_output_retries times. A `:length` stop is not retried.
+  #
+  # Both recurse through Stream.flat_map. Each step's events pass through to
+  # the consumer. On `:done` the callback returns either the final event or
+  # the next step's stream.
+  #
+  # Each step is its own HTTP request with its own cancel function. The
+  # current one is kept in the process dictionary under `cancel_ref`, so the
+  # cancel function returned to the caller always reaches the live step.
 
   alias Omni.{
     Context,
@@ -35,11 +40,12 @@ defmodule Omni.Loop do
   @max_output_retries 3
 
   @doc """
-  Builds and executes a streaming request with automatic tool looping.
+  Streams a text request, looping over tool use and structured output retries.
 
-  Always executes at least one request. After each step, checks whether to
-  loop based on tool use blocks in the response. The result is a single
-  `StreamingResponse` whose stream lazily concatenates all steps.
+  Always executes at least one request. The result is a single
+  `StreamingResponse` whose stream lazily concatenates all steps. Takes
+  `:max_steps`, `:tool_timeout` and `:raw` itself and passes the other
+  options to `Omni.Request.build/3`.
   """
   @spec stream(Model.t(), Context.t(), keyword()) ::
           {:ok, StreamingResponse.t()} | {:error, term()}
@@ -111,7 +117,6 @@ defmodule Omni.Loop do
   defp handle_step_result(response, state) do
     tool_uses = extract_tool_uses(response.message.content)
 
-    # Accumulate this step's data
     state = %{
       state
       | messages: state.messages ++ [response.message],
@@ -133,11 +138,9 @@ defmodule Omni.Loop do
   end
 
   defp do_loop(tool_uses, response, state) do
-    # Execute tools and build result blocks
     tool_results = Tool.Runner.run(tool_uses, state.tool_map, state.tool_timeout)
     tool_result_events = build_tool_result_events(tool_results, response)
 
-    # Build user message with tool results, update context
     user_message = Message.new(role: :user, content: tool_results)
 
     state = %{
@@ -247,11 +250,10 @@ defmodule Omni.Loop do
   defp all_executable?(tool_uses, tool_map) do
     Enum.all?(tool_uses, fn tool_use ->
       case Map.get(tool_map, tool_use.name) do
-        # Hallucinated name — not a reason to break, error result sent to model
+        # An unknown name: Tool.Runner sends the model an error result.
         nil -> true
-        # Schema-only tool (no handler) — break, user handles manually
+        # No handler: stop and leave the tool use to the caller.
         %Tool{handler: nil} -> false
-        # Has handler — executable
         %Tool{} -> true
       end
     end)

@@ -1,6 +1,8 @@
 defmodule Omni.Util do
   @moduledoc false
 
+  # Small helpers for building maps and keyword lists, mostly request bodies.
+
   @doc """
   Puts `value` at `key` in `container` unless `value` is `nil`.
 
@@ -51,8 +53,9 @@ defmodule Omni.Util do
     do: Map.merge(container, other)
 
   @doc """
-  Puts `value` at a dotted string `path` in `map` unless `value` is `nil`,
-  creating or merging into nested maps.
+  Puts `value` at a dotted string `path` in `map` unless `value` is `nil`.
+
+  Creates nested maps along the path, or merges into the ones there.
 
   ```elixir
   iex> put_path(%{}, "reasoning.effort", "high")

@@ -62,8 +62,10 @@ defmodule Omni.Verify do
   end
 
   @doc """
-  Selects scenarios for a model. `:only` gives the exact list; otherwise the
-  model's defaults, plus `:add`, minus `:skip`. The result keeps run order.
+  Selects scenarios for a model.
+
+  `:only` gives the exact list; otherwise the model's defaults, plus `:add`,
+  minus `:skip`. The result keeps run order.
   """
   @spec select(Model.t(), keyword()) ::
           {:ok, [atom()]} | {:error, {:unknown_scenarios, [atom()]}}

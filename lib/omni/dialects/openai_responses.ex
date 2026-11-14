@@ -74,7 +74,7 @@ defmodule Omni.Dialects.OpenAIResponses do
 
   defp apply_strict(schema), do: schema
 
-  # Parse events — OpenAI Responses sends named events with "type" field
+  # Parse events: Responses sends named events, told apart by "type"
 
   @impl true
   def handle_event(%{"type" => "response.created", "response" => %{"model" => model_id}}, _model) do
@@ -198,7 +198,7 @@ defmodule Omni.Dialects.OpenAIResponses do
   defp effort_string(:xhigh), do: "xhigh"
   defp effort_string(:max), do: "xhigh"
 
-  # Input encoding — flat-maps messages into a mixed array
+  # Input encoding: messages flat-map into one array of mixed items
 
   defp encode_input(messages) do
     Enum.flat_map(messages, &encode_message/1)
@@ -305,7 +305,7 @@ defmodule Omni.Dialects.OpenAIResponses do
   defp filename_from_media_type("text/" <> sub), do: "document.#{sub}"
   defp filename_from_media_type(mt), do: "file.#{mt |> String.split("/") |> List.last()}"
 
-  # Tool encoding — flattened format (no "function" wrapper)
+  # Tool encoding: the flat format, with no "function" wrapper
 
   defp encode_tools(nil), do: nil
   defp encode_tools([]), do: nil

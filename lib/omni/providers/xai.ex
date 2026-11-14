@@ -1,34 +1,19 @@
 defmodule Omni.Providers.XAI do
   @moduledoc false
 
-  # Provider for the xAI API, using the `Omni.Dialects.OpenAIResponses`
-  # dialect.
+  # The built-in `:xai` provider: the xAI API, over Responses.
   #
-  # xAI also serves Chat Completions, as a legacy endpoint. Omni uses
-  # Responses, xAI's preferred API and the only one that returns encrypted
-  # reasoning, so every text model (and every config model that names no
-  # dialect) is given the Responses dialect when the provider loads, in the
-  # module's `models/2`. That runs after config `models:`
-  # entries are merged, so a text dialect set in config is replaced too.
-  # Decision-only models are left alone.
+  # - xAI also serves Chat Completions, as a legacy endpoint. Responses is the
+  #   only one that returns encrypted reasoning, so `models/2` moves every text
+  #   model to it. Sending that reasoning back also keeps xAI's prompt cache
+  #   warm.
+  # - Most Grok models can't switch reasoning off: they list no `"none"` effort,
+  #   so the dialect sends nothing for `thinking: false`.
+  # - Models with no effort levels in their data reject `reasoning.effort`
+  #   outright, which `modify_body/4` handles.
   #
-  # Reasoning:
-  #
-  # `:thinking` is supported and sent as `reasoning.effort`, rounded to the
-  # levels the model accepts. Most Grok models can't switch reasoning off, so
-  # `thinking: false` sends nothing on them; models that list a `"none"`
-  # effort (such as `grok-4.3`) are switched off.
-  #
-  # Models with no effort levels in their data (such as
-  # `grok-4.20-0309-reasoning`) reason but reject `reasoning.effort` with any
-  # value, `"none"` included, so `:thinking` is not sent to them. This is done
-  # in the module's `modify_body/4`, not with a compat flag.
-  #
-  # Reasoning is sent back on later turns of a conversation as encrypted
-  # content, which also keeps xAI's prompt cache warm.
-  #
-  # What users are told is the "xAI" section of guides/built-in-providers.md;
-  # keep it in step with this module.
+  # Users read about it in the "xAI" section of guides/built-in-providers.md.
+  # Keep that in step with this module.
 
   @behaviour Omni.Provider
 
@@ -42,9 +27,11 @@ defmodule Omni.Providers.XAI do
     ]
   end
 
-  # Catalogs may describe xAI's Chat Completions endpoint (llm_db does); Omni
-  # uses Responses, so every text model is re-stamped with its dialect. A
-  # config model naming no dialect gets it too; decision-only models don't.
+  # Catalogs may describe xAI's Chat Completions endpoint (llm_db does).
+  # Gives every text model the Responses dialect, and every config model that
+  # names no dialect. Decision-only models are left alone. This runs after
+  # config `models:` entries are merged, so a text dialect set in config is
+  # replaced too.
   @impl true
   def models(models, _provider) do
     Enum.map(models, fn model ->

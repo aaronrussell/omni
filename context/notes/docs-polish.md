@@ -72,7 +72,7 @@ Hidden: the 17 built-in provider modules (`Omni.Providers.*`), each with a comme
    - a2. Streaming and tools: `StreamingResponse`, `Tool`, `Tool.Runner`, `Schema`, `Schema.Adapter`. *Done 2026-11-14.*
    - c. Providers: `Provider` (long moduledoc, much of it now in the guides, including "Migrating from v1 config"), `Endpoint`, `mix omni.verify`. *Done 2026-11-14.*
    - d. Dialects and sources. *Done 2026-11-14.*
-4. **Contributor docs** — the hidden modules' comment blocks and `@doc`s, and code comments throughout `lib/`. These are docs for whoever works on the code, mostly agents. Same standard: concise and clear. Cut comments that confuse more than they clarify, restate the code, or carry stale context. Includes the built-ins' comment blocks, converted mechanically from their moduledocs: trim any that still read as user docs (Ollama, TypeSafe). Em dashes go as each comment is revised. See [Contributor docs](#contributor-docs) for how. *Batch 1 of 4 done 2026-11-14.*
+4. **Contributor docs** — the hidden modules' comment blocks and `@doc`s, and code comments throughout `lib/`. These are docs for whoever works on the code, mostly agents. Same standard: concise and clear. Cut comments that confuse more than they clarify, restate the code, or carry stale context. Includes the built-ins' comment blocks, converted mechanically from their moduledocs: trim any that still read as user docs (Ollama, TypeSafe). Em dashes go as each comment is revised. See [Contributor docs](#contributor-docs) for how. *Done 2026-11-14, pending review.*
 5. **Read-through** — build the docs, read them start to finish as a new user, check links and `mix docs` warnings, move the style rules into `CLAUDE.md`, delete this note and tick the roadmap item. *Not started.*
 
 ## Module pass
@@ -105,14 +105,12 @@ Brief for phase 4, written 2026-11-14 at the end of phase 3. Start a fresh sessi
   - **Block placement**: `@moduledoc false` first, then the comment block.
   - **"Tool use"** in comments and section dividers. Private function names that mirror the wire (`encode_tool_call`) stay.
   - **Scope is `lib/`**. Tests change only where they match a changed string.
-- **File by file**, block, `@doc`s and inline comments in one read. Four batches, one per session:
+- **File by file**, block, `@doc`s and inline comments in one read. Four batches:
   1. `provider/loader.ex`, strings included. *Done 2026-11-14.*
-  2. The 17 `Omni.Providers.*` and `Provider.Builtins`, each block checked against its guide section and its code.
-  3. Other hidden modules: `Loop`, `Request`, `Parsers.*`, `Util`, `Verify`, `Verify.Scenarios`, `Application`, and both mix tasks.
-  4. Inline comments in public modules: dialects and sources first, then `StreamingResponse`, `Schema`, `Codec` and the rest.
-- **Known leftovers** (`grep -rc "—" lib`):
-  - `request.ex` (8, with an indented comment list), `loop.ex` (6), and code comments in `sources/{llmdb,models_dev}.ex`, `dialects/{openai_responses,openai_completions,ollama_chat,google_generate_content}.ex`, `streaming_response.ex`, `schema.ex` and `parsers/*.ex`.
-  - "Tool call" in comments: `providers/mistral.ex` (lines 23 to 24) and the "Tool call encoding" section comments in `dialects/ollama_chat.ex` and `dialects/openai_completions.ex`.
+  2. The 17 `Omni.Providers.*` and `Provider.Builtins`, each block checked against its guide section and its code. *Done 2026-11-14.*
+  3. Other hidden modules: `Loop`, `Request`, `Parsers.*`, `Util`, `Verify`, `Verify.Scenarios`, `Application`, and both mix tasks. *Done 2026-11-14.*
+  4. Inline comments in public modules: dialects and sources first, then `StreamingResponse`, `Schema`, `Codec` and the rest. *Done 2026-11-14.*
+- **For the read-through**: the guide's Ollama section doesn't say that a model serving both text and decisions names both dialects. `Omni.Dialects.OllamaChat` sends tool results without `tool_name`, which an old comment said Ollama pairs results by: check against Ollama's API.
 - **Runtime strings** changed along the way are listed in the report, since they are user-visible.
 - **Each batch**: edit, run `mix docs` and `mix precommit`, report what was cut and anything found false, wait for review, commit when asked.
 

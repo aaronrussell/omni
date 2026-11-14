@@ -146,7 +146,7 @@ defmodule Omni.Dialects.TypeSafeSystemOne do
   defp decode_answer(_question, %{"type" => "refusal"}), do: {:ok, Answer.Refusal.new()}
   defp decode_answer(_question, _answer), do: :error
 
-  # Alibaba reports input only.
+  # Some hosts (Alibaba) report input tokens only.
   defp decode_usage(usage) when is_map(usage) do
     Usage.new(
       input_tokens: usage["input_tokens"] || 0,

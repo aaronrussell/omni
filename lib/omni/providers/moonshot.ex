@@ -1,28 +1,15 @@
 defmodule Omni.Providers.Moonshot do
   @moduledoc false
 
-  # Provider for the Moonshot AI (Kimi) API, using the
-  # `Omni.Dialects.OpenAICompletions` dialect.
-  #
-  # The catalog lists the China endpoint as its own provider, `:moonshotai_cn`,
-  # which takes these flags with
-  # `dialects: %{Omni.Dialects.OpenAICompletions => [compat: [like: :moonshotai]]}`.
-  #
-  # Reasoning:
-  #
-  # `:thinking` is supported. Models that take effort levels get the nearest
-  # level the model supports; the rest switch thinking on and off with
-  # `thinking: {type: "enabled" | "disabled"}`. Earlier reasoning is sent back
-  # in the `reasoning_content` field of assistant messages.
-  #
-  # Limitations:
+  # The built-in `:moonshotai` provider: the Moonshot AI (Kimi) API, over Chat
+  # Completions.
   #
   # Kimi K2.6 ignores the `:output` schema while thinking, which is on by
-  # default, and answers in prose. Pass `thinking: false` with `:output`. Kimi
-  # K2.7 and K3 follow the schema with thinking on.
+  # default. Nothing here works around it: the guide tells users to pass
+  # `thinking: false`.
   #
-  # What users are told is the "Moonshot AI" section of
-  # guides/built-in-providers.md; keep it in step with this module.
+  # Users read about it in the "Moonshot AI" section of
+  # guides/built-in-providers.md. Keep that in step with this module.
 
   @behaviour Omni.Provider
 

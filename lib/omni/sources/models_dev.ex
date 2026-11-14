@@ -85,15 +85,15 @@ defmodule Omni.Sources.ModelsDev do
 
   @snapshot_file "priv/models/models_dev.json"
 
-  # Chat models (no type, or "chat") and decision models only — the
+  # Chat models (no type, or "chat") and decision models only. The
   # catalog's image, embedding, speech and other types are left out.
   @api_url "https://models.dev/api.json?type=chat,decision"
   @cache_file "models_dev.json"
   @default_cache_ttl to_timeout(hour: 24)
 
-  # Fixed ~5s total request budget for live fetches — deliberately not
-  # configurable; failure is soft via the resilience ladder, and the
-  # {module, opts} config form leaves room to add a knob later.
+  # A fixed budget of about 5s for a live fetch. Not configurable: a failure
+  # only falls down the resilience ladder, and the {module, opts} config form
+  # leaves room for an option later.
   @connect_timeout 2_000
   @receive_timeout 3_000
 
@@ -153,7 +153,7 @@ defmodule Omni.Sources.ModelsDev do
   end
 
   # The decoded catalog (~9 MB of terms) is memoized for the duration of a
-  # load pass — fetch/2 runs once per provider — and garbage collected when
+  # load pass (fetch/2 runs once per provider) and garbage collected when
   # the pass ends, instead of lingering for the VM's lifetime. The live
   # config is part of the memo key: providers with identical live opts share
   # one fetch per pass, while per-provider overrides with different opts fetch
@@ -189,7 +189,7 @@ defmodule Omni.Sources.ModelsDev do
   end
 
   # System.tmp_dir!() is per-user on macOS but typically the shared /tmp on
-  # Linux — suffix with the user name so two users on one host don't fight
+  # Linux. The user name is a suffix so two users on one host don't fight
   # over cache file ownership.
   defp default_cache_dir do
     user = System.get_env("USER") || System.get_env("USERNAME") || "default"
@@ -261,7 +261,7 @@ defmodule Omni.Sources.ModelsDev do
 
     case Req.get(@api_url, req_opts) do
       {:ok, %{status: 200, body: body}} when is_binary(body) ->
-        # Validate before caching — a body that doesn't decode to a map is a
+        # Validate before caching: a body that doesn't decode to a map is a
         # fetch failure and is never written to disk.
         case JSON.decode(body) do
           {:ok, catalog} when is_map(catalog) -> {:ok, body, catalog}
@@ -490,7 +490,7 @@ defmodule Omni.Sources.ModelsDev do
     }
   end
 
-  # Filters modality strings before Source.build_model/1 atomizes them —
+  # Filters modality strings before Source.build_model/1 atomizes them:
   # the unpruned snapshot carries modalities Omni has no atoms for.
   defp filter_modalities(modalities, supported) do
     Enum.filter(modalities, &(&1 in supported))

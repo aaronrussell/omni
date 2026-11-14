@@ -1,30 +1,20 @@
 defmodule Omni.Providers.OllamaCloud do
   @moduledoc false
 
-  # Provider for Ollama's hosted cloud service, using the
-  # `Omni.Dialects.OllamaChat` dialect.
+  # The built-in `:ollama_cloud` provider: Ollama's hosted service, over its
+  # chat API.
   #
-  # For a local Ollama instance, use `Omni.Providers.Ollama`.
+  # The catalog describes Ollama's OpenAI-compatible endpoint
+  # (`https://ollama.com/v1`). Omni uses the native chat API, so `models/2`
+  # moves every text model to it.
   #
-  # The catalog describes Ollama's OpenAI-compatible endpoint. Omni uses the
-  # native chat API at `https://ollama.com` instead, so every text model (and
-  # every config model that names no dialect) is given the Ollama Chat dialect
-  # when the provider loads, in the module's `models/2`. That
-  # runs after config `models:` entries are merged, so a text dialect set in
-  # config is replaced too. Decision-only models are left alone.
+  # Ollama Cloud accepts the `:output` schema (sent as `format`) but doesn't
+  # constrain generation to it. A local Ollama does.
   #
-  # Limitations:
+  # For a local Ollama, see `Omni.Providers.Ollama`.
   #
-  # Only base64-encoded images are supported. URL image attachments
-  # (`{:url, url}`) are skipped, because Ollama's API has no way to take an
-  # image by URL.
-  #
-  # Structured output isn't enforced. Ollama Cloud accepts the `:output` schema
-  # (sent as `format`) but doesn't constrain generation to it, so models may
-  # answer in prose and fail validation. Local Ollama enforces it.
-  #
-  # What users are told is the "Ollama Cloud" section of
-  # guides/built-in-providers.md; keep it in step with this module.
+  # Users read about it in the "Ollama Cloud" section of
+  # guides/built-in-providers.md. Keep that in step with this module.
 
   @behaviour Omni.Provider
 
@@ -38,9 +28,10 @@ defmodule Omni.Providers.OllamaCloud do
     ]
   end
 
-  # Catalog data describes Ollama's OpenAI-compatible endpoint; Omni uses the
-  # native chat API, so every text model is re-stamped with its dialect. A
-  # config model naming no dialect gets it too; decision-only models don't.
+  # Gives every text model the chat dialect, and every config model that
+  # names no dialect. Decision-only models are left alone. This runs after
+  # config `models:` entries are merged, so a text dialect set in config is
+  # replaced too.
   @impl true
   def models(models, _provider) do
     Enum.map(models, fn model ->

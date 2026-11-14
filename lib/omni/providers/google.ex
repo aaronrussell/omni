@@ -1,11 +1,10 @@
 defmodule Omni.Providers.Google do
   @moduledoc false
 
-  # Provider for the Google Gemini API, using the `Omni.Dialects.GoogleGenerateContent`
-  # dialect.
+  # The built-in `:google` provider: the Gemini API, over `generateContent`.
   #
-  # What users are told is the "Google" section of guides/built-in-providers.md;
-  # keep it in step with this module.
+  # Users read about it in the "Google" section of guides/built-in-providers.md.
+  # Keep that in step with this module.
 
   @behaviour Omni.Provider
 

@@ -1,13 +1,12 @@
 defmodule Omni.Providers.Anthropic do
   @moduledoc false
 
-  # Provider for the Anthropic API, using the `Omni.Dialects.AnthropicMessages`
-  # dialect.
+  # The built-in `:anthropic` provider: the Anthropic API, over Messages.
   #
-  # Sends the `anthropic-version: 2023-06-01` header on every request.
+  # Sends the `anthropic-version` header on every request.
   #
-  # What users are told is the "Anthropic" section of
-  # guides/built-in-providers.md; keep it in step with this module.
+  # Users read about it in the "Anthropic" section of
+  # guides/built-in-providers.md. Keep that in step with this module.
 
   @behaviour Omni.Provider
 

@@ -319,7 +319,7 @@ defmodule Omni.StreamingResponse do
     |> Enum.map(&end_event(acc, &1))
   end
 
-  # A new block starting closes every block still open — blocks are
+  # A new block starting closes every block still open. Blocks are
   # sequential, so the end event can fire without waiting for stream
   # completion. Finalization closes whatever remains (the last block).
   defp close_open_blocks(acc) do
@@ -351,8 +351,8 @@ defmodule Omni.StreamingResponse do
 
   # Google sends finishReason "STOP" even for function calls, and may split
   # the function call and finish reason across separate SSE events. Since
-  # parse_event is stateless, the dialect can't detect this. We infer the
-  # correct stop_reason from accumulated blocks at finalization. Any other
+  # parse_event is stateless, the dialect can't detect this, so the
+  # stop_reason is inferred from the accumulated blocks at finalization. Any other
   # reason stands: a `:length` stop with a tool block means the call was cut
   # short, and must not be run.
   defp infer_stop_reason(%{stop_reason: reason, block_order: blocks})
