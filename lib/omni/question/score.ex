@@ -2,16 +2,16 @@ defmodule Omni.Question.Score do
   @moduledoc """
   A question rating the state on an ordered scale of levels.
 
-  Answered by `%Omni.Answer.Score{}`, whose score is the probability-weighted
-  average of the level indices (the first level is 0). Build one with `new/2`, or
-  `Omni.score/2`.
+  Answered by `Omni.Answer.Score`, whose score is the probability-weighted
+  average of the level indices (the first level is 0). Build one with
+  `new/2`, or `Omni.score/2`.
 
   ## Struct fields
 
-    * `:instructions` — the question, as parts (see `Omni.Question`)
-    * `:levels` — the levels from lowest to highest, as `{key, description}`
-      pairs. Keys are atoms or strings and come back as given in the answer;
-      a `nil` description means the key itself describes the level
+  - `:instructions` - the question, as parts (see `Omni.Question`)
+  - `:levels` - the levels from lowest to highest, as `{key, description}`
+    pairs. Keys are atoms or strings and come back as given in the answer;
+    a `nil` description means the key itself describes the level
   """
 
   alias Omni.{Decision, Question}
@@ -30,7 +30,9 @@ defmodule Omni.Question.Score do
   Instructions are built into parts (see `Omni.Question`) and levels into
   `{key, description}` pairs, as in `new/2`.
 
-      Omni.Question.Score.new(instructions: "...", levels: [:a, :b])
+  ```elixir
+  Omni.Question.Score.new(instructions: "...", levels: [:a, :b])
+  ```
   """
   @spec new(Enumerable.t()) :: t()
   def new(attrs) do
@@ -50,13 +52,15 @@ defmodule Omni.Question.Score do
   pair; the answer's score is the probability-weighted average of the level
   indices, starting at 0.
 
-      Omni.Question.Score.new("How angry is the customer?", ["Calm", "Frustrated", "Very angry"])
+  ```elixir
+  Omni.Question.Score.new("How angry is the customer?", ["Calm", "Frustrated", "Very angry"])
 
-      Omni.Question.Score.new("How urgent is this?",
-        low: "Can wait",
-        medium: "Needs attention this week",
-        high: "Needs attention today"
-      )
+  Omni.Question.Score.new("How urgent is this?",
+    low: "Can wait",
+    medium: "Needs attention this week",
+    high: "Needs attention today"
+  )
+  ```
   """
   @spec new(Question.instructions_input(), [Question.key() | Question.option()]) :: t()
   def new(instructions, levels), do: new(instructions: instructions, levels: levels)

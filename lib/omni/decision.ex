@@ -2,50 +2,61 @@ defmodule Omni.Decision do
   @moduledoc """
   A decision: typed questions about a shared state, and their answers.
 
-  The same struct is the request and the result. Build it from a state and
-  questions, pass it to `Omni.decide/3`, and get it back with `:answers`,
-  `:usage` and `:model` filled in:
+  The same struct is the request and the result. `Omni.decide/3` takes a
+  `{state, questions}` tuple, or a decision built with `new/1`, and returns
+  the decision with `:answers`, `:usage` and `:model` filled in. The
+  [Decisions](decisions.md) guide is the place to start.
 
-      {:ok, decision} =
-        Omni.decide({:openrouter, "typesafe/jev-1.14"}, {ticket_text, [
-          urgent: Omni.predicate("Does this need a reply within the hour?"),
-          team: Omni.choice("Which team owns this?", [:billing, :infra, :other])
-        ]})
+  ```elixir
+  {:ok, decision} =
+    Omni.decide({:openrouter, "typesafe/jev-1.14"}, {ticket_text, [
+      urgent: Omni.predicate("Does this need a reply within the hour?"),
+      team: Omni.choice("Which team owns this?", [:billing, :infra, :other])
+    ]})
 
-      decision.answers[:urgent]  #=> %Omni.Answer.Predicate{probability: 0.91}
+  decision.answers[:urgent]  #=> %Omni.Answer.Predicate{probability: 0.91}
+  ```
 
-  `Omni.decide/3` also takes the shorthand `{state, questions}` tuple, as
-  above.
+  ## Struct fields
+
+  - `:state` - the parts every question is asked about (see
+    [State](#module-state))
+  - `:questions` - a keyword list of `Omni.Question` structs. The key names
+    the question, and the list's order is kept
+  - `:answers` - a keyword list aligned with `:questions`, one
+    `Omni.Answer` struct per question; `nil` until answered
+  - `:usage` - the request's `Omni.Usage`; `nil` until answered
+  - `:model` - the `Omni.Model` that answered; `nil` until answered
+  - `:raw` - the `{%Req.Request{}, %Req.Response{}}` pair when `decide/3`
+    is called with `raw: true`, else `nil`
 
   ## State
 
   The state is the shared input every question is asked about: a list of
-  parts, each a `%Omni.Content.Text{}` or `%Omni.Content.Data{}`. `new/1`
-  builds them from plain values, so the state can be given as
+  parts, each an `Omni.Content.Text` or `Omni.Content.Data`. `new/1` builds
+  them from plain values, so the state can be given as
 
-    * a string — one text part
-    * a map — one data part, sent as JSON
-    * a list of strings, maps and parts — a part for each, in order
+  - a string, for one text part
+  - a map, for one data part, sent as JSON
+  - a list of strings, maps and parts, for a part each, in order
 
-  Anything else (a number, a nested list) is an error when the decision is
-  sent. To send an array as data, put it in a map:
-  `%{readings: [3, 5, 8]}`. Question instructions are parts in the same way
-  (see `Omni.Question`).
+  To send an array as data, put it in a map: `%{readings: [3, 5, 8]}`.
+  Question instructions are parts in the same way (see `Omni.Question`).
 
-      Decision.new({["Ticket from an enterprise customer:", %{subject: "Refund"}], questions})
-      #=> %Decision{state: [%Text{text: "Ticket from ..."}, %Data{data: %{"subject" => "Refund"}}], ...}
+  ```elixir
+  Decision.new({["Ticket from an enterprise customer:", %{subject: "Refund"}], questions})
+  #=> %Decision{state: [%Text{text: "Ticket from ..."}, %Data{data: %{"subject" => "Refund"}}], ...}
+  ```
 
-  ## Struct fields
+  ## Validation
 
-    * `:state` — the parts every question is asked about (see above)
-    * `:questions` — a keyword list of `Omni.Question` structs. The key names
-      the question, and the list's order is kept
-    * `:answers` — a keyword list aligned with `:questions`, one
-      `Omni.Answer` struct per question; `nil` until answered
-    * `:usage` — the request's `%Omni.Usage{}`; `nil` until answered
-    * `:model` — the `%Omni.Model{}` that answered; `nil` until answered
-    * `:raw` — the `{%Req.Request{}, %Req.Response{}}` pair when `decide/3`
-      is called with `raw: true`, else `nil`
+  `Omni.decide/3` checks a decision before sending it. It needs a state, at
+  least one question, instructions for every question, and two or more
+  options for a choice or score. A decision that fails returns
+  `{:error, reason}` with no request made.
+
+  Providers set their own limits on how many questions and options a
+  request may hold, and report them as HTTP errors.
 
   Persist a decision with `Omni.Codec`, which stores everything but `:raw`.
   """
@@ -58,6 +69,12 @@ defmodule Omni.Decision do
 
   @typedoc "A part of the state or of a question's instructions."
   @type part :: Text.t() | Data.t()
+
+  @typedoc "Parts as given to a constructor: a string, a map, a part, or a list of them."
+  @type parts_input :: String.t() | map() | part() | [String.t() | map() | part()]
+
+  @typedoc "The `{state, questions}` shorthand for a decision."
+  @type input :: {state :: parts_input(), questions :: [{atom(), Question.t()}]}
 
   @typedoc "A decision request, and once answered its result."
   @type t :: %__MODULE__{
@@ -78,15 +95,17 @@ defmodule Omni.Decision do
   Creates a decision from a `{state, questions}` tuple, a keyword list or
   map of fields, or an existing decision.
 
-      Omni.Decision.new({"I was charged twice", [refund: Omni.predicate("Is this a refund request?")]})
-      Omni.Decision.new(state: %{subject: "Refund"}, questions: [...])
+  ```elixir
+  Omni.Decision.new({"I was charged twice", [refund: Omni.predicate("Is this a refund request?")]})
+  Omni.Decision.new(state: %{subject: "Refund"}, questions: [...])
+  ```
 
   The state and every question's instructions are built into parts (see
   [State](#module-state)), which is safe to repeat on an existing decision.
   Raises if a map holds a value JSON can't encode (see
   `Omni.Content.Data.new/1`). Does not validate; `Omni.decide/3` does.
   """
-  @spec new(t() | {term(), list()} | Enumerable.t()) :: t()
+  @spec new(t() | input() | Enumerable.t()) :: t()
   def new(%__MODULE__{} = decision) do
     %{decision | state: parts(decision.state), questions: cast_questions(decision.questions)}
   end
@@ -175,7 +194,7 @@ defmodule Omni.Decision do
   end
 
   defp validate_question(_other),
-    do: {:error, "is not a question — build it with Omni.predicate/2, choice/2 or score/2"}
+    do: {:error, "is not a question: build it with Omni.predicate/2, choice/2 or score/2"}
 
   defp validate_instructions(instructions) do
     case parts_error(instructions) do
@@ -209,11 +228,11 @@ defmodule Omni.Decision do
 
     if valid?,
       do: :ok,
-      else: {:error, "has invalid criteria — use [true: \"...\", false: \"...\"]"}
+      else: {:error, "has invalid criteria: use [true: \"...\", false: \"...\"]"}
   end
 
   defp validate_criteria(_criteria),
-    do: {:error, "has invalid criteria — use [true: \"...\", false: \"...\"]"}
+    do: {:error, "has invalid criteria: use [true: \"...\", false: \"...\"]"}
 
   defp validate_options(options, what) when is_list(options) do
     keys = Enum.map(options, &option_key/1)

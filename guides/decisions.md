@@ -41,7 +41,7 @@ Omni.predicate("Is this spam?")
 Omni.predicate("Is this spam?", true: "Unsolicited advertising", false: "A real conversation")
 ```
 
-## Choice
+### Choice
 
 Picks one of a set of options, answered with the most likely option and a probability for each.
 
@@ -52,7 +52,7 @@ Omni.choice("What is the tone?", [:calm, :frustrated, :angry])
 Omni.choice("Which team owns this?", billing: "Payments and refunds", infra: "Outages", other: nil)
 ```
 
-## Score
+### Score
 
 Rates the state on an ordered scale, from the lowest level to the highest.
 

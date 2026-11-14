@@ -144,7 +144,8 @@ defmodule Omni do
 
   The model can be a `%Model{}` struct or a reference (see `stream_text/3`),
   and must serve decisions (see `Omni.Model.capability?/2`). The decision is a
-  `%Omni.Decision{}` or the shorthand `{state, questions}`: the state is a
+  `%Omni.Decision{}` or the shorthand `{state, questions}`
+  (`t:Omni.Decision.input/0`): the state is a
   string, a map, or a list of them (see `Omni.Decision`), and the questions
   a keyword list built with `predicate/2`, `choice/2` and `score/2`.
 
@@ -179,7 +180,7 @@ defmodule Omni do
   A dialect may take more: `Omni.Dialects.OpenAIDecisions` takes
   `:safety_identifier` and `:prompt_cache_key`.
   """
-  @spec decide(Model.ref() | Model.t(), Decision.t() | {term(), list()}, keyword()) ::
+  @spec decide(Model.ref() | Model.t(), Decision.t() | Decision.input(), keyword()) ::
           {:ok, Decision.t()} | {:error, term()}
   def decide(model, decision, opts \\ [])
 

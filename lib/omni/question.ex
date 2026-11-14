@@ -3,26 +3,30 @@ defmodule Omni.Question do
   Typed questions for `Omni.decide/3`.
 
   A decision asks one or more questions about a shared state. Each question
-  is a struct, and its type decides the shape of its answer:
+  is a struct, and its type decides the shape of its answer. The
+  [Decisions](decisions.md#questions) guide introduces each type.
 
-    * `Omni.Question.Predicate` — yes or no, answered with a probability
-    * `Omni.Question.Choice` — one of a set of choices, answered with a
-      probability for each
-    * `Omni.Question.Score` — a rating on an ordered scale, answered with a
-      probability for each level and their weighted average
+  - `Omni.Question.Predicate` - yes or no, answered with a probability
+  - `Omni.Question.Choice` - one of a set of choices, answered with a
+    probability for each
+  - `Omni.Question.Score` - a rating on an ordered scale, answered with a
+    probability for each level and their weighted average
 
   Build them with `Omni.predicate/2`, `Omni.choice/2` and `Omni.score/2`,
   which delegate to each struct's `new/2`:
 
-      [
-        urgent: Omni.predicate("Does this need a reply within the hour?"),
-        team: Omni.choice("Which team owns this?", billing: "Payments and refunds", infra: "Outages", other: nil),
-        anger: Omni.score("How angry is the customer?", ["Calm", "Frustrated but civil", "Very angry"])
-      ]
+  ```elixir
+  [
+    urgent: Omni.predicate("Does this need a reply within the hour?"),
+    team: Omni.choice("Which team owns this?", billing: "Payments and refunds", infra: "Outages", other: nil),
+    anger: Omni.score("How angry is the customer?", ["Calm", "Frustrated but civil", "Very angry"])
+  ]
+  ```
 
   Choices and levels take a list of keys, or of `key: description` pairs, or
   a mix of both. Keys may be atoms or strings, and the answer uses them as
-  given. Questions are validated when the decision is sent, not here.
+  given. Questions are validated when the decision is sent, not here (see
+  `Omni.Decision`).
 
   ## Instructions
 
@@ -31,7 +35,9 @@ defmodule Omni.Question do
   for each item. The constructors build them, so the struct holds
   `[%Omni.Content.Text{}]` for a string.
 
-      Omni.predicate(%{question: "Does the ticket report an outage?", field: "ticket.body"})
+  ```elixir
+  Omni.predicate(%{question: "Does the ticket report an outage?", field: "ticket.body"})
+  ```
   """
 
   alias Omni.Decision
@@ -44,8 +50,7 @@ defmodule Omni.Question do
   @type instructions :: [Decision.part()]
 
   @typedoc "Instructions as given to a constructor: a string, a map, a part, or a list of them."
-  @type instructions_input ::
-          String.t() | map() | Decision.part() | [String.t() | map() | Decision.part()]
+  @type instructions_input :: Decision.parts_input()
 
   @typedoc "A choice or level key, as given by the caller."
   @type key :: atom() | String.t()

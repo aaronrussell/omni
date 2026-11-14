@@ -65,12 +65,32 @@ Hidden: the 17 built-in provider modules (`Omni.Providers.*`), each with a comme
 
 1. **Foundations** — this note. *Done.*
 2. **Front door** — the guides, a slimmed README (pitch, features, install, three examples, links), a slimmed `Omni` moduledoc (a map of the API that links to the guides), `mix.exs` extras and groups. *Done 2026-11-13, bar the maintainer's own pass over the upgrade guide.*
-3. **Module pass** — read every `@moduledoc`, `@doc` and `@typedoc` against the style rules, moving guide material out to the guides. One batch per session:
-   - a. Core API and data: `Omni`, `Model`, `Context`, `Message`, `Response`, `StreamingResponse`, `Usage`, `Content.*`, `Tool`, `Tool.Runner`, `Schema`, `Schema.Adapter`, `Codec`. *Not started.*
-   - b. Decisions: `Decision`, `Question.*`, `Answer.*`. *Not started.*
-   - c. Providers: `Provider` (long moduledoc, most of it guide material, including "Migrating from v1 config"), `Endpoint`, `mix omni.verify`. The built-ins' comment blocks were converted mechanically from their moduledocs: trim any that still read as user docs (Ollama, TypeSafe). *Not started.*
+3. **Module pass** — read every `@moduledoc`, `@doc` and `@typedoc` against the style rules and the code. See [Module pass](#module-pass) for how. One batch per session, in this order:
+   - Mechanical sweep: lists flush and hyphenated, code blocks fenced, separators to ` - `, the `mix.exs` function group renamed "Text generation". *Done 2026-11-13.*
+   - b. Decisions, the pilot that sets the conventions: `Decision`, `Question.*`, `Answer.*`. *Done 2026-11-13, awaiting review.*
+   - a1. Core data: `Omni`, `Model`, `Usage`, `Codec`, `Context`, `Message`, `Response`, `Content.*`. *Not started.*
+   - a2. Streaming and tools: `StreamingResponse`, `Tool`, `Tool.Runner`, `Schema`, `Schema.Adapter`. *Not started.*
+   - c. Providers: `Provider` (long moduledoc, much of it now in the guides, including "Migrating from v1 config"), `Endpoint`, `mix omni.verify`. *Not started.*
    - d. Dialects and sources. *Not started.*
-4. **Read-through** — build the docs, read them start to finish as a new user, check links and `mix docs` warnings, move the style rules into `CLAUDE.md`, delete this note and tick the roadmap item. *Not started.*
+4. **Contributor docs** — the hidden modules' comment blocks and `@doc`s, and code comments throughout `lib/`. These are docs for whoever works on the code, mostly agents. Same standard: concise and clear. Cut comments that confuse more than they clarify, restate the code, or carry stale context. Includes the built-ins' comment blocks, converted mechanically from their moduledocs: trim any that still read as user docs (Ollama, TypeSafe). Em dashes go as each comment is revised. *Not started.*
+5. **Read-through** — build the docs, read them start to finish as a new user, check links and `mix docs` warnings, move the style rules into `CLAUDE.md`, delete this note and tick the roadmap item. *Not started.*
+
+## Module pass
+
+Agreed 2026-11-13.
+
+- **Guides and module docs have different jobs.** A guide is the first port of call: quick, easy to follow, just enough depth to get going, and often that is enough. A module's docs are the complete reference for that module: what it is, its API, every knob and lever. They are centred on the module, not the wider topic. Some overlap between the two is fine. What a moduledoc drops is guide work: topic tours, material about other modules, anything a guide says better. What it keeps or gains is anything about the module a user could need, whether or not a guide mentions it.
+- **The guides are settled**: fix facts only.
+- **Check facts against the code**, not only style. (`Response`'s field list was missing `:cancelled`.)
+- **Lists** use `-`, flush with the surrounding text, indented only when nested. Items read `` - `:key` - text ``.
+- **Code blocks are fenced**, never indented: ` ```elixir `, or the language it is (`sh`, `json`). Indented blocks parse ambiguously after lists.
+- **Section order**: intro, then "Struct fields", then the sections that explain them. The overview comes first and the detail follows.
+- **Naming a struct in prose**: the module name in backticks (`Omni.Content.Text`), which ex_doc links. Keep `%Text{}` for code and for showing a shape. `t:Mod.t/0` links too but renders as `Mod.t/0`, which reads badly in a sentence.
+- **Validation** is described by intent, in a sentence or two. The error says the rest when someone hits it.
+- **"Struct fields" sections** stay where fields need explaining, under that one heading, each checked against the struct.
+- **Guide links**: one, in the second paragraph, on modules a guide section is about (`Context`, `Message`, `StreamingResponse`, `Tool`, `Schema`, `Decision`, `Question`, `Model`, `Provider`, `Source`). Leaf modules get none.
+- **`thinking: true`** is documented as the code has it (`:medium`). The roadmap item lists the docs to change if it does.
+- **Each batch**: read each module beside its guide section and the code, edit, run `mix docs` and `mix precommit`, then report what was cut and where it now lives, facts corrected, and judgement calls. Update the status above. Conventions the pilot settles are added to this list.
 
 ## Found while writing the guides
 
@@ -83,4 +103,4 @@ For the module pass to fix:
 - **`Omni.Provider`'s moduledoc** can lose "Built-in, catalog, and custom providers", most of "Configuration", "Endpoints" and "Compat flags" (now in Providers and models), and "Migrating from v1 config" (now in the upgrade guide). What stays: the struct, how a provider is assembled and the merge rule, provider modules and their callbacks, loading at runtime.
 - **`Omni.Model`'s "Custom models"** duplicates the guide; keep the runtime `put/1` part.
 - **Model ids in examples**: prefer ids that exist in the snapshot (`claude-sonnet-5-5`, `gpt-6.1-sol`, `gemini-3.5-flash`, `deepseek-v4-pro`, `typesafe/jev-1.14`).
-- **`thinking: true`** is under review (roadmap, v2.0.0). The Text generation and upgrade guides document it as `:medium`; update both if it changes.
+- **`thinking: true`** is under review (roadmap, v2.0.0). Document it as the code has it.

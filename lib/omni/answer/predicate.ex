@@ -1,9 +1,15 @@
 defmodule Omni.Answer.Predicate do
   @moduledoc """
-  The answer to an `Omni.Question.Predicate`: the probability, from 0 to 1,
-  that the statement is true.
+  The answer to an `Omni.Question.Predicate`.
 
-      %Omni.Answer.Predicate{probability: 0.91}
+  ```elixir
+  %Omni.Answer.Predicate{probability: 0.91}
+  ```
+
+  ## Struct fields
+
+  - `:probability` - the probability, from 0 to 1, that the statement is
+    true
   """
 
   defstruct [:probability]

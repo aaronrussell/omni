@@ -2,14 +2,14 @@ defmodule Omni.Question.Choice do
   @moduledoc """
   A question with one answer from a fixed set of choices.
 
-  Answered by `%Omni.Answer.Choice{}`. Build one with `new/2`, or `Omni.choice/2`.
+  Answered by `Omni.Answer.Choice`. Build one with `new/2`, or `Omni.choice/2`.
 
   ## Struct fields
 
-    * `:instructions` — the question, as parts (see `Omni.Question`)
-    * `:choices` — the options in order, as `{key, description}` pairs. Keys
-      are atoms or strings and come back as given in the answer; a `nil`
-      description means the model judges the option by its key alone
+  - `:instructions` - the question, as parts (see `Omni.Question`)
+  - `:choices` - the options in order, as `{key, description}` pairs. Keys
+    are atoms or strings and come back as given in the answer; a `nil`
+    description means the model judges the option by its key alone
   """
 
   alias Omni.{Decision, Question}
@@ -28,7 +28,9 @@ defmodule Omni.Question.Choice do
   Instructions are built into parts (see `Omni.Question`) and choices into
   `{key, description}` pairs, as in `new/2`.
 
-      Omni.Question.Choice.new(instructions: "...", choices: [:a, :b])
+  ```elixir
+  Omni.Question.Choice.new(instructions: "...", choices: [:a, :b])
+  ```
   """
   @spec new(Enumerable.t()) :: t()
   def new(attrs) do
@@ -47,13 +49,15 @@ defmodule Omni.Question.Choice do
   Each choice is a key, or a `{key, description}` pair; a choice without a
   description is judged by its key alone.
 
-      Omni.Question.Choice.new("Which team owns this?", [:billing, :infra, :other])
+  ```elixir
+  Omni.Question.Choice.new("Which team owns this?", [:billing, :infra, :other])
 
-      Omni.Question.Choice.new("Which team owns this?",
-        billing: "Payments and refunds",
-        infra: "Outages",
-        other: nil
-      )
+  Omni.Question.Choice.new("Which team owns this?",
+    billing: "Payments and refunds",
+    infra: "Outages",
+    other: nil
+  )
+  ```
   """
   @spec new(Question.instructions_input(), [Question.key() | Question.option()]) :: t()
   def new(instructions, choices), do: new(instructions: instructions, choices: choices)
