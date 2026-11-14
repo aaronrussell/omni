@@ -6,12 +6,12 @@ defmodule Omni.Dialects.OllamaChat do
 
   ## Notable differences
 
-  - Uses NDJSON streaming instead of SSE — each line is a complete JSON object
-  - Tool call arguments arrive complete (as a map, not streamed JSON fragments),
-    similar to Google Gemini
-  - Thinking content arrives in a `message.thinking` field alongside `message.content`
-  - Options like `max_tokens` and `temperature` are nested under `"options"` in the
-    request body
+  - Streams NDJSON, not SSE: each line is a complete JSON object
+  - Tool use arguments arrive complete, as a map, not as streamed JSON
+    fragments (as with Gemini)
+  - Thinking arrives in a `message.thinking` field beside `message.content`
+  - Options such as `max_tokens` and `temperature` are nested under
+    `"options"` in the request body
 
   ## Compat flags
 

@@ -1,9 +1,9 @@
 defmodule Omni.Sources.LLMDB do
   @moduledoc """
-  Sources the model catalog from the optional
-  [`llm_db`](https://hex.pm/packages/llm_db) package.
+  A model source reading the optional `llm_db` package.
 
-  Select it globally or per provider:
+  [`llm_db`](https://hex.pm/packages/llm_db) is a separately maintained
+  model catalog. Select it globally or per provider:
 
   ```elixir
   config :omni, :models, source: Omni.Sources.LLMDB
@@ -12,30 +12,26 @@ defmodule Omni.Sources.LLMDB do
   config :omni, :providers, openai: [source: Omni.Sources.ModelsDev]
   ```
 
-  llm_db must be in your deps — selecting this source without the package
-  raises at boot:
-
-  ```elixir
-  {:llm_db, "~> 2026.7"}
-  ```
+  llm_db must be in your deps. Selecting this source without the package
+  raises at boot.
 
   Models are read from llm_db's catalog store and transformed at load time.
   A model loads for text when llm_db says it chats, supports tool use and
   takes and produces text, and for decisions when it has an
   `execution.evaluate` entry; a model may qualify for both (OpenAI's
-  `gpt-6-luna`). Retired models are filtered out (deprecated models are
-  kept — they remain callable), as are those llm_db marks `catalog_only`
-  (described, but not callable). Aliases are
-  expanded so friendly ids keep resolving (canonical records win on id
-  collisions), and negative cost sentinels are clamped to zero. Models that
-  still fail to build are skipped with a warning.
+  `gpt-6-luna`). Retired models are left out, as are those llm_db marks
+  `catalog_only` (described, but not callable). Deprecated models are kept,
+  since they can still be called. Aliases are expanded so friendly ids keep
+  resolving (canonical records win when ids collide), and negative cost
+  sentinels are clamped to zero. Models that still fail to build are
+  skipped with a warning.
 
-  Model filtering and data freshness are llm_db's own concerns — Omni
-  deliberately doesn't wrap them. See llm_db's `allow:`, `deny:`, and
+  Which models llm_db holds and how fresh its data is are llm_db's own
+  concerns, and Omni doesn't wrap them. See llm_db's `allow:`, `deny:` and
   `sources:` configuration.
 
-  Provider ids are llm_db's own ids — snake_cased models.dev keys — so no
-  translation is applied. llm_db's provider record supplies the provider's
+  Provider ids are llm_db's own ids, which are models.dev keys in snake
+  case, so none is translated. llm_db's provider record supplies the provider's
   name and API key environment variable (when exactly one is listed). Each
   dialect's endpoint takes its models' URL: a model's own `base_url` when it
   has one, otherwise the provider's. Templated URLs (`{region}`) are kept
@@ -48,15 +44,9 @@ defmodule Omni.Sources.LLMDB do
   `execution.evaluate.family`, where `typesafe_systemone` and
   `openrouter_decisions` (OpenRouter's alpha route for the same wire) are
   System One and `openai_decisions` is OpenAI Decisions; other families are
-  skipped. A model whose npm package maps to no
-  dialect is skipped with a warning, as is one with no signal at all, and
-  one served from a different URL than the first model of its dialect.
-  Known upstream data issue: `wire_protocol`
-  mislabels some Responses-only OpenAI models as `openai_chat` — those
-  models load with the Completions dialect until it's corrected upstream. (A
-  second upstream issue, `capabilities.reasoning.enabled` under-reporting
-  reasoning support, is systematic — a materialized schema default — and is
-  worked around via `extra` signals.)
+  skipped. A model whose npm package maps to no dialect is skipped with a
+  warning, as is one with no signal at all, and one served from a different
+  URL than the first model of its dialect.
   """
 
   @behaviour Omni.Source

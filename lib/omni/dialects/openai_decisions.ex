@@ -21,7 +21,7 @@ defmodule Omni.Dialects.OpenAIDecisions do
   ## Answers
 
   Probabilities are mapped back to the question's keys, in the question's
-  order. A refused question is answered with `%Omni.Answer.Refusal{}`; the
+  order. A refused question is answered with an `Omni.Answer.Refusal`; the
   others are still answered.
 
   ## Options

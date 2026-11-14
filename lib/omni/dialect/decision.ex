@@ -2,7 +2,7 @@ defmodule Omni.Dialect.Decision do
   @moduledoc """
   Behaviour for decision dialects.
 
-  A decision dialect turns a `%Omni.Decision{}` (shared state plus typed
+  A decision dialect turns an `Omni.Decision` (shared state plus typed
   questions) into one JSON request, and reads the JSON response back into
   answers and usage. There is no streaming: the whole response arrives at
   once. Declare it with `use Omni.Dialect, :decision`, which also sets the
@@ -113,8 +113,8 @@ defmodule Omni.Dialect.Decision do
   The decision has been validated: its state and every question's
   instructions are non-empty lists of `Omni.Content.Text` and
   `Omni.Content.Data` parts, it has at least one question, and every choice
-  or score question has at least two options. Encode each question under a name the response can be matched
-  back by. The returned map may be further adjusted by the provider module's
+  or score question has at least two options. Encode each question under a
+  name the response can be matched back by. The returned map may be further adjusted by the provider module's
   `c:Omni.Provider.modify_body/4` before being sent as JSON.
   """
   @callback handle_body(Model.t(), Decision.t(), map()) :: map()
@@ -123,7 +123,7 @@ defmodule Omni.Dialect.Decision do
   Reads a decoded response body into the decision.
 
   Fills `:answers` (a keyword list aligned with `decision.questions`, one
-  `Omni.Answer` struct per question) and `:usage` (an `%Omni.Usage{}` with
+  `Omni.Answer` struct per question) and `:usage` (an `Omni.Usage` with
   token counts only; Omni computes costs from the model's pricing). Return
   `{:error, {:invalid_answer, name}}` when an answer is missing, unexpected,
   or of the wrong type for its question.

@@ -8,8 +8,10 @@ defmodule Omni.Source do
 
   A source answers one question: *what does your catalog say about this
   provider?* It returns the provider's catalog-level data and its models, in
-  one go. Where the data comes from — a bundled snapshot, another package's
-  catalog, a file, a network fetch — is entirely the source's concern.
+  one go. Where the data comes from (a bundled snapshot, another package's
+  catalog, a file, a network fetch) is the source's own concern.
+  [Where model data comes from](providers-and-models.md#where-model-data-comes-from)
+  covers choosing a source; this page is for writing one.
 
   Omni ships `Omni.Sources.ModelsDev` (the default, reading a bundled
   [models.dev](https://models.dev) snapshot) and `Omni.Sources.LLMDB`. Select
@@ -26,21 +28,21 @@ defmodule Omni.Source do
 
   ## The `fetch/2` contract
 
-  `c:fetch/2` receives the provider's canonical id — its catalog key,
-  snake_cased (`:anthropic`, `:fireworks_ai`) — and the source's opts.
-  Translating the id to the catalog's native key is the source's job:
-  `Omni.Sources.ModelsDev` hyphenates it, `Omni.Sources.LLMDB` uses it
-  verbatim.
+  `c:fetch/2` receives the provider's id, which is its catalog key in snake
+  case (`:anthropic`, `:fireworks_ai`), and the source's opts. Translating
+  the id to the catalog's own key is the source's job:
+  `Omni.Sources.ModelsDev` hyphenates it, `Omni.Sources.LLMDB` uses it as
+  it is.
 
-  Return `{:ok, provider, models}` with **raw catalog data only** — Omni
+  Return `{:ok, provider, models}` with **raw catalog data only**. Omni
   layers provider modules and config over it afterwards:
 
-  - `provider` - a `%Omni.Provider{}` with `id`, and whatever the catalog
-    knows of `name`, `api_key` (`{:system, var}` when the catalog names
-    exactly one environment variable), and `dialects`: an
-    `%Omni.Provider.Endpoint{}` per dialect the provider's models speak,
+  - `provider` - an `Omni.Provider` struct with `id`, and whatever the
+    catalog knows of `name`, `api_key` (`{:system, var}` when the catalog
+    names exactly one environment variable), and `dialects`: an
+    `Omni.Provider.Endpoint` per dialect the provider's models speak,
     holding the catalog's whole URL for it. Leave the rest unset.
-  - `models` - `%Omni.Model{}` structs **without** a provider. Each model's
+  - `models` - `Omni.Model` structs **without** a provider. Each model's
     `dialects` comes from the catalog's own data (for example, an npm
     package mapped to a dialect), one per capability the catalog says the
     model serves (see `Omni.Model`). Omni never fills in a missing
@@ -51,8 +53,8 @@ defmodule Omni.Source do
   provider's `host:` config fills the origin, and a request to a URL still
   holding a placeholder returns an error.
 
-  Skip (with a warning) models the source can't represent faithfully — for
-  example, a model whose dialect hint is unrecognised, or one served from a
+  Skip, with a warning, models the source can't represent faithfully: a
+  model whose dialect hint is unrecognised, say, or one served from a
   different URL than other models of its dialect.
 
   Return `{:error, :unknown_provider}` when the catalog has no such provider;
@@ -63,12 +65,12 @@ defmodule Omni.Source do
 
   ## Caching expensive work
 
-  `fetch/2` is called once per provider within a load pass (a dozen times for
-  the built-ins at boot). Sources that derive models from a shared expensive
-  artifact — a large decoded snapshot, a network response — should wrap that
-  work in `memo/2`: the result is computed once per pass and garbage collected
-  when the pass ends, rather than lingering for the VM's lifetime. See
-  `Omni.Sources.ModelsDev` for an example.
+  `fetch/2` is called once per provider in a load pass. A source that
+  derives models from something costly to produce, such as a large decoded
+  snapshot or a network response, should wrap that work in `memo/2`. The
+  result is computed once per pass and garbage collected when the pass
+  ends, so it doesn't linger
+  for the VM's lifetime. `Omni.Sources.ModelsDev` does this.
   """
 
   alias Omni.{Model, Provider}
@@ -80,7 +82,7 @@ defmodule Omni.Source do
   @doc """
   Returns the catalog's provider data and models for a provider id.
 
-  See the module documentation for the contract.
+  See [The `fetch/2` contract](#module-the-fetch-2-contract).
   """
   @callback fetch(id :: atom(), opts :: keyword()) ::
               {:ok, Provider.t(), [Model.t()]} | {:error, term()}
@@ -95,8 +97,9 @@ defmodule Omni.Source do
   names at provider level (or `nil`). Each dialect's endpoint takes the URL
   of its first model by id: the model's own URL, else the provider URL. A
   later model of the same dialect at a different URL can't be served, and
-  is returned in `skipped` with its URL. The provider-level dialect gets the provider URL
-  when no model claimed it. A provider URL with no dialect is dropped.
+  is returned in `skipped` with its URL. The provider-level dialect gets
+  the provider URL when no model claimed it. A provider URL with no dialect
+  is dropped.
 
   ```elixir
   {endpoints, models, skipped} =
@@ -140,9 +143,9 @@ defmodule Omni.Source do
   end
 
   @doc """
-  Builds a provider-less `%Omni.Model{}` from a string-keyed data map.
+  Builds a model with no provider from a string-keyed data map.
 
-  The shared constructor for model sources. Recognized keys: `"id"`,
+  The shared constructor for model sources. Recognised keys: `"id"`,
   `"name"`, `"dialects"` (a list of dialect string ids, see
   `Omni.Dialect.get/1`, each placed under the capability its module serves:
   `["openai_responses", "openai_decisions"]` gives `%{text: ..., decision:
@@ -165,9 +168,9 @@ defmodule Omni.Source do
   Option maps may have string or atom keys. Unknown types are ignored.
 
   Raises `ArgumentError` for an unknown dialect string, or for two dialects
-  serving the same capability. Modality strings are
-  converted with `String.to_atom/1` — filter untrusted data to the modalities
-  Omni supports (`:text`, `:image`, `:pdf`) first.
+  serving the same capability. Modality strings are converted with
+  `String.to_atom/1`, so filter untrusted data to the modalities Omni
+  supports (`:text`, `:image`, `:pdf`) first.
   """
   @spec build_model(map()) :: Model.t()
   def build_model(data) do
@@ -234,10 +237,10 @@ defmodule Omni.Source do
   @doc """
   Runs `fun` inside a cache scope for `memo/2`, on the calling process.
 
-  `Omni.Provider.load/1` wraps each load pass in a scope so that every
-  `memo/2` result is shared across the pass's `fetch/2` calls and released
-  when the pass ends — the scope is cleared and the process's garbage is
-  collected, so pass-transient data (like a decoded catalog) does not linger
+  `Omni.Provider.load/1` wraps each load pass in a scope, so every `memo/2`
+  result is shared across the pass's `fetch/2` calls and released when the
+  pass ends. The scope is then cleared and the process garbage collected,
+  so data needed only for the pass (a decoded catalog, say) does not linger
   on the caller's heap. Nested calls reuse the enclosing scope.
   """
   @spec with_cache((-> result)) :: result when result: var
@@ -257,12 +260,12 @@ defmodule Omni.Source do
   end
 
   @doc """
-  Memoizes `fun`'s result under `key` for the duration of the enclosing cache
-  scope (see `with_cache/1`).
+  Returns `fun`'s result, computed once per cache scope under `key`.
 
-  Outside a scope — a one-off `c:fetch/2` call, for example — there is
-  nothing to share the result with, so `fun` simply runs. Keys are namespaced
-  by convention: use `{YourSource, :name}` tuples.
+  The scope is the enclosing `with_cache/1`. Outside one (a one-off
+  `c:fetch/2` call, for example) there is nothing to share the result with,
+  so `fun` just runs. Name keys as `{YourSource, :name}` tuples, so sources
+  don't collide.
   """
   @spec memo(term(), (-> result)) :: result when result: var
   def memo(key, fun) do

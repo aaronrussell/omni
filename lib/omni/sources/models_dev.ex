@@ -9,18 +9,18 @@ defmodule Omni.Sources.ModelsDev do
   least one release per month; use live mode (below) when you need fresher
   data than the release cadence provides.
 
-  The snapshot is transformed into `%Omni.Model{}` structs at load time.
-  Each model loads for one capability, by its catalog `type`:
+  The snapshot is transformed into `Omni.Model` structs at load time. Each
+  model loads for one capability, by its catalog `type`:
 
-  - **text** — no type, or `"chat"`: the model must support tool use and
-    take and produce text.
-  - **decision** — `"decision"`: the model must take text; tool use
-    doesn't apply.
+  - **text** - no type, or `"chat"`: the model must support tool use and
+    take and produce text
+  - **decision** - `"decision"`: the model must take text; tool use doesn't
+    apply
 
   Deprecated models and every other type (image, embedding, speech,
   realtime, ...) are left out. Modalities are narrowed to those Omni
   supports, and each model's dialect is inferred from models.dev's npm
-  package metadata — the model's own package if it has one, otherwise its
+  package metadata: the model's own package if it has one, otherwise its
   provider's. Decision models read a separate table, since the same package
   names another API for decisions: `@ai-sdk/typesafe-ai` is System One and
   `@ai-sdk/openai` is OpenAI Decisions. Models that can't be represented
@@ -28,7 +28,7 @@ defmodule Omni.Sources.ModelsDev do
   dialect Omni speaks for their capability, and those served from a
   different URL than the first model of their dialect.
 
-  Provider ids are translated mechanically to models.dev keys —
+  Provider ids are translated mechanically to models.dev keys:
   `:fireworks_ai` becomes `"fireworks-ai"`. Any catalog id works, including
   providers Omni ships no module for (see `Omni.Provider`). The catalog's
   provider record supplies the provider's name, API key environment variable
@@ -59,22 +59,22 @@ defmodule Omni.Sources.ModelsDev do
   response on disk. Each load walks a resilience ladder, logging a warning
   at every degradation step:
 
-  1. Cache fresh (younger than `:cache_ttl`) — use it, no network.
-  2. Cache stale or missing — fetch from models.dev; on success, write the
+  1. Cache fresh (younger than `:cache_ttl`): use it, no network.
+  2. Cache stale or missing: fetch from models.dev; on success, write the
      cache and use the fetched data.
-  3. Fetch failed — use the stale cache (stale beats empty).
-  4. No usable cache — fall back to the bundled snapshot.
+  3. Fetch failed: use the stale cache (stale beats empty).
+  4. No usable cache: fall back to the bundled snapshot.
 
-  The fetch runs synchronously inside `:omni`'s application start, so live
-  mode adds network egress at boot and — when the cache is cold and
-  models.dev is unreachable — up to ~5 seconds of boot latency. The request
-  budget is fixed (no retries) and deliberately not configurable: failure
-  always degrades down the ladder instead of crashing the boot.
+  The fetch runs synchronously inside `:omni`'s application start. Live
+  mode therefore makes a network request at boot, and adds up to about 5
+  seconds to boot when the cache is cold and models.dev is unreachable. The
+  request budget is fixed (no retries) and deliberately not configurable:
+  failure always degrades down the ladder and never crashes the boot.
 
   The cache file is the raw api.json response, replaced atomically and
   validated before use. Deleting it at any time is safe, and an unreadable
-  cache is treated as missing. Cache write failures never fail a load — the
-  fetched data is simply used in-memory for that boot.
+  cache is treated as missing. A failed cache write never fails a load: the
+  fetched data is used in memory for that boot.
   """
 
   @behaviour Omni.Source
@@ -293,7 +293,7 @@ defmodule Omni.Sources.ModelsDev do
 
         Logger.warning(
           "Omni.Sources.ModelsDev: could not write live-catalog cache at #{path} " <>
-            "(#{inspect(reason)}) — using fetched data for this boot only"
+            "(#{inspect(reason)}); using fetched data for this boot only"
         )
 
         :ok

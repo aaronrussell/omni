@@ -2,7 +2,7 @@ defmodule Omni.Dialect.Text do
   @moduledoc """
   Behaviour for text generation dialects.
 
-  A text dialect builds a streaming request from a `%Omni.Context{}` and
+  A text dialect builds a streaming request from an `Omni.Context` and
   parses each decoded stream event into delta tuples, which
   `Omni.StreamingResponse` folds into a response. Declare it with
   `use Omni.Dialect, :text`, which also sets the base `Omni.Dialect`
@@ -16,8 +16,8 @@ defmodule Omni.Dialect.Text do
 
   ### `:message`
 
-  Carries message-level metadata. Does not produce a consumer event directly —
-  the data is folded into the accumulating response.
+  Carries message-level metadata. It produces no consumer event of its own:
+  the data is folded into the response being built.
 
   ```elixir
   {:message, %{model: "claude-sonnet-5-5"}}
@@ -25,7 +25,7 @@ defmodule Omni.Dialect.Text do
   {:message, %{private: %{key: value}}}
   ```
 
-  Recognized keys: `:model` (string), `:stop_reason` (atom), `:usage` (map),
+  Recognised keys: `:model` (string), `:stop_reason` (atom), `:usage` (map),
   `:private` (map merged into `Message.private`: list values append across
   events, other values replace; `c:handle_message/2` can reshape the result).
 
@@ -60,9 +60,8 @@ defmodule Omni.Dialect.Text do
 
   ### `:error`
 
-  Signals a streaming error. Unlike the other delta types, `:error` carries a
-  bare reason term rather than a map — matching Elixir's `{:error, reason}`
-  convention:
+  Signals a streaming error. Unlike the other delta types, `:error` carries
+  a bare reason term, not a map, as `{:error, reason}` tuples do in Elixir:
 
   ```elixir
   {:error, "overloaded_error"}
@@ -89,7 +88,7 @@ defmodule Omni.Dialect.Text do
   - `nil` - send nothing: thinking wasn't requested, the model doesn't
     reason, or it was switched off on a model that can't be switched off
   - `:off` - switch thinking off
-  - a map — on, with:
+  - a map - on, with:
     - `:level` - the requested Omni level
     - `:effort` - the model's effort value for that level, or `nil` when
       the model lists no effort values
@@ -102,9 +101,9 @@ defmodule Omni.Dialect.Text do
 
   ## Implementing a text dialect
 
-  Dialects are stateless and pure — every callback receives
-  already-validated inputs and returns plain data. No HTTP, no configuration,
-  no side effects.
+  Dialects are stateless and pure: every callback receives inputs that are
+  already validated and returns plain data. No HTTP, no configuration, no
+  side effects.
 
   ```elixir
   defmodule MyApp.Dialects.CustomFormat do
@@ -190,18 +189,18 @@ defmodule Omni.Dialect.Text do
   def handle_path(_model, _opts), do: "/chat/completions"
   ```
 
-  Some API families interpolate the model ID into the path (e.g. Google
-  Gemini uses `/models/{model}:streamGenerateContent`).
+  Some APIs put the model id in the path (Gemini uses
+  `/models/{model}:streamGenerateContent`).
   """
   @callback handle_path(Model.t(), map()) :: String.t()
 
   @doc """
   Builds the request body from a model, context, and validated options.
 
-  This is where Omni types become the API's native JSON structure — messages
-  are reshaped, content blocks encoded, tools serialized, and options mapped
-  to API parameters. The options have already been validated and include
-  defaults, so no fallback values are needed.
+  This is where Omni types become the API's own JSON: messages are
+  reshaped, content blocks and tools encoded, and options mapped to API
+  parameters. The options are already validated and include defaults, so
+  no fallback values are needed.
 
   Always set `"stream" => true` (or the equivalent for the API format).
 
@@ -214,15 +213,15 @@ defmodule Omni.Dialect.Text do
   @doc """
   Parses a single decoded stream event into a list of delta tuples.
 
-  Receives one JSON-decoded event from the stream, and the model the request
-  was made with (for its compat flags). Returns a list of
-  delta tuples (see the "Delta types" section in the moduledoc). Most deltas
-  are `{type, map}` pairs; `:error` is `{:error, reason}` with a bare term.
-  Return `[]` to skip an event the dialect doesn't need to handle.
+  Receives one JSON-decoded event from the stream, and the model the
+  request was made with (for its compat flags). Returns a list of delta
+  tuples (see [Delta types](#module-delta-types)). Most deltas are
+  `{type, map}` pairs; `:error` is `{:error, reason}` with a bare term.
+  Return `[]` to skip an event the dialect has no use for.
 
-  The function must be stateless and pure — it receives one event and returns
-  deltas with no knowledge of previous events. This makes dialects trivially
-  testable: pass a JSON map, assert the tuples that come out.
+  The function must be stateless and pure: it receives one event and
+  returns deltas with no knowledge of earlier events. That makes a dialect
+  easy to test: pass a JSON map, assert the tuples that come out.
   """
   @callback handle_event(event :: map(), Model.t()) :: [{atom(), map() | term()}]
 

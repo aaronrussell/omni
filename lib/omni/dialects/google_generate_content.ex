@@ -9,9 +9,9 @@ defmodule Omni.Dialects.GoogleGenerateContent do
 
   ## Notable differences
 
-  - Model ID is embedded in the URL path, not the request body
-  - No `:tool_use_delta` events — Gemini sends function call arguments
-    complete rather than as streamed JSON fragments
+  - The model id goes in the URL path, not the request body
+  - No `:tool_use_delta` events: Gemini sends function call arguments
+    complete, not as streamed JSON fragments
 
   ## Compat flags
 

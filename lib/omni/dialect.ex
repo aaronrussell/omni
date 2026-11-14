@@ -16,10 +16,10 @@ defmodule Omni.Dialect do
   (`c:compat_schema/0`), plus the registry and `compat/2`. The capability
   behaviour adds the callbacks that build requests and read responses.
 
-  Most custom integrations only need a new provider, not a new dialect —
-  implement a dialect only when the provider speaks a wire format not covered
-  by the existing modules. See `Omni.Provider` for the broader integration
-  story and how providers and dialects compose.
+  Most new integrations need a provider, not a dialect: a provider that
+  speaks one of the formats below is a matter of config (see
+  [Providers and models](providers-and-models.md)). Write a dialect only
+  for a wire format none of them cover.
 
   ## Available dialects
 
@@ -40,11 +40,10 @@ defmodule Omni.Dialect do
 
   ## Dialect registry
 
-  Built-in dialects are registered with string identifiers for use in model
-  catalog data (e.g. `"anthropic_messages"`, `"typesafe_system_one"`). Use `get/1`
-  or `get!/1` to resolve a string to its module. This is primarily used by
-  model sources (see `Omni.Source.build_model/1`) when mapping catalog data
-  to dialects.
+  Each built-in dialect has a string id, such as `"anthropic_messages"` or
+  `"typesafe_system_one"`, for naming it in catalog data. `get/1` and
+  `get!/1` turn an id into its module. Model sources use them (see
+  `Omni.Source.build_model/1`).
 
   ## Compat flags
 
@@ -106,13 +105,13 @@ defmodule Omni.Dialect do
 
   defmacro __using__(other) do
     raise ArgumentError,
-          "use Omni.Dialect expects a capability, :text or :decision — got: #{Macro.to_string(other)}"
+          "use Omni.Dialect expects a capability, :text or :decision, got: #{Macro.to_string(other)}"
   end
 
   @doc """
-  Resolves a dialect string identifier to its module.
+  Resolves a dialect's string id to its module.
 
-  Built-in dialect identifiers: `"anthropic_messages"`, `"openai_completions"`,
+  The built-in ids: `"anthropic_messages"`, `"openai_completions"`,
   `"openai_responses"`, `"google_generate_content"`, `"ollama_chat"`,
   `"typesafe_system_one"`, `"openai_decisions"`.
   """
@@ -125,7 +124,7 @@ defmodule Omni.Dialect do
   end
 
   @doc """
-  Resolves a dialect string identifier to its module, raising on failure.
+  Resolves a dialect's string id to its module, raising if there is none.
   """
   @spec get!(String.t()) :: module()
   def get!(name) when is_binary(name) do
@@ -157,11 +156,10 @@ defmodule Omni.Dialect do
   def compat(%Model{}, _dialect), do: %{}
 
   @doc """
-  Returns the capability a dialect module serves, or `nil` for a module that
-  is not a dialect.
+  Returns the capability a dialect module serves.
 
   Read from the capability behaviour the module declares (see
-  `use Omni.Dialect`):
+  `use Omni.Dialect`). Returns `nil` for a module that is not a dialect.
 
   ```elixir
   Omni.Dialect.capability(Omni.Dialects.AnthropicMessages)  #=> :text
@@ -205,9 +203,9 @@ defmodule Omni.Dialect do
   @doc """
   Returns how this dialect's home API expects the API key to be sent.
 
-  Used for providers whose `:auth` is `:dialect` (the default), so a
-  provider speaking a dialect authenticates the way that dialect's reference
-  API does — and a gateway serving several dialects authenticates each model
+  Used for providers whose `:auth` is `:dialect` (the default). A provider
+  speaking a dialect then authenticates the way the dialect's own API does,
+  and a gateway serving several dialects authenticates each model
   correctly:
 
   ```elixir

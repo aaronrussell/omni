@@ -24,7 +24,7 @@ defmodule Omni.Dialects.TypeSafeSystemOne do
   Probabilities come back keyed by choice name or level index and are
   mapped to the question's keys, in the question's order. The level
   `legend` is dropped as redundant. A refused question (`{"type": "refusal"}`,
-  which OpenRouter documents) is answered with `%Omni.Answer.Refusal{}`; the
+  which OpenRouter documents) is answered with an `Omni.Answer.Refusal`; the
   others are still answered.
 
   ## Compat flags
