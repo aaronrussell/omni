@@ -2,27 +2,87 @@ defmodule Omni.Provider.Endpoint do
   @moduledoc """
   Where a provider serves one dialect, and how it deviates from it.
 
-  A provider's `:dialects` maps each dialect module it serves to an endpoint.
-  `:base_url` is the whole URL of the API, version segment included, as API
-  docs and SDKs mean it. A request goes to the base URL plus the dialect's
-  resource path, and the dialect reads `:compat` while it encodes:
+  A provider's `:dialects` maps each dialect module it serves to an
+  endpoint. A gateway that serves several dialects has one for each, on
+  whatever path or host it uses.
 
   ```elixir
-  %Omni.Provider{
-    id: :togetherai,
-    dialects: %{
-      Omni.Dialects.OpenAICompletions => %Omni.Provider.Endpoint{
-        base_url: "https://api.together.ai/v1",
-        compat: %{max_tokens_field: "max_tokens"}
-      }
-    }
-  }
+  {:ok, provider} = Omni.get_provider(:deepseek)
 
-  # POST https://api.together.ai/v1/chat/completions
+  provider.dialects
+  #=> %{
+  #     Omni.Dialects.OpenAICompletions => %Omni.Provider.Endpoint{
+  #       base_url: "https://api.deepseek.com",
+  #       compat: %{}
+  #     }
+  #   }
   ```
 
-  Endpoints are assembled when the provider loads; configure them under
-  `:dialects` (see `Omni.Provider`).
+  Endpoints are assembled when the provider loads. You set them under
+  `:dialects` in the provider's config, as a keyword list for each dialect:
+
+  ```elixir
+  config :omni, :providers,
+    gpu_box: [
+      dialects: %{
+        Omni.Dialects.OpenAICompletions => [
+          base_url: "http://gpu-box:8000/v1",
+          compat: [max_tokens_field: "max_tokens"]
+        ]
+      }
+    ]
+  ```
+
+  An empty list, `Module => []`, declares that the provider serves the
+  dialect and leaves the URL to the catalog or the provider module.
+
+  ## Struct fields
+
+  - `:base_url` - the whole URL of the API, version segment included, as
+    API docs and SDKs give it. A request goes to this plus the dialect's
+    resource path: `http://gpu-box:8000/v1` plus `/chat/completions`
+  - `:compat` - a map of compat flags, which the dialect reads as it
+    encodes a request
+
+  ## URLs
+
+  A request's URL can be set in three places:
+
+  | Where | Sets | When |
+  | --- | --- | --- |
+  | `base_url:` on the endpoint | that endpoint's whole URL | load |
+  | `host:` on the provider | the origin of every endpoint URL from the catalog or the provider module | load |
+  | the `host:` request option | the origin of that request's URL | request |
+
+  `host:` is an origin only (scheme, host and port) and keeps each URL's
+  path: `ollama: [host: "http://gpu:11434"]` sends chat to
+  `http://gpu:11434/api/chat`. It suits another machine, a region, or a
+  proxy on the same paths. It also fills in a catalog URL whose origin is a
+  placeholder, such as `https://${DATABRICKS_HOST}/ai-gateway/mlflow/v1`.
+
+  A `base_url:` in app config is used as written, and the provider's
+  `host:` does not move it. The `host:` request option moves any URL. To
+  change a path, set `base_url:`.
+
+  ## Compat flags
+
+  A compat flag describes one way a provider differs from the API its
+  dialect is named after. Each dialect's moduledoc lists the flags it
+  understands (see `Omni.Dialects.OpenAICompletions`), and an unknown flag
+  is an error at boot. A flag left out means the provider behaves as the
+  dialect's own API does.
+
+  `like:` copies a built-in provider's flags for the same dialect, which
+  suits a catalog provider that is a built-in under another name:
+
+  ```elixir
+  config :omni, :providers,
+    zai_coding_plan: [dialects: %{Omni.Dialects.OpenAICompletions => [compat: [like: :zai]]}]
+  ```
+
+  Flags written beside `like:` are layered over the copied ones. Flags you
+  set on a built-in merge over its own one at a time, so setting one leaves
+  the rest in place.
   """
 
   defstruct base_url: nil, compat: %{}
