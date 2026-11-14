@@ -2,8 +2,15 @@ defmodule Omni.Content.Text do
   @moduledoc """
   A text content block.
 
-  The most common content type, representing plain text output from a model
-  or text input from a user.
+  The most common block: text written by a user or by the model. A plain
+  string becomes one wherever message content is built, so you rarely call
+  `new/1` yourself.
+
+  ## Struct fields
+
+  - `:text` - the text
+  - `:signature` - a token some providers attach to their output and expect
+    back on later turns. Omni handles it
   """
 
   @enforce_keys [:text]

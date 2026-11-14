@@ -44,7 +44,7 @@ defmodule Omni do
 
   ## Models
 
-  Every request names a model, as a `%Omni.Model{}` or a reference to one: a
+  Every request names a model, as an `Omni.Model` or a reference to one: a
   `{provider_id, model_id}` tuple or a `"provider_id:model_id"` string.
   `get_model/1` and `list_models/1` look models up.
 
@@ -67,21 +67,35 @@ defmodule Omni do
 
   @doc group: :generation
   @doc """
-  Streams a text generation request, returning a `%StreamingResponse{}`.
+  Streams a text generation request.
 
-  The model can be a `%Model{}` struct or a reference: a `{provider_id,
-  model_id}` tuple or a `"provider_id:model_id"` string (see `Omni.Model`).
-  The context can be a string, list of messages, or `%Context{}` struct.
+  Returns an `Omni.StreamingResponse`: enumerate it for events as the model
+  writes, or call `Omni.StreamingResponse.complete/1` for the finished
+  response.
 
-  When tools with handlers are present in the context, automatically executes
-  tool uses and loops until the model stops calling tools. Between rounds,
-  synthetic `:tool_result` events are emitted for observability.
+  The model is an `Omni.Model` or a reference to one: a
+  `{provider_id, model_id}` tuple or a `"provider_id:model_id"` string (see
+  `t:Omni.Model.ref/0`). The context is a string, a list of messages, or an
+  `Omni.Context`.
+
+  ```elixir
+  {:ok, stream} = Omni.stream_text("anthropic:claude-sonnet-5-5", "Tell me a story")
+
+  stream
+  |> Omni.StreamingResponse.text_stream()
+  |> Enum.each(&IO.write/1)
+  ```
+
+  When the context holds tools with handlers, Omni runs each tool the model
+  uses and sends the results back, until the model stops using tools. A
+  `:tool_result` event is emitted for each result along the way.
 
   ## Options
 
   - `:max_tokens` - maximum output tokens (Anthropic defaults to 4096)
-  - `:temperature` - sampling temperature (number)
-  - `:thinking` - extended thinking. Ignored for models that don't reason.
+  - `:temperature` - sampling temperature
+  - `:thinking` - how much the model reasons before answering. Ignored for
+    models that don't reason.
     - `true` - on, at `:medium`
     - `:low`, `:medium`, `:high`, `:xhigh` or `:max` - an effort level,
       rounded to the nearest the model supports, or turned into a token
@@ -91,19 +105,22 @@ defmodule Omni do
     - `false` - off, where the model can be switched off
   - `:output` - a JSON Schema map for structured output (see
     [Structured output](text-generation.md#structured-output))
-  - `:max_steps` - maximum tool execution rounds (default `:infinity`).
-    Pass `1` to disable auto-looping for manual tool handling
-  - `:tool_timeout` - per-tool execution timeout in milliseconds (default `30_000`)
-  - `:cache` - prompt caching strategy (`:short` or `:long`)
+  - `:cache` - prompt caching: `:short` for the provider's standard cache
+    lifetime, `:long` for its extended one where it has one
+  - `:max_steps` - the most requests the tool loop may make (default
+    `:infinity`). Pass `1` to run tools yourself
+  - `:tool_timeout` - how long each tool may run, in milliseconds (default
+    `30_000`)
   - `:timeout` - how long to wait for each chunk of the response, in
     milliseconds (default `300_000`). A response that keeps streaming is not
     cut off; use `:max_tokens` to bound its length
-  - `:api_key` - API key, overriding provider/app config
+  - `:api_key` - API key, overriding provider and app config
   - `:host` - an origin (`"http://localhost:4000"`) replacing the origin of
     the endpoint URL for this request; the path is kept (see `Omni.Provider`)
-  - `:raw` - when `true`, attaches raw `{%Req.Request{}, %Req.Response{}}` tuples
-    to the response (one per round)
-  - `:metadata` - arbitrary metadata map passed to the provider
+  - `:headers` - extra request headers, merged over the provider's
+  - `:metadata` - a map passed to the provider
+  - `:raw` - when `true`, attaches raw `{%Req.Request{}, %Req.Response{}}`
+    tuples to the response (one per request)
   - `:plug` - a Req test plug for stubbing HTTP responses in tests
   """
   @spec stream_text(Model.ref() | Model.t(), term(), keyword()) ::
@@ -122,13 +139,18 @@ defmodule Omni do
 
   @doc group: :generation
   @doc """
-  Generates text by consuming a streaming response to completion.
+  Generates text and returns the finished response.
 
-  Accepts the same arguments as `stream_text/3`. Equivalent to calling
-  `stream_text/3` and then `StreamingResponse.complete/1`.
+  Takes the same arguments and options as `stream_text/3`: it is
+  `stream_text/3` followed by `Omni.StreamingResponse.complete/1`.
 
-  Returns `{:ok, %Response{}}` with the assistant's message, token usage,
+  Returns an `Omni.Response` with the assistant's message, token usage,
   stop reason, and structured output (when `:output` is set).
+
+  ```elixir
+  {:ok, response} = Omni.generate_text("anthropic:claude-sonnet-5-5", "Hello!")
+  response.message  #=> %Omni.Message{role: :assistant, content: [%Omni.Content.Text{...}]}
+  ```
   """
   @spec generate_text(Model.ref() | Model.t(), term(), keyword()) ::
           {:ok, Response.t()} | {:error, term()}
@@ -142,12 +164,12 @@ defmodule Omni do
   @doc """
   Asks a decision model typed questions about a shared state.
 
-  The model can be a `%Model{}` struct or a reference (see `stream_text/3`),
-  and must serve decisions (see `Omni.Model.capability?/2`). The decision is a
-  `%Omni.Decision{}` or the shorthand `{state, questions}`
-  (`t:Omni.Decision.input/0`): the state is a
-  string, a map, or a list of them (see `Omni.Decision`), and the questions
-  a keyword list built with `predicate/2`, `choice/2` and `score/2`.
+  The model is an `Omni.Model` or a reference to one (see `stream_text/3`),
+  and must serve decisions (see `Omni.Model.capability?/2`). The decision is
+  an `Omni.Decision` or the shorthand `{state, questions}`
+  (`t:Omni.Decision.input/0`): the state is a string, a map, or a list of
+  them, and the questions a keyword list built with `predicate/2`,
+  `choice/2` and `score/2`.
 
   ```elixir
   {:ok, decision} =
@@ -160,14 +182,14 @@ defmodule Omni do
   decision.usage             #=> %Omni.Usage{input_tokens: 61, total_cost: 2.6e-6, ...}
   ```
 
-  Returns `{:ok, %Decision{}}` with `:answers`, `:usage` and `:model`
-  filled in. A model with no decision dialect returns
+  Returns the decision with `:answers`, `:usage` and `:model` filled in. A
+  model with no decision dialect returns
   `{:error, {:unsupported_capability, :decision}}`; invalid questions are an
   error before any request is made.
 
   ## Options
 
-  - `:api_key` - API key, overriding provider/app config
+  - `:api_key` - API key, overriding provider and app config
   - `:host` - an origin (`"http://localhost:4000"`) replacing the origin of
     the endpoint URL for this request; the path is kept (see `Omni.Provider`)
   - `:headers` - extra request headers, merged over the provider's
@@ -203,7 +225,7 @@ defmodule Omni do
 
   @doc group: :models
   @doc """
-  Looks up a model by provider and model ID.
+  Looks up a model by provider id and model id.
 
   Returns `{:ok, model}` if found, `{:error, {:unknown_provider, id}}` if the
   provider isn't loaded (it doesn't exist, or isn't selected in
@@ -221,7 +243,9 @@ defmodule Omni do
 
   @doc group: :models
   @doc """
-  Looks up a model by reference: a `{provider_id, model_id}` tuple or a
+  Looks up a model by reference.
+
+  A reference is a `{provider_id, model_id}` tuple or a
   `"provider_id:model_id"` string (a slash works too).
 
   ```elixir
@@ -237,13 +261,20 @@ defmodule Omni do
 
   @doc group: :models
   @doc """
-  Registers a model for lookup by `get_model/2` and `list_models/1`, under its
-  provider.
+  Registers a model under its provider at runtime.
 
-  See `Omni.Model.put/1` for details.
+  The model can then be found by `get_model/2` and `list_models/1`. See
+  `Omni.Model.put/1`.
 
   ```elixir
-  model = Omni.Model.new(id: "my-fine-tune", name: "My Fine-Tune", provider: :openai)
+  model =
+    Omni.Model.new(
+      id: "my-fine-tune",
+      name: "My Fine-Tune",
+      provider: :openai,
+      dialects: %{text: Omni.Dialects.OpenAIResponses}
+    )
+
   Omni.put_model(model)
   ```
   """
@@ -280,10 +311,10 @@ defmodule Omni do
 
   @doc group: :context
   @doc """
-  Creates a `%Tool{}` struct from a keyword list or map.
+  Creates a tool from a keyword list or map.
 
-  For inline tools with a handler function. For reusable tool modules with
-  validation, see `Omni.Tool`.
+  For inline tools with a handler function. For reusable tool modules, see
+  `Omni.Tool`.
 
   ```elixir
   Omni.tool(
@@ -386,11 +417,11 @@ defmodule Omni do
 
   @doc group: :context
   @doc """
-  Creates a `%Context{}` from a string, list of messages, keyword list, or map.
+  Creates a context from a string, list of messages, keyword list, or map.
 
-  A string is treated as a single user message. A list of `%Message{}` structs
-  is treated as the message history. A keyword list or map can set `:system`,
-  `:messages`, and `:tools`.
+  A string is a single user message. A list of messages is the message
+  history. A keyword list or map sets `:system`, `:messages` and `:tools`.
+  See `Omni.Context`.
 
   ```elixir
   Omni.context("Hello!")
@@ -402,10 +433,10 @@ defmodule Omni do
 
   @doc group: :context
   @doc """
-  Creates a `%Message{}` from a string, keyword list, or map.
+  Creates a message from a string, keyword list, or map.
 
-  A string is treated as a user message. A keyword list or map can set
-  `:role` and `:content`.
+  A string is a user message. A keyword list or map sets `:role` and
+  `:content`. See `Omni.Message.new/1`.
 
   ```elixir
   Omni.message("What is Elixir?")

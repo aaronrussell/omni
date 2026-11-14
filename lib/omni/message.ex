@@ -2,16 +2,36 @@ defmodule Omni.Message do
   @moduledoc """
   A message in a conversation.
 
-  Messages have a `:user` or `:assistant` role and carry a list of content
-  blocks. There is no `:tool` role — tool results are `Content.ToolResult`
-  blocks inside user messages.
+  A message has a role and a list of content blocks. There are two roles,
+  `:user` and `:assistant`. There is no `:tool` role: a tool result is an
+  `Omni.Content.ToolResult` block inside a user message.
+  [Contexts and messages](text-generation.md#contexts-and-messages) shows
+  messages in a conversation.
 
-  A UTC timestamp is assigned at construction unless explicitly set.
+  ```elixir
+  Omni.message("What is Elixir?")
+  Omni.message(role: :assistant, content: "A functional language on the BEAM.")
+  ```
 
-  Assistant messages Omni produces carry an `:origin`: the model that wrote
-  them and the dialect it spoke. Thinking and signatures only go back to the
-  provider and dialect that produced them; a message from anywhere else, or
-  with no origin, is sent without them. See `t:origin/0`.
+  ## Struct fields
+
+  - `:role` - `:user` or `:assistant`
+  - `:content` - the content blocks, in order (see `t:content/0`)
+  - `:timestamp` - when the message was created, in UTC. Set by `new/1`
+    unless given
+  - `:origin` - on assistant messages Omni produced, the model that wrote
+    the message and the dialect it spoke; otherwise `nil` (see
+    [Origin](#module-origin))
+  - `:private` - data a provider needs back on later turns, which Omni
+    writes and reads. Leave it as it is, and keep it when storing messages
+
+  ## Origin
+
+  Thinking blocks and signatures only mean something to the provider that
+  wrote them. Omni stamps each assistant message it produces with its
+  origin, and on later requests sends thinking, signatures and `:private`
+  back only to the same provider and dialect. A message from anywhere else,
+  or with no origin, is sent without them; its text and tool uses are kept.
   """
 
   alias Omni.Model
@@ -38,18 +58,17 @@ defmodule Omni.Message do
   @doc """
   Creates a new message from a string, keyword list, or map.
 
-  A string is treated as a user message with that text as content. String
-  content is wrapped in a `Text` block, and so is each string in a content
-  list:
+  A string is a user message with that text as content. String content is
+  wrapped in an `Omni.Content.Text` block, and so is each string in a
+  content list:
 
   ```elixir
   Message.new(role: :user, content: ["What's in this image?", Attachment.new({:base64, png}, "image/png")])
   ```
 
-  A timestamp is auto-assigned via `DateTime.utc_now/0` unless explicitly
-  set.
+  `:timestamp` defaults to `DateTime.utc_now/0`.
 
-  `:origin` takes the `%Model{}` that wrote the message, recorded as its
+  `:origin` takes the `Omni.Model` that wrote the message, recorded as its
   reference and dialect, or an origin map as is:
 
   ```elixir

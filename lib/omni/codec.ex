@@ -8,9 +8,14 @@ defmodule Omni.Codec do
   maps) with string keys and only JSON-compatible values; `decode/2`
   reverses it, returning the original structs.
 
-  The encoded shape is self-describing — every encoded value carries a
-  `"__type"` discriminator so `decode/2` can dispatch without external
-  context.
+  The encoded shape describes itself: every encoded value carries a
+  `"__type"` key, so `decode/2` needs nothing else to rebuild it.
+
+  ```elixir
+  iex> message = Omni.Message.new("hello")
+  iex> encoded = Omni.Codec.encode(message)
+  iex> {:ok, ^message} = Omni.Codec.decode(encoded)
+  ```
 
   ## Supported types
 
@@ -83,14 +88,6 @@ defmodule Omni.Codec do
   for any Erlang term. Use them in persistence layers that need to stash
   values outside the Omni struct family while keeping the same JSON-safe
   shape.
-
-  ## Examples
-
-  ```elixir
-  iex> message = Omni.Message.new("hello")
-  iex> encoded = Omni.Codec.encode(message)
-  iex> {:ok, ^message} = Omni.Codec.decode(encoded)
-  ```
   """
 
   alias Omni.{Answer, Decision, Message, Model, Question, Usage, Util}

@@ -2,24 +2,26 @@ defmodule Omni.Model do
   @moduledoc """
   A data struct describing a specific LLM.
 
-  Models carry identity, capabilities, and pricing information. They are loaded
-  from the configured model source (see `Omni.Source`) when their provider
-  loads, rather than defined as individual modules. Each model embeds its
-  `%Omni.Provider{}` and names its dialect per capability, making the struct
-  self-contained — given a `%Model{}`, Omni knows where to send the request
-  and how to format it.
+  A model carries its identity, what it can do and what it costs. Models
+  are data, not modules: they are loaded from the configured model source
+  (see `Omni.Source`) when their provider loads. Each embeds its
+  `Omni.Provider` and names its dialect per capability, so the struct alone
+  tells Omni where to send a request and how to format it.
+  [Providers and models](providers-and-models.md) covers choosing, adding
+  and changing the models that load.
 
   ## Struct fields
 
   - `:id` - the provider's string identifier (e.g. `"claude-sonnet-5-5"`)
   - `:name` - human-readable display name (e.g. `"Claude Sonnet 5.5"`)
-  - `:provider` - the `%Omni.Provider{}` serving the model
+  - `:provider` - the `Omni.Provider` serving the model
   - `:dialects` - the dialect module per capability (`:text`, `:decision`),
     e.g. `%{text: Omni.Dialects.AnthropicMessages}`
   - `:context_size` - maximum input tokens the model accepts
   - `:max_output_tokens` - maximum tokens the model can generate
   - `:thinking` - what thinking the model supports: `false` (none), `true`
-    (supported, with no detail), or a map of what it accepts (see below)
+    (supported, with no detail), or a map of what it accepts (see
+    [Thinking](#module-thinking))
   - `:input_modalities` - supported input types (`:text`, `:image`, `:pdf`)
   - `:output_modalities` - supported output types (`:text`)
   - `:input_cost` - USD cost per million input tokens
@@ -75,15 +77,9 @@ defmodule Omni.Model do
 
   ## Looking up models
 
-  Most users access models through the top-level API with a model reference
-  — Omni resolves it automatically:
-
-  ```elixir
-  {:ok, response} = Omni.generate_text({:anthropic, "claude-sonnet-5-5"}, "Hello!")
-  {:ok, response} = Omni.generate_text("anthropic:claude-sonnet-5-5", "Hello!")
-  ```
-
-  To inspect a model's capabilities or browse what's available:
+  The top-level API takes a reference wherever it takes a model, so most
+  code never holds the struct. Look one up to inspect it, or list what a
+  provider has:
 
   ```elixir
   {:ok, model} = Omni.get_model(:anthropic, "claude-sonnet-5-5")
@@ -121,55 +117,33 @@ defmodule Omni.Model do
   #=> {:ok, {:anthropic, "claude-sonnet-5-5"}}
   ```
 
-  ## Custom models
+  ## Registering models at runtime
 
-  When a model isn't in the source's catalog (new releases, fine-tunes),
-  add it under its provider in config. A new model names its dialect, since
-  there is no catalog data to take it from:
-
-  ```elixir
-  config :omni, :providers,
-    openai: [
-      models: [
-        [id: "ft:gpt-4o:acme::abc123", dialects: %{text: Omni.Dialects.OpenAIResponses}]
-      ]
-    ]
-  ```
-
-  A decision model names its decision dialect the same way:
+  Models the catalog lacks (new releases, fine-tunes) are usually added in
+  config, as [Adding and correcting models](providers-and-models.md#adding-and-correcting-models)
+  shows. To add one while the app runs, build it with `new/1` and register
+  it with `put/1`. The model names its dialect, since there is no catalog
+  data to take it from:
 
   ```elixir
-  config :omni, :providers,
-    ollama: [models: [[id: "clef", dialects: %{decision: Omni.Dialects.TypeSafeSystemOne}]]]
-  ```
-
-  An entry whose id the catalog already has is merged over the catalog
-  model instead, which corrects catalog data without restating it:
-
-  ```elixir
-  config :omni, :providers,
-    openai: [models: [[id: "gpt-6", context_size: 1_000_000]]]
-  ```
-
-  Or create and register one at runtime:
-
-  ```elixir
-  model = Omni.Model.new(
-    id: "my-fine-tune",
-    name: "My Fine-Tune",
-    provider: :openai,
-    dialects: %{text: Omni.Dialects.OpenAIResponses},
-    context_size: 128_000,
-    max_output_tokens: 16_384,
-    input_cost: 2.0,
-    output_cost: 8.0
-  )
+  model =
+    Omni.Model.new(
+      id: "my-fine-tune",
+      name: "My Fine-Tune",
+      provider: :openai,
+      dialects: %{text: Omni.Dialects.OpenAIResponses},
+      context_size: 128_000,
+      max_output_tokens: 16_384,
+      input_cost: 2.0,
+      output_cost: 8.0
+    )
 
   Omni.put_model(model)
   ```
 
-  The model is now discoverable via `Omni.get_model/2` and `Omni.list_models/1`,
-  and can be used directly as a struct with `generate_text/3` and `stream_text/3`.
+  The model is then found by `Omni.get_model/2` and `Omni.list_models/1`. A
+  model struct also works without being registered: pass it straight to
+  `Omni.generate_text/3`, `Omni.stream_text/3` or `Omni.decide/3`.
   """
 
   alias Omni.Provider
@@ -204,8 +178,8 @@ defmodule Omni.Model do
   The provider id is a loaded provider's atom id (e.g. `:anthropic`), or in a
   string that id or its catalog key (`"fireworks-ai"`). The model id is the
   provider's string identifier for the model (e.g. `"claude-sonnet-5-5"`). A
-  string's provider id ends at its first `:` or `/`. See "Model references"
-  in the moduledoc.
+  string's provider id ends at its first `:` or `/`. See
+  [Model references](#module-model-references).
   """
   @type ref :: {atom(), String.t()} | String.t()
 
@@ -386,11 +360,13 @@ defmodule Omni.Model do
   def get({provider_id, model_id}), do: get(provider_id, model_id)
 
   @doc """
-  Looks up a model by provider ID and model ID.
+  Looks up a model by provider id and model id.
 
-  Returns `{:ok, model}` if found, or an error tuple identifying what's
-  missing. `{:unknown_provider, id}` means the provider isn't loaded — it
-  doesn't exist, or isn't selected in `config :omni, :models, providers:`.
+  Returns `{:ok, model}` if found. `{:error, {:unknown_provider, id}}` means
+  the provider isn't loaded: it doesn't exist, or isn't selected in
+  `config :omni, :models, providers:`.
+  `{:error, {:unknown_model, provider_id, model_id}}` means the provider has
+  no model with that id.
   """
   @spec get(atom(), String.t()) :: {:ok, t()} | {:error, term()}
   def get(provider_id, model_id) do
@@ -402,7 +378,11 @@ defmodule Omni.Model do
     end
   end
 
-  @doc "Returns all models for a provider, or an error if the provider isn't loaded."
+  @doc """
+  Lists all models for a provider.
+
+  Returns `{:error, {:unknown_provider, id}}` if the provider isn't loaded.
+  """
   @spec list(atom()) :: {:ok, [t()]} | {:error, term()}
   def list(provider_id) do
     with {:ok, models} <- models(provider_id), do: {:ok, Map.values(models)}
@@ -417,10 +397,11 @@ defmodule Omni.Model do
   @doc """
   Registers a model under its provider.
 
-  Makes the model discoverable via `get/2` and `list/1`. If a model with the
-  same ID already exists for that provider, it is replaced. The model's
-  provider must be loaded, and the model must name its dialects. See the
-  "Custom models" section in the moduledoc for a full example.
+  The model is then found by `get/2` and `list/1`. A model with the same id
+  under that provider is replaced. Raises if the model's provider isn't
+  loaded or the model names no dialects. See
+  [Registering models at runtime](#module-registering-models-at-runtime)
+  for an example.
   """
   @spec put(t()) :: :ok
   def put(%__MODULE__{provider: %Provider{}} = model), do: Omni.Provider.Loader.put_model(model)
@@ -432,17 +413,19 @@ defmodule Omni.Model do
   @doc """
   Creates a new model struct from a keyword list or map.
 
-  `:provider` may be a `%Omni.Provider{}` or the id of a loaded provider.
-  `:dialects` maps each capability to its dialect (`%{text: Module}`); it is
-  never filled from the provider, so a model without one can't make
-  requests. `:thinking` takes a
-  boolean or a map (or keyword list) of `:efforts`, `:toggle` and `:budget`;
-  an empty map means `true`.
+  - `:provider` is an `Omni.Provider` or the id of a loaded provider.
+    Raises if that provider isn't loaded
+  - `:dialects` maps each capability to its dialect (`%{text: Module}`). It
+    is never filled from the provider, so a model without one can't make
+    requests
+  - `:thinking` takes a boolean, or a map or keyword list of `:efforts`,
+    `:toggle` and `:budget`. An empty map means `true`
+  - Modalities are cut down to the supported set: unsupported values are
+    dropped, and an empty list becomes `[:text]`
 
-  Normalizes modalities to the supported set — unsupported values are silently
-  dropped, and an empty list defaults to `[:text]`. Does not validate field
-  values; validation happens at the API boundary. See the "Custom models"
-  section in the moduledoc for a full example.
+  Other fields are stored as given, without validation. See
+  [Registering models at runtime](#module-registering-models-at-runtime)
+  for an example.
   """
   @spec new(Enumerable.t()) :: t()
   def new(attrs) do
@@ -450,7 +433,7 @@ defmodule Omni.Model do
 
     if Map.has_key?(attrs, :reasoning) do
       raise ArgumentError,
-            "the model :reasoning attribute was renamed to :thinking — use thinking: true, " <>
+            "the model :reasoning attribute was renamed to :thinking: use thinking: true, " <>
               "or a map such as thinking: %{efforts: [\"low\", \"high\"]}"
     end
 

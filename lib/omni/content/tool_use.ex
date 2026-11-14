@@ -1,16 +1,23 @@
 defmodule Omni.Content.ToolUse do
   @moduledoc """
-  A tool use content block representing the model's intent to invoke a tool.
+  A tool use content block: the model asking for a tool to be run.
 
-  Appears in assistant messages when the model decides to use a tool. The `id`
-  is a provider-assigned identifier that links this block to its corresponding
-  `Omni.Content.ToolResult`.
+  Only a model produces these, in assistant messages. Each is answered by an
+  `Omni.Content.ToolResult` in the next user message.
+
+  ## Struct fields
+
+  - `:id` - the provider's id for this tool use, which its result names
+  - `:name` - the name of the tool
+  - `:input` - the arguments, as the map the model wrote, with string keys
+  - `:signature` - a token some providers attach and expect back on later
+    turns. Omni handles it
   """
 
   @enforce_keys [:id, :name, :input]
   defstruct [:id, :name, :input, :signature]
 
-  @typedoc "The model's request to invoke a named tool with given input."
+  @typedoc "The model's request to run a named tool with the given input."
   @type t :: %__MODULE__{
           id: String.t(),
           name: String.t(),

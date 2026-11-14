@@ -2,21 +2,22 @@ defmodule Omni.Usage do
   @moduledoc """
   Token counts and computed costs for a request.
 
-  Costs are computed from token counts and the pricing data on the `%Model{}`
-  struct (see `price/2`). Available on every `%Response{}` via
-  `response.usage`, and on every `%Decision{}` via `decision.usage`.
+  Found on every `Omni.Response` as `response.usage`, and on every answered
+  `Omni.Decision` as `decision.usage`. Costs are worked out from the token
+  counts and the model's pricing (see `price/2`).
 
   ## Struct fields
 
-  - `:input_tokens`, `:output_tokens` - request and generated token counts
-  - `:cache_read_tokens`, `:cache_write_tokens` - prompt caching token counts
-  - `:total_tokens` - sum of all token counts
+  - `:input_tokens`, `:output_tokens` - tokens sent and tokens generated
+  - `:cache_read_tokens`, `:cache_write_tokens` - tokens read from and
+    written to the provider's prompt cache
+  - `:total_tokens` - the sum of the four token counts
   - `:input_cost`, `:output_cost`, `:cache_read_cost`, `:cache_write_cost` -
-    per-category USD costs derived from model pricing
-  - `:total_cost` - sum of all USD cost fields
+    the cost of each in USD, from the model's pricing
+  - `:total_cost` - the sum of the four costs
 
-  All fields default to `0`. Use `add/2` and `sum/1` to accumulate across
-  multiple requests.
+  All fields default to `0`. Use `add/2` and `sum/1` to total usage across
+  requests.
   """
 
   defstruct input_tokens: 0,

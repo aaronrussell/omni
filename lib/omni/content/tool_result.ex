@@ -1,11 +1,21 @@
 defmodule Omni.Content.ToolResult do
   @moduledoc """
-  A tool result content block representing the output of a tool invocation.
+  A tool result content block: the output of one tool use.
 
-  Appears in user messages to provide the result of a preceding
-  `Omni.Content.ToolUse`. The `tool_use_id` links back to the originating
-  tool use block. Content is restricted to `Text` and `Attachment` blocks
-  (image attachments are only supported by some providers).
+  It goes in a user message, answering an `Omni.Content.ToolUse` in the
+  assistant message before it. The tool loop builds these for you; build
+  them yourself with `Omni.tool_result/1` when you run tools by hand (see
+  [Running tools yourself](text-generation.md#running-tools-yourself)).
+
+  ## Struct fields
+
+  - `:tool_use_id` - the `:id` of the tool use this answers
+  - `:name` - the tool's name
+  - `:content` - the result, as `Omni.Content.Text` and
+    `Omni.Content.Attachment` blocks. Only some providers take images in a
+    tool result
+  - `:is_error` - `true` when the tool failed, so the model knows the
+    content describes an error
   """
 
   alias Omni.Content.{Attachment, Text}
@@ -16,7 +26,7 @@ defmodule Omni.Content.ToolResult do
   @typedoc "Allowed content types within a tool result."
   @type content :: Text.t() | Attachment.t()
 
-  @typedoc "Output of a tool invocation, linked to its originating `ToolUse` by ID."
+  @typedoc "The output of a tool use, linked to it by id."
   @type t :: %__MODULE__{
           tool_use_id: String.t(),
           name: String.t(),
@@ -27,8 +37,8 @@ defmodule Omni.Content.ToolResult do
   @doc """
   Creates a new tool result content block from a keyword list or map.
 
-  String content is wrapped in a `Text` block, and so is each string in a
-  content list. Missing content becomes `[]`.
+  String content is wrapped in an `Omni.Content.Text` block, and so is each
+  string in a content list. Missing content becomes `[]`.
 
   ```elixir
   ToolResult.new(tool_use_id: tool_use.id, name: tool_use.name, content: "72°F and sunny")

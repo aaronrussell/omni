@@ -3,25 +3,34 @@ defmodule Omni.Response do
   The result of a text generation request.
 
   Returned by `Omni.generate_text/3` and `Omni.StreamingResponse.complete/1`.
-  Wraps the assistant's message with generation metadata — extract
-  `response.message` to continue a multi-turn conversation.
+  It holds the assistant's message, why the model stopped and what the
+  request cost. To continue the conversation, add the response to the
+  context with `Omni.Context.push/2`.
+
+  ```elixir
+  {:ok, response} = Omni.generate_text("anthropic:claude-sonnet-5-5", "Hello!")
+
+  response.message.content  #=> [%Omni.Content.Text{text: "Hello! How can I help?"}]
+  response.stop_reason      #=> :stop
+  response.usage.total_cost #=> 0.000213
+  ```
 
   ## Struct fields
 
-  - `:model` - the `%Model{}` that handled the request
-  - `:message` - the assistant's response message (the last assistant message)
-  - `:messages` - all messages from this generation. For single-step calls,
-    `[response.message]`. For multi-step tool loops, includes assistant and
-    tool-result messages from every step
-  - `:output` - validated, decoded map when the `:output` option was set
-  - `:stop_reason` - why generation ended: `:stop` (natural completion),
-    `:length` (token limit reached), `:tool_use` (model invoked a tool),
-    `:refusal` (declined due to content or safety policy), or `:error`
-  - `:error` - error description when `stop_reason` is `:error`, otherwise `nil`
-  - `:raw` - list of `{%Req.Request{}, %Req.Response{}}` tuples when `:raw`
-    was set (one per generation step)
-  - `:usage` - cumulative `%Usage{}` token counts and costs for this generation
-
+  - `:model` - the `Omni.Model` that handled the request
+  - `:message` - the assistant's final message
+  - `:messages` - every message this request produced. Usually just
+    `[response.message]`; after a tool loop, each assistant message and
+    each user message of tool results, in order
+  - `:output` - the validated, decoded output when the `:output` option was
+    set, else `nil`
+  - `:stop_reason` - why generation ended (see `t:stop_reason/0`)
+  - `:error` - a description of the error when `:stop_reason` is `:error`,
+    else `nil`
+  - `:raw` - a list of `{%Req.Request{}, %Req.Response{}}` tuples, one per
+    request, when the `:raw` option was set
+  - `:usage` - the `Omni.Usage` for the whole request, summed over every
+    step of a tool loop
   """
 
   alias Omni.{Message, Model, Usage}
@@ -50,7 +59,16 @@ defmodule Omni.Response do
           usage: Usage.t()
         }
 
-  @typedoc "Why generation ended."
+  @typedoc """
+  Why generation ended.
+
+  - `:stop` - the model finished
+  - `:length` - the token limit was reached
+  - `:tool_use` - the model used a tool that Omni did not run
+  - `:refusal` - the model or provider declined, on content or safety grounds
+  - `:error` - the stream failed part-way (see the `:error` field)
+  - `:cancelled` - the stream was cancelled
+  """
   @type stop_reason :: :stop | :length | :tool_use | :refusal | :error | :cancelled
 
   @doc "Creates a new response struct from a keyword list or map."

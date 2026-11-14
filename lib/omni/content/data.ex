@@ -10,10 +10,14 @@ defmodule Omni.Content.Data do
   #=> %Omni.Content.Data{data: %{"ticket" => %{"subject" => "Refund", "plan" => "enterprise"}}}
   ```
 
+  ## Struct fields
+
+  - `:data` - the data, as the JSON-decoded map the model sees
+
   `new/1` passes the map through JSON, so the struct holds exactly what the
   model sees: string keys, atoms as strings, and any struct with a
   `JSON.Encoder` implementation (such as `Date`) in its JSON form. A value
-  JSON can't encode raises here rather than when the request is sent.
+  JSON can't encode raises here, not when the request is sent.
   """
 
   @enforce_keys [:data]

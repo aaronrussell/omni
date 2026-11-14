@@ -383,7 +383,7 @@ config :omni, :providers,
   ],
   openai: [
     models: [
-      [id: "gpt-6", context_size: 1_000_000],   # corrects the catalog model
+      [id: "gpt-6.1-sol", context_size: 1_000_000],   # corrects the catalog model
       [id: "ft:gpt-4o:acme::abc123", dialects: %{text: Omni.Dialects.OpenAIResponses}]
     ]
   ],

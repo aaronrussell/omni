@@ -67,8 +67,8 @@ Hidden: the 17 built-in provider modules (`Omni.Providers.*`), each with a comme
 2. **Front door** — the guides, a slimmed README (pitch, features, install, three examples, links), a slimmed `Omni` moduledoc (a map of the API that links to the guides), `mix.exs` extras and groups. *Done 2026-11-13, bar the maintainer's own pass over the upgrade guide.*
 3. **Module pass** — read every `@moduledoc`, `@doc` and `@typedoc` against the style rules and the code. See [Module pass](#module-pass) for how. One batch per session, in this order:
    - Mechanical sweep: lists flush and hyphenated, code blocks fenced, separators to ` - `, the `mix.exs` function group renamed "Text generation". *Done 2026-11-13.*
-   - b. Decisions, the pilot that sets the conventions: `Decision`, `Question.*`, `Answer.*`. *Done 2026-11-13, awaiting review.*
-   - a1. Core data: `Omni`, `Model`, `Usage`, `Codec`, `Context`, `Message`, `Response`, `Content.*`. *Not started.*
+   - b. Decisions, the pilot that sets the conventions: `Decision`, `Question.*`, `Answer.*`. *Done 2026-11-13.*
+   - a1. Core data: `Omni`, `Model`, `Usage`, `Codec`, `Context`, `Message`, `Response`, `Content.*`. *Done 2026-11-14.*
    - a2. Streaming and tools: `StreamingResponse`, `Tool`, `Tool.Runner`, `Schema`, `Schema.Adapter`. *Not started.*
    - c. Providers: `Provider` (long moduledoc, much of it now in the guides, including "Migrating from v1 config"), `Endpoint`, `mix omni.verify`. *Not started.*
    - d. Dialects and sources. *Not started.*
@@ -87,7 +87,7 @@ Agreed 2026-11-13.
 - **Section order**: intro, then "Struct fields", then the sections that explain them. The overview comes first and the detail follows.
 - **Naming a struct in prose**: the module name in backticks (`Omni.Content.Text`), which ex_doc links. Keep `%Text{}` for code and for showing a shape. `t:Mod.t/0` links too but renders as `Mod.t/0`, which reads badly in a sentence.
 - **Validation** is described by intent, in a sentence or two. The error says the rest when someone hits it.
-- **"Struct fields" sections** stay where fields need explaining, under that one heading, each checked against the struct.
+- **"Struct fields" sections**: every public struct has one, under that heading, even for a single field. Each is checked against the struct.
 - **Guide links**: one, in the second paragraph, on modules a guide section is about (`Context`, `Message`, `StreamingResponse`, `Tool`, `Schema`, `Decision`, `Question`, `Model`, `Provider`, `Source`). Leaf modules get none.
 - **`thinking: true`** is documented as the code has it (`:medium`). The roadmap item lists the docs to change if it does.
 - **Each batch**: read each module beside its guide section and the code, edit, run `mix docs` and `mix precommit`, then report what was cut and where it now lives, facts corrected, and judgement calls. Update the status above. Conventions the pilot settles are added to this list.
@@ -96,11 +96,9 @@ Agreed 2026-11-13.
 
 For the module pass to fix:
 
-- **`gpt-6` is not a catalog model.** `Omni.Provider` and `Omni.Model` both show `openai: [models: [[id: "gpt-6", context_size: 1_000_000]]]` as correcting a catalog model. With no such id it would add a model with no dialect and raise. Use a real id (`gpt-6.1-sol`). `design.md` has the same example.
+- **`gpt-6` is not a catalog model.** `Omni.Provider` shows `openai: [models: [[id: "gpt-6", context_size: 1_000_000]]]` as correcting a catalog model. With no such id it would add a model with no dialect and raise. Use a real id (`gpt-6.1-sol`). Fixed in `Omni.Model` and `design.md`.
 - **Together is now a built-in**, but `Omni.Provider`'s "Provider modules" example (`MyApp.Together`, `togetherai: [module: ...]`) and its endpoint example still treat it as a catalog provider. Use `:deepseek` or `:fireworks_ai`.
-- **`:headers` is a text option too** (it is in the shared config schema) but `Omni.stream_text/3` doesn't list it; `Omni.decide/3` does.
 - **`Omni.Tool` points at "the Tools section in `Omni`"**, which is gone. Point it at the Text generation guide.
 - **`Omni.Provider`'s moduledoc** can lose "Built-in, catalog, and custom providers", most of "Configuration", "Endpoints" and "Compat flags" (now in Providers and models), and "Migrating from v1 config" (now in the upgrade guide). What stays: the struct, how a provider is assembled and the merge rule, provider modules and their callbacks, loading at runtime.
-- **`Omni.Model`'s "Custom models"** duplicates the guide; keep the runtime `put/1` part.
 - **Model ids in examples**: prefer ids that exist in the snapshot (`claude-sonnet-5-5`, `gpt-6.1-sol`, `gemini-3.5-flash`, `deepseek-v4-pro`, `typesafe/jev-1.14`).
 - **`thinking: true`** is under review (roadmap, v2.0.0). Document it as the code has it.

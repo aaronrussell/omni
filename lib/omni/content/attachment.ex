@@ -1,20 +1,30 @@
 defmodule Omni.Content.Attachment do
   @moduledoc """
-  An attachment content block for binary content such as images, PDFs, and
-  other media.
+  An attachment content block: an image, a PDF or other binary content.
 
-  Sources use tagged tuples: `{:base64, data}` for inline binary data, or
-  `{:url, url}` for remotely-hosted content.
+  A model takes only the media it supports (see `:input_modalities` on
+  `Omni.Model`); a request with an attachment it can't take is an error
+  before anything is sent.
 
-  The `:meta` field is an application-layer map for data that Omni's dialects
-  do not read or send to providers — for example, filenames or display labels
-  in a UI.
+  ```elixir
+  Omni.attachment({:base64, Base.encode64(File.read!("photo.png"))}, "image/png")
+  Omni.attachment({:url, "https://example.com/report.pdf"}, "application/pdf")
+  ```
+
+  ## Struct fields
+
+  - `:source` - where the content is: `{:base64, data}` for inline
+    base64-encoded data, or `{:url, url}` for content hosted elsewhere
+  - `:media_type` - the MIME type, such as `"image/png"` or
+    `"application/pdf"`
+  - `:meta` - a map for your application's own data, such as a filename or
+    a label for a UI. Omni never reads it or sends it to a provider
   """
 
   @enforce_keys [:source, :media_type]
   defstruct [:source, :media_type, meta: %{}]
 
-  @typedoc "An attachment source — inline base64 data or a remote URL."
+  @typedoc "An attachment source: inline base64 data or a remote URL."
   @type source :: {:base64, binary()} | {:url, String.t()}
 
   @typedoc "Binary content with a source, media type, and optional application metadata."
