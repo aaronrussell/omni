@@ -72,7 +72,7 @@ decision.answers[:team]    #=> %Omni.Answer.Choice{choice: :infra, probabilities
 
 The guides and API reference are on [HexDocs](https://omni.hexdocs.pm):
 
-- [Getting started](https://omni.hexdocs.pm/getting-started.html) - start her, install and make your first requests
+- [Getting started](https://omni.hexdocs.pm/getting-started.html) - start here, install and make your first requests
 - [Text generation](https://omni.hexdocs.pm/text-generation.html) - conversations, streaming, thinking, tools and structured output
 - [Decisions](https://omni.hexdocs.pm/decisions.html) - typed questions answered with probabilities, for routing, classifying and scoring
 - [Providers and models](https://omni.hexdocs.pm/providers-and-models.html) - configuring providers, adding your own, and model data

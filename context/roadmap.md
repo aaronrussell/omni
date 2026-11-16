@@ -13,6 +13,7 @@ Work tracking for `omni`. This is a live document — add to it freely, clean it
 ### v2.1.0
 
 - **Decision images and `box` (phases 2 and 3 of `context/notes/decision-images.md`)** — Images as `%Content.Attachment{}` parts of decision state and instructions, encoded per host (TypeSafe and OpenRouter an `assets` map of refs, OpenAI `input_image` parts, Ollama an `images` list behind a compat flag), then System One's `box` question (`Question.Box`, `Answer.Box`; TypeSafe Jev 1.14 only). Additive on phase 1's parts. TypeSafe marks both "Dreamer-ready", so they wait for 2.1. The note lists what is settled and the questions left for when the work starts.
+- **Google Decisions dialect** — Google's Decisions API (`POST /v1beta/decisions`, beta, `gemini-decision-1`) as a `google_decisions` dialect on the `:google` provider. Its wire is close to System One (same question types and answer shapes; `input` for `state`, typed text blocks, `x-goog-api-key`), and it takes images, so it fits alongside phase 2. Waits on models.dev listing the model under `google` (as of 2026-11-16 only OpenRouter, Vercel and Cloudflare AI Gateway list it); then add `@ai-sdk/google` to the decision npm table. Docs: https://aistudio.google.com/docs/decisions-api, https://aistudio.google.com/api-reference/decisions.
 
 ## Backlog
 
