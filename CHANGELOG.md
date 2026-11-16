@@ -6,6 +6,42 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) 
 
 ## [Unreleased]
 
+## [2.0.0] - 2026-11-16
+
+Providers and models become data, and Omni gains a second kind of request: decisions. Most apps need a config change and little else. See [Upgrading to v2](guides/upgrading-to-v2.md).
+
+### Added
+
+- **Decisions** — `Omni.decide/3` asks decision models typed questions and returns probabilities, over two new dialects (TypeSafe System One and OpenAI Decisions).
+- **Catalog providers** — any [models.dev](https://models.dev) provider loads by id, with no module to write. Custom providers need only config.
+- **New built-in providers** — Mistral (`:mistral`), Together AI (`:togetherai`), xAI (`:xai`) and TypeSafe (`:typesafe`).
+- **String model references** — `"anthropic:claude-sonnet-5-5"` works wherever a `{provider_id, model_id}` tuple does.
+- **Compat flags** — a provider's quirks are settings on its endpoint, changeable in config.
+- **Model loading controls** — `filter:` and `transform:` under `config :omni, :models`, and per-provider `models:` to add or correct models.
+- **Content constructors** — `Omni.attachment/1,2` and `Omni.tool_result/1`, and a string in a content list becomes a text block.
+- **`mix omni.verify`** — runs live requests against one model to check it works with your config.
+- **Updated model catalog** — refreshed across all providers.
+
+### Changed
+
+- **Provider config is keyed by id** (breaking) — it moves under `config :omni, :providers`, and the `providers:` list takes ids, not modules.
+- **A URL per dialect** (breaking) — a provider's `base_url` is replaced by `host:`, or a whole URL on the endpoint of each dialect it serves.
+- **`%Omni.Model{}`** (breaking) — a model embeds its provider as a struct, names a dialect per capability, and `reasoning` becomes `thinking`. `Omni.put_model/2` is now `put_model/1`.
+- **Thinking follows each model** (breaking) — effort levels are translated from catalog data, and a token budget is an integer (`thinking: 20_000`).
+- **Provider modules, dialects and sources** (breaking) — all three behaviours changed shape.
+- **`GoogleGemini` dialect renamed** (breaking) — it is now `Omni.Dialects.GoogleGenerateContent`.
+- **Thinking goes back only to the provider and dialect that wrote it** — switching model mid-conversation no longer fails.
+- **Cached tokens are counted once** — `usage.input_tokens` excludes them on every dialect, so totals and costs are no longer too high.
+
+### Fixed
+
+- **Truncated responses** — a response cut off by the token limit reports `:length`, including inside a tool use.
+- **Reasoning across turns** — OpenAI Responses and more Chat Completions providers have earlier reasoning sent back.
+- **Ollama Cloud streaming** — every request ended in `:incomplete_stream`.
+- **OpenRouter prompt caching** — `:cache` now works for Claude models.
+- **Chat Completions parsing** — several tool uses in one chunk, and content sent as a list, are read in full.
+- **Provider fixes** — Z.ai honours `:max_tokens`, and Groq no longer puts `<think>` tags in the answer.
+
 ## [1.6.5] - 2026-10-09
 
 ### Added
@@ -241,7 +277,8 @@ Complete rewrite of Omni as a production-ready, multi-provider LLM client for El
 
 *Versions 0.1.0 and 0.1.1, released in 2024, were early prototypes with a different architecture. Version 1.0 is a complete rewrite and is not compatible with 0.1.x.*
 
-[Unreleased]: https://github.com/aaronrussell/omni/compare/v1.6.5...HEAD
+[Unreleased]: https://github.com/aaronrussell/omni/compare/v2.0.0...HEAD
+[2.0.0]: https://github.com/aaronrussell/omni/releases/tag/v2.0.0
 [1.6.5]: https://github.com/aaronrussell/omni/releases/tag/v1.6.5
 [1.6.4]: https://github.com/aaronrussell/omni/releases/tag/v1.6.4
 [1.6.3]: https://github.com/aaronrussell/omni/releases/tag/v1.6.3

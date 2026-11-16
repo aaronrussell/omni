@@ -12,10 +12,9 @@ Work tracking for `omni`. This is a live document — add to it freely, clean it
 
 ### v2.0.0
 
-Landed: providers as data, the Decisions API, the Mistral, Together, xAI and TypeSafe providers, thinking replay on Completions providers, thinking across models, the `:thinking` review (levels, integer budgets, `false`; no `true`), and the docs polish (guides in `guides/`, module docs as reference; the style rules are in `CLAUDE.md`, Documentation). The design as built is in `design.md`; every user-facing change is logged in `context/notes/v2-changes.md`. Left before release:
+Landed: providers as data, the Decisions API, the Mistral, Together, xAI and TypeSafe providers, thinking replay on Completions providers, thinking across models, the `:thinking` review (levels, integer budgets, `false`; no `true`), the docs polish (guides in `guides/`, module docs as reference; the style rules are in `CLAUDE.md`, Documentation), the upgrade guide (`guides/upgrading-to-v2.md`) and the `CHANGELOG.md` entry. The snapshot and deps are refreshed and the version in `mix.exs` is 2.0.0. The design as built is in `design.md`. Left before release:
 
-- **Upgrade guide and changelog** — Before release, turn `context/notes/v2-changes.md` (the running log of every user-facing v2 change) into an "Upgrading to v2" extras page in the docs, and write a concise `CHANGELOG.md` entry covering the broad areas of change, pointing to the guide. Each v2 phase adds to the log as it lands.
-- **Release checklist** — Refresh the snapshot (`mix omni.snapshot`, golden test expectations), run the sweep over the matrix, bump the version in `mix.exs` (still 1.6.5).
+- **Sweep** — Run the sweep over the model matrix (`mix run scripts/verify/sweep.exs`; live, billed requests, so the maintainer runs it) and fix what it turns up.
 
 ### v2.1.0
 

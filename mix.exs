@@ -1,7 +1,7 @@
 defmodule Omni.MixProject do
   use Mix.Project
 
-  @version "1.6.5"
+  @version "2.0.0"
   @source_url "https://github.com/aaronrussell/omni"
 
   def project do
