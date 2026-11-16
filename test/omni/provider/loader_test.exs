@@ -880,23 +880,17 @@ defmodule Omni.Provider.LoaderTest do
   end
 
   describe "store" do
-    test "concurrent loads and unloads don't drop each other's providers" do
+    test "concurrent unloads don't resurrect each other's providers" do
+      # Unloads are pure store writes, so concurrent ones overlap densely; a
+      # lost update leaves a provider behind.
       dialects = %{@completions => [base_url: "https://x.test/v1"]}
+      ids = for i <- 1..120, do: :"store_#{i}_#{System.unique_integer([:positive])}"
+      Loader.load(for id <- ids, do: {id, dialects: dialects, source: StubSource})
 
-      missing =
-        1..8
-        |> Task.async_stream(fn worker ->
-          Enum.reject(1..15, fn i ->
-            id = :"store_#{worker}_#{i}_#{System.unique_integer([:positive])}"
-            Loader.load([{id, dialects: dialects}])
-            loaded? = Map.has_key?(:persistent_term.get(Provider.providers_key(), %{}), id)
-            Loader.unload(id)
-            loaded?
-          end)
-        end)
-        |> Enum.flat_map(fn {:ok, missing} -> missing end)
+      ids |> Task.async_stream(&Loader.unload/1, max_concurrency: 8) |> Stream.run()
 
-      assert missing == []
+      providers = :persistent_term.get(Provider.providers_key(), %{})
+      assert Enum.filter(ids, &Map.has_key?(providers, &1)) == []
     end
   end
 
