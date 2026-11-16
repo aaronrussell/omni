@@ -70,14 +70,14 @@ decision.answers[:team]    #=> %Omni.Answer.Choice{choice: :infra, probabilities
 
 ## Documentation
 
-The guides and API reference are on [HexDocs](https://hexdocs.pm/omni):
+The guides and API reference are on [HexDocs](https://omni.hexdocs.pm):
 
-- [Getting started](https://hexdocs.pm/omni/getting-started.html)
-- [Text generation](https://hexdocs.pm/omni/text-generation.html): conversations, streaming, thinking, tools and structured output
-- [Decisions](https://hexdocs.pm/omni/decisions.html)
-- [Providers and models](https://hexdocs.pm/omni/providers-and-models.html): configuring providers, adding your own, and model data
-- [Built-in providers](https://hexdocs.pm/omni/built-in-providers.html)
-- [Upgrading to v2](https://hexdocs.pm/omni/upgrading-to-v2.html)
+- [Getting started](https://omni.hexdocs.pm/getting-started.html) - start her, install and make your first requests
+- [Text generation](https://omni.hexdocs.pm/text-generation.html) - conversations, streaming, thinking, tools and structured output
+- [Decisions](https://omni.hexdocs.pm/decisions.html) - typed questions answered with probabilities, for routing, classifying and scoring
+- [Providers and models](https://omni.hexdocs.pm/providers-and-models.html) - configuring providers, adding your own, and model data
+- [Built-in providers](https://omni.hexdocs.pm/built-in-providers.html) - each provider's id, API key variable and quirks
+- [Upgrading to v2](https://omni.hexdocs.pm/upgrading-to-v2.html) - what's new and what to change when coming from v1
 
 To build agents on top of Omni, see [`omni_agent`](https://github.com/aaronrussell/omni_agent).
 
