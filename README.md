@@ -1,6 +1,6 @@
 # Omni
 
-![Omni](https://raw.githubusercontent.com/aaronrussell/omni/main/media/poster.webp)
+![Omni](https://raw.githubusercontent.com/aaronrussell/omni/main/media/poster-v2.webp)
 
 ![Hex.pm](https://img.shields.io/hexpm/v/omni?color=informational)
 ![License](https://img.shields.io/github/license/aaronrussell/omni?color=informational)

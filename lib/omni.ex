@@ -1,7 +1,5 @@
 defmodule Omni do
   @moduledoc """
-  ![Omni](https://raw.githubusercontent.com/aaronrussell/omni/main/media/poster.webp)
-
   Universal Elixir client for LLM APIs. Text generation, tool use, structured
   output and decisions across many providers.
 

@@ -1,5 +1,7 @@
 # Getting started
 
+![Omni](https://raw.githubusercontent.com/aaronrussell/omni/main/media/poster-v2.webp)
+
 Omni is an Elixir client for LLM APIs. One set of functions covers text generation, streaming, tool use, structured output and decisions, across Anthropic, OpenAI, Google and many other providers. Changing model means changing one argument.
 
 ## Install
