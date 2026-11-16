@@ -111,7 +111,21 @@ In v1 a configured key was sent as a Bearer token. If your Ollama sits behind an
 
 Config is validated at startup, including entries for providers that aren't loaded. The keys a provider takes are `name`, `host`, `api_key`, `auth`, `headers`, `dialects`, `module`, `models` and `source`. [Providers and models](providers-and-models.md) covers each.
 
-## 2. Update code that reads models and providers
+## 2. Update your code
+
+### Thinking budgets are integers
+
+A token budget is now the `:thinking` value itself. The map form is gone:
+
+```elixir
+# v1
+Omni.generate_text(model, context, thinking: %{effort: :high, budget: 20_000})
+
+# v2
+Omni.generate_text(model, context, thinking: 20_000)
+```
+
+On a model that takes effort levels, a budget becomes the smallest level whose budget covers it (`20_000` is `:xhigh`), so there is no separate fallback effort to give.
 
 ### `%Omni.Model{}`
 
@@ -146,8 +160,6 @@ Providers that serve decision models list them beside their text models. If your
 ## 3. Check for changed behaviour
 
 These need no code change, but your results may differ.
-
-**`thinking: true` means `:medium`.** It is the same request as `thinking: :medium` on every model. In v1 some models took it as a mode of their own choosing.
 
 **Thinking levels follow each model.** A level the model doesn't accept is rounded to the nearest it does, and models that take a token budget get one sized to the level (low 1024, medium 4096, high 16384, xhigh 24576, max 32768). `thinking: false` sends nothing to a model that can't switch thinking off. Some requests change as a result:
 

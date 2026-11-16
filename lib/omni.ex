@@ -94,14 +94,13 @@ defmodule Omni do
 
   - `:max_tokens` - maximum output tokens (Anthropic defaults to 4096)
   - `:temperature` - sampling temperature
-  - `:thinking` - how much the model reasons before answering. Ignored for
-    models that don't reason.
-    - `true` - on, at `:medium`
+  - `:thinking` - how much the model reasons before answering. Unset, the
+    model's own default applies. Ignored for models that don't reason.
     - `:low`, `:medium`, `:high`, `:xhigh` or `:max` - an effort level,
       rounded to the nearest the model supports, or turned into a token
       budget for models that take one
-    - `%{effort: level, budget: tokens}` - an exact budget, for models
-      that take one
+    - a positive integer - a token budget, clamped to the model's range,
+      or turned into an effort level for models that take levels
     - `false` - off, where the model can be switched off
   - `:output` - a JSON Schema map for structured output (see
     [Structured output](text-generation.md#structured-output))

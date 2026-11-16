@@ -485,15 +485,11 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       end
     end
 
-    test "budget is ignored" do
+    test "a budget becomes the effort of the level that covers it" do
       context = Context.new("Hello")
+      body = OpenAICompletions.handle_body(@reasoning_model, context, %{thinking: 10_000})
 
-      body =
-        OpenAICompletions.handle_body(@reasoning_model, context, %{
-          thinking: %{effort: :medium, budget: 10_000}
-        })
-
-      assert body["reasoning_effort"] == "medium"
+      assert body["reasoning_effort"] == "high"
     end
 
     test "thinking: false sets reasoning_effort to none" do
@@ -515,13 +511,6 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       body = OpenAICompletions.handle_body(model, Context.new("Hello"), %{thinking: false})
 
       refute Map.has_key?(body, "reasoning_effort")
-    end
-
-    test "thinking: true sends medium" do
-      body =
-        OpenAICompletions.handle_body(@reasoning_model, Context.new("Hello"), %{thinking: true})
-
-      assert body["reasoning_effort"] == "medium"
     end
 
     test "non-reasoning model ignores thinking option" do
@@ -1231,7 +1220,7 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       model = flagged([thinking_toggle_format: :thinking_type], thinking: %{toggle: true})
 
       assert body(model, %{thinking: :low})["thinking"] == %{"type" => "enabled"}
-      assert body(model, %{thinking: true})["thinking"] == %{"type" => "enabled"}
+      assert body(model, %{thinking: 8000})["thinking"] == %{"type" => "enabled"}
       assert body(model, %{thinking: false})["thinking"] == %{"type" => "disabled"}
       refute Map.has_key?(body(model, %{thinking: :low}), "reasoning_effort")
     end
@@ -1278,8 +1267,8 @@ defmodule Omni.Dialects.OpenAICompletionsTest do
       assert body(model, %{thinking: false}) |> Map.take(["enable_thinking", "thinking_budget"]) ==
                %{"enable_thinking" => false}
 
-      assert body(model, %{thinking: true}) |> Map.take(["enable_thinking", "thinking_budget"]) ==
-               %{"enable_thinking" => true, "thinking_budget" => 4096}
+      assert body(model, %{thinking: 8000}) |> Map.take(["enable_thinking", "thinking_budget"]) ==
+               %{"enable_thinking" => true, "thinking_budget" => 8000}
     end
 
     test "models with effort values get the effort and no budget" do

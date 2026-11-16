@@ -13,20 +13,6 @@ defmodule Omni.Dialect.TextTest do
       assert Text.resolve_thinking(model(true), nil) == nil
       assert Text.resolve_thinking(model(false), :high) == nil
       assert Text.resolve_thinking(model(false), false) == nil
-      assert Text.resolve_thinking(model(false), true) == nil
-    end
-
-    test "true is :medium" do
-      assert Text.resolve_thinking(model(true), true) == %{
-               level: :medium,
-               effort: nil,
-               budget: 4096
-             }
-
-      assert Text.resolve_thinking(model(%{toggle: true}), true) ==
-               %{level: :medium, effort: nil, budget: nil}
-
-      assert %{effort: "high"} = Text.resolve_thinking(model(%{efforts: ["low", "high"]}), true)
     end
 
     test "false is :off when the model can switch off" do
@@ -87,19 +73,40 @@ defmodule Omni.Dialect.TextTest do
       assert %{budget: 32_768} = Text.resolve_thinking(haiku, :max)
     end
 
-    test "an explicit budget is used, clamped, on budget models only" do
+    test "a budget is used, clamped, on budget models" do
       flash = model(%{budget: {0, 24_576}})
-      assert %{budget: 8000} = Text.resolve_thinking(flash, %{budget: 8000})
-      assert %{budget: 24_576} = Text.resolve_thinking(flash, %{budget: 50_000})
+      assert %{budget: 8000} = Text.resolve_thinking(flash, 8000)
+      assert %{budget: 24_576} = Text.resolve_thinking(flash, 50_000)
 
-      oss = model(%{efforts: ["low", "medium", "high"]})
-
-      assert %{effort: "medium", budget: nil} =
-               Text.resolve_thinking(oss, %{effort: :medium, budget: 8000})
+      haiku = model(%{budget: {2048, nil}})
+      assert %{budget: 2048} = Text.resolve_thinking(haiku, 500)
     end
 
-    test "the map form defaults its effort to :high" do
-      assert %{level: :high} = Text.resolve_thinking(model(true), %{budget: 8000})
+    test "a budget maps to the smallest level that covers it" do
+      assert %{level: :low} = Text.resolve_thinking(model(true), 500)
+      assert %{level: :low} = Text.resolve_thinking(model(true), 1024)
+      assert %{level: :medium} = Text.resolve_thinking(model(true), 1025)
+      assert %{level: :xhigh} = Text.resolve_thinking(model(true), 20_000)
+      assert %{level: :max} = Text.resolve_thinking(model(true), 100_000)
+    end
+
+    test "a budget on an effort model becomes the level's effort" do
+      oss = model(%{efforts: ["low", "medium", "high"]})
+      assert Text.resolve_thinking(oss, 4000) == %{level: :medium, effort: "medium", budget: nil}
+      assert %{effort: "high"} = Text.resolve_thinking(oss, 20_000)
+    end
+
+    test "a budget switches a toggle-only model on" do
+      assert Text.resolve_thinking(model(%{toggle: true}), 8000) ==
+               %{level: :high, effort: nil, budget: nil}
+    end
+
+    test "no data: a budget is kept as is" do
+      assert Text.resolve_thinking(model(true), 8000) == %{
+               level: :high,
+               effort: nil,
+               budget: 8000
+             }
     end
 
     test "toggle and effort together" do

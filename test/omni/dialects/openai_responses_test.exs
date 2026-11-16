@@ -502,15 +502,11 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       end
     end
 
-    test "budget is ignored" do
+    test "a budget becomes the effort of the level that covers it" do
       context = Context.new("Hello")
+      body = OpenAIResponses.handle_body(@reasoning_model, context, %{thinking: 10_000})
 
-      body =
-        OpenAIResponses.handle_body(@reasoning_model, context, %{
-          thinking: %{effort: :medium, budget: 10_000}
-        })
-
-      assert body["reasoning"]["effort"] == "medium"
+      assert body["reasoning"]["effort"] == "high"
       refute Map.has_key?(body["reasoning"], "budget")
     end
 
@@ -533,13 +529,6 @@ defmodule Omni.Dialects.OpenAIResponsesTest do
       body = OpenAIResponses.handle_body(model, Context.new("Hello"), %{thinking: false})
 
       refute Map.has_key?(body, "reasoning")
-    end
-
-    test "thinking: true sends medium" do
-      body =
-        OpenAIResponses.handle_body(@reasoning_model, Context.new("Hello"), %{thinking: true})
-
-      assert body["reasoning"] == %{"effort" => "medium", "summary" => "auto"}
     end
 
     test "non-reasoning model ignores thinking option" do

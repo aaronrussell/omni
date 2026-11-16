@@ -635,7 +635,7 @@ The `:thinking` option is translated per model, from capability data, not from m
 
 #### Resolution (`Omni.Dialect.Text.resolve_thinking/2`)
 
-Shared by the five text dialects and public on the text behaviour, so custom dialects agree too (`thinking_budget/2` gives a level's clamped budget). `resolve_thinking(model, option)` returns:
+Shared by the five text dialects and public on the text behaviour, so custom dialects agree too (`thinking_budget/2` gives a level's clamped budget). The option is a level (`:low`..`:max`), a positive integer budget, or `false`; unset sends nothing, leaving the model's default. `resolve_thinking(model, option)` returns:
 
 - `nil` -- send nothing: option unset, model doesn't reason, or off requested on a model whose data shows no way to switch off.
 - `:off` -- switch off (toggle, `"none"` in efforts, or no data).
@@ -643,10 +643,10 @@ Shared by the five text dialects and public on the text behaviour, so custom dia
 
 Rules:
 
-- **`true` is `:medium`**, the same request a dialect builds for `:medium`.
 - **One ladder:** `minimal < low < medium < high < xhigh < max`. A level clamps to the model's efforts: round up to the nearest supported value, else down. On never crosses into off.
 - **`"default"`** is sent for any "on" request when it is the model's only "on" value (Groq Qwen).
-- **Budgets** come from one table -- low 1024, medium 4096, high 16384, xhigh 24576, max 32768 -- clamped to the model's range. `%{effort:, budget:}` sets an exact budget, on budget models only; elsewhere its effort applies.
+- **One table, both ways** -- low 1024, medium 4096, high 16384, xhigh 24576, max 32768. A level gives its budget; a budget gives the smallest level that covers it, else `:max` (20000 is `:xhigh`). Budgets clamp to the model's range.
+- **The model's data picks the control**, not the form of the value: a level or a budget is sent as is when it matches the model's control, mapped through the table when it doesn't, and becomes a plain "on" for switch-only models. Where a model lists both efforts and a budget range, the dialect picks one: Anthropic the budget (Opus 4.5's effort is not a thinking control), Completions and Gemini the effort (Alibaba rejects both).
 
 #### Per-dialect encoding
 
@@ -658,7 +658,9 @@ Rules:
 | Google Gemini | **Efforts** (Gemini 3): `thinkingLevel` matched by name. **Budget or no data** (Gemini 2.5): `thinkingBudget`. **Off:** `thinkingBudget: 0`, only where the model can be switched off |
 | Ollama Chat | **Efforts:** the clamped string. **Toggle or no data:** boolean |
 
-Not adopted: a dynamic mode (`true` meaning "on, the model decides"). On current models adapting is how thinking works, not a mode to switch on: Claude 4.6+ adaptive thinking and Gemini 3 take the effort as a guide, and OpenAI models choose within an effort. Only Gemini 2.5 (`thinkingBudget: -1`) has a separate dynamic setting. Sending no level where an API allows it handed users the provider's default (`high` on Claude and Gemini 3) on some models and Omni's `:medium` on others, so `true` is one Omni default instead. Prior art has no cross-provider dynamic value either: pi takes levels only, ai-sdk's `'provider-default'` sends nothing (Omni's unset), and req_llm's `:default` sends adaptive with `"medium"` on Anthropic and nothing on OpenAI.
+Not adopted: `thinking: true`. As an alias for `:medium` it is a second spelling of a level. Its only meaning of its own, "on, at the provider's amount", can't be sent across models: in the snapshot's reasoning models about a third always think (so it equals unset), a fifth switch on with no amount (the only honest case; Claude adaptive and Gemini 3 default to `high`, so even there it equals a level), and the rest need Omni to pick -- efforts that include `"none"` (omitting can mean off, as on GPT-5.1), models with no data, and Claude budget models (`budget_tokens` is required). models.dev records no defaults, so users couldn't tell which they got. Only Gemini 2.5's dynamic budget (`-1`) would be out of reach of levels. Prior art agrees: pi takes levels only, ai-sdk's `'provider-default'` sends nothing (Omni's unset), and req_llm's `:default` sends adaptive with `"medium"` on Anthropic and nothing on OpenAI. v1 had no `true` either.
+
+Not adopted: a budget with a fallback effort (`%{effort:, budget:}`, v1). Levels and budgets are one scale, so the table maps a budget to a level and no second value is needed.
 
 Older models need not be perfect: Opus 4.5 and 4.6 moved from adaptive to budget thinking when their hard-coded prefix list went. Anthropic's `@strict_sampling_prefixes` (Opus 4.7 rejects non-default sampling) is unrelated to thinking and stays.
 

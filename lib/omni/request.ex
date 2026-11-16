@@ -35,9 +35,7 @@ defmodule Omni.Request do
     cache: {:enum, [:short, :long]},
     metadata: :map,
     thinking:
-      {:either,
-       {{:enum, [false, true, :low, :medium, :high, :xhigh, :max]},
-        {:schema, %{effort: {:enum, [:low, :medium, :high, :xhigh, :max]}, budget: :integer}}}},
+      {:either, {{:enum, [false, :low, :medium, :high, :xhigh, :max]}, {:integer, {:gt, 0}}}},
     output: {:either, {:map, {:tuple, [:atom, :any]}}}
   }
 

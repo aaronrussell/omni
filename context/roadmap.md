@@ -12,9 +12,9 @@ Work tracking for `omni`. This is a live document — add to it freely, clean it
 
 ### v2.0.0
 
-Landed: providers as data, the Decisions API, the Mistral, Together, xAI and TypeSafe providers, thinking replay on Completions providers, thinking across models, `thinking: true` as `:medium`, and the docs polish (guides in `guides/`, module docs as reference; the style rules are in `CLAUDE.md`, Documentation). The design as built is in `design.md`; every user-facing change is logged in `context/notes/v2-changes.md`. Left before release:
+Landed: providers as data, the Decisions API, the Mistral, Together, xAI and TypeSafe providers, thinking replay on Completions providers, thinking across models, the `:thinking` review (levels, integer budgets, `false`; no `true`), and the docs polish (guides in `guides/`, module docs as reference; the style rules are in `CLAUDE.md`, Documentation). The design as built is in `design.md`; every user-facing change is logged in `context/notes/v2-changes.md`. Left before release:
 
-- **Review `thinking: true`** — It is now an alias for `:medium`, which is less clear than writing `:medium`. Decide whether to keep it, give it a meaning of its own ("on, at the model's default"), or drop it and accept only levels and `false`. `design.md` (thinking, "Not adopted: a dynamic mode") has why it became `:medium`: with no level sent, users got the provider's default on some models and Omni's on others. Whatever is chosen, update the Text generation guide (Thinking) and the upgrade guide ("`thinking: true` means `:medium`"). Module docs that say it too: the `:thinking` option under `Omni.stream_text/3`, and the Thinking section of `Omni.Dialect.Text` ("`true` is `:medium`"). `Omni.Model`'s `thinking: true` is the model field, a different thing, and stays.
+- **Upgrade req and run tests** - 0.7.5 is out - upgrade and check.
 - **Upgrade guide and changelog** — Before release, turn `context/notes/v2-changes.md` (the running log of every user-facing v2 change) into an "Upgrading to v2" extras page in the docs, and write a concise `CHANGELOG.md` entry covering the broad areas of change, pointing to the guide. Each v2 phase adds to the log as it lands.
 - **Release checklist** — Refresh the snapshot (`mix omni.snapshot`, golden test expectations), run the sweep over the matrix, bump the version in `mix.exs` (still 1.6.5).
 

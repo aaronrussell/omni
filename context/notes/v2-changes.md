@@ -137,9 +137,9 @@ config :omni, :providers,
 
 ## Requests
 
-**`thinking: true` is `:medium`.** *(phase 2)* The same request as `thinking: :medium` on every model: switch-only models switch on, Claude adaptive models get effort `"medium"`, Gemini 3 level `"medium"`, Gemini 2.5 a 4096 budget.
+**A thinking budget is an integer.** *(thinking review)* `thinking: 20_000` replaces `thinking: %{effort: level, budget: n}`; the map form is a validation error. The option takes a level, a positive integer or `false`, and unset leaves the model's default; there is no `thinking: true` (as in v1). A budget is clamped to a budget model's range; on any other model it becomes the smallest level whose table budget covers it, else `:max` (`20_000` is `:xhigh`). Before, a budget without `:effort` fell back to `:high` on models that take no budget.
 
-**Thinking levels follow each model's capabilities.** *(phase 2)* A level rounds up to the nearest effort the model accepts, else down (so `:max` on gpt-oss sends `"high"`, `:low` on a `["minimal", "high"]` model sends `"high"`). Budget models get a budget from the level (low 1024, medium 4096, high 16384, xhigh 24576, max 32768), clamped to the model's range; `%{budget: n}` sets it exactly, on budget models only. `thinking: false` sends nothing to a model that can't switch off. Behaviour changes:
+**Thinking levels follow each model's capabilities.** *(phase 2)* A level rounds up to the nearest effort the model accepts, else down (so `:max` on gpt-oss sends `"high"`, `:low` on a `["minimal", "high"]` model sends `"high"`). Budget models get a budget from the level (low 1024, medium 4096, high 16384, xhigh 24576, max 32768), clamped to the model's range. `thinking: false` sends nothing to a model that can't switch off. Behaviour changes:
 - Gemini 3 levels match by name (`:high` → `"high"`, was `"medium"`); `thinking: false` sends nothing to Gemini 3; Gemini 2.5 budgets follow the shared table and `:max` is the model's maximum budget (was `-1`).
 - Anthropic uses adaptive thinking for models whose data lists efforts and no budget range (Claude 5 family, Opus 4.7+), replacing a hard-coded model list. Opus/Sonnet 4.6 move to budget thinking.
 - Ollama models take string levels only when their data lists efforts; others take a boolean (local gpt-oss with no data configured now gets `true`).

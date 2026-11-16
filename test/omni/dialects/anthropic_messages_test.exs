@@ -506,26 +506,15 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       refute Map.has_key?(body, "output_config")
     end
 
-    test "thinking: true on an adaptive model sends the medium effort" do
+    test "a budget on an adaptive model sends the effort of the level that covers it" do
       body =
         AnthropicMessages.handle_body(@adaptive_model, Context.new("Hello"), %{
-          thinking: true,
+          thinking: 10_000,
           max_tokens: 4096
         })
 
-      assert body["thinking"] == %{"type" => "adaptive", "display" => "summarized"}
-      assert body["output_config"] == %{"effort" => "medium"}
+      assert body["output_config"] == %{"effort" => "high"}
       assert body["max_tokens"] == 4096
-    end
-
-    test "thinking: true on a budget model uses the medium budget" do
-      body =
-        AnthropicMessages.handle_body(@budget_model, Context.new("Hello"), %{
-          thinking: true,
-          max_tokens: 4096
-        })
-
-      assert body["thinking"] == %{"type" => "enabled", "budget_tokens" => 4096}
     end
 
     test "thinking: false sends nothing to a model that shows no off switch" do
@@ -535,12 +524,12 @@ defmodule Omni.Dialects.AnthropicMessagesTest do
       refute Map.has_key?(body, "thinking")
     end
 
-    test "explicit budget in map form (manual path)" do
+    test "a budget is sent as budget_tokens (manual path)" do
       context = Context.new("Hello")
 
       body =
         AnthropicMessages.handle_body(@reasoning_model, context, %{
-          thinking: %{effort: :high, budget: 10_000},
+          thinking: 10_000,
           max_tokens: 4096
         })
 

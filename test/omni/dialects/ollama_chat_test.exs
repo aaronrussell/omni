@@ -229,11 +229,14 @@ defmodule Omni.Dialects.OllamaChatTest do
       assert OllamaChat.handle_body(gpt_oss, context, %{thinking: :high})["think"] == "high"
       assert OllamaChat.handle_body(gpt_oss, context, %{thinking: :xhigh})["think"] == "high"
       assert OllamaChat.handle_body(gpt_oss, context, %{thinking: :max})["think"] == "high"
-      assert OllamaChat.handle_body(gpt_oss, context, %{thinking: true})["think"] == "medium"
+      assert OllamaChat.handle_body(gpt_oss, context, %{thinking: 4000})["think"] == "medium"
     end
 
-    test "thinking: true switches thinking on for boolean models" do
-      body = OllamaChat.handle_body(@reasoning_model, Context.new("Hello"), %{thinking: true})
+    test "a level or budget switches thinking on for boolean models" do
+      body = OllamaChat.handle_body(@reasoning_model, Context.new("Hello"), %{thinking: :medium})
+      assert body["think"] == true
+
+      body = OllamaChat.handle_body(@reasoning_model, Context.new("Hello"), %{thinking: 8000})
       assert body["think"] == true
     end
 

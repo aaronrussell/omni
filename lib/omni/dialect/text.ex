@@ -74,14 +74,14 @@ defmodule Omni.Dialect.Text do
   `Omni.Model`) decides what is sent, so every dialect agrees on how levels
   map to a model's effort values and budgets:
 
-  - `true` is `:medium`.
   - Effort levels are clamped to the model's values on one ladder,
     `minimal < low < medium < high < xhigh < max`: round up to the nearest
     supported value, else down. A model whose only "on" value is
     `"default"` gets `"default"`.
-  - Budgets come from the level (`low` 1024, `medium` 4096, `high` 16384,
-    `xhigh` 24576, `max` 32768) unless one is given, clamped to the
-    model's range.
+  - Levels and budgets map both ways through one table (`low` 1024,
+    `medium` 4096, `high` 16384, `xhigh` 24576, `max` 32768). A level
+    gives its budget; a budget gives the smallest level whose budget
+    covers it, else `:max`. Budgets are clamped to the model's range.
 
   `resolve_thinking/2` returns:
 
@@ -89,7 +89,8 @@ defmodule Omni.Dialect.Text do
     reason, or it was switched off on a model that can't be switched off
   - `:off` - switch thinking off
   - a map - on, with:
-    - `:level` - the requested Omni level
+    - `:level` - the requested Omni level, or the level a requested
+      budget maps to
     - `:effort` - the model's effort value for that level, or `nil` when
       the model lists no effort values
     - `:budget` - a token budget, or `nil` when the model takes none. Set
@@ -257,12 +258,10 @@ defmodule Omni.Dialect.Text do
   def resolve_thinking(%Model{thinking: false}, _option), do: nil
   def resolve_thinking(_model, nil), do: nil
   def resolve_thinking(model, false), do: if(switchable?(model), do: :off)
-  def resolve_thinking(model, true), do: thinking_on(model, :medium, nil)
   def resolve_thinking(model, level) when is_atom(level), do: thinking_on(model, level, nil)
 
-  def resolve_thinking(model, %{} = option) do
-    thinking_on(model, Map.get(option, :effort, :high), option[:budget])
-  end
+  def resolve_thinking(model, budget) when is_integer(budget),
+    do: thinking_on(model, budget_level(budget), budget)
 
   @doc """
   Returns the default budget for a thinking level, clamped to the model's
@@ -286,6 +285,11 @@ defmodule Omni.Dialect.Text do
       effort: effort(thinking, level),
       budget: if(budget?(thinking), do: clamp_budget(model, budget || @budgets[level]))
     }
+  end
+
+  # The smallest level whose budget covers the given one, else :max.
+  defp budget_level(budget) do
+    Enum.find([:low, :medium, :high, :xhigh], :max, &(@budgets[&1] >= budget))
   end
 
   defp budget?(true), do: true

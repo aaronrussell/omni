@@ -532,23 +532,9 @@ defmodule Omni.Dialects.GoogleGenerateContentTest do
       end
     end
 
-    test "thinking: true uses the medium budget" do
+    test "a budget sets thinkingBudget directly" do
       context = Context.new("Hello")
-      body = GoogleGenerateContent.handle_body(@reasoning_model, context, %{thinking: true})
-
-      assert body["generationConfig"]["thinkingConfig"] == %{
-               "thinkingBudget" => 4096,
-               "includeThoughts" => true
-             }
-    end
-
-    test "explicit budget sets thinkingBudget directly" do
-      context = Context.new("Hello")
-
-      body =
-        GoogleGenerateContent.handle_body(@reasoning_model, context, %{
-          thinking: %{effort: :high, budget: 8192}
-        })
+      body = GoogleGenerateContent.handle_body(@reasoning_model, context, %{thinking: 8192})
 
       assert body["generationConfig"]["thinkingConfig"]["thinkingBudget"] == 8192
       assert body["generationConfig"]["thinkingConfig"]["includeThoughts"] == true
@@ -627,26 +613,12 @@ defmodule Omni.Dialects.GoogleGenerateContentTest do
       assert body["generationConfig"]["thinkingConfig"]["thinkingLevel"] == "high"
     end
 
-    test "an explicit budget is ignored in favour of the effort" do
+    test "a budget becomes the level that covers it" do
       context = Context.new("Hello")
-
-      body =
-        GoogleGenerateContent.handle_body(@gemini3_model, context, %{
-          thinking: %{effort: :medium, budget: 4096}
-        })
+      body = GoogleGenerateContent.handle_body(@gemini3_model, context, %{thinking: 4096})
 
       assert body["generationConfig"]["thinkingConfig"]["thinkingLevel"] == "medium"
       refute Map.has_key?(body["generationConfig"]["thinkingConfig"], "thinkingBudget")
-    end
-
-    test "thinking: true sends the medium level" do
-      body =
-        GoogleGenerateContent.handle_body(@gemini3_model, Context.new("Hello"), %{thinking: true})
-
-      assert body["generationConfig"]["thinkingConfig"] == %{
-               "thinkingLevel" => "medium",
-               "includeThoughts" => true
-             }
     end
 
     test "thinking: false sends nothing — Gemini 3 can't switch thinking off" do

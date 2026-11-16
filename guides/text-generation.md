@@ -119,11 +119,12 @@ Many models can reason before they answer. The `:thinking` option asks for it:
 ```
 
 - An effort level: `:low`, `:medium`, `:high`, `:xhigh` or `:max`.
-- `true` is the same as `:medium`.
+- A token budget: a positive integer, such as `thinking: 20_000`.
 - `false` switches thinking off, on models that can switch it off.
-- `%{effort: :high, budget: 20_000}` sets an exact token budget, on models that take one.
 
-Models differ in what they accept, and Omni translates for each. A level the model doesn't have is rounded to the nearest it does. A model that takes a token budget is given one sized to the level. A model that doesn't reason ignores the option. `model.thinking` shows what a model supports (see `Omni.Model`).
+Leave the option out and the model's own default applies: some models think unless told not to, others only when asked.
+
+Models differ in what they accept, and Omni translates for each. A level the model doesn't have is rounded up to the nearest it does. A model that takes a token budget is given one sized to the level (`:low` 1024, `:medium` 4096, `:high` 16384, `:xhigh` 24576, `:max` 32768). A budget sent to a model that takes levels becomes the smallest level that covers it, so `20_000` is `:xhigh`. A model that only switches thinking on and off is switched on by any level or budget. A model that doesn't reason ignores the option. `model.thinking` shows what a model supports (see `Omni.Model`).
 
 Reasoning comes back as `Omni.Content.Thinking` blocks, and streams as `:thinking_delta` events. Some providers return a summary, some return it encrypted, and some return nothing readable.
 
