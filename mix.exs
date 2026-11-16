@@ -65,7 +65,7 @@ defmodule Omni.MixProject do
     if System.get_env("OMNI_SKIP_LLMDB") do
       []
     else
-      [{:llm_db, "~> 2026.7", optional: true}]
+      [{:llm_db, "~> 2026.11", optional: true}]
     end
   end
 

@@ -144,20 +144,20 @@ defmodule Omni.Sources.ModelsDevGoldenTest do
         cache_read_cost: 0.01,
         cache_write_cost: 0.125
       },
-      {:anthropic, "claude-sonnet-4-5"} => %Omni.Model{
-        id: "claude-sonnet-4-5",
-        name: "Claude Sonnet 4.5 (latest)",
+      {:anthropic, "claude-sonnet-5-5"} => %Omni.Model{
+        id: "claude-sonnet-5-5",
+        name: "Claude Sonnet 5.5",
         dialects: %{text: Omni.Dialects.AnthropicMessages},
-        release_date: ~D[2025-09-29],
-        context_size: 200_000,
-        max_output_tokens: 64_000,
-        thinking: %{budget: {1024, nil}},
+        release_date: ~D[2026-09-28],
+        context_size: 1_000_000,
+        max_output_tokens: 128_000,
+        thinking: %{efforts: ["low", "medium", "high", "xhigh", "max"]},
         input_modalities: [:text, :image, :pdf],
         output_modalities: [:text],
-        input_cost: 3,
-        output_cost: 15,
-        cache_read_cost: 0.3,
-        cache_write_cost: 3.75
+        input_cost: 2,
+        output_cost: 10,
+        cache_read_cost: 0.1,
+        cache_write_cost: 2.5
       },
       {:openai, "gpt-5"} => %Omni.Model{
         id: "gpt-5",

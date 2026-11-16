@@ -96,7 +96,7 @@ Models served from trusted execution environments.
 
 **Limitations.** The `:thinking` and `:cache` options are not sent, and structured output schemas are not marked strict.
 
-**Decisions.** The catalog's decision models (`typesafe/jev-1.13`, `levanto/sage-1.4`) load over System One. NEAR AI doesn't document this endpoint, and it hasn't been checked against the live API.
+**Decisions.** The catalog's decision model (`typesafe/jev-1.13`) loads over System One. NEAR AI doesn't document this endpoint, and it hasn't been checked against the live API.
 
 ## Ollama
 

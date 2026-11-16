@@ -35,7 +35,7 @@ defmodule Omni.Providers.NearAITest do
       {provider, models} = Loader.assemble(:nearai)
       decision = Enum.filter(models, &Omni.Model.capability?(&1, :decision))
 
-      assert Enum.map(decision, & &1.id) == ["levanto/sage-1.4", "typesafe/jev-1.13"]
+      assert Enum.map(decision, & &1.id) == ["typesafe/jev-1.13"]
       assert Enum.all?(decision, &(&1.dialects == %{decision: Omni.Dialects.TypeSafeSystemOne}))
 
       assert provider.dialects[Omni.Dialects.TypeSafeSystemOne].base_url ==
