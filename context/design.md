@@ -1661,7 +1661,7 @@ Decision questions are unambiguous on purpose: a small model can be strict on fu
 
 Rules:
 
-- **Pass or fail only.** No skip, no warn, no retries (Omni doesn't retry; Req's default retry covers only GET and HEAD). A model failing a scenario it can't do is a correct failure; the sweep matrix doesn't ask it. Flaky results are investigated: tighten the prompt, or drop the scenario for that model.
+- **Pass or fail only.** No skip, no warn, no retries (Omni doesn't retry; Req's default retry covers only GET and HEAD). A model failing a scenario it can't do is a correct failure; the sweep matrix doesn't ask it. Other failures are investigated and recorded in `scripts/verify/known_issues.md`, whose status says whether the scenario stays: stale catalog data, intermittent and open failures stay; a provider limit (right data, documented wire, fails every time) leaves the matrix. A flaky result from a weak prompt is fixed in the prompt.
 - **Thinking effort levels aren't verified** — there's no reliable way to measure the level applied. `thinking` is lenient on purpose: whether a model emits reasoning text varies.
 - **Output is generic.** Each result line has a short reason (`HTTP 429`, `stream error`, `no thinking`), never provider text; errors print in full after the run. Request bodies aren't shown.
 - **Flags:** `--only a,b` (exactly these), `--add` / `--skip` (adjust the defaults), `--delay ms` (pause between scenarios).
@@ -1670,7 +1670,7 @@ Rules:
 
 `scripts/verify/sweep.exs` holds a matrix as data: `{provider, model, selection}`, the model a catalog id or `Model.new/1` attributes where the catalog lacks it (local Ollama, Z.ai vision). It runs `Omni.Verify.run/3` on each entry in turn and skips providers without an API key. Targets are `provider` or `provider/model`; a model outside the matrix runs the defaults; `--only` replaces every target's selection.
 
-Models are chosen provider by provider: cheap to mid-range, a premium model from Anthropic and OpenAI, more than two for gateways, and the decision models of each built-in that has them (plus OpenRouter's `openai/gpt-6-luna-decisions`). The matrix tracks today's common models and shifts with lineups. Google has no `cache_usage`: Gemini's implicit cache never reported a hit, and there's no request-side cache control to verify.
+Models are chosen provider by provider: cheap to mid-range, a premium model from Anthropic and OpenAI, more than two for gateways, and the decision models of each built-in that has them (plus OpenRouter's `openai/gpt-6-luna-decisions`). The matrix tracks today's common models and shifts with lineups. Its comments cover our setup and scenario policy only; a model's behaviour, and why a scenario is left out or kept failing, goes in `known_issues.md`, hand-written and never touched by the script.
 
 Results accumulate by day in `scripts/verify/results/YYYY-MM-DD.json` (`{status, result, time_ms}` per model and scenario, `result` being the short line). A run overwrites the cells it ran and keeps the rest, then regenerates the `.md` beside it. No provider errors are saved, so results are committed. Nothing is pruned.
 
@@ -1792,5 +1792,6 @@ lib/mix/tasks/
 priv/verify/                   # Verify assets: logo.png, whitepaper.pdf
 scripts/verify/
 ├── sweep.exs                  # The model matrix; runs Omni.Verify over it
+├── known_issues.md            # Hand-written: known failures, what was tried, keep or skip
 └── results/                   # YYYY-MM-DD.json + .md, committed
 ```

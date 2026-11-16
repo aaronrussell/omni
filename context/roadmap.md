@@ -10,12 +10,6 @@ Work tracking for `omni`. This is a live document — add to it freely, clean it
 
 ## Next
 
-### v2.0.0
-
-Landed: providers as data, the Decisions API, the Mistral, Together, xAI and TypeSafe providers, thinking replay on Completions providers, thinking across models, the `:thinking` review (levels, integer budgets, `false`; no `true`), the docs polish (guides in `guides/`, module docs as reference; the style rules are in `CLAUDE.md`, Documentation), the upgrade guide (`guides/upgrading-to-v2.md`) and the `CHANGELOG.md` entry. The snapshot and deps are refreshed and the version in `mix.exs` is 2.0.0. The design as built is in `design.md`. Left before release:
-
-- **Sweep** — Run the sweep over the model matrix (`mix run scripts/verify/sweep.exs`; live, billed requests, so the maintainer runs it) and fix what it turns up.
-
 ### v2.1.0
 
 - **Decision images and `box` (phases 2 and 3 of `context/notes/decision-images.md`)** — Images as `%Content.Attachment{}` parts of decision state and instructions, encoded per host (TypeSafe and OpenRouter an `assets` map of refs, OpenAI `input_image` parts, Ollama an `images` list behind a compat flag), then System One's `box` question (`Question.Box`, `Answer.Box`; TypeSafe Jev 1.14 only). Additive on phase 1's parts. TypeSafe marks both "Dreamer-ready", so they wait for 2.1. The note lists what is settled and the questions left for when the work starts.

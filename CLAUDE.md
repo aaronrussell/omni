@@ -136,7 +136,7 @@ lib/mix/tasks/omni.{snapshot,verify}.ex
 
 ## Testing
 
-Two jobs, kept apart. **Tests** check that Omni handles real wire bytes: offline, in CI, replaying recorded fixtures. **Verify** (`mix omni.verify`, and the sweep over it) checks that a provider's current models work today: live calls only, run by the maintainer. A fixture can't say a provider works today; verify can't guard against regressions. `context/design.md` (Verification and testing) has the detail.
+Two jobs, kept apart. **Tests** check that Omni handles real wire bytes: offline, in CI, replaying recorded fixtures. **Verify** (`mix omni.verify`, and the sweep over it) checks that a provider's current models work today: live calls only, run by the maintainer. A fixture can't say a provider works today; verify can't guard against regressions. When investigating a sweep failure, start from `scripts/verify/known_issues.md` (known failures and what was tried) and add what you find. `context/design.md` (Verification and testing) has the detail.
 
 1. **Unit tests** (`test/omni/`) — pure logic, no HTTP. Parser, provider, and dialect tests in isolation. Build structs with `Omni.Test.Fixtures`; assemble providers with `Omni.Provider.Loader.assemble/2` (never writes the store) rather than loading them.
 2. **Integration tests** (`test/integration/`) — replay fixtures through the top-level API with a `Req.Test` plug (`Omni.Test.Capture.replay/4`). Three tiers, each fixture in the lowest tier where it is the only real bytes for some parsing path:

@@ -27,6 +27,10 @@
 # keyword list of `Omni.Model.new/1` attributes for models the catalog lacks.
 # The selection takes the same `only:`, `add:` and `skip:` as the task.
 # The matrix tracks today's common models; update it as lineups change.
+#
+# Known failures and what was tried are in known_issues.md beside this file,
+# which also says when a failing scenario stays in the matrix. Comments here
+# are for our setup and scenario policy, not how a model behaves.
 
 alias Omni.Verify
 
@@ -42,9 +46,8 @@ matrix = [
   {:alibaba, "qwen3.8-max", add: [:no_thinking, :pdf]},
   {:anthropic, "claude-haiku-5-5", all},
   {:anthropic, "claude-opus-5-5", loop},
-  # Gemini's implicit cache never reported a hit in testing, even 60s apart.
   {:google, "gemini-3.8-flash", add: [:image, :pdf, :kitchen_sink]},
-  {:google, "gemini-3.5-flash-lite", []},
+  {:google, "gemini-4-hydrogen", loop},
   {:groq, "openai/gpt-oss-120b", loop},
   {:groq, "qwen/qwen3.8-27b", add: [:no_thinking, :image]},
   # Mistral free tier serves Ministral only; Mistral's reasoning models verified
@@ -52,8 +55,8 @@ matrix = [
   {:mistral, "ministral-8b-2512", add: [:image], skip: [:thinking]},
   {:moonshotai, "kimi-k3", add: [:image, :kitchen_sink, :cache_usage]},
   {:nearai, "z-ai/glm-5.3", off},
-  # Fails structured_output: Ollama Cloud doesn't enforce `format` (gemma4 and
-  # gpt-oss:20b answer in prose; local Ollama passes). Kept as a known failure.
+  # No free models since 2026-11, so unswept until there's credit; then sweep
+  # the models people use there (GLM, Kimi) instead.
   {:ollama_cloud, "gemma4:31b", add: [:no_thinking, :image, :kitchen_sink]},
   {:ollama,
    [
@@ -86,8 +89,6 @@ matrix = [
   {:openrouter, "openai/gpt-6-luna-decisions", []},
   {:togetherai, "Qwen/Qwen3.5-9B", add: [:no_thinking, :image, :kitchen_sink]},
   {:togetherai, "openai/gpt-oss-120b", loop},
-  # Fails no_thinking: it reasons through `reasoning: {enabled: false}`. Kept
-  # as a known failure.
   {:togetherai, "deepseek-ai/DeepSeek-V4-Pro-0813", loop_off},
   {:togetherai, "zai-org/GLM-5.3-Flash", add: [:image, :kitchen_sink, :cache_usage]},
   {:togetherai, "moonshotai/Kimi-K3", add: [:image, :kitchen_sink, :cache_usage]},

@@ -1,6 +1,6 @@
 {
   "date": "2026-10-28",
-  "omni": "1.6.5",
+  "omni": "2.0.0-dev",
   "models": {
     "mistral/ministral-8b-2512": {
       "text": {

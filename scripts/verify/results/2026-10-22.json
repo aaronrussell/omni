@@ -1,6 +1,6 @@
 {
   "date": "2026-10-22",
-  "omni": "1.6.5",
+  "omni": "2.0.0-dev",
   "models": {
     "anthropic/claude-haiku-5-5": {
       "text": {

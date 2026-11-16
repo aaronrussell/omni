@@ -1,0 +1,1184 @@
+{
+  "date": "2026-11-16",
+  "omni": "2.0.0",
+  "models": {
+    "alibaba:qwen3.8-flash": {
+      "text": {
+        "status": "pass",
+        "result": "Blue above us stays, Clouds drift slow in silent grace, Sun sets into night.",
+        "time_ms": 2016
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 390 chars → Here's the word-by-word count of the let…",
+        "time_ms": 3574
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "Let's break down the phrase **\"strawberry rhubarb raspberry\"** word by word to c…",
+        "time_ms": 3716
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 1690
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 1323
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 2314
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → **London** is warmer. At around 8°C, it's about 6 …",
+        "time_ms": 6617
+      },
+      "cache_usage": {
+        "status": "pass",
+        "result": "turn 1 wrote 0, turn 2 read 6144 of 1134",
+        "time_ms": 5903
+      }
+    },
+    "alibaba:qwen3.8-max": {
+      "text": {
+        "status": "pass",
+        "result": "Blue bowl without rim— clouds drift like slow, white rivers into endlessness.",
+        "time_ms": 1821
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 358 chars → Here's the word-by-word count: **strawbe…",
+        "time_ms": 6407
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "Let's count the letter 'r' in each word of the phrase \"strawberry rhubarb raspbe…",
+        "time_ms": 3954
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 1949
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 6555
+      },
+      "pdf": {
+        "status": "pass",
+        "result": "Satoshi Nakamoto",
+        "time_ms": 10438
+      }
+    },
+    "anthropic:claude-haiku-5-5": {
+      "text": {
+        "status": "pass",
+        "result": "Vast blue, endless hush, clouds drift like forgotten thoughts, the sun lingers l…",
+        "time_ms": 1171
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 153 chars → The letter 'r' appears **8 times**: 1. *…",
+        "time_ms": 1573
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "Let me count word by word: **strawberry**: s-t-r-a-w-b-e-r-r-y → r appears **3**…",
+        "time_ms": 1181
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 887
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 2486
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 784
+      },
+      "pdf": {
+        "status": "pass",
+        "result": "Satoshi Nakamoto",
+        "time_ms": 923
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → London is warmer, at around 8°C compared with abou…",
+        "time_ms": 2760
+      },
+      "cache_usage": {
+        "status": "pass",
+        "result": "turn 1 wrote 7509, turn 2 read 7509 of 4",
+        "time_ms": 3916
+      }
+    },
+    "anthropic:claude-opus-5-5": {
+      "text": {
+        "status": "pass",
+        "result": "Endless blue canvas, clouds drift like forgotten dreams. Sunset paints goodbye.",
+        "time_ms": 2247
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 133 chars → The letter **'r'** appears **8 times**. …",
+        "time_ms": 2403
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 1114
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 1724
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → London is warmer. It's about 8°C (46°F) there and …",
+        "time_ms": 5298
+      }
+    },
+    "google:gemini-3.8-flash": {
+      "text": {
+        "status": "pass",
+        "result": "Endless sea of blue, Painted soft by drifting clouds, Cradle of the sun.",
+        "time_ms": 6717
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought signature on text → Here is the count of the letter 'r' word…",
+        "time_ms": 2689
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 3409
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 2795
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 3701
+      },
+      "pdf": {
+        "status": "pass",
+        "result": "Satoshi Nakamoto",
+        "time_ms": 2027
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → **London** is warmer at around **8°C**, compared t…",
+        "time_ms": 6160
+      }
+    },
+    "google:gemini-4-hydrogen": {
+      "text": {
+        "status": "pass",
+        "result": "Vast expanse of blue, Soft white clouds drift slowly by, Night brings out the st…",
+        "time_ms": 2520
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought signature on text → Let's count the letter **'r'** word by w…",
+        "time_ms": 2682
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 1649
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 2458
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → **London** is warmer (around 8°C) compared to **Ne…",
+        "time_ms": 4785
+      }
+    },
+    "groq:openai/gpt-oss-120b": {
+      "text": {
+        "status": "pass",
+        "result": "Blue canvas stretches, whispers of wind paint soft clouds— evening sighs in hue.",
+        "time_ms": 507
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 229 chars → The letter **‘r’** appears **8 times** i…",
+        "time_ms": 559
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 364
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 629
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "4 tool round(s) → London is warmer, with temperatures around 8 °C co…",
+        "time_ms": 1914
+      }
+    },
+    "groq:qwen/qwen3.8-27b": {
+      "text": {
+        "status": "pass",
+        "result": "Blue vastness spreads wide, Clouds drift silent on the wind, Stars begin to bloo…",
+        "time_ms": 672
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 358 chars → Let me count word by word: **strawberry*…",
+        "time_ms": 878
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "To determine how many times the letter 'r' appears in the phrase **\"strawberry r…",
+        "time_ms": 788
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 251
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"Blue\", color: \"Sky\"}",
+        "time_ms": 532
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 450
+      }
+    },
+    "mistral:ministral-8b-2512": {
+      "text": {
+        "status": "pass",
+        "result": "Morning’s breath unfurls— pale blue whispers through the trees, dawn’s soft, end…",
+        "time_ms": 1459
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 381
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 502
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 1128
+      }
+    },
+    "moonshotai:kimi-k3": {
+      "text": {
+        "status": "pass",
+        "result": "Soft clouds drift above — The sky wears its evening gold; Stars wake one by one.",
+        "time_ms": 30275
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 626 chars → Counting word by word: - **strawberry**:…",
+        "time_ms": 11285
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 3765
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 5861
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 8399
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → London is warmer at 8°C, compared to New York at 2…",
+        "time_ms": 25155
+      },
+      "cache_usage": {
+        "status": "pass",
+        "result": "turn 1 wrote 5120, turn 2 read 5120 of 224",
+        "time_ms": 9638
+      }
+    },
+    "ollama:qwen3.8:27b-mlx": {
+      "text": {
+        "status": "pass",
+        "result": "Blue canvas above, Clouds drift like slow, white thoughts, Sun dips in the west.",
+        "time_ms": 3259
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 559 chars → Let me count the letter 'r' in each word…",
+        "time_ms": 4700
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "To determine the number of times the letter 'r' appears in the phrase **\"strawbe…",
+        "time_ms": 3124
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 1238
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 1580
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 2057
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → **London** is warmer. It's around **8°C**, while N…",
+        "time_ms": 7310
+      }
+    },
+    "ollama:pplx-decider-flash:4b-nvfp4": {
+      "decision": {
+        "status": "pass",
+        "result": "refund 1.0 · team billing · urgency 1.13",
+        "time_ms": 1003
+      },
+      "decision_json": {
+        "status": "pass",
+        "result": "outage 0.99 · team infra",
+        "time_ms": 85
+      }
+    },
+    "openai:gpt-6-luna": {
+      "text": {
+        "status": "pass",
+        "result": "Clouds drift across blue Sunlight spills on quiet fields Stars wake after dusk",
+        "time_ms": 4595
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 444 chars → “strawberry” has 3, “rhubarb” has 2, and…",
+        "time_ms": 6947
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "“strawberry” has 3, “rhubarb” has 2, and “raspberry” has 3 — for a total of **8*…",
+        "time_ms": 1777
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 6771
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 2285
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 847
+      },
+      "pdf": {
+        "status": "pass",
+        "result": "Satoshi Nakamoto",
+        "time_ms": 1319
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "2 tool round(s) → London is warmer: about **8°C**, compared with **2…",
+        "time_ms": 13070
+      },
+      "cache_usage": {
+        "status": "pass",
+        "result": "turn 1 wrote 0, turn 2 read 5115 of 22",
+        "time_ms": 11234
+      },
+      "decision": {
+        "status": "pass",
+        "result": "refund 1.0 · team billing · urgency 0.69",
+        "time_ms": 489
+      },
+      "decision_json": {
+        "status": "pass",
+        "result": "outage 1.0 · team infra",
+        "time_ms": 188
+      }
+    },
+    "openai:gpt-6-astra": {
+      "text": {
+        "status": "pass",
+        "result": "Blue sky holds the dawn Soft clouds wander into light Birds stitch through the g…",
+        "time_ms": 5898
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 378 chars → - **strawberry**: 3 r’s - **rhubarb**: 2…",
+        "time_ms": 4306
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 1402
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 1820
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → London is warmer by 6°C (about 11°F): 8°C in Londo…",
+        "time_ms": 7280
+      }
+    },
+    "opencode:claude-haiku-5-5": {
+      "text": {
+        "status": "pass",
+        "result": "Blue hush, wide and deep, clouds drift like forgotten thoughts, the sun tips its…",
+        "time_ms": 1230
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 148 chars → The letter 'r' appears **8 times**: 1. *…",
+        "time_ms": 1423
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "Let me count word by word. **strawberry**: s-t-r-a-w-b-e-r-r-y → r appears **3**…",
+        "time_ms": 1302
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 760
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 1720
+      }
+    },
+    "opencode:gpt-6-luna": {
+      "text": {
+        "status": "pass",
+        "result": "Blue sky stretches wide Clouds drift softly through the sunlight Day dreams over…",
+        "time_ms": 1541
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 365 chars → “strawberry” has 3, “rhubarb” has 2, and…",
+        "time_ms": 3563
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "“strawberry” has 3 r’s, “rhubarb” has 2, and “raspberry” has 3 — **8 in total**.",
+        "time_ms": 1779
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 1290
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 1710
+      }
+    },
+    "opencode:deepseek-v4.1-flash": {
+      "text": {
+        "status": "pass",
+        "result": "Endless blue above, Clouds drift like quiet white ships, Sunlight paints the day…",
+        "time_ms": 1041
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 716 chars → The letter **‘r’** appears **8 times** i…",
+        "time_ms": 2670
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 694
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 734
+      }
+    },
+    "opencode:mistral-large-4": {
+      "text": {
+        "status": "fail",
+        "result": "HTTP 400",
+        "time_ms": 1380
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 1304 chars → Here is the count, word by word: - **str…",
+        "time_ms": 35289
+      },
+      "no_thinking": {
+        "status": "fail",
+        "result": "HTTP 400",
+        "time_ms": 370
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 16071
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 8624
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 7201
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → **London is warmer** at 8°C, compared to New York …",
+        "time_ms": 8180
+      }
+    },
+    "opencode:gemini-3.5-flash-lite": {
+      "text": {
+        "status": "pass",
+        "result": "Vast blue canopy, Floating clouds of drifting white, Endless sea of light.",
+        "time_ms": 570
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought signature on text → Let's count the letter 'r' word by word …",
+        "time_ms": 1496
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 729
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 778
+      }
+    },
+    "opencode:jev-1.13-free": {
+      "decision": {
+        "status": "pass",
+        "result": "refund 0.99 · team billing · urgency 1.01",
+        "time_ms": 232
+      },
+      "decision_json": {
+        "status": "pass",
+        "result": "outage 0.98 · team infra",
+        "time_ms": 181
+      }
+    },
+    "openrouter:anthropic/claude-haiku-5.5": {
+      "text": {
+        "status": "pass",
+        "result": "Endless blue above, clouds drift like forgotten thoughts, the sun keeps its watc…",
+        "time_ms": 1064
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 149 chars → The letter 'r' appears **8 times**: - **…",
+        "time_ms": 1637
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "Let me count word by word: **strawberry**: s-t-r-a-w-b-e-r-r-y → r appears **3**…",
+        "time_ms": 1064
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 793
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 1417
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → London is warmer, at around 8°C compared with abou…",
+        "time_ms": 2871
+      },
+      "cache_usage": {
+        "status": "pass",
+        "result": "turn 1 wrote 7509, turn 2 read 7509 of 4",
+        "time_ms": 4206
+      }
+    },
+    "openrouter:openai/gpt-6-luna": {
+      "text": {
+        "status": "pass",
+        "result": "Blue sky opens wide Clouds drift across the morning Daylight fills the hush",
+        "time_ms": 1265
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 432 chars → - **strawberry**: 3 - **rhubarb**: 2 - *…",
+        "time_ms": 3165
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "“strawberry” has 3, “rhubarb” has 2, and “raspberry” has 3. Total: **8**.",
+        "time_ms": 1582
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 1203
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 2986
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → London is warmer: about **8°C**, compared with New…",
+        "time_ms": 4472
+      }
+    },
+    "openrouter:google/gemini-3.8-flash": {
+      "text": {
+        "status": "pass",
+        "result": "Vast and open blue, Cotton clouds drift gently by, Boundless sea of light.",
+        "time_ms": 5555
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "reasoning details only → Here is the count of the letter 'r' in e…",
+        "time_ms": 1849
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 1697
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 2928
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → **London** is warmer at around **8°C**, compared t…",
+        "time_ms": 17031
+      }
+    },
+    "openrouter:deepseek/deepseek-v4.1-flash": {
+      "text": {
+        "status": "pass",
+        "result": "A canvas of blue, Clouds drift on a gentle breeze, Sunlight paints the day.",
+        "time_ms": 742
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 956 chars → The letter **‘r’** appears **8** times. …",
+        "time_ms": 2042
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "Let's count the letter **\"r\"** in each word of the phrase **\"strawberry rhubarb …",
+        "time_ms": 1003
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 943
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 749
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → **London is warmer** — 8°C versus New York's 2°C, …",
+        "time_ms": 3588
+      }
+    },
+    "openrouter:typesafe/jev-1.14": {
+      "decision": {
+        "status": "pass",
+        "result": "refund 0.99 · team billing · urgency 1.07",
+        "time_ms": 251
+      },
+      "decision_json": {
+        "status": "pass",
+        "result": "outage 0.97 · team infra",
+        "time_ms": 223
+      }
+    },
+    "openrouter:openai/gpt-6-luna-decisions": {
+      "decision": {
+        "status": "pass",
+        "result": "refund 1.0 · team billing · urgency 0.69",
+        "time_ms": 498
+      },
+      "decision_json": {
+        "status": "pass",
+        "result": "outage 1.0 · team infra",
+        "time_ms": 513
+      }
+    },
+    "togetherai:Qwen/Qwen3.5-9B": {
+      "text": {
+        "status": "pass",
+        "result": "Blue stretches above, Soft white clouds drift gently by, Sun begins to set.",
+        "time_ms": 2982
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 2108 chars → Here is the count of the letter 'r' in e…",
+        "time_ms": 5440
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "Let's break down the phrase **\"strawberry rhubarb raspberry\"** word by word to c…",
+        "time_ms": 1461
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 674
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 23306
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 1058
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → Based on the current weather data, **London** is w…",
+        "time_ms": 3579
+      }
+    },
+    "togetherai:openai/gpt-oss-120b": {
+      "text": {
+        "status": "pass",
+        "result": "Endless blue canvas, Clouds drift like whispered poems— Sunset sighs in gold.",
+        "time_ms": 681
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 410 chars → The letter **‘r’** appears **8 times** i…",
+        "time_ms": 2746
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 1344
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 1125
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → London is warmer, at about 8 °C compared with New …",
+        "time_ms": 2736
+      }
+    },
+    "togetherai:deepseek-ai/DeepSeek-V4-Pro-0813": {
+      "text": {
+        "status": "pass",
+        "result": "Endless blue above, clouds drift like quiet vessels— sun paints gold at dusk.",
+        "time_ms": 1130
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 1028 chars → The letter **'r'** appears: - **strawber…",
+        "time_ms": 2005
+      },
+      "no_thinking": {
+        "status": "fail",
+        "result": "thinking blocks present",
+        "time_ms": 1602
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 897
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 433
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → London is warmer at **8°C**, compared to New York'…",
+        "time_ms": 2530
+      }
+    },
+    "togetherai:zai-org/GLM-5.3-Flash": {
+      "text": {
+        "status": "pass",
+        "result": "Vast ceiling of blue— clouds drift like wandering thoughts, sunset paints it gol…",
+        "time_ms": 3150
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 104 chars → Let me count word by word: **strawberry*…",
+        "time_ms": 1034
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 531
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 1113
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 619
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → London is warmer, at around 8°C compared to New Yo…",
+        "time_ms": 2070
+      },
+      "cache_usage": {
+        "status": "pass",
+        "result": "turn 1 wrote 0, turn 2 read 5440 of 182",
+        "time_ms": 3453
+      }
+    },
+    "togetherai:moonshotai/Kimi-K3": {
+      "text": {
+        "status": "pass",
+        "result": "Blue silk stretches wide clouds drift like slow-breathing whales night spills it…",
+        "time_ms": 1239
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 577 chars → - strawberry: 3 r’s - rhubarb: 2 r’s - r…",
+        "time_ms": 2902
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 1364
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 1646
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 1296
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → **London is warmer.** At 8°C, it's 6 degrees warme…",
+        "time_ms": 5199
+      },
+      "cache_usage": {
+        "status": "pass",
+        "result": "turn 1 wrote 0, turn 2 read 5225 of 42",
+        "time_ms": 5438
+      }
+    },
+    "typesafe:jev-1.14.0": {
+      "decision": {
+        "status": "pass",
+        "result": "refund 0.99 · team billing · urgency 1.07",
+        "time_ms": 200
+      },
+      "decision_json": {
+        "status": "pass",
+        "result": "outage 0.97 · team infra",
+        "time_ms": 127
+      }
+    },
+    "venice:qwen-3-8-flash": {
+      "text": {
+        "status": "pass",
+        "result": "Blue expanse above, Clouds drift slow on silent wind, Sun sets in the west.",
+        "time_ms": 1375
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 1098 chars → Counting word by word: - **strawberry** …",
+        "time_ms": 7148
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "Let's break down the phrase **'strawberry rhubarb raspberry'** word by word to c…",
+        "time_ms": 3939
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 2508
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 3871
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 2301
+      },
+      "pdf": {
+        "status": "pass",
+        "result": "Satoshi Nakamoto",
+        "time_ms": 6835
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → London is warmer. - **London:** 8°C - **New York:*…",
+        "time_ms": 8884
+      }
+    },
+    "venice:claude-haiku-5-5": {
+      "text": {
+        "status": "pass",
+        "result": "Endless blue above, Clouds drift like forgotten dreams, Sunlight spills through …",
+        "time_ms": 843
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 143 chars → The letter 'r' appears **8 times**: 1. *…",
+        "time_ms": 1557
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "Counting word by word: - **strawberry**: s-t-r-a-w-b-e-r-r-y → r appears **3** t…",
+        "time_ms": 1162
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 1017
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 2211
+      }
+    },
+    "xai:grok-4.3": {
+      "text": {
+        "status": "pass",
+        "result": "Blue endless canvas, Clouds drift like quiet stories, Sun whispers goodnight.",
+        "time_ms": 915
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 98 chars → 8 The phrase breaks down word by word as…",
+        "time_ms": 7006
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "Let's count the letter 'r' in each word of the phrase \"strawberry rhubarb raspbe…",
+        "time_ms": 1760
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 1744
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 3823
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 1938
+      },
+      "pdf": {
+        "status": "pass",
+        "result": "Satoshi Nakamoto",
+        "time_ms": 3083
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → London is warmer (8°C vs 2°C in New York).",
+        "time_ms": 7046
+      },
+      "cache_usage": {
+        "status": "pass",
+        "result": "turn 1 wrote 0, turn 2 read 5248 of 245",
+        "time_ms": 7317
+      }
+    },
+    "xai:grok-4.7": {
+      "text": {
+        "status": "pass",
+        "result": "Endless blue above, clouds drift slow across the light— the sky keeps its hush.",
+        "time_ms": 2701
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thinking (signature only) → **8** - strawberry: 3 (positions: the r …",
+        "time_ms": 5875
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 550
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 3678
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → London is warmer — about 8°C versus about 2°C in N…",
+        "time_ms": 5565
+      }
+    },
+    "zai:glm-5.3-flash": {
+      "text": {
+        "status": "pass",
+        "result": "Cotton clouds drift slow, a hawk paints circles on blue— dusk bleeds into gold.",
+        "time_ms": 11173
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 107 chars → Let me count each word: **strawberry:** …",
+        "time_ms": 3534
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 4920
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 1315
+      },
+      "image": {
+        "status": "pass",
+        "result": "Nike",
+        "time_ms": 2320
+      },
+      "pdf": {
+        "status": "pass",
+        "result": "Satoshi Nakamoto",
+        "time_ms": 2233
+      },
+      "kitchen_sink": {
+        "status": "pass",
+        "result": "1 tool round(s) → London is warmer — it's about 8°C there, compared …",
+        "time_ms": 18620
+      },
+      "cache_usage": {
+        "status": "fail",
+        "result": "no cache read on turn 2 (5524 input tokens)",
+        "time_ms": 5180
+      }
+    },
+    "zai:glm-4.7-flash": {
+      "text": {
+        "status": "pass",
+        "result": "Clouds drift by, The sun begins to fade, Night falls on the earth.",
+        "time_ms": 780
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 1575 chars → Here is the breakdown of the letter 'r' …",
+        "time_ms": 6948
+      },
+      "no_thinking": {
+        "status": "pass",
+        "result": "Here is the breakdown by word: 1. **strawberry**: 3 letters ('s', **t**, **r**, …",
+        "time_ms": 1508
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 1194
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 2430
+      }
+    },
+    "google:gemini-3.5-flash-lite": {
+      "text": {
+        "status": "pass",
+        "result": "Vast blue canvas spread, Clouds drift soft like painted brush, Sunset sets it ab…",
+        "time_ms": 1032
+      },
+      "thinking": {
+        "status": "pass",
+        "result": "thought 373 chars → Let's count the letter 'r' word by word …",
+        "time_ms": 1871
+      },
+      "tool_use": {
+        "status": "pass",
+        "result": "get_weather(%{\"city\" => \"London\"})",
+        "time_ms": 590
+      },
+      "structured_output": {
+        "status": "pass",
+        "result": "%{name: \"sky\", color: \"blue\"}",
+        "time_ms": 597
+      }
+    }
+  }
+}

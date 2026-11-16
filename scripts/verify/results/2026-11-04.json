@@ -1,6 +1,6 @@
 {
   "date": "2026-11-04",
-  "omni": "1.6.5",
+  "omni": "2.0.0-dev",
   "models": {
     "ollama/pplx-decider-flash:4b-nvfp4": {
       "decision": {
